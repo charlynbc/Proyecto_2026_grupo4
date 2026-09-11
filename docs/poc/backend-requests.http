@@ -1,0 +1,45 @@
+
+### Spring Boot
+
+GET http://localhost:8080/hola
+
+
+### Quarkus
+
+GET http://localhost:8081/hola
+
+
+### Jakarta EE / GlassFish
+
+GET http://localhost:8082/poc-jakarta/api/hola
+
+
+### Futuro - listar profesionales
+
+GET http://localhost:8080/profesionales
+
+
+### Futuro - horarios de profesional
+
+GET http://localhost:8080/profesionales/1/horarios
+
+
+### Futuro - crear profesional
+
+POST http://localhost:8080/profesionales
+Content-Type: application/json
+
+{
+  "nombre": "Profesional POC"
+}
+
+
+### Futuro - reserva
+
+POST http://localhost:8080/reservas
+Content-Type: application/json
+
+{
+  "horario_id": 1
+}
+
