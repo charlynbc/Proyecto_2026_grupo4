@@ -202,18 +202,45 @@ ningún otro archivo versionado; siempre por variable de entorno.
 | Quarkus | 8081 | `GET /hola` | `200`, `POC Quarkus funcionando` | ~1.1 s |
 | Jakarta EE / GlassFish | 8082 | `GET /api/hola` (no `/poc-jakarta/api/hola`, ver problemas) | `200`, `POC Jakarta EE / GlassFish funcionando` | ~3.3 s |
 
-## 5. Prueba de profesionales (mock vs real)
+## 5. Prueba de profesionales (las tres contra la base real)
 
 Se implementó `GET /profesionales` en las tres tecnologías, basado en
-`database/poc-sql/backend/03_profesional_listar.sql`:
+`database/poc-sql/backend/03_profesional_listar.sql`. En esta segunda vuelta
+se conectaron **las tres** contra la base real (antes solo Spring Boot):
 
-- **Spring Boot**: con el perfil `postgres` activo, devuelve datos
-  **reales** de Supabase (ver sección 3.4). Sin ese perfil, devuelve una
-  lista mock de 4 profesionales fijos.
-- **Quarkus**: por ahora devuelve mock (no se conectó a Postgres en esta
-  sesión; falta agregar `quarkus-jdbc-postgresql`).
-- **Jakarta EE / GlassFish**: por ahora devuelve mock (falta configurar un
-  `Connection Pool`/`JDBC Resource` en GlassFish).
+- **Spring Boot**: con el perfil `postgres` activo, devuelve datos reales
+  de Supabase via `ProfesionalJdbcDao` (ver sección 3.4). Sin ese perfil,
+  sigue devolviendo la lista mock de 4 profesionales fijos.
+- **Quarkus**: se agregó la extensión `quarkus-jdbc-postgresql` y un
+  datasource Agroal configurado por variables de entorno (`DB_URL`,
+  `DB_USER`, `DB_PASSWORD`). Probado real:
+
+  ```
+  GET http://localhost:8081/profesionales
+  [{"id":6,"nombre":"Ana Gómez"},{"id":7,"nombre":"Martín Fernández"},{"id":9,"nombre":"Pablo Núñez"},{"id":8,"nombre":"Valentina Castro"}]
+  HTTP:200
+  ```
+
+  Sin esas variables de entorno, sigue devolviendo la lista mock (no rompe
+  `/hola` ni nada de lo que ya funcionaba).
+- **Jakarta EE / GlassFish**: se agregó el driver `postgresql` al `pom.xml`
+  del WAR y una conexión JDBC directa (`DriverManager`) usando las mismas
+  variables de entorno. Probado real:
+
+  ```
+  GET http://localhost:8082/api/profesionales
+  [{"id":6,"nombre":"Ana Gómez"},{"id":7,"nombre":"Martín Fernández"},{"id":9,"nombre":"Pablo Núñez"},{"id":8,"nombre":"Valentina Castro"}]
+  HTTP:200
+  ```
+
+  Problema real encontrado acá: la primera versión tiraba
+  `java.sql.SQLException: No suitable driver found`, porque GlassFish aisla
+  el classloader de la webapp y `DriverManager` no encontraba el driver via
+  `ServiceLoader`. Se solucionó agregando `Class.forName("org.postgresql.Driver")`
+  antes de pedir la conexión.
+
+Las tres devuelven exactamente los mismos 4 profesionales reales, lo que
+confirma que las tres están leyendo de la misma base.
 
 ## 6. JDBC vs JPA (Spring Boot)
 
@@ -224,8 +251,23 @@ Se armaron dos implementaciones de referencia para `GET /profesionales`:
   la base real** (ver sección 3.4).
 - `ProfesionalEntity` + `ProfesionalJpaRepository`: entidad JPA con un
   método derivado (`findAllByOrderByNombreAsc()`), sin escribir SQL a mano.
-  Quedó como referencia de código, no se activó contra la base real en
-  esta sesión.
+  Expuesta en un endpoint aparte, `GET /profesionales-jpa`, para no mezclar
+  con la versión JDBC.
+
+**Actualización:** se probó JPA contra la base real y también funcionó:
+
+```
+GET http://localhost:8080/profesionales-jpa
+[{"nombre":"Ana Gómez","id":6},{"nombre":"Martín Fernández","id":7},{"nombre":"Pablo Núñez","id":9},{"nombre":"Valentina Castro","id":8}]
+HTTP:200
+```
+
+Problema real encontrado: la primera prueba tiró `500` con
+`relation "poc.profesional" does not exist`. Hibernate pasa los nombres de
+esquema/tabla a minúsculas si no se le pide lo contrario, y el esquema real
+es `"POC"` en mayúsculas y entre comillas. Se corrigió escribiendo
+`@Table(name = "\`profesional\`", schema = "\`POC\`")` (con backticks), que le
+dice a Hibernate que cite el identificador tal cual en vez de normalizarlo.
 
 | Criterio | JDBC | JPA |
 |---|---|---|
@@ -233,20 +275,39 @@ Se armaron dos implementaciones de referencia para `GET /profesionales`:
 | Control sobre el SQL | Total | Ninguno en el método derivado |
 | Reutilización del SQL del POC de base de datos | Directa | Hay que traducirlo a JPQL o nombres de método |
 | Mantenimiento | Cambios de columnas se tocan a mano | Se reflejan solo en la entidad |
-| Se probó contra la base real | **Sí** (sección 3.4) | No en esta sesión |
+| Se probó contra la base real | **Sí** (sección 3.4) | **Sí**, una vez corregido el nombre de esquema |
+| Problema real encontrado | Ninguno particular | Esquema en mayúsculas sin citar (ver arriba) |
 
-## 7. Horarios y reservas (mock, solo Spring Boot)
+## 7. Horarios y reservas (Spring Boot, contra la base real)
 
-- `GET /profesionales/{id}/horarios`: mock en memoria, basado en
-  `08_horarios_disponibles.sql`. Probado: `200 OK`.
-- `POST /reservas`: mock en memoria (un `Set` que se pierde al reiniciar),
-  basado en `09_reserva_alta.sql`. Probado:
-  - Primera reserva de un horario → `201 Created`.
-  - Segunda reserva del mismo horario → `409 Conflict` (simula el caso real
-    de horario ya ocupado).
+Se conectaron los tres endpoints que faltaban, todos en Spring Boot y todos
+probados contra la base real de Supabase (usuario real id 7 = Martina
+Silva, horario real id 102, libre en el momento de la prueba):
 
-No se implementó todavía contra la base real; son mock para probar el
-circuito Controller → Service → JSON antes de conectar todo.
+- `GET /profesionales/{id}/horarios` (`HorarioJdbcDao`, basado en
+  `08_horarios_disponibles.sql`): probado con `GET /profesionales/8/horarios`
+  → `200 OK`, devolvió 3 horarios reales y libres del profesional 8.
+- `POST /reservas` (`ReservaJdbcDao.crear`, basado en `09_reserva_alta.sql`,
+  con un `NOT EXISTS` agregado para no permitir reservar dos veces el mismo
+  horario):
+  ```
+  POST /reservas {"usuarioId":7,"horarioId":102} -> 201, reserva id 28, estado ACTIVA
+  POST /reservas {"usuarioId":8,"horarioId":102} -> 409 Conflict (mismo horario)
+  ```
+- `PATCH /reservas/{id}/cancelacion` (`ReservaJdbcDao.cancelar`, basado en
+  `10_reserva_cancelar.sql`):
+  ```
+  PATCH /reservas/28/cancelacion {"usuarioId":7} -> 200, estado CANCELADA
+  ```
+- `GET /mis-reservas?usuarioId=7` (`ReservaJdbcDao.listarPorUsuario`,
+  basado en `11_reservas_usuario.sql`): devolvió el historial real del
+  usuario 7, incluida la reserva recién cancelada y otras reservas previas
+  ya cargadas en la base.
+
+Sin el perfil `postgres` activo, estos mismos endpoints siguen funcionando
+en modo mock (como antes), excepto `PATCH /reservas/{id}/cancelacion`, que
+sin base real devuelve `501 Not Implemented` (no tiene sentido cancelar por
+id sin un almacén persistente).
 
 ## 8. Docker
 
@@ -273,16 +334,17 @@ tres proyectos compilan con Java 25. Se corrigió usando
 | Compilación | OK, ~8-13 s | OK, ~13-17 s (con caché baja) | OK, ~2-3 s |
 | Tiempo de inicio (sin Docker) | ~3.2 s | ~1.1-1.3 s | ~3.3 s |
 | Tamaño de imagen Docker | 593 MB | 532 MB | 673 MB |
-| Conexión a PostgreSQL real | **Probada y funcionando** (Spring Boot + JDBC) | No probada | No probada |
-| JDBC | Probado contra base real | No probado | No probado |
-| JPA / ORM | Código de referencia, no probado contra base real | No probado | No probado |
-| Problemas encontrados | Autoconfigure de datasource sin BD; paquetes de autoconfigure cambiados en Spring Boot 4 | Faltaba `pom.xml`; faltaba `quarkus-resteasy-jackson` para JSON | Context root real distinto al esperado (`/` en vez de `/poc-jakarta`) |
-| Adecuación al proyecto | Buena, ya tiene resuelta la conexión a PostgreSQL y es la tecnología más conocida por el grupo | Buena para performance, pero suma una tecnología nueva | Más pesada de configurar para el tiempo del proyecto |
+| Conexión a PostgreSQL real | **Probada y funcionando** (JDBC y JPA, más reservas/cancelación/historial) | **Probada y funcionando** (JDBC via Agroal) | **Probada y funcionando** (JDBC directo con `DriverManager`) |
+| JDBC | Probado contra base real (profesionales, horarios, reservas, cancelación, historial) | Probado contra base real (profesionales) | Probado contra base real (profesionales) |
+| JPA / ORM | Probado contra base real, tras corregir el esquema `"POC"` | No probado | No probado |
+| Problemas encontrados | Autoconfigure de datasource sin BD; paquetes de autoconfigure cambiados en Spring Boot 4; JPA con esquema en mayúsculas | Faltaba `pom.xml`; faltaba `quarkus-resteasy-jackson` para JSON | Context root real distinto al esperado (`/` en vez de `/poc-jakarta`); `DriverManager` no encontraba el driver por aislamiento de classloader |
+| Adecuación al proyecto | Buena, ya tiene resuelta la conexión a PostgreSQL (JDBC y JPA) y es la tecnología más conocida por el grupo | Buena para performance, ya conectada también, pero suma una tecnología nueva | Más pesada de configurar (hubo que resolver el driver a mano) para el tiempo del proyecto |
 
-No se eligió ganador solo por velocidad: Quarkus arrancó más rápido y generó
-la imagen más chica, pero **Spring Boot es la única de las tres que ya se
-probó conectada de verdad a la base PostgreSQL del proyecto**, y es la
-tecnología con la que el grupo tiene más experiencia.
+Ahora **las tres tecnologías** quedaron probadas contra la base PostgreSQL
+real del proyecto (no solo Spring Boot como en la vuelta anterior). Aun así
+Spring Boot es la que tiene el circuito más completo (profesionales,
+horarios, reservar, cancelar e historial, más JDBC y JPA), y sigue siendo
+la tecnología con la que el grupo tiene más experiencia.
 
 ## 10. Problemas encontrados (resumen)
 
@@ -297,25 +359,42 @@ tecnología con la que el grupo tiene más experiencia.
 - El WAR de Jakarta EE se despliega en `/`, no en `/poc-jakarta`.
 - Los tres `Dockerfile` fallaban con `eclipse-temurin:21-jre` por la
   versión de Java (se compiló todo con Java 25).
+- JPA en Spring Boot tiraba `relation "poc.profesional" does not exist`
+  porque Hibernate no citaba el esquema `"POC"` (mayúsculas); se corrigió
+  con backticks en `@Table`.
+- Jakarta EE con `DriverManager` tiraba `No suitable driver found` por
+  aislamiento de classloader en GlassFish; se corrigió registrando el
+  driver a mano con `Class.forName("org.postgresql.Driver")`.
 - Ninguno de estos problemas se "arregló a lo loco": cada uno está
   documentado acá y en `docs/poc/resultados-backend.md` con la causa y la
   corrección aplicada.
 
 ## 11. Qué quedó pendiente
 
-- Conectar Quarkus y Jakarta EE/GlassFish a PostgreSQL real (por ahora solo
-  Spring Boot está probado contra la base).
-- Probar JPA (no solo JDBC) contra la base real.
-- Implementar `POST /reservas` y `PATCH /reservas/{id}/cancelacion` contra
-  la base real, respetando el estado `ACTIVA`/`CANCELADA`.
-- Implementar `GET /mis-reservas` con `11_reservas_usuario.sql`.
+Casi todo lo que faltaba en la vuelta anterior ya se hizo (conexión real en
+las tres tecnologías, JPA real, reservas/cancelación/historial real, un
+test automatizado). Queda:
+
 - Definir con el grupo la tecnología final (todo indica que la idea es
-  Spring Boot, dado el nombre de la rama y que ya está conectado a la
-  base).
-- Agregar tests automatizados para los endpoints que ya hablan con la base
-  real.
+  Spring Boot, dado el nombre de la rama y que es la que tiene el circuito
+  más completo contra la base real).
+- Agregar más tests automatizados, sobre todo para Quarkus y Jakarta EE (por
+  ahora solo hay uno, para el conflicto de reservas en modo mock de Spring
+  Boot; no se corrió ningún test contra la base real para no dejar técnicas
+  de test corriendo con credenciales reales en el pipeline).
+- Extender `GET /profesionales/{id}/horarios`, `POST /reservas`,
+  `PATCH /reservas/{id}/cancelacion` y `GET /mis-reservas` a Quarkus y
+  Jakarta EE si esas tecnologías siguen en carrera (por ahora esas tres
+  operaciones solo están en Spring Boot).
+- Configurar un `Connection Pool`/`JDBC Resource` real en GlassFish (la
+  conexión actual con `DriverManager` es aceptable para una POC, pero no es
+  lo recomendado para producción: no reutiliza conexiones).
 - Sacar capturas de pantalla reales de DBeaver cuando alguien lo pruebe
   desde una máquina con entorno gráfico (acá no fue posible).
+- Decidir qué hacer con la reserva de prueba que quedó en la base real
+  (id 28, usuario 7, horario 102): se dejó en estado `CANCELADA` a
+  propósito (no se borró la fila), tal como quedaría después de un uso
+  real de la aplicación.
 
 ## 12. Dónde está cada cosa
 

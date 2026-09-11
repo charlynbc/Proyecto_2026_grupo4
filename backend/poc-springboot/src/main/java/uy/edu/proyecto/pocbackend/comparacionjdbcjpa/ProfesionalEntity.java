@@ -10,12 +10,13 @@ import jakarta.persistence.Table;
  * Opcion B: entidad JPA equivalente a "POC".profesional, para la comparacion
  * JDBC vs JPA de la fase 4.
  *
- * NO esta activa: en application.properties se excluyo JpaRepositoriesAutoConfiguration
- * y HibernateJpaAutoConfiguration porque no hay datasource real configurado.
- * Esta clase y el repository de al lado quedan como referencia de codigo.
+ * Se activa con el perfil "postgres" (ver application-postgres.properties).
+ * El esquema real en Postgres es "POC" con mayusculas y entre comillas; hay
+ * que escribirlo entre backticks para que Hibernate lo cite tal cual, si no
+ * lo pasa a minusculas y busca "poc" (que no existe).
  */
 @Entity
-@Table(name = "profesional", schema = "POC")
+@Table(name = "`profesional`", schema = "`POC`")
 public class ProfesionalEntity {
 
     @Id
