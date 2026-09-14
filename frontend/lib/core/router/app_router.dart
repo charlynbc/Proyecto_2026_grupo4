@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/screens/login_screen.dart';
+
 final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/login',
@@ -16,7 +18,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/login',
-        builder: (context, state) => const _PlaceholderScreen(title: 'Login'),
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/olvide-password',
+        builder: (context, state) =>
+            const _PlaceholderScreen(title: 'Olvidé mi contraseña'),
       ),
       GoRoute(
         path: '/home',
