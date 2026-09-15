@@ -1,5 +1,7 @@
 package uy.edu.proyecto.backend.usuario;
 
+import java.util.Optional;
+
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -36,5 +38,29 @@ public class UsuarioRepository {
                 cedula,
                 passwordHash
         );
+    }
+
+    public Optional<UsuarioCredenciales> buscarParaLogin(
+            String cedula
+    ) {
+
+        String sql = """
+                SELECT id, nombre, cedula, password_hash
+                FROM "POC".usuario
+                WHERE cedula = ?
+                """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new UsuarioCredenciales(
+                        rs.getLong("id"),
+                        rs.getString("nombre"),
+                        rs.getString("cedula"),
+                        rs.getString("password_hash")
+                ),
+                cedula
+        )
+        .stream()
+        .findFirst();
     }
 }

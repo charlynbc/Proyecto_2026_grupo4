@@ -1,7 +1,11 @@
 package uy.edu.proyecto.backend.usuario;
 
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+
+import uy.edu.proyecto.backend.exception.ApiException;
 
 @Service
 public class UsuarioService {
@@ -29,11 +33,21 @@ public class UsuarioService {
                 request.clave()
         );
 
-        return usuarioRepository.crear(
-                nombre,
-                cedula,
-                passwordHash
-        );
+        try {
+
+            return usuarioRepository.crear(
+                    nombre,
+                    cedula,
+                    passwordHash
+            );
+
+        } catch (DuplicateKeyException exception) {
+
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "Ya existe un usuario con esa cedula"
+            );
+        }
     }
 
     private String normalizarCedula(String cedula) {
