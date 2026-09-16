@@ -18,6 +18,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
   final _ciController = TextEditingController();
   final _passwordController = TextEditingController();
   final _ciFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
   bool _obscurePassword = true;
 
   @override
@@ -26,11 +27,15 @@ class _LoginFormState extends ConsumerState<LoginForm> {
     _ciFocusNode.addListener(() {
       if (mounted) setState(() {});
     });
+    _passwordFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _ciFocusNode.dispose();
+    _passwordFocusNode.dispose();
     _ciController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -48,7 +53,11 @@ class _LoginFormState extends ConsumerState<LoginForm> {
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
+    final password = value ?? '';
+    if (_passwordFocusNode.hasFocus && password.isEmpty) {
+      return null;
+    }
+    if (password.isEmpty) {
       return 'Ingresá tu contraseña.';
     }
     return null;
@@ -68,7 +77,6 @@ class _LoginFormState extends ConsumerState<LoginForm> {
 
     return Form(
       key: _formKey,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -85,11 +93,13 @@ class _LoginFormState extends ConsumerState<LoginForm> {
               labelText: 'Cédula de identidad',
             ),
             validator: _validateCi,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             enabled: !loginState.isLoading,
           ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _passwordController,
+            focusNode: _passwordFocusNode,
             obscureText: _obscurePassword,
             decoration: InputDecoration(
               labelText: 'Contraseña',
@@ -106,6 +116,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
               ),
             ),
             validator: _validatePassword,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             enabled: !loginState.isLoading,
           ),
           const SizedBox(height: 24),
