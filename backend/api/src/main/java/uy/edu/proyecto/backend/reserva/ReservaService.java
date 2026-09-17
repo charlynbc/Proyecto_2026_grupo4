@@ -42,6 +42,7 @@ public class ReservaService {
                         .orElseThrow(
                                 () -> new ApiException(
                                         HttpStatus.NOT_FOUND,
+                                        "HORARIO_NO_ENCONTRADO",
                                         "El horario no existe"
                                 )
                         );
@@ -52,6 +53,7 @@ public class ReservaService {
 
             throw new ApiException(
                     HttpStatus.CONFLICT,
+                    "HORARIO_INICIADO",
                     "El horario ya comenzo"
             );
         }
@@ -67,6 +69,7 @@ public class ReservaService {
                             .orElseThrow(
                                     () -> new ApiException(
                                             HttpStatus.CONFLICT,
+                                            "RESERVA_NO_DISPONIBLE",
                                             "No se pudo reservar el horario"
                                     )
                             );
@@ -85,6 +88,7 @@ public class ReservaService {
 
             throw new ApiException(
                     HttpStatus.CONFLICT,
+                    "HORARIO_OCUPADO",
                     "El horario ya esta ocupado"
             );
         }
