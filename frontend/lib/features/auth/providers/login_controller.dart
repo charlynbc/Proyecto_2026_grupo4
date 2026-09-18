@@ -27,9 +27,9 @@ class LoginController extends Notifier<LoginState> {
       final repository = await ref.read(authRepositoryProvider.future);
       await repository.login(ci: ci, password: password);
       state = const LoginState(status: LoginStatus.idle);
-      // TODO: cuando exista navegación post-login (sesión real), acá se
-      // dispararía el redirect a /home. Por ahora el router no tiene noción
-      // de sesión, así que no se navega solo.
+      // La navegación a /home la maneja el redirect de GoRouter (ver
+      // app_router.dart): setAuthenticated() ya cambió el estado de sesión,
+      // no hace falta navegar a mano acá.
     } on InvalidCredentialsException catch (e) {
       state = LoginState(status: LoginStatus.error, errorMessage: e.message);
     } on AuthException catch (e) {

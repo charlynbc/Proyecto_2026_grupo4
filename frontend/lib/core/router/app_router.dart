@@ -2,20 +2,36 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/providers/session_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/splash_screen.dart';
+import '../../features/home/screens/home_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
+  final refreshListenable = _SessionRefreshListenable(ref);
+  ref.onDispose(refreshListenable.dispose);
+
   return GoRouter(
-    initialLocation: '/login',
-    // TODO: por ahora redirige siempre a /login. Cuando exista la feature de
-    // auth, esta lógica va a depender de si hay una sesión activa.
+    initialLocation: '/',
+    refreshListenable: refreshListenable,
     redirect: (context, state) {
-      if (state.matchedLocation == '/') {
-        return '/login';
-      }
-      return null;
+      final session = ref.read(sessionProvider);
+      final location = state.matchedLocation;
+
+      return switch (session.status) {
+        SessionStatus.checking => location == '/' ? null : '/',
+        SessionStatus.unauthenticated
+            when location == '/login' || location == '/olvide-password' =>
+          null,
+        SessionStatus.unauthenticated => '/login',
+        SessionStatus.authenticated
+            when location == '/' || location == '/login' =>
+          '/home',
+        SessionStatus.authenticated => null,
+      };
     },
     routes: [
+      GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
@@ -27,7 +43,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/home',
-        builder: (context, state) => const _PlaceholderScreen(title: 'Home'),
+        builder: (context, state) => const HomeScreen(),
       ),
       GoRoute(
         path: '/agenda',
@@ -36,6 +52,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+/// Puente entre sessionProvider y GoRouter: cada cambio de sesión notifica a
+/// GoRouter para que vuelva a correr `redirect` sobre la ubicación actual.
+/// Sin esto, `redirect` sigue siendo correcto pero nunca se re-evalúa solo,
+/// así que la navegación no reacciona a login/logout/expiración hasta la
+/// próxima navegación manual.
+class _SessionRefreshListenable extends ChangeNotifier {
+  _SessionRefreshListenable(Ref ref) {
+    ref.listen(sessionProvider, (_, _) => notifyListeners());
+  }
+}
 
 class _PlaceholderScreen extends StatelessWidget {
   const _PlaceholderScreen({required this.title});

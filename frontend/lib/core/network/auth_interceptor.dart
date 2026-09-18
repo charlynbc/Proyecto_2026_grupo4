@@ -51,7 +51,9 @@ class AuthInterceptor extends Interceptor {
       await (_refreshing ??=
           _refresh().whenComplete(() => _refreshing = null));
     } catch (_) {
-      _ref.read(sessionProvider.notifier).clear();
+      // Acá sí había una sesión activa (se estaba reintentando un request
+      // con token) y el refresh también falló: es una expiración real.
+      _ref.read(sessionProvider.notifier).clear(expired: true);
       handler.next(err);
       return;
     }
