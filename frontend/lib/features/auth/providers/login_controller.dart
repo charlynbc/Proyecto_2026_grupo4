@@ -24,12 +24,15 @@ class LoginController extends Notifier<LoginState> {
   Future<void> submit({required String ci, required String password}) async {
     state = const LoginState(status: LoginStatus.loading);
     try {
-      await ref.read(authRepositoryProvider).login(ci: ci, password: password);
+      final repository = await ref.read(authRepositoryProvider.future);
+      await repository.login(ci: ci, password: password);
       state = const LoginState(status: LoginStatus.idle);
       // TODO: cuando exista navegación post-login (sesión real), acá se
       // dispararía el redirect a /home. Por ahora el router no tiene noción
       // de sesión, así que no se navega solo.
     } on InvalidCredentialsException catch (e) {
+      state = LoginState(status: LoginStatus.error, errorMessage: e.message);
+    } on AuthException catch (e) {
       state = LoginState(status: LoginStatus.error, errorMessage: e.message);
     }
   }
