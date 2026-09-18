@@ -8,21 +8,26 @@ import 'http_client_adapter_stub.dart'
 /// Cliente HTTP central de la app. Todas las features lo consumen a través
 /// de [dioProvider] en vez de instanciar su propio `Dio`.
 ///
-/// El token de sesión viaja en cookies `HttpOnly` `Secure` `SameSite` que
-/// maneja el navegador solo: nunca se lee ni se guarda desde Dart. Por eso
-/// alcanza con configurar el adapter para que las mande; no hay headers de
-/// auth que agregar acá.
+/// `baseUrl` se puede sobreescribir en build/run con
+/// `--dart-define=API_BASE_URL=...`; por defecto apunta al backend local.
 ///
-/// TODO: baseUrl y endpoints de auth los define el backend, que todavía no
-/// existe. El interceptor de refresh de sesión se agrega recién cuando haya
-/// contrato: no inventar rutas ni payloads.
-final dioProvider = Provider<Dio>((ref) {
+/// El token de sesión viaja en cookies `HttpOnly` que maneja el navegador (o,
+/// en Android, un `PersistCookieJar` propio, ver `http_client_adapter_stub.dart`)
+/// sin que Dart las lea ni las guarde. Por eso alcanza con configurar el
+/// adapter para que las mande; no hay headers de auth que agregar acá.
+///
+/// TODO: el interceptor de refresh de sesión (access token en memoria,
+/// header Authorization, reintento tras 401) se agrega cuando la feature de
+/// auth se conecte al backend real.
+final dioProvider = FutureProvider<Dio>((ref) async {
   final dio = Dio(
     BaseOptions(
-      // baseUrl vacía a propósito: se completa cuando el backend esté disponible.
-      baseUrl: '',
+      baseUrl: const String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: 'http://localhost:8080',
+      ),
     ),
   );
-  platform_adapter.configureCredentials(dio);
+  await platform_adapter.configureCredentials(dio);
   return dio;
 });
