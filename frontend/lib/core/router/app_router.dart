@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/agenda/screens/professional_agenda_screen.dart';
+import '../../features/agenda/screens/professionals_screen.dart';
 import '../../features/auth/providers/session_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
@@ -47,7 +49,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/agenda',
-        builder: (context, state) => const _PlaceholderScreen(title: 'Agenda'),
+        builder: (context, state) => const ProfessionalsScreen(),
+        routes: [
+          GoRoute(
+            path: ':professionalId',
+            redirect: (context, state) {
+              final id = int.tryParse(
+                state.pathParameters['professionalId'] ?? '',
+              );
+              return id == null ? '/agenda' : null;
+            },
+            builder: (context, state) => ProfessionalAgendaScreen(
+              professionalId: int.parse(
+                state.pathParameters['professionalId']!,
+              ),
+            ),
+          ),
+        ],
       ),
     ],
   );

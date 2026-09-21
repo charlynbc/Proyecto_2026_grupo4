@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../auth/providers/auth_repository_provider.dart';
 import '../../auth/repositories/auth_repository.dart';
@@ -37,15 +38,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Home')),
       body: Center(
-        child: FilledButton(
-          onPressed: _loggingOut ? null : _logout,
-          child: _loggingOut
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Cerrar sesión'),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FilledButton(
+              onPressed: () => context.go('/agenda'),
+              child: const Text('Ir a la agenda'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _loggingOut ? null : _logout,
+              child: _loggingOut
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Cerrar sesión'),
+            ),
+          ],
         ),
       ),
     );

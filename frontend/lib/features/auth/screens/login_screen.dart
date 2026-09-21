@@ -24,7 +24,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _sessionExpired = ref.read(sessionProvider.notifier).consumeExpired();
+    // Leer y escribir se separan: modificar sessionProvider acá (durante
+    // build del árbol) tira "Tried to modify a provider while the widget
+    // tree was building". La lectura es segura en initState; el reset del
+    // flag se difiere a después del primer frame.
+    _sessionExpired = ref.read(sessionProvider).expired;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(sessionProvider.notifier).consumeExpired();
+    });
   }
 
   @override
