@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/utils/uruguay_time.dart';
@@ -71,7 +72,16 @@ class _ProfessionalAgendaScreenState
       if (!mounted) return;
       ref.invalidate(timeSlotsProvider(params));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reserva confirmada.')),
+        SnackBar(
+          content: const Text('Reserva confirmada.'),
+          action: SnackBarAction(
+            label: 'Ver mis reservas',
+            onPressed: () {
+              if (!mounted) return;
+              context.go('/mis-reservas');
+            },
+          ),
+        ),
       );
     } on TimeSlotTakenException catch (e) {
       if (!mounted) return;

@@ -47,6 +47,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 12),
             FilledButton(
+              onPressed: () => context.go('/mis-reservas'),
+              child: const Text('Ir a mis reservas'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton(
               onPressed: _loggingOut ? null : _logout,
               child: _loggingOut
                   ? const SizedBox(

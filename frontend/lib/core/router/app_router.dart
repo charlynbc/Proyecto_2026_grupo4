@@ -8,6 +8,7 @@ import '../../features/auth/providers/session_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/reservas/screens/my_reservations_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final refreshListenable = _SessionRefreshListenable(ref);
@@ -46,6 +47,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/mis-reservas',
+        builder: (context, state) => const MyReservationsScreen(),
       ),
       GoRoute(
         path: '/agenda',

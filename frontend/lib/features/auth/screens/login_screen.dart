@@ -86,17 +86,53 @@ class _SessionExpiredBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.errorContainer,
+        color: colorScheme.tertiaryContainer,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        'Tu sesión expiró por seguridad. Volvé a iniciar sesión.',
-        style: TextStyle(color: colorScheme.onErrorContainer),
-        textAlign: TextAlign.center,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, color: colorScheme.onTertiaryContainer),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tu sesión se cerró',
+                  style: textTheme.titleSmall?.copyWith(
+                    color: colorScheme.onTertiaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Por seguridad, la sesión se cierra sola después de un '
+                  'tiempo. Esto protege tus datos si dejás el portal '
+                  'abierto en una computadora o un celular que usan otras '
+                  'personas. De esta forma, nadie más puede ver ni cambiar '
+                  'tus turnos.',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onTertiaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Ingresá de nuevo con tu cédula y tu contraseña. Si '
+                  'estabas reservando un turno, fijate en Mis reservas si '
+                  'quedó confirmado.',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onTertiaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
