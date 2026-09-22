@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 import '../providers/session_provider.dart';
 import '../widgets/login_form.dart';
@@ -67,6 +68,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ],
                   const SizedBox(height: 24),
                   const LoginForm(),
+                  const SizedBox(height: 24),
+                  TextButton(
+                    onPressed: () => context.push('/estadisticas'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.outline,
+                      textStyle: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    child: const Text('Ver demo de estadísticas'),
+                  ),
                 ],
               ),
             ),

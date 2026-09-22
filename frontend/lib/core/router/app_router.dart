@@ -7,6 +7,7 @@ import '../../features/agenda/screens/professionals_screen.dart';
 import '../../features/auth/providers/session_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
+import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/reservas/screens/my_reservations_screen.dart';
 import 'app_shell.dart';
@@ -25,7 +26,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       return switch (session.status) {
         SessionStatus.checking => location == '/' ? null : '/',
         SessionStatus.unauthenticated
-            when location == '/login' || location == '/olvide-password' =>
+            when location == '/login' ||
+                location == '/olvide-password' ||
+                location == '/estadisticas' =>
           null,
         SessionStatus.unauthenticated => '/login',
         SessionStatus.authenticated
@@ -44,6 +47,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: '/olvide-password',
         builder: (context, state) =>
             const _PlaceholderScreen(title: 'Olvidé mi contraseña'),
+      ),
+      GoRoute(
+        path: '/estadisticas',
+        builder: (context, state) => const StatisticsScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
