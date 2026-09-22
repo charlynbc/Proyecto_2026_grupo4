@@ -9,6 +9,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/reservas/screens/my_reservations_screen.dart';
+import 'app_shell.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final refreshListenable = _SessionRefreshListenable(ref);
@@ -44,31 +45,49 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             const _PlaceholderScreen(title: 'Olvidé mi contraseña'),
       ),
-      GoRoute(
-        path: '/home',
-        builder: (context, state) => const HomeScreen(),
-      ),
-      GoRoute(
-        path: '/mis-reservas',
-        builder: (context, state) => const MyReservationsScreen(),
-      ),
-      GoRoute(
-        path: '/agenda',
-        builder: (context, state) => const ProfessionalsScreen(),
-        routes: [
-          GoRoute(
-            path: ':professionalId',
-            redirect: (context, state) {
-              final id = int.tryParse(
-                state.pathParameters['professionalId'] ?? '',
-              );
-              return id == null ? '/agenda' : null;
-            },
-            builder: (context, state) => ProfessionalAgendaScreen(
-              professionalId: int.parse(
-                state.pathParameters['professionalId']!,
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home',
+                builder: (context, state) => const HomeScreen(),
               ),
-            ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/agenda',
+                builder: (context, state) => const ProfessionalsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':professionalId',
+                    redirect: (context, state) {
+                      final id = int.tryParse(
+                        state.pathParameters['professionalId'] ?? '',
+                      );
+                      return id == null ? '/agenda' : null;
+                    },
+                    builder: (context, state) => ProfessionalAgendaScreen(
+                      professionalId: int.parse(
+                        state.pathParameters['professionalId']!,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/mis-reservas',
+                builder: (context, state) => const MyReservationsScreen(),
+              ),
+            ],
           ),
         ],
       ),

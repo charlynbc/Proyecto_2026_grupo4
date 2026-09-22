@@ -7,6 +7,7 @@ import '../../../core/utils/uruguay_time.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../models/professional.dart';
 import '../models/time_slot.dart';
+import '../../reservas/providers/my_reservations_provider.dart';
 import '../providers/agenda_repository_provider.dart';
 import '../providers/professionals_provider.dart';
 import '../providers/time_slots_provider.dart';
@@ -71,6 +72,7 @@ class _ProfessionalAgendaScreenState
       await repository.reserve(timeSlotId: slot.id);
       if (!mounted) return;
       ref.invalidate(timeSlotsProvider(params));
+      ref.invalidate(myReservationsProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Reserva confirmada.'),

@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../core/utils/uruguay_time.dart';
 import '../../../core/widgets/centered_content.dart';
+import '../../agenda/providers/time_slots_provider.dart';
+import '../../auth/widgets/logout_button.dart';
 import '../models/reservation.dart';
 import '../models/reservation_sections.dart';
 import '../providers/my_reservations_provider.dart';
@@ -53,6 +55,7 @@ class _MyReservationsScreenState extends ConsumerState<MyReservationsScreen> {
       await repository.cancel(reservationId: reservation.id);
       if (!mounted) return;
       ref.invalidate(myReservationsProvider);
+      ref.invalidate(timeSlotsProvider);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Reserva cancelada.')));
@@ -76,7 +79,10 @@ class _MyReservationsScreenState extends ConsumerState<MyReservationsScreen> {
   Widget build(BuildContext context) {
     final myReservations = ref.watch(myReservationsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Mis reservas')),
+      appBar: AppBar(
+        title: const Text('Mis reservas'),
+        actions: const [LogoutButton()],
+      ),
       body: CenteredContent(
         maxWidth: 600,
         child: myReservations.when(
@@ -180,14 +186,17 @@ class _ReservationCard extends StatelessWidget {
       'HH:mm',
       'es',
     ).format(UruguayTime.toUruguay(reservation.end));
-    final cancelledSuffix = reservation.status == ReservationStatus.cancelled
-        ? ' · Cancelada'
+    final cancelledAt = reservation.cancelledAt;
+    final cancelledLine =
+        reservation.status == ReservationStatus.cancelled && cancelledAt != null
+        ? "\nCancelada el ${DateFormat("EEEE d 'de' MMMM", 'es').format(UruguayTime.toUruguay(cancelledAt))} "
+              'a las ${DateFormat('HH:mm', 'es').format(UruguayTime.toUruguay(cancelledAt))}'
         : '';
 
     return Card(
       child: ListTile(
         title: Text(reservation.professionalName),
-        subtitle: Text('$date\n$startTime - $endTime$cancelledSuffix'),
+        subtitle: Text('$date\n$startTime - $endTime$cancelledLine'),
         isThreeLine: true,
         trailing: onCancel == null
             ? null
