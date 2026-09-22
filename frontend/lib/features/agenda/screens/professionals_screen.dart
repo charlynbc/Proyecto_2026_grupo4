@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/centered_content.dart';
+import '../../auth/widgets/logout_button.dart';
 import '../providers/professionals_provider.dart';
 
 class ProfessionalsScreen extends ConsumerWidget {
@@ -13,7 +14,10 @@ class ProfessionalsScreen extends ConsumerWidget {
     final professionals = ref.watch(professionalsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Agenda')),
+      appBar: AppBar(
+        title: const Text('Agenda'),
+        actions: const [LogoutButton()],
+      ),
       body: CenteredContent(
         maxWidth: 600,
         child: professionals.when(
