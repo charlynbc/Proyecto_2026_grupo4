@@ -34,13 +34,15 @@ public class SecurityErrorHandler
                 "application/json"
         );
 
+        response.setCharacterEncoding("UTF-8");
+
         response
                 .getWriter()
                 .write(
                         """
                         {
                           "code":"NO_AUTENTICADO",
-                          "message":"Se requiere autenticacion"
+                          "message":"Se requiere autenticación"
                         }
                         """
                 );
@@ -60,13 +62,15 @@ public class SecurityErrorHandler
                 "application/json"
         );
 
+        response.setCharacterEncoding("UTF-8");
+
         response
                 .getWriter()
                 .write(
                         """
                         {
                           "code":"ACCESO_DENEGADO",
-                          "message":"No tenes permisos para realizar esta operacion"
+                          "message":"No tenés permisos para realizar esta operación"
                         }
                         """
                 );
