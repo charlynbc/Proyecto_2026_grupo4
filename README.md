@@ -101,6 +101,10 @@ Y abrir el Pull Request contra `main` desde GitHub.
 No usamos ramas de larga vida por área (`Backend`, `frontend`). Ese modelo nos
 dejó tres proyectos que nunca se integraban entre sí.
 
+El detalle completo —qué hace cada comando, el tamaño de una rama, los nombres,
+cómo ver el árbol y las versiones de Java y Flutter que hacen falta— está en
+**[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
 ---
 
 ## API
