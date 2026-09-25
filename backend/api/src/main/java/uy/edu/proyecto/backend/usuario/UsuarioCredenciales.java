@@ -5,6 +5,7 @@ public record UsuarioCredenciales(
         String nombre,
         String cedula,
         String passwordHash,
+        boolean emailVerificado,
         String rol
 ) {
 }

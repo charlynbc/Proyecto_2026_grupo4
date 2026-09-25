@@ -86,6 +86,12 @@ public class SecurityConfig {
                                         .permitAll()
 
                                         .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/auth/confirmar-email"
+                                        )
+                                        .permitAll()
+
+                                        .requestMatchers(
                                                 "/api/admin/**"
                                         )
                                         .hasRole(
