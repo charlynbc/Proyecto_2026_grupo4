@@ -156,6 +156,11 @@ respuestas.
 ## Flujo confirmacion por email
 Implementamos la POC de registro y confirmación de correo electrónico. El paciente se registra con nombre, cédula, contraseña y email. El usuario queda inicialmente con email_verificado = false. El backend genera un token aleatorio, guarda únicamente su hash en PostgreSQL y envía un enlace de confirmación por SMTP (es el protocolo de red estándar que se utiliza para enviar correos electrónicos a través de Internet). El enlace utiliza un token con vencimiento de 24 horas y de un solo uso. Una vez confirmado el correo, el usuario puede iniciar sesión; antes de eso, el backend rechaza el login con 403 EMAIL_NO_CONFIRMADO. También agregamos la migración de base de datos y la configuración SMTP mediante variables de entorno, la configuración quedó hecha mediante placeholders en application.properties, Spring Boot toma los valores desde variables del sistema. Antes de ejecutar el backend, en la terminal, utiliza las variables de la base de datos y ahi inicia el backend
 
+##Integramos Firebase en el frontend Flutter del proyecto. Como el frontend está hecho con Flutter, no usamos npm install firebase; agregamos las dependencias firebase_core y firebase_analytics en pubspec.yaml.
+La configuración web de Firebase quedó en firebase_options.dart, usando el proyecto grupo4-agendamedica, su apiKey, projectId, appId, authDomain, storageBucket, messagingSenderId y measurementId.
+En main.dart agregamos la inicialización de Firebase con Firebase.initializeApp() y el registro de apertura de la aplicación mediante FirebaseAnalytics.instance.logAppOpen().
+Firebase se inicializa actualmente solo en web para que Android no falle mientras todavía no se registra la aplicación móvil en Firebase.
+
 ## Todavía no está, pero viene
 
 - **Integración continua** en cada Pull Request: va a compilar el backend,
