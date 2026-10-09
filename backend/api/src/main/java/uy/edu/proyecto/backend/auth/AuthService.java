@@ -78,6 +78,14 @@ public class AuthService {
             throw credencialesInvalidas();
         }
 
+                if (!usuario.emailVerificado()) {
+                        throw new ApiException(
+                                        HttpStatus.FORBIDDEN,
+                                        "EMAIL_NO_CONFIRMADO",
+                                        "Debe confirmar su email antes de iniciar sesion"
+                        );
+                }
+
 
         String accessToken =
                 jwtService.generar(
