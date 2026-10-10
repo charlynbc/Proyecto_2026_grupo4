@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -7,6 +9,9 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/providers/session_provider.dart';
+import 'features/notificaciones/providers/push_notification_provider.dart';
+import 'features/notificaciones/services/push_notification_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -21,14 +26,49 @@ Future<void> main() async {
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends ConsumerWidget {
+final _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  StreamSubscription<ForegroundPushMessage>? _pushSubscription;
+
+  Future<void> _onAuthenticated() async {
+    final service = await ref.read(pushNotificationServiceProvider.future);
+    final registered = await service.register();
+    if (!registered || !mounted) return;
+    _pushSubscription?.cancel();
+    _pushSubscription = service.foregroundMessages.listen((message) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('${message.title}: ${message.body}')),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _pushSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(goRouterProvider);
+    ref.listen<SessionState>(sessionProvider, (previous, next) {
+      final becameAuthenticated =
+          next.isAuthenticated && !(previous?.isAuthenticated ?? false);
+      if (becameAuthenticated) {
+        _onAuthenticated();
+      }
+    });
     return MaterialApp.router(
       title: 'Agenda Médica',
+      scaffoldMessengerKey: _scaffoldMessengerKey,
       theme: appTheme,
       routerConfig: router,
     );
