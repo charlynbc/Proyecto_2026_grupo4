@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../core/network/api_routes.dart';
 import '../providers/session_provider.dart';
 import 'auth_repository.dart';
 
@@ -16,7 +17,7 @@ class ApiAuthRepository implements AuthRepository {
   Future<void> login({required String ci, required String password}) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
-        '/api/auth/login',
+        ApiRoutes.authLogin,
         data: {'cedula': ci, 'clave': password},
       );
       _applySession(response.data!);
@@ -29,7 +30,7 @@ class ApiAuthRepository implements AuthRepository {
   Future<void> refresh() async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
-        '/api/auth/refresh',
+        ApiRoutes.authRefresh,
       );
       _applySession(response.data!);
     } on DioException catch (e) {
@@ -40,7 +41,7 @@ class ApiAuthRepository implements AuthRepository {
   @override
   Future<void> logout() async {
     try {
-      await _dio.post<void>('/api/auth/logout');
+      await _dio.post<void>(ApiRoutes.authLogout);
     } on DioException catch (e) {
       _throwMapped(e);
     } finally {

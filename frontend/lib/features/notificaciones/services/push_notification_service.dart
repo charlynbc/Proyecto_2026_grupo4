@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 
+import '../../../core/network/api_routes.dart';
+
 /// Mensaje recibido en foreground, ya reducido a lo que la UI necesita
 /// mostrar.
 class ForegroundPushMessage {
@@ -38,7 +40,7 @@ class PushNotificationService {
       if (!granted) return false;
       final token = await messaging.getToken(vapidKey: _vapidKey);
       if (token == null) return false;
-      await _dio.post('/api/notificaciones/registro', data: {'fid': token});
+      await _dio.post(ApiRoutes.pocPushRegistration, data: {'fid': token});
       return true;
     } catch (e) {
       debugPrint('PushNotificationService.register falló: $e');

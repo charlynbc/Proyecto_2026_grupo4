@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/providers/session_provider.dart';
+import 'api_routes.dart';
 
 /// Agrega el header `Authorization` con el access token en memoria, y ante
 /// un 401 llama a `POST /api/auth/refresh` y reintenta la request original.
@@ -21,7 +22,7 @@ import '../../features/auth/providers/session_provider.dart';
 class AuthInterceptor extends Interceptor {
   AuthInterceptor(this._dio, this._ref);
 
-  static const _refreshPath = '/api/auth/refresh';
+  static const _refreshPath = ApiRoutes.authRefresh;
 
   final Dio _dio;
   final Ref _ref;

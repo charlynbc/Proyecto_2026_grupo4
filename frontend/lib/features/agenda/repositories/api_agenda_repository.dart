@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../core/network/api_routes.dart';
 import '../../../core/utils/uruguay_time.dart';
 import '../models/professional.dart';
 import '../models/time_slot.dart';
@@ -13,7 +14,9 @@ class ApiAgendaRepository implements AgendaRepository {
   @override
   Future<List<Professional>> listProfessionals() async {
     try {
-      final response = await _dio.get<List<dynamic>>('/api/profesionales');
+      final response = await _dio.get<List<dynamic>>(
+        ApiRoutes.pocProfessionals,
+      );
       return response.data!
           .map((e) => Professional.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -31,7 +34,7 @@ class ApiAgendaRepository implements AgendaRepository {
     final until = UruguayTime.startOfDayIso(day.add(const Duration(days: 1)));
     try {
       final response = await _dio.get<List<dynamic>>(
-        '/api/profesionales/$professionalId/horarios',
+        ApiRoutes.pocProfessionalSlots(professionalId),
         queryParameters: {'desde': from, 'hasta': until},
       );
       return response.data!
@@ -46,7 +49,7 @@ class ApiAgendaRepository implements AgendaRepository {
   Future<void> reserve({required int timeSlotId}) async {
     try {
       await _dio.post<Map<String, dynamic>>(
-        '/api/reservas',
+        ApiRoutes.pocReservations,
         data: {'horarioId': timeSlotId},
       );
     } on DioException catch (e) {
