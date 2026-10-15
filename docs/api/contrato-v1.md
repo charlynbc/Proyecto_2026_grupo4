@@ -7,7 +7,7 @@ Estado del documento: **PROPUESTA del frontend**, 14/10/2026, rama `docs/contrat
 - **Fuentes.** Las operaciones y los DTO salen de `docs/analisis/diseno.md` sección 2.3 y de las secuencias S01 a S25. Las reglas salen de `requerimientos.md` (RF y RNF). Los flujos salen de `casos-de-uso.md`. Las reglas de la API (rutas bajo `/api`, recursos en plural, acciones explícitas de cambio de estado, error uniforme) salen de `arquitectura.md` 7.4, 8.3 y 8.5 y de `diseno.md` 4.5.
 - **PROPUESTA.** El Diseño no define ninguna ruta HTTP ni el nombre exacto de cada campo. Por eso **todas las rutas y todos los campos de este documento son PROPUESTA**, salvo los nombres de operación, de DTO y de parámetro que figuran en la tabla de la sección 2 (esos son del Diseño). Donde además se propone una regla o un mecanismo que ningún documento define, aparece la marca **PROPUESTA:** en el texto.
 - **Preguntas abiertas.** Lo que ningún documento resuelve está en la sección 9, sin decidir. En cada endpoint se la cita como `P-nn`. Mientras no se resuelvan, el cliente adopta el comportamiento más conservador.
-- **Los mockups no se pudieron ver.** Las imágenes de `diseno.md` sección 6 no están en el repositorio (no existe `docs/analisis/media/`). La sección 6 de este contrato relaciona cada pantalla con sus endpoints a partir del título de la pantalla y de los RF que el Diseño dice que cubre, no de la imagen.
+- **Mockups.** La sección 6 se hizo mirando las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), pantalla por pantalla. Las diferencias entre lo que muestra cada pantalla y lo que cubre el contrato están en esa sección y en las preguntas P-23 a P-33.
 - **Sin código.** No hay Java ni Dart. Los ejemplos JSON usan datos ficticios.
 
 ## 1. Convenciones
@@ -241,7 +241,7 @@ Con `acceso: "SOCIO"`, `role` es `SOCIO`. Con `acceso: "EMPLEADO"`, `role` es `F
 | 400 | `VALIDACION` | Falta un campo, o `acceso` no es `SOCIO` ni `EMPLEADO`. Solo por forma del pedido, nunca por el contenido de las credenciales. |
 | 401 | `CREDENCIALES_INVALIDAS` | Cualquier otro motivo de rechazo, sin distinguirlos. Mensaje: "La cédula o la contraseña no son correctas. Revisá los datos e intentá de nuevo." |
 
-Preguntas relacionadas: P-02, P-03, P-21.
+Preguntas relacionadas: P-02, P-03, P-20, P-21, P-22.
 
 <a id="e02"></a>
 #### #2 · `POST /api/auth/refresh`
@@ -365,7 +365,7 @@ La cuenta queda activa y el usuario inicia sesión por #1. No devuelve token: no
 | 400 | `VALIDACION` | Falta un campo o la contraseña no cumple la longitud mínima. |
 | 400 | `ENLACE_INVALIDO` | El enlace no existe, venció, ya se usó, o la cuenta fue inactivada por un administrador. **Mismo código y mismo mensaje en los cuatro casos** (el primer ingreso no revierte una inactivación, RF-02). Mensaje: "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso." |
 
-Preguntas relacionadas: P-04.
+Preguntas relacionadas: P-04, P-05, P-06, P-18.
 
 ### 3.2 Catálogos de apoyo
 
@@ -750,10 +750,10 @@ Solo números que todavía pueden agendarse (anticipación máxima y mínima) y 
 
 | Parámetro | Tipo | Obligatorio | Notas |
 |---|---|---|---|
-| `especialidadId` | entero | **sí** | |
-| `medicoId` | entero | no | |
-| `fechaDesde`, `fechaHasta` | fecha | no | |
-| `orden` | `fecha` o `apellidoMedico` | no | Por defecto `fecha` (fecha y hora más próximas). |
+| `especialidadId` | entero | **sí** | Obligatorio por RF-08 ("especialidad (obligatorio)"), CU 3.2.1 (paso 2) y el mockup 6.2.2 ("Especialidad (obligatorio)"). Los tres coinciden: no queda pregunta abierta. |
+| `medicoId` | entero | no | "Médico (opcional)" en el mockup. |
+| `fechaDesde`, `fechaHasta` | fecha | no | "Desde" y "Hasta", opcionales. |
+| `orden` | `fecha` o `apellidoMedico` | no | Por defecto `fecha` (fecha y hora más próximas; el mockup dice "Orden: fecha más próxima"). |
 | `sentido` | `asc` o `desc` | no | Por defecto `asc`. |
 
 **Respuesta 200** (`NumeroDisponibleDTO`; sin paginar, como declara el Diseño: P-11)
@@ -778,7 +778,7 @@ Solo números que todavía pueden agendarse (anticipación máxima y mínima) y 
 
 `especialidad.requierePase` es la indicación que RF-08 exige mostrar. Si no hay resultados, `{ "items": [] }` con `200` (el cliente muestra "No se encontraron turnos disponibles para los criterios seleccionados", CU 3.2.1).
 
-**Errores:** `400 VALIDACION` si falta `especialidadId` o el rango está invertido. `404 NO_ENCONTRADO` si `especialidadId` o `medicoId` no existen.
+**Errores:** `400 VALIDACION` si falta `especialidadId` (dato obligatorio) o `fechaDesde` es posterior a `fechaHasta`. `404 NO_ENCONTRADO` si `especialidadId` o `medicoId` no existen.
 
 <a id="e17"></a>
 #### #17 · `POST /api/consultas`
@@ -1099,6 +1099,8 @@ Suspende de inmediato, cancela por la institución las consultas `AGENDADA`, dev
 }
 ```
 
+Longitud máxima de `observacion`: P-18.
+
 **Errores**
 
 | Status | `code` | Cuándo |
@@ -1374,6 +1376,8 @@ Un número sin consulta (o con la consulta cancelada) trae `consulta: null` y se
 
 **Errores:** `404 NO_ENCONTRADO` si el turno no existe o no es del médico (P-10).
 
+Preguntas relacionadas: P-25, P-28.
+
 <a id="e31"></a>
 #### #31 · `POST /api/medico/consultas/{id}/resultado`
 
@@ -1430,6 +1434,8 @@ Una sola llamada, una sola transacción: la atención y sus pases se guardan jun
 ```
 
 Con `NO_SE_PRESENTO`: `estado` es `NO_SE_PRESENTO`, `atencionId` es `null` y `pases` es `[]`. Ese estado no libera el número ni devuelve el pase usado, y el aviso de llegada sigue valiendo para las demás consultas del día (RF-23). Las notificaciones al socio son internas (no cambian la respuesta); no incluyen datos clínicos.
+
+Longitud máxima de los textos: P-18. Vencimiento y duplicados de pases en pantalla: P-27.
 
 **Errores**
 
@@ -1746,26 +1752,140 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 
 ## 6. Pantallas de los mockups y endpoints que las alimentan
 
-Los títulos y los RF son los de `diseno.md` sección 6. Las imágenes no se pudieron ver (sección 0), así que la relación sale del título y de los RF que cada pantalla dice cubrir. Las pantallas de empleados son web; las del socio son móviles, y el socio también las tiene en web (RNF-01, RNF-02).
+Esta sección sale de las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), vistas pantalla por pantalla. Para cada una: lo que se ve, el endpoint que alimenta cada parte y las diferencias con el contrato. Cuando una pantalla muestra algo que el contrato no cubre, o el contrato tiene algo que ninguna pantalla usa, la diferencia está anotada acá y en la sección 9 (P-23 en adelante). Las pantallas de empleados son web; las del socio son móviles (y también existen en web, RNF-01, RNF-02). Todas las pantallas de empleados muestran arriba a la derecha "Nombre Apellido · Cerrar sesión" (`nombre` y `apellido` de #1 y #2, y #3).
 
-| Pantalla (Diseño) | RF | Endpoints |
+Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2") son de relleno. Los formatos que muestran (`dd/mm/aaaa`, hora de 24 h, CI como `1.234.567-8`, identificador de consulta con ceros `000123`) los arma el cliente a partir del JSON ISO de la sección 1.2.
+
+### 6.1 Web, empleados
+
+#### 6.1.1 Iniciar sesión (imagen 14) · RF-01, RF-02
+
+- **Se ve:** logo, "Agenda médica", "Acceso para empleados", campos "Cédula de identidad" (texto de ayuda "Sin puntos ni guiones") y "Contraseña" (ayuda "Mínimo 8 caracteres"), botón "Ingresar", enlace "Es mi primera vez" y, abajo, "¿Es socio? Ingresar por el acceso de socios".
+- **Endpoints:** "Ingresar" → #1 con `acceso: "EMPLEADO"`. "Es mi primera vez" → #4 y, desde el correo, #5. La sesión se sostiene con #2 y #3.
+- **Mensajes:** no hay mensaje de error dibujado en esta variante; en la móvil (6.2.1) el texto es el que cubre P-33.
+- **Sin mockup:** las pantallas de pedir la activación y de completarla (dirección, teléfonos, contraseña) no están dibujadas, solo el enlace. La ayuda "Sin puntos ni guiones" apoya la propuesta de CI solo con dígitos (P-17).
+
+#### 6.1.2 Registrar aviso de llegada (imagen 6) · RF-16
+
+- **Se ve:** menú lateral (Aviso de llegada, Consulta de agendas, Consulta de turnos, Alta de turno semanal). Campo "Cédula del socio" (ayuda "Sin puntos ni guiones") y botón "Buscar". Tarjeta con **nombre y apellido del socio**, "CI 1.234.567-8 · Socio", "**Hoy 13/10/2026**", "Consultas agendadas para hoy" en tabla (Hora, Médico, Especialidad, Consultorio como "12 · Piso 2", Estado "Agendada") y botón "Registrar llegada" con el texto "El aviso se registra una sola vez y vale hasta el fin del día para todas sus consultas. Se guarda quién lo registró y a qué hora."
+- **Estado alternativo dibujado:** "El socio ya registró su llegada hoy a las 08:55 (Funcionario X). Se conserva el registro original."
+- **Errores dibujados:** "El socio no tiene consultas agendadas para hoy." y "No puede registrar su propio aviso de llegada."
+- **Endpoints:** "Buscar" → #26. "Registrar llegada" → #27 (201 al crear; 200 con el registro original si ya existía, con `registradaEn` y `registradaPor`, que son la hora y el "Funcionario X" del estado alternativo). Los dos errores son `409 SIN_CONSULTAS_HOY` y `403 CONFLICTO_DE_INTERES`.
+- **Brechas:** el nombre, el apellido y la CI del socio y la fecha de "Hoy" no vienen en #26 (P-24, que amplía P-15).
+
+#### 6.1.3 Alta de turno semanal (imagen 5) · RF-13
+
+- **Se ve:** selectores "Médico", "Especialidad (del médico)" y "Consultorio"; "Día de la semana" (con "Martes" elegido), "Fecha de inicio" y "Fecha de finalización" (`dd/mm/aaaa`). Sección "Números del turno" con botón "+ Agregar número" y tabla N.º, Hora de inicio, Hora de fin, Duración (calculada, "20 min") y "Quitar". Recuadro de reglas: "cada número dura entre 10 y 60 minutos, con inicio y fin en múltiplos de 5. No pueden solaparse entre sí ni con turnos activos del mismo médico o consultorio. Cupo mínimo: 1 número." Botones "Cancelar" y "Guardar turno".
+- **Endpoints:** médicos con sus especialidades → #10 (el selector de especialidad se llena con `especialidades` del médico elegido); consultorios → #8; "Guardar turno" → #13.
+- **Coincide con el contrato:** los números van numerados 1, 2, 3 por el cliente (columna N.º no editable), como propone #13; la duración no viaja (se calcula). Los errores `400 VALIDACION`, `409 SOLAPAMIENTO_TURNO` y `409 MEDICO_INACTIVO` alimentan los mensajes de las reglas del recuadro. No se dibuja cómo se muestran las fechas y números en conflicto (P-01).
+
+#### 6.1.4 Consultar turnos, suspender y rehabilitar fechas (imagen 35) · RF-14, RF-15, RF-17
+
+- **Se ve:** filtros "Médico", "Especialidad", "Día de la semana" (todos con opción "Todos"/"Todas"), "Desde", "Hasta", "Estado" y botón "Buscar". "Orden: fecha y horario ▾". Botones "Rehabilitar seleccionados" y "Suspender seleccionados". Tabla con casilla de selección, Fecha, Médico, Especialidad, Día, Horario ("09:00 – 10:00"), Consultorio (solo el número, "12"), Números (cantidad) y Estado ("Activa", "Suspendida"). Debajo, el panel "Confirmar suspensión (ejemplo)": "Se suspenderán 2 fechas (13/10/2026 y 20/10/2026). Se cancelarán 4 consultas agendadas y se notificará a cada socio. Las consultas canceladas no se recuperan al rehabilitar.", campo "Observación para los socios (opcional)" con ayuda "Ej.: se creará otro turno para volver a agendar" y botones "Cancelar" y "Confirmar suspensión".
+- **Endpoints:** "Buscar" → #15 (filtros `medicoId`, `especialidadId`, `diaSemana`, `fechaDesde`, `fechaHasta`, `estado`; orden `fecha`). Listas de los filtros → #10 y #6. "Suspender seleccionados" → #23 (alimenta el texto "2 fechas… 4 consultas") y luego #24 con la observación. "Rehabilitar seleccionados" → #25.
+- **Brechas:**
+  - La pantalla permite seleccionar filas de médicos y especialidades distintos y tiene los filtros en "Todos" y las fechas vacías, pero `FiltroFechasDTO` de #23 a #25 exige un médico, una especialidad y un rango (P-26).
+  - La pantalla no tiene "seleccionar todos" (P-12).
+  - No hay ningún acceso dibujado a la configuración semanal, así que #14 no tiene pantalla (P-32).
+  - El consultorio se muestra por su número ("12"): el contrato devuelve `nombre` ("Consultorio 12"), y el cliente tendrá que recortarlo o mostrarlo completo.
+
+#### 6.1.5 Consultar agendas (imagen 8) · RF-18
+
+- **Se ve:** filtros "CI del socio", "Identificador", "Fecha" (precargada con hoy), "Médico", "Estado" y "Aviso de llegada" (elegido "Con aviso"), botón "Buscar". Leyenda: "Filtrando por la fecha de hoy y por avisos de llegada se obtiene la lista de socios presentes, en tiempo real · Orden: fecha y hora ▾". Tabla: ID (`000123`), Socio ("Apellido, Nombre" y CI debajo), Médico, Especialidad, Fecha y hora, Consultorio, Estado, Llegada (hora en negrita si llegó, "Sin aviso" si no). Las filas con aviso se resaltan.
+- **Endpoints:** "Buscar" → #28 (`ci`, `consultaId`, `fecha`, `medicoId`, `estado`, `llegada`; orden `fechaHora` o `horaLlegada`). Lista de médicos → #10. Refresco cada 15 s (arquitectura 8.5). `llegadaEn: null` es "Sin aviso".
+- **Coincide con el contrato:** una sola fecha, no un rango (S12). El filtro "Aviso de llegada" tiene tres opciones (Todos, Con aviso, Sin aviso) y se corresponde con `llegada` ausente, `true` y `false`.
+- **No usa:** paginación (la pantalla no dibuja paginador, P-32).
+
+#### 6.1.6 Turnos y pacientes de una fecha (imagen 4) · RF-21
+
+- **Se ve:** menú "Turnos y pacientes" (en el encabezado, "Dra. Nombre Apellido"). Filtros "Fecha" (13/10/2026), "Turno" (selector con "Cardiología · 09:00 – 10:00 · Consultorio") y "Filtro" ("Todos"). "Se actualiza en tiempo real · Orden: hora del número ▾" y "El médico decide a quién llamar". Tabla: N.º, Hora ("09:00 – 09:20"), Paciente ("Apellido, Nombre"), CI, Estado ("Agendada", "Atendida"), Llegada ("Llegó 08:55", "Sin aviso", "—"), y acciones: botón "Registrar atención" y enlace "Ver atención". Número libre: "Sin reserva", y "—" en CI, Estado y Llegada. Las filas con llegada tienen fondo gris. Nota: "Fila con fondo gris: el socio registró su llegada hoy. Solo esas filas permiten registrar atención."
+- **Endpoints:** la fecha y el selector de turno → #29. La tabla → #30 (`consulta.paciente`, `consulta.estado`, `consulta.llegadaEn`, `disponible`). "Registrar atención" → pantalla 6.1.7. Refresco cada 15 s.
+- **Brechas:**
+  - "Ver atención" en una consulta `ATENDIDA` no tiene endpoint en este contrato (P-28).
+  - La pantalla no distingue visualmente "Sin reserva" disponible de no disponible; el contrato sí trae `disponible` (el cliente lo puede usar o ignorar).
+  - Los títulos "Dra./Dr." no tienen dato de origen (P-25).
+
+#### 6.1.7 Registrar atención y emitir pases (imagen 3) · RF-23, RF-24
+
+- **Se ve:** "← Volver a pacientes del turno". Tarjeta con paciente ("Apellido, Nombre", "CI 1.234.567-8 · Llegó 08:55") y, a la derecha, "13/10/2026 · Número 1 · 09:00 – 09:20", "Cardiología · Consultorio 12". Panel "Atención" con "Afección (obligatorio)", "Tratamiento" y "Observaciones". Panel "Pases (opcional)" con "Especialidad de destino" (selector), "Vigencia (días)" (por defecto 90), botón "+ Agregar pase", lista de pases agregados ("Pase a Dermatología · vence 11/01/2027" con "Quitar") y la regla "Vigencia de 1 a 365 días. No se puede emitir un pase si el socio ya tiene uno vigente o una consulta agendada en esa especialidad." Abajo: botón "El paciente no se presentó" con "Registro definitivo, sin rectificación", y "Sin borradores: se guarda al finalizar" con el botón "Finalizar atención".
+- **Endpoints:** "Finalizar atención" → #31 con `resultado: "ATENDIDA"`, `afeccion`, `tratamiento`, `observaciones` y `pases[]`. "El paciente no se presentó" → #31 con `resultado: "NO_SE_PRESENTO"` (el CU 3.4.2 pide una confirmación previa). Selector de destino → #6. Los datos de la tarjeta salen de la fila elegida en #30 y del turno de #29.
+- **Brechas:** el vencimiento ("vence 11/01/2027") se muestra antes de guardar y el contrato solo envía `vigenciaDias`; la regla de pases duplicados se conoce recién al guardar (P-27).
+
+#### 6.1.8 Registrar y consultar usuarios (imagen 39) · RF-31, RF-35
+
+- **Se ve:** menú (Usuarios, Especialidades y consultorios, Estadísticas). "Usuarios del padrón" con filtros "CI o apellido", "Rol", "Estado" y botón "Buscar". Tabla: CI, "Apellido, nombre", Rol, Correo, Estado ("Activo", "Inactivo"), Activada ("Sí", "No"). Nota: "Una fila por cuenta: una persona con varias cuentas aparece una vez por cada una. Orden: apellido y fecha de alta." A la derecha, "Alta de usuario": CI, Nombre, Apellido, Fecha de nacimiento, Rol (con "Médico" elegido), Correo, Teléfono 1, "Teléfono 2 (opc.)", "Dirección (opcional)", "Especialidades (solo para Médico)" con "Seleccionar una o más", la nota "No se envía correo al registrar: la persona activa su cuenta con «Es mi primera vez»." y el botón "Registrar".
+- **Endpoints:** "Buscar" → #12 (`q`, `rol`, `estado`). "Registrar" → #11. Especialidades → #6.
+- **Coincide con el contrato:** los campos del alta son exactamente los de `AltaUsuarioDTO`; `estado` (`ACTIVA`/`INACTIVA`) y `activada` son las columnas "Estado" y "Activada".
+- **No usa:** `orden`/`sentido` ni paginación (no hay controles de orden ni paginador dibujados, P-32).
+
+#### 6.1.9 Especialidades y consultorios (imagen 1) · RF-29, RF-33
+
+- **Se ve:** panel "Alta de especialidad": "Nombre (único)", casilla "Requiere pase para agendar", botón "Registrar especialidad", y debajo la lista (Cardiología "Requiere pase", Dermatología "Requiere pase", Medicina General "Libre"). Panel "Alta de consultorio": "Nombre o número (único)", "Ubicación (piso o sector)", botón "Registrar consultorio", y la lista (Consultorio 3 "Planta baja", Consultorio 7 "Piso 1", Consultorio 12 "Piso 2"). Nota: "Los consultorios se asignan luego a los turnos semanales."
+- **Endpoints:** altas → #7 y #9. Las dos listas → #6 y #8 (`requierePase` es "Requiere pase"/"Libre"; `ubicacion` es el texto de la derecha).
+- **Coincide con el contrato.** Los mensajes de nombre repetido son `409 ESPECIALIDAD_DUPLICADA` y `409 CONSULTORIO_DUPLICADO`.
+
+#### 6.1.10 Consultar estadísticas (imagen 7) · RF-39, RF-40, RF-41
+
+- **Se ve:** tres pestañas "Demanda por especialidad", "Utilización por turno" y "Consultas por estado" (esta última activa). "Desde" y "Hasta" (01/10/2026 y 31/10/2026), botón "Consultar" y "Por defecto: mes en curso". Dos tarjetas: "Consultas del período (por fecha de consulta)" con el total, y "Tasa de cancelación por el socio" con un porcentaje y "Sin datos si el total es cero". Gráfico de barras "Consultas por estado" con los siete estados (Agendada, Atendida, Cancelada por el socio, Cancelada por la institución, No asistió, No atendida, No se presentó a la consulta) y su cantidad. Pie: "Las cifras son de ejemplo. Operaciones largas: se informa «Calculando…» mientras se genera el resultado."
+- **Endpoints:** pestaña "Demanda por especialidad" → #34; "Utilización por turno" → #35; "Consultas por estado" → #36 (`total`, `tasaCancelacionSocio`, `porEstado`). Las fechas se envían como `fechaDesde` y `fechaHasta`; la respuesta devuelve `desde` y `hasta`, que sirven para llenar los campos cuando el usuario no los tocó.
+- **Coincide con el contrato:** los siete estados, "Sin datos" como `null` y el mes en curso por defecto. "Calculando…" lo muestra el cliente mientras espera (RNF-17).
+- **Sin mockup:** el contenido de las dos primeras pestañas no está dibujado; el contrato de #34 y #35 se apoya solo en RF-39, RF-40, S20 y S21 (P-13).
+
+### 6.2 Móvil, socio
+
+Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis consultas" e "Historia", y un círculo sin rótulo arriba a la derecha (P-32).
+
+#### 6.2.1 Iniciar sesión y primer ingreso (imagen 2) · RF-01, RF-02
+
+- **Se ve:** igual que la web de empleados pero con "Acceso para socios", enlace "Es mi primera vez" y, abajo, "¿Es funcionario, médico o administrador? Ingresar por el acceso de empleados (solo web)". Mensaje de error de ejemplo: "Los datos ingresados no son correctos. Revise su cédula y contraseña." con la aclaración "No indica cuál de los dos falló."
+- **Endpoints:** "Ingresar" → #1 con `acceso: "SOCIO"`; error `401 CREDENCIALES_INVALIDAS` (el texto del mockup es el que debería mostrar, P-33). "Es mi primera vez" → #4 y #5. Tras ingresar, #33 si el socio dio permiso de notificaciones.
+- **Sin mockup:** las pantallas de pedir y completar la activación.
+
+#### 6.2.2 Consultar disponibilidad (imagen 16) · RF-08
+
+- **Se ve:** título "Agendar consulta". "Especialidad (obligatorio)" (con "Cardiología" elegida), "Médico (opcional)" ("Todos"), "Desde" y "Hasta" (`dd/mm/aaaa`), "Orden: fecha más próxima ▾" y botón "Buscar". Sección "Números libres": tarjetas con "Mar 13/10/2026 · 09:20 – 09:40", "Dra. Apellido · Cardiología", "Consultorio 12 · Piso 2", etiqueta "Requiere pase" y botón "Agendar".
+- **Endpoints:** "Buscar" → #16 (`especialidadId` obligatorio, `medicoId`, `fechaDesde`, `fechaHasta`, `orden`: `fecha` o `apellidoMedico`). Selectores → #6 y #10. Cada tarjeta es un `NumeroDisponibleDTO`; "Requiere pase" es `especialidad.requierePase`.
+- **Coincide con el contrato:** `especialidadId` es obligatorio en el RF-08, en el CU 3.2.1 y en el mockup. El día abreviado ("Mar", "Mié") lo calcula el cliente. El estado vacío es el mensaje de CU 3.2.1, "No se encontraron turnos disponibles para los criterios seleccionados", que no está dibujado.
+- **No muestra:** el número dentro del turno (`numero`), que sí aparece en la pantalla siguiente.
+
+#### 6.2.3 Agendar consulta (imagen 10) · RF-09
+
+- **Se ve:** "← Confirmar consulta". "Resumen de la consulta": Especialidad, Médico, Fecha, "Hora del número" (09:20 – 09:40), Número (4) y Consultorio ("12 · Piso 2"). Recuadro "Pase": "Esta especialidad requiere pase. Se usará el pase a Cardiología, vigente hasta 12/12/2026. Se consume al confirmar." Recuadro "Tus consultas activas": "En total: 1 de 3. En Cardiología: 0 de 1." Error de ejemplo: "Otro socio agendó este número antes. Elija otro número disponible." Botones "Confirmar" y "Volver".
+- **Endpoints:** el resumen sale del `NumeroDisponibleDTO` elegido en #16. "Confirmar" → #17 con `numeroId` y `paseId`; los errores del recuadro son `409 NUMERO_NO_DISPONIBLE` y los demás de #17 (`LIMITE_TOTAL`, `LIMITE_ESPECIALIDAD`, `PASE_NO_VALIDO`, etc.).
+- **Brechas:** el recuadro "Pase" necesita conocer, antes de confirmar, qué pase usará el socio y hasta cuándo vale (P-08 y P-29). El recuadro "Tus consultas activas" necesita el conteo y los límites 3 y 1, que son parámetros del servidor y no vienen en ningún endpoint (P-29).
+
+#### 6.2.4 Consultar histórico de agendas (imagen 9) · RF-11
+
+- **Se ve:** título "Mis consultas". Campo "Buscar por especialidad o médico". Chips: "Todas", "Agendada", "Atendida", "Canceladas", "No asistió" y "Rango de fechas ▾". "Orden: más reciente primero ▾". Tarjetas: "13/10/2026 · 09:20" con el estado a la derecha ("Agendada", "Atendida", "No asistió", "Cancelada por la institución"), "Cardiología · Dra. Apellido" y "Consultorio 12 · Número 4 · ID 000123". La tarjeta cancelada solo muestra fecha, hora, especialidad y médico.
+- **Endpoints:** lista → #18 (`estado`, `fechaDesde`, `fechaHasta`, `especialidadId`, `medicoId`, `orden`: `fecha` o `especialidad`, `sentido`).
+- **Brechas:** el campo de búsqueda libre y el chip "Canceladas" (que agrupa dos estados) no tienen equivalente en #18; no hay chips para "No atendida" ni "No se presentó a la consulta"; la tarjeta cancelada no muestra consultorio ni número; no hay botón para cancelar ni pantalla de detalle (P-30, P-32).
+
+#### 6.2.5 Consultar historia clínica (imagen 21) · RF-12
+
+- **Se ve:** título "Mi historia clínica". Campo "Buscar en el tratamiento". Chips "Rango de fechas ▾", "Especialidad ▾" y "Médico ▾". "Orden: fecha ▾". Tarjetas plegables: "02/09/2026 · Medicina General · Dr. Apellido"; la abierta muestra AFECCIÓN, TRATAMIENTO, OBSERVACIONES y PASES EMITIDOS ("Pase a Cardiología · vigente hasta 12/12/2026"); las otras (11/06/2026 y 20/03/2026) están cerradas.
+- **Endpoints:** lista → #21 (`texto` es el campo de búsqueda; `fechaDesde`, `fechaHasta`, `especialidadId`, `medicoId`). Al desplegar una tarjeta → #22 (`afeccion`, `tratamiento`, `observaciones`, `pases[]` con `venceEl`).
+- **Brechas:** la tarjeta se despliega en la misma lista, y el contrato obliga a un pedido por tarjeta (P-31). Cuando una sección está vacía (`tratamiento` u `observaciones` en `null`), el mockup no dice qué se muestra.
+
+### 6.3 Resumen: pantalla por endpoint
+
+| Pantalla | RF | Endpoints |
 |---|---|---|
-| 6.1.1 Iniciar sesión (web, empleados) | 01, 02 | #1 (con `acceso: "EMPLEADO"`), #4 y #5 (primer ingreso), #2 y #3 (sesión) |
-| 6.1.2 Registrar aviso de llegada | 16 | #26 (buscar socio por CI y listar sus consultas de hoy), #27 (marcar llegada) |
-| 6.1.3 Alta de turno semanal | 13 | #10 (médicos con sus especialidades), #8 (consultorios), #6 (nombres de especialidad), #13 (guardar) |
-| 6.1.4 Consultar turnos, suspender y rehabilitar fechas | 14, 15, 17 | #15 (lista y selección), #14 (configuración semanal), #10 y #6 (filtros), #23 (confirmación previa), #24 (suspender), #25 (rehabilitar) |
-| 6.1.5 Consultar agendas | 18 | #28 (con refresco cada 15 s), #10 (filtro de médico) |
-| 6.1.6 Consultar turnos y pacientes de una fecha | 21 | #29 (turnos del día), #30 (números y pacientes, con refresco cada 15 s) |
-| 6.1.7 Registrar atención y emitir pases | 23, 24 | #31 (guardar), #6 (especialidades de destino de los pases) |
-| 6.1.8 Registrar y consultar usuarios | 31, 35 | #11 (alta), #12 (consulta), #6 (especialidades del médico) |
-| 6.1.9 Registrar especialidades y consultorios | 29, 33 | #7 y #9 (altas), #6 y #8 (listas) |
-| 6.1.10 Consultar estadísticas | 39, 40, 41 | #34, #35, #36 |
-| 6.2.1 Iniciar sesión y primer ingreso (móvil, socio) | 01, 02 | #1 (con `acceso: "SOCIO"`), #4, #5, #2, #3, #33 (registrar el dispositivo tras iniciar sesión, si el socio dio permiso) |
-| 6.2.2 Consultar disponibilidad | 08 | #16, #6 (especialidad obligatoria), #10 (médico) |
-| 6.2.3 Agendar consulta | 09 | #17 (confirmar). Los datos a confirmar vienen del resultado de #16; el pase, de #22 (P-07, P-08) |
-| 6.2.4 Consultar histórico de agendas | 11 | #18 (lista), #19 (detalle), #20 (cancelar, RF-10), #6 y #10 (filtros) |
-| 6.2.5 Consultar historia clínica | 12 | #21 (lista), #22 (detalle), #6 y #10 (filtros) |
-| Sin mockup: lista de notificaciones del socio | RNF-24 | #32 |
+| 6.1.1 Iniciar sesión (web, empleados) | 01, 02 | #1, #2, #3, #4, #5 |
+| 6.1.2 Registrar aviso de llegada | 16 | #26, #27 |
+| 6.1.3 Alta de turno semanal | 13 | #10, #8, #13 |
+| 6.1.4 Consultar turnos, suspender y rehabilitar | 14, 15, 17 | #15, #10, #6, #23, #24, #25 (#14 sin acceso dibujado) |
+| 6.1.5 Consultar agendas | 18 | #28, #10 |
+| 6.1.6 Turnos y pacientes de una fecha | 21 | #29, #30 |
+| 6.1.7 Registrar atención y emitir pases | 23, 24 | #31, #6 |
+| 6.1.8 Usuarios del padrón y alta | 31, 35 | #11, #12, #6 |
+| 6.1.9 Especialidades y consultorios | 29, 33 | #7, #9, #6, #8 |
+| 6.1.10 Estadísticas | 39, 40, 41 | #34, #35, #36 |
+| 6.2.1 Iniciar sesión y primer ingreso (móvil) | 01, 02 | #1, #2, #3, #4, #5, #33 |
+| 6.2.2 Consultar disponibilidad | 08 | #16, #6, #10 |
+| 6.2.3 Agendar consulta (confirmar) | 09 | #17 (y #22 para el pase, P-08) |
+| 6.2.4 Mis consultas | 11 | #18, #6, #10 (#19 y #20 sin pantalla dibujada) |
+| 6.2.5 Mi historia clínica | 12 | #21, #22, #6, #10 |
+| Sin pantalla en los mockups | RNF-24 | #32, #33 (el registro del dispositivo se hace al iniciar sesión) |
 
 ## 7. Correcciones y contradicciones resueltas
 
@@ -1818,9 +1938,20 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-14 | Notificaciones: ¿hay estado leído/no leído y cómo se marca (RF y modelo de datos no lo definen)? ¿Se listan los recordatorios aún no vencidos (`programada_para` futuro)? ¿Cuánto tiempo se conservan? ¿Se da de baja el token push al cerrar sesión o cuando otro socio inicia sesión en el mismo dispositivo (`token` es único)? RNF-24 habla de push en Android; ¿vale también el push web? | #32, #33 | lista todo sin estado de lectura; no da de baja el token. |
 | P-15 | RF-16 pide mostrar las consultas del día para confirmar al socio. ¿Se debe mostrar también su nombre y apellido para verificar que es la persona correcta? `List<ConsultaDTO>` no los trae. | #26 | muestra solo las consultas. |
 | P-16 | ¿Qué médicos lista #10: solo activos (RF-13), o también inactivos para filtrar turnos históricos o suspendidos (RF-17, RF-45)? ¿Un socio ve a todos los médicos activos o solo a los que tienen números ofrecidos? | #10, #15, #16 | muestra solo médicos activos. |
-| P-17 | Formato de la CI en el cable: solo dígitos (propuesta) o con puntos y guion. ¿Quién normaliza? | #1, #4, #11, #26, #27, #28 | envía solo dígitos. |
+| P-17 | Formato de la CI en el cable: solo dígitos (propuesta) o con puntos y guion. ¿Quién normaliza? Los mockups piden "Sin puntos ni guiones" en los campos de CI, pero no definen el formato en el cable. | #1, #4, #11, #26, #27, #28 | envía solo dígitos. |
 | P-18 | Longitud máxima de los textos libres: afección, tratamiento, observaciones, observación de la suspensión, dirección. Ningún documento la fija. | #5, #24, #31 | no limita más que lo razonable en pantalla. |
 | P-19 | Valores por defecto y máximos de `size`. | todos los listados paginados | usa 20 y máximo 100. |
 | P-20 | Duración y vigencia del JWT del lado del cliente: ¿se incluye `expiresIn` en la respuesta de sesión? Hoy el cliente solo conoce los 15 minutos por arquitectura 8.3. | #1, #2 | renueva ante el primer `401`. |
 | P-21 | ¿Se aplican las mismas reglas de tiempo de respuesta al login para cuentas inexistentes y existentes (para que el tiempo no revele nada)? Es una exigencia de implementación, no de interfaz. | #1 | no depende de eso. |
 | P-22 | La respuesta de sesión usa `role` por compatibilidad con el cliente actual, el resto usa `rol` (como las RF). ¿Se unifica? | #1, #2 | lee `role` en la sesión. |
+| P-23 | ¿Cómo se enteran el cliente web y el Android de que algo cambió (una consulta cancelada o suspendida, una notificación nueva, un aviso de llegada) fuera de los 15 s de arquitectura 8.5? RNF-24 y RNF-26 prevén correo, notificación interna y push Android, pero no definen cómo se refresca la lista del socio ni qué recibe la web, que no tiene push (RNF-24 lo limita a Android). | #28, #30, #32 | consulta cada 15 s solo en #28 y #30; #32 solo se consulta al abrir la lista. |
+| P-24 | La pantalla de aviso de llegada (6.1.2) muestra el **nombre, el apellido y la CI del socio**, "Socio" y "Hoy 13/10/2026" antes de registrar, y el estado alternativo "El socio ya registró su llegada hoy a las 08:55 (Funcionario X)". `obtenerConsultasHoy(ci): List<ConsultaDTO>` no trae al socio ni dice si ya hay aviso; el aviso existente solo se conoce después de #27. Amplía P-15. La fecha de hoy ¿la toma el cliente de su reloj o del servidor (hora de Uruguay)? | #26, #27 | muestra solo las consultas, usa el reloj del dispositivo para "Hoy" y el `200` de #27 para el estado alternativo. |
+| P-25 | Los mockups escriben "Dra. Apellido" y "Dr. Apellido" para los médicos (6.1.2, 6.1.4, 6.1.5, 6.1.6, 6.2.2 a 6.2.5). El modelo de datos no tiene ningún dato que indique el tratamiento (Persona solo tiene nombre, apellido y fecha de nacimiento). | #10, #16, #18, #21, #28, #29, #30 | muestra "nombre apellido" sin título. |
+| P-26 | Suspender y rehabilitar (6.1.4): la pantalla permite marcar filas de médicos y especialidades distintos, con los filtros en "Todos" y fechas vacías, y no tiene "seleccionar todos". `FiltroFechasDTO` (`medicoId`, `especialidadId`, `fechaDesde`, `fechaHasta`, los cuatro obligatorios en #23 a #25) supone una sola combinación. ¿El filtro es opcional, o el cliente debe agrupar la selección y hacer un pedido por médico y especialidad? Complementa P-12. | #23, #24, #25 | exige que la selección sea de un solo médico y una sola especialidad, y envía como rango el menor y el mayor `fecha` seleccionados. |
+| P-27 | Registrar atención (6.1.7): la pantalla muestra "vence 11/01/2027" **antes de guardar** el pase, y el contrato solo envía `vigenciaDias`. ¿Desde cuándo cuenta la vigencia y el día de emisión entra o no? Además, la regla "no se puede emitir un pase si el socio ya tiene uno vigente o una consulta agendada en esa especialidad" no se puede comprobar antes de guardar: no hay endpoint para eso, y el `409 PASE_DUPLICADO` llega al finalizar. | #31 | calcula el vencimiento como hoy más `vigenciaDias` solo para mostrarlo, y deja la validación al servidor. |
+| P-28 | La tabla de pacientes (6.1.6) tiene "Ver atención" para consultas `ATENDIDA`. RF-25 (consultas atendidas por el médico) y RF-22 (historia clínica previa) quedaron fuera del contrato (sección 8) y no hay endpoint que devuelva una atención a un médico. | #30 | no muestra "Ver atención". |
+| P-29 | Confirmar consulta (6.2.3): "En total: 1 de 3. En Cardiología: 0 de 1." necesita el conteo de consultas activas y los **límites** (3 y 1), que son parámetros del servidor (3.1.3) y no viajan en ningún endpoint. "Se usará el pase a Cardiología, vigente hasta 12/12/2026" necesita el pase y su vencimiento antes de confirmar (ver P-07 y P-08). | #17, #18, #22 | cuenta las consultas `AGENDADA` de #18 cuyo día no terminó, no muestra los límites y no muestra el recuadro de pase si no conoce uno. |
+| P-30 | Mis consultas (6.2.4) tiene: búsqueda libre "especialidad o médico"; el chip "Canceladas", que agrupa `CANCELADA_SOCIO` y `CANCELADA_INSTITUCION`; chips para `AGENDADA`, `ATENDIDA` y `NO_ASISTIO` pero ninguno para `NO_ATENDIDA` ni `NO_SE_PRESENTO`; y tarjetas canceladas sin consultorio ni número. #18 solo admite un estado exacto, ids de especialidad y médico y devuelve siempre consultorio y número. ¿Se agrega búsqueda por texto y un filtro de varios estados? ¿La tarjeta cancelada oculta consultorio y número a propósito? Tampoco se dibuja cómo se cancela una consulta (RF-10). | #18, #20 | pide cada estado por separado y junta las dos canceladas en el cliente; filtra por texto en el cliente sobre la página recibida; ofrece cancelar solo desde la tarjeta de una `AGENDADA`. |
+| P-31 | Historia clínica (6.2.5): la tarjeta se despliega en la lista con afección, tratamiento, observaciones y pases. #21 no trae el contenido clínico, así que desplegar una tarjeta es un pedido a #22 y la lista de N atenciones puede hacer N pedidos. ¿La lista debe traer el contenido? ¿Qué se muestra si `tratamiento` u `observaciones` vienen vacíos? | #21, #22 | pide #22 al desplegar cada tarjeta, una vez, y oculta la sección vacía. |
+| P-32 | Cosas del contrato que ninguna pantalla dibuja: #14 (configuración semanal, sin acceso desde 6.1.4); #19 (detalle de consulta, las tarjetas de 6.2.4 ya traen todo); #20 (sin botón de cancelar); #32 y #33 (sin pantalla de notificaciones ni de permiso de push); paginación de #12, #15, #18, #21 y #28 (ningún mockup tiene paginador); `orden` y `sentido` de #12 y #28; `cantidadPases` de #21; `cantidadReservados` de #29. Y a la inversa, hay un círculo sin rótulo arriba a la derecha de las pantallas móviles: ¿es perfil, notificaciones, otro? | #12, #14, #15, #18 a #21, #28, #29, #32, #33 | usa los parámetros por defecto, sin controles de paginación ni de orden, hasta que se definan las pantallas. |
+| P-33 | Los textos de los mockups están en **usted** ("Revise su cédula y contraseña", "Elija otro número disponible") y los mensajes de este contrato están en **vos** ("Elegí otro", "Pedí uno nuevo", "No podés registrar"). Los mockups dan además textos exactos: login ("Los datos ingresados no son correctos. Revise su cédula y contraseña."), aviso ("El socio no tiene consultas agendadas para hoy.", "No puede registrar su propio aviso de llegada.") y agenda ("Otro socio agendó este número antes. Elija otro número disponible."). ¿Qué registro y qué textos devuelve el servidor en `message`? | todos los `message` | muestra el `message` tal como llega. |
