@@ -97,7 +97,7 @@ Se adopta una arquitectura de monolito modular. Los controladores HTTP exponen l
 
 ## 2.1. Vista general de servicios
 
-<img src="media/image17.png" style="width:6.34698in;height:2.59494in" />
+<img src="imagenes/diseno/image17.png" style="width:6.34698in;height:2.59494in" />
 
 *Figura 1. Componentes principales y dependencias del backend.*
 
@@ -111,7 +111,7 @@ Las siguientes figuras presentan en forma separada los subsistemas del backend. 
 
 ### 2.2.1. Autenticación y seguridad
 
-<img src="media/image19.png" style="width:6.34641in;height:3.4477in" />
+<img src="imagenes/diseno/image19.png" style="width:6.34641in;height:3.4477in" />
 
 *Figura 2. Clases de autenticación y gestión de sesiones.*
 
@@ -129,7 +129,7 @@ SesionRepository y EnlaceCuentaRepository: Conservan los hashes de credenciales 
 
 ### 2.2.2. Usuarios y cuentas
 
-<img src="media/image25.png" style="width:6.34722in;height:2.89531in" />
+<img src="imagenes/diseno/image25.png" style="width:6.34722in;height:2.89531in" />
 
 *Figura 3. Clases de gestión de identidad y padrón.*
 
@@ -145,7 +145,7 @@ PersonaRepository / CuentaRepository: Aseguran la persistencia de identidad y cr
 
 ### 2.2.3. Planificación de turnos
 
-<img src="media/image26.png" style="width:6.34722in;height:5.49508in" />
+<img src="imagenes/diseno/image26.png" style="width:6.34722in;height:5.49508in" />
 
 *Figura 4. Clases de planificación semanal y turnos concretos.*
 
@@ -163,7 +163,7 @@ TurnoRepository: Guarda el patrón y las instancias manteniendo el consultorio h
 
 ### 2.2.4. Consultas y avisos de llegada
 
-<img src="media/image24.png" style="width:6.34615in;height:6.5033in" />
+<img src="imagenes/diseno/image24.png" style="width:6.34615in;height:6.5033in" />
 
 *Figura 5. Clases de agenda, cancelaciones y avisos de llegada.*
 
@@ -181,7 +181,7 @@ AvisoLlegada: Registra presencia única del socio en una fecha, aplicable a toda
 
 ### 2.2.5. Atención clínica y pases
 
-<img src="media/image29.png" style="width:6.34704in;height:2.84884in" />
+<img src="imagenes/diseno/image29.png" style="width:6.34704in;height:2.84884in" />
 
 *Figura 6. Clases de atención, historia clínica y pases.*
 
@@ -199,7 +199,7 @@ AtencionRepository y PaseRepository: Persisten el resultado y sus autorizaciones
 
 ### 2.2.6. Contratos entre módulos
 
-<img src="media/image32.png" style="width:6.34722in;height:2.20359in" />
+<img src="imagenes/diseno/image32.png" style="width:6.34722in;height:2.20359in" />
 
 *Figura 7. Contrato ConsultasDelTurno y dependencias de cancelación.*
 
@@ -213,7 +213,7 @@ CancelacionService: Implementa las operaciones de cancelación, conserva el hist
 
 ### 2.2.7. Notificaciones y estadísticas
 
-<img src="media/image44.png" style="width:6.34722in;height:3.72634in" />
+<img src="imagenes/diseno/image44.png" style="width:6.34722in;height:3.72634in" />
 
 *Figura 8. Clases de mensajería y consultas estadísticas.*
 
@@ -233,7 +233,7 @@ EstadisticaRepository: Ejecuta consultas SQL agregadas y filtradas.
 
 Se incorporan las clases que participaban en secuencias pero no aparecían explícitas en los diagramas de clases. Las relaciones de dependencia corresponden a interfaces y operaciones del backend, sin crear responsabilidades ajenas al subsistema.
 
-<img src="media/image27.png" style="width:6.15in;height:2.53358in" />
+<img src="imagenes/diseno/image27.png" style="width:6.15in;height:2.53358in" />
 
 Figura 9. Clases auxiliares, repositorios y métodos que completan las dependencias de las secuencias.
 
@@ -288,7 +288,7 @@ Se incorporan además las cancelaciones realizadas por socio, funcionario y méd
 
 Actor: Todos los roles \| Requerimiento: RF-01 \| Subsistema: auth / security
 
-<img src="media/image43.png" style="width:6.26389in;height:3.3046in" />
+<img src="imagenes/diseno/image43.png" style="width:6.26389in;height:3.3046in" />
 
 *Diagrama de secuencia S01 · CU 3.1.1 - Iniciar sesión*
 
@@ -302,7 +302,7 @@ Actor: Todos los roles \| Requerimiento: RF-01 \| Subsistema: auth / security
 
 Actor: Socio o empleado \| Requerimiento: RF-02 \| Subsistema: auth / usuario
 
-<img src="media/image45.png" style="width:6.26389in;height:4.76938in" />
+<img src="imagenes/diseno/image45.png" style="width:6.26389in;height:4.76938in" />
 
 *Diagrama de secuencia S02 · CU 3.1.2 - Primer ingreso*
 
@@ -318,7 +318,7 @@ Actor: Socio o empleado \| Requerimiento: RF-02 \| Subsistema: auth / usuario
 
 Actor: Socio \| Requerimiento: RF-08 \| Subsistema: consulta / turno
 
-<img src="media/image31.png" style="width:6.26389in;height:2.71183in" />
+<img src="imagenes/diseno/image31.png" style="width:6.26389in;height:2.71183in" />
 
 *Diagrama de secuencia S03 · CU 3.2.1 - Consultar disponibilidad*
 
@@ -332,7 +332,7 @@ Actor: Socio \| Requerimiento: RF-08 \| Subsistema: consulta / turno
 
 Actor: Socio \| Requerimiento: RF-09 \| Subsistema: consulta / pase
 
-<img src="media/image48.png" style="width:6.26389in;height:3.83971in" />
+<img src="imagenes/diseno/image48.png" style="width:6.26389in;height:3.83971in" />
 
 *Diagrama de secuencia S04 · CU 3.2.2 - Agendar consulta*
 
@@ -348,7 +348,7 @@ Concurrencia adicional. La transacción de agendar y la de suspender adquieren e
 
 Actor: Socio \| Requerimiento: RF-11 \| Subsistema: consulta
 
-<img src="media/image47.png" style="width:6.26389in;height:2.82281in" />
+<img src="imagenes/diseno/image47.png" style="width:6.26389in;height:2.82281in" />
 
 *Diagrama de secuencia S05 · CU 3.2.3 - Consultar historial de agendas*
 
@@ -362,7 +362,7 @@ Actor: Socio \| Requerimiento: RF-11 \| Subsistema: consulta
 
 Actor: Socio \| Requerimiento: RF-12 \| Subsistema: atencion
 
-<img src="media/image33.png" style="width:6.26389in;height:2.86558in" />
+<img src="imagenes/diseno/image33.png" style="width:6.26389in;height:2.86558in" />
 
 *Diagrama de secuencia S06 · CU 3.2.4 - Consultar historia clínica*
 
@@ -376,7 +376,7 @@ Actor: Socio \| Requerimiento: RF-12 \| Subsistema: atencion
 
 Actor: Socio \| Requerimiento: RF-10 \| Subsistema: consulta / pase
 
-<img src="media/image34.png" style="width:6.26389in;height:2.86177in" />
+<img src="imagenes/diseno/image34.png" style="width:6.26389in;height:2.86177in" />
 
 *Diagrama de secuencia S23 · RF-10 - Cancelar por el socio*
 
@@ -392,7 +392,7 @@ Actor: Socio \| Requerimiento: RF-10 \| Subsistema: consulta / pase
 
 Actor: Funcionario \| Requerimiento: RF-13 \| Subsistema: turno
 
-<img src="media/image40.png" style="width:6.26389in;height:3.45521in" />
+<img src="imagenes/diseno/image40.png" style="width:6.26389in;height:3.45521in" />
 
 *Diagrama de secuencia S07 · CU 3.3.1 - Alta de turno semanal*
 
@@ -406,7 +406,7 @@ Actor: Funcionario \| Requerimiento: RF-13 \| Subsistema: turno
 
 Actor: Funcionario \| Requerimiento: RF-14 \| Subsistema: turno / consulta
 
-<img src="media/image38.png" style="width:6.26389in;height:4.7182in" />
+<img src="imagenes/diseno/image38.png" style="width:6.26389in;height:4.7182in" />
 
 *Diagrama de secuencia S08 · CU 3.3.2 - Suspender fechas*
 
@@ -420,7 +420,7 @@ Actor: Funcionario \| Requerimiento: RF-14 \| Subsistema: turno / consulta
 
 Actor: Funcionario \| Requerimiento: RF-15 \| Subsistema: turno
 
-<img src="media/image46.png" style="width:6.26389in;height:3.60226in" />
+<img src="imagenes/diseno/image46.png" style="width:6.26389in;height:3.60226in" />
 
 *Diagrama de secuencia S09 · CU 3.3.3 - Rehabilitar fechas*
 
@@ -434,7 +434,7 @@ Actor: Funcionario \| Requerimiento: RF-15 \| Subsistema: turno
 
 Actor: Funcionario \| Requerimiento: RF-16 \| Subsistema: consulta
 
-<img src="media/image20.png" style="width:6.26389in;height:4.37459in" />
+<img src="imagenes/diseno/image20.png" style="width:6.26389in;height:4.37459in" />
 
 *Diagrama de secuencia S10 · CU 3.3.4 - Registrar aviso de llegada*
 
@@ -450,7 +450,7 @@ Verificación adicional. Para crear la llegada se consulta ConsultaRepository.bu
 
 Actor: Funcionario \| Requerimiento: RF-17 \| Subsistema: turno
 
-<img src="media/image37.png" style="width:6.26389in;height:2.59184in" />
+<img src="imagenes/diseno/image37.png" style="width:6.26389in;height:2.59184in" />
 
 *Diagrama de secuencia S11 · CU 3.3.5 - Consultar turnos*
 
@@ -464,7 +464,7 @@ Actor: Funcionario \| Requerimiento: RF-17 \| Subsistema: turno
 
 Actor: Funcionario \| Requerimiento: RF-18 \| Subsistema: consulta
 
-<img src="media/image18.png" style="width:6.26389in;height:2.90485in" />
+<img src="imagenes/diseno/image18.png" style="width:6.26389in;height:2.90485in" />
 
 *Diagrama de secuencia S12 · CU 3.3.6 - Consultar agendas*
 
@@ -478,7 +478,7 @@ Actor: Funcionario \| Requerimiento: RF-18 \| Subsistema: consulta
 
 Actor: Funcionario \| Requerimiento: RF-19 \| Subsistema: consulta / pase
 
-<img src="media/image28.png" style="width:6.26389in;height:2.33737in" />
+<img src="imagenes/diseno/image28.png" style="width:6.26389in;height:2.33737in" />
 
 *Diagrama de secuencia S24 · RF-19 - Cancelar por funcionario*
 
@@ -494,7 +494,7 @@ Actor: Funcionario \| Requerimiento: RF-19 \| Subsistema: consulta / pase
 
 Actor: Médico \| Requerimiento: RF-21 \| Subsistema: turno / consulta
 
-<img src="media/image12.png" style="width:6.26389in;height:2.33266in" />
+<img src="imagenes/diseno/image12.png" style="width:6.26389in;height:2.33266in" />
 
 *Diagrama de secuencia S13 · CU 3.4.1 - Turnos y pacientes de una fecha*
 
@@ -508,7 +508,7 @@ Actor: Médico \| Requerimiento: RF-21 \| Subsistema: turno / consulta
 
 Actor: Médico \| Requerimiento: RF-23 \| Subsistema: atencion / consulta
 
-<img src="media/image15.png" style="width:6.26389in;height:3.10271in" />
+<img src="imagenes/diseno/image15.png" style="width:6.26389in;height:3.10271in" />
 
 *Diagrama de secuencia S14 · CU 3.4.2 - Registrar resultado*
 
@@ -524,7 +524,7 @@ Secuencia alternativa explícita. ATENDIDA requiere afección y, si existen, pas
 
 Actor: Médico \| Requerimiento: RF-24 \| Subsistema: atencion / pase
 
-<img src="media/image49.png" style="width:6.26389in;height:3.00613in" />
+<img src="imagenes/diseno/image49.png" style="width:6.26389in;height:3.00613in" />
 
 *Diagrama de secuencia S15 · CU 3.4.3 - Registrar pases*
 
@@ -538,7 +538,7 @@ Actor: Médico \| Requerimiento: RF-24 \| Subsistema: atencion / pase
 
 Actor: Médico \| Requerimiento: RF-27 \| Subsistema: consulta / turno
 
-<img src="media/image41.png" style="width:6.26389in;height:4.01266in" />
+<img src="imagenes/diseno/image41.png" style="width:6.26389in;height:4.01266in" />
 
 *Diagrama de secuencia S25 · RF-27 - Cancelación por médico*
 
@@ -554,7 +554,7 @@ Actor: Médico \| Requerimiento: RF-27 \| Subsistema: consulta / turno
 
 Actor: Administrador \| Requerimiento: RF-29 \| Subsistema: especialidad
 
-<img src="media/image11.png" style="width:6.26389in;height:3.23608in" />
+<img src="imagenes/diseno/image11.png" style="width:6.26389in;height:3.23608in" />
 
 *Diagrama de secuencia S16 · CU 3.5.1 - Alta individual de especialidades*
 
@@ -570,7 +570,7 @@ Concurrencia adicional. Un índice UNIQUE sobre la clave normalizada de especial
 
 Actor: Administrador \| Requerimiento: RF-31 \| Subsistema: usuario
 
-<img src="media/image23.png" style="width:6.26389in;height:3.77177in" />
+<img src="imagenes/diseno/image23.png" style="width:6.26389in;height:3.77177in" />
 
 *Diagrama de secuencia S17 · CU 3.5.2 - Alta individual de usuarios*
 
@@ -584,7 +584,7 @@ Actor: Administrador \| Requerimiento: RF-31 \| Subsistema: usuario
 
 Actor: Administrador \| Requerimiento: RF-33 \| Subsistema: consultorio
 
-<img src="media/image36.png" style="width:6.26389in;height:3.55024in" />
+<img src="imagenes/diseno/image36.png" style="width:6.26389in;height:3.55024in" />
 
 *Diagrama de secuencia S18 · CU 3.5.3 - Alta individual de consultorios*
 
@@ -600,7 +600,7 @@ Concurrencia adicional. El nombre y/o número único normalizados se protegen me
 
 Actor: Administrador \| Requerimiento: RF-35 \| Subsistema: usuario
 
-<img src="media/image42.png" style="width:6.26389in;height:2.906in" />
+<img src="imagenes/diseno/image42.png" style="width:6.26389in;height:2.906in" />
 
 *Diagrama de secuencia S19 · CU 3.5.4 - Consultar usuarios*
 
@@ -614,7 +614,7 @@ Actor: Administrador \| Requerimiento: RF-35 \| Subsistema: usuario
 
 Actor: Administrador \| Requerimiento: RF-39 \| Subsistema: estadistica
 
-<img src="media/image22.png" style="width:6.26389in;height:2.43825in" />
+<img src="imagenes/diseno/image22.png" style="width:6.26389in;height:2.43825in" />
 
 *Diagrama de secuencia S20 · CU 3.5.5 - Estadísticas por especialidad*
 
@@ -628,7 +628,7 @@ Actor: Administrador \| Requerimiento: RF-39 \| Subsistema: estadistica
 
 Actor: Administrador \| Requerimiento: RF-40 \| Subsistema: estadistica
 
-<img src="media/image30.png" style="width:6.26389in;height:4.22772in" />
+<img src="imagenes/diseno/image30.png" style="width:6.26389in;height:4.22772in" />
 
 *Diagrama de secuencia S21 · CU 3.5.6 - Estadísticas por turno*
 
@@ -642,7 +642,7 @@ Actor: Administrador \| Requerimiento: RF-40 \| Subsistema: estadistica
 
 Actor: Administrador \| Requerimiento: RF-41 \| Subsistema: estadistica
 
-<img src="media/image13.png" style="width:6.26389in;height:3.06914in" />
+<img src="imagenes/diseno/image13.png" style="width:6.26389in;height:3.06914in" />
 
 *Diagrama de secuencia S22 · CU 3.5.7 - Estadísticas de consultas*
 
@@ -762,7 +762,7 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-01, RF-02*
 
-<img src="media/image14.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image14.png" style="width:6.3499in;height:3.77083in" />
 
 <u>Funcionalidades del funcionario</u>
 
@@ -770,25 +770,25 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-16*
 
-<img src="media/image6.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image6.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.3. Alta de turno semanal
 
 *Cubre: RF-13*
 
-<img src="media/image5.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image5.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.4. Consultar turnos, suspender y rehabilitar fechas
 
 *Cubre: RF-14, RF-15, RF-17*
 
-<img src="media/image35.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image35.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.5. Consultar agendas
 
 *Cubre: RF-18*
 
-<img src="media/image8.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image8.png" style="width:6.3499in;height:3.77083in" />
 
 <u>Funcionalidades del médico</u>
 
@@ -796,13 +796,13 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-21*
 
-<img src="media/image4.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image4.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.7. Registrar atención y emitir pases
 
 *Cubre: RF-23, RF-24*
 
-<img src="media/image3.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image3.png" style="width:6.3499in;height:3.77083in" />
 
 <u>Funcionalidades del administrador</u>
 
@@ -810,19 +810,19 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-31, RF-35*
 
-<img src="media/image39.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image39.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.9. Registrar especialidades y consultorios
 
 *Cubre: RF-29, RF-33*
 
-<img src="media/image1.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image1.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.10. Consultar estadísticas
 
 *Cubre: RF-39, RF-40, RF-41*
 
-<img src="media/image7.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image7.png" style="width:6.3499in;height:3.77083in" />
 
 ## 6.2. Mobile
 
@@ -832,28 +832,28 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-01, RF-02*
 
-<img src="media/image2.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image2.png" style="width:2.72917in;height:5.9062in" />
 
 ### 6.2.2. Consultar disponibilidad
 
 *Cubre: RF-08*
 
-<img src="media/image16.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image16.png" style="width:2.72917in;height:5.9062in" />
 
 ### 6.2.3. Agendar consulta
 
 *Cubre: RF-09*
 
-<img src="media/image10.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image10.png" style="width:2.72917in;height:5.9062in" />
 
 ### 6.2.4. Consultar histórico de agendas
 
 *Cubre: RF-11*
 
-<img src="media/image9.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image9.png" style="width:2.72917in;height:5.9062in" />
 
 ### 6.2.5. Consultar historia clínica
 
 *Cubre: RF-12*
 
-<img src="media/image21.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image21.png" style="width:2.72917in;height:5.9062in" />

@@ -150,23 +150,23 @@ En esta sección se mostrarán los diagramas de todos los casos de uso y sus act
 
 ## 2.1. Casos de uso comunes entre todos los usuarios 
 
-<img src="media/image4.png" style="width:5.01059in;height:4.43009in" />
+<img src="imagenes/casos-de-uso/image4.png" style="width:5.01059in;height:4.43009in" />
 
 ## 2.2. Casos de uso del Socio
 
-## <img src="media/image5.png" style="width:4.63573in;height:3.46134in" />
+## <img src="imagenes/casos-de-uso/image5.png" style="width:4.63573in;height:3.46134in" />
 
 ## 2.3. Casos de uso del Funcionario
 
-<img src="media/image1.png" style="width:4.625in;height:3.72569in" />
+<img src="imagenes/casos-de-uso/image1.png" style="width:4.625in;height:3.72569in" />
 
 ## 2.4. Casos de uso del Médico
 
-<img src="media/image2.png" style="width:4.625in;height:3.72569in" />
+<img src="imagenes/casos-de-uso/image2.png" style="width:4.625in;height:3.72569in" />
 
 ## 2.5. Casos de uso del Administrador
 
-<img src="media/image3.png" style="width:6.70938in;height:5.72176in" />
+<img src="imagenes/casos-de-uso/image3.png" style="width:6.70938in;height:5.72176in" />
 
 #  Casos de uso críticos
 

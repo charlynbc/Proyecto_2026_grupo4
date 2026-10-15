@@ -36,7 +36,7 @@ El diagrama ofrece una vista general; la tabla y la descripción que siguen expl
 
 Figura 1. Diagrama UML del modelo de dominio.
 
-<img src="media/image1.png" style="width:6.25in;height:6.29921in" />
+<img src="imagenes/modelo-de-dominio/image1.png" style="width:6.25in;height:6.29921in" />
 
 ## 1.2. Conceptos y relaciones
 

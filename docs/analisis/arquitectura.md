@@ -117,7 +117,7 @@ La arquitectura se apoya en 45 RF, de los cuales 22 son críticos, y 29 RNF. RF-
 
 Cliente-servidor de tres niveles y monolito modular. Un único backend Java 25/Spring Boot 4.1 expone una API REST por HTTPS para web y Android. Las reglas de negocio y el acceso a PostgreSQL residen exclusivamente en el servidor. Cada módulo funcional agrupa controlador, servicios de negocio, repositorio y DTO; las dependencias entre módulos deben ser acíclicas.
 
-<img src="media/image3.png" style="width:4.6in;height:5.89783in" />
+<img src="imagenes/arquitectura/image3.png" style="width:4.6in;height:5.89783in" />
 
 Figura A1. Organización lógica en capas.
 
@@ -247,7 +247,7 @@ AuthController → AuthService → UsuarioService/UsuarioRepository y SesionRepo
 
 ConsultaController → DisponibilidadService/AgendaService → TurnoService, PaseService, ParametroService y repositorios del módulo consulta. La consulta de disponibilidad no reserva nada. Al confirmar, AgendaService vuelve a verificar todas las condiciones y persiste dentro de una transacción. La exclusividad la respalda un índice único parcial sobre Consulta.id_numero. Para los límites por socio se serializa la validación bloqueando la identidad correspondiente.
 
-<img src="media/image2.png" style="width:2.83509in;height:3.94271in" />
+<img src="imagenes/arquitectura/image2.png" style="width:2.83509in;height:3.94271in" />
 
 Figura A2. Transacción de agendamiento y separación de entrega externa.
 
@@ -273,7 +273,7 @@ UsuarioService, EspecialidadService y ConsultorioService aplican altas individua
 
 Cada paquete funcional contiene clases Controller, Service, Repository y DTO; los controladores no consultan repositorios. Los servicios establecen @Transactional y se coordinan mediante interfaces públicas de otros módulos. Los repositorios usan JdbcTemplate con SQL parametrizado y no aplican reglas de autorización. config, security y exception son transversales. La API devuelve JSON UTF-8 y fechas ISO 8601.
 
-<img src="media/image1.png" style="width:6.5in;height:3.93481in" />
+<img src="imagenes/arquitectura/image1.png" style="width:6.5in;height:3.93481in" />
 
 Figura A3. Dependencias principales (esquema simplificado, no exhaustivo).
 
@@ -362,7 +362,7 @@ La API soporta filtros por fecha, turno, médico y llegada. El cliente consulta 
 
 # 9. Vista física y operativa
 
-<img src="media/image4.png" style="width:6.55in;height:1.71963in" />
+<img src="imagenes/arquitectura/image4.png" style="width:6.55in;height:1.71963in" />
 
 Figura A4. Despliegue del prototipo.
 

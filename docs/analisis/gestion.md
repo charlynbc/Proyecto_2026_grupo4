@@ -124,7 +124,7 @@ Se prevé un margen para completar pendientes de implementación durante las pri
 
 ## 4.1. Diagrama de Gantt estimado
 
-<img src="media/image1.png" style="width:6.26384in;height:3.58431in" />
+<img src="imagenes/gestion/image1.png" style="width:6.26384in;height:3.58431in" />
 
 ## 4.2. Seguimiento del cronograma
 

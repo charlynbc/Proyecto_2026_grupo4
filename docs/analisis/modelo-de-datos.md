@@ -62,13 +62,13 @@ Las vistas pertenecen a un único esquema relacional. Una entidad identificada c
 
 ## 2.1. Cómo leer el MER
 
-<img src="media/image2.png" style="width:5.51181in;height:6.5629in" />
+<img src="imagenes/modelo-de-datos/image2.png" style="width:5.51181in;height:6.5629in" />
 
 Figura 1. Claves, cardinalidades y referencias del MER.
 
 ## 2.2. Identidad, cuentas y acceso
 
-<img src="media/image4.png" style="width:6.71198in;height:4.66827in" />
+<img src="imagenes/modelo-de-datos/image4.png" style="width:6.71198in;height:4.66827in" />
 
 Figura 2. Identidad, cuentas y acceso.
 
@@ -78,7 +78,7 @@ Persona conserva la identidad común, con la CI como clave primaria. Cuenta reú
 
 ## 2.3. Planificación semanal y fechas concretas
 
-<img src="media/image6.png" style="width:6.65729in;height:4.63993in" />
+<img src="imagenes/modelo-de-datos/image6.png" style="width:6.65729in;height:4.63993in" />
 
 Figura 3. Planificación semanal y fechas concretas.
 
@@ -86,7 +86,7 @@ El patrón semanal define números y franjas; Turno y Numero conservan sus insta
 
 ## 2.4. Consultas, atención y pases
 
-<img src="media/image5.png" style="width:6.62344in;height:4.60761in" />
+<img src="imagenes/modelo-de-datos/image5.png" style="width:6.62344in;height:4.60761in" />
 
 Figura 4. Consultas, atención y pases.
 
@@ -94,7 +94,7 @@ Consulta conserva la reserva y su resultado. Atencion registra los datos clínic
 
 ## 2.5. Aviso de llegada y responsables de acciones
 
-<img src="media/image1.png" style="width:6.40469in;height:4.46111in" />
+<img src="imagenes/modelo-de-datos/image1.png" style="width:6.40469in;height:4.46111in" />
 
 Figura 5. Aviso de llegada y responsables de acciones.
 
@@ -102,7 +102,7 @@ AvisoLlegada se registra una vez por socio y día. TurnoEvento conserva suspensi
 
 ## 2.6. Cartelera y notificaciones
 
-<img src="media/image3.png" style="width:6.43073in;height:4.4811in" />
+<img src="imagenes/modelo-de-datos/image3.png" style="width:6.43073in;height:4.4811in" />
 
 Figura 6. Cartelera y notificaciones.
 
