@@ -1889,15 +1889,15 @@ Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis
 
 ## 7. Correcciones y contradicciones resueltas
 
-### 7.1 Correcciones a las rutas de partida
+### 7.1 Decisiones sobre rutas y campos
 
-Las rutas de partida se mantuvieron todas tal cual. Cambios en el contenido:
+Las rutas que propone este contrato se detallan en la sección 3. Decisiones sobre su contenido:
 
 1. **`POST /api/consultas`:** el cuerpo usa `numeroId` y `paseId?` (no `idNumero` e `idPase?`), que son los nombres de la firma `agendar(socioId, numeroId, paseId?)` del Diseño 2.3. Se aplicó la misma regla a todo el contrato: referencias como `<entidad>Id`.
-2. **Login y refresh:** la respuesta mantiene `role` como se pidió; es la única excepción a `rol` (P-22). El refresh devuelve la misma forma que el login.
+2. **Login y refresh:** la respuesta mantiene `role` por compatibilidad con el cliente actual (P-22); es la única excepción a `rol`. El refresh devuelve la misma forma que el login.
 3. **`primer-ingreso/solicitar`:** "siempre 202" vale para todo pedido bien formado. Un pedido mal formado (falta un campo) recibe `400 VALIDACION` porque no depende de la CI ni de su existencia.
 4. **Suspensiones:** el Diseño exige volver a pedir confirmación si la cantidad de consultas cambió entre la previsualización y la confirmación (S08). Por eso #24 lleva `cantidadConsultasConfirmada` y puede responder `409 CONFIRMACION_DESACTUALIZADA`.
-5. **Médico:** el Diseño define una sola operación `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO`. Se mantienen los dos endpoints pedidos, #29 y #30, como una división de ese DTO (la justificación está en #29).
+5. **Médico:** el Diseño define una sola operación `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO`. Se parte la operación del Diseño en dos pedidos, #29 y #30, para seguir el flujo del CU 3.4.1.
 6. **Consultas de hoy:** `GET /api/avisos-llegada/consultas-hoy?ci=` devuelve solo `AGENDADA` de hoy. Con la CI del propio funcionario responde `403 CONFLICTO_DE_INTERES` ya en la búsqueda, no recién al marcar (CU 3.3.4, paso 3).
 
 ### 7.2 Contradicciones entre documentos
