@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Configuración de arranque. Se define al compilar o correr con
@@ -20,3 +21,7 @@ class AppConfig {
 /// Único lugar de decisión entre repositories falsos y reales. Los providers
 /// de repository lo leen; los tests lo sobreescriben.
 final useFakesProvider = Provider<bool>((ref) => AppConfig.useFakes);
+
+/// El acceso de empleados existe solo en la web (RNF-02). En Android el
+/// login muestra únicamente el de socios. Los tests lo sobreescriben.
+final employeeAccessAvailableProvider = Provider<bool>((ref) => kIsWeb);
