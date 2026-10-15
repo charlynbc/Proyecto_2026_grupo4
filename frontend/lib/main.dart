@@ -9,6 +9,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/models/user_role.dart';
 import 'features/auth/providers/session_provider.dart';
 import 'features/notificaciones/providers/push_notification_provider.dart';
 import 'features/notificaciones/services/push_notification_service.dart';
@@ -62,7 +63,8 @@ class _MyAppState extends ConsumerState<MyApp> {
     ref.listen<SessionState>(sessionProvider, (previous, next) {
       final becameAuthenticated =
           next.isAuthenticated && !(previous?.isAuthenticated ?? false);
-      if (becameAuthenticated) {
+      // El registro de dispositivos (contrato #33) es solo del socio.
+      if (becameAuthenticated && next.role == UserRole.socio) {
         _onAuthenticated();
       }
     });

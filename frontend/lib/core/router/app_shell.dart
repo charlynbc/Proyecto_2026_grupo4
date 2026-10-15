@@ -1,38 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Barra de navegación fija de las tres secciones autenticadas: `NavigationBar`
-/// abajo en pantallas angostas, `NavigationRail` al costado en anchas.
+import 'app_sections.dart';
+
+/// Barra de navegación fija de las secciones de un rol: `NavigationBar` abajo
+/// en pantallas angostas, `NavigationRail` al costado en anchas. Un rol con
+/// una sola sección (médico) no muestra barra.
 ///
 /// Intercepta el botón de atrás de Android con [PopScope]: parado en la raíz
-/// de Agenda o de Mis reservas, atrás vuelve a Inicio en vez de cerrar la
-/// app. go_router resuelve antes que este `PopScope` si hay algo para hacer
-/// pop dentro de la sección activa (por ejemplo, del detalle de un
-/// profesional a la lista), así que acá no hace falta chequear la
-/// profundidad de la rama: si el intento llega hasta este `PopScope` es
-/// porque la rama activa ya está en su raíz.
+/// de cualquier sección que no sea la primera, atrás vuelve a la primera en
+/// vez de cerrar la app. go_router resuelve antes que este `PopScope` si hay
+/// algo para hacer pop dentro de la sección activa, así que acá no hace falta
+/// chequear la profundidad de la rama: si el intento llega hasta este
+/// `PopScope` es porque la rama activa ya está en su raíz.
 class AppShell extends StatelessWidget {
-  const AppShell({super.key, required this.navigationShell});
+  const AppShell({
+    super.key,
+    required this.navigationShell,
+    required this.sections,
+  });
 
   final StatefulNavigationShell navigationShell;
-
-  static const _destinations = [
-    (
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home,
-      label: 'Inicio',
-    ),
-    (
-      icon: Icons.calendar_month_outlined,
-      selectedIcon: Icons.calendar_month,
-      label: 'Agenda',
-    ),
-    (
-      icon: Icons.event_note_outlined,
-      selectedIcon: Icons.event_note,
-      label: 'Mis reservas',
-    ),
-  ];
+  final List<AppSection> sections;
 
   void _onDestinationSelected(int index) {
     navigationShell.goBranch(
@@ -43,7 +32,14 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.sizeOf(context).width >= 600;
+    final Widget child;
+    if (sections.length < 2) {
+      child = navigationShell;
+    } else if (MediaQuery.sizeOf(context).width >= 600) {
+      child = _WideShell(this);
+    } else {
+      child = _NarrowShell(this);
+    }
 
     return PopScope(
       canPop: navigationShell.currentIndex == 0,
@@ -51,7 +47,7 @@ class AppShell extends StatelessWidget {
         if (didPop) return;
         navigationShell.goBranch(0);
       },
-      child: isWide ? _WideShell(this) : _NarrowShell(this),
+      child: child,
     );
   }
 }
@@ -69,11 +65,11 @@ class _NarrowShell extends StatelessWidget {
         selectedIndex: shell.navigationShell.currentIndex,
         onDestinationSelected: shell._onDestinationSelected,
         destinations: [
-          for (final destination in AppShell._destinations)
+          for (final section in shell.sections)
             NavigationDestination(
-              icon: Icon(destination.icon),
-              selectedIcon: Icon(destination.selectedIcon),
-              label: destination.label,
+              icon: Icon(section.icon),
+              selectedIcon: Icon(section.selectedIcon),
+              label: section.label,
             ),
         ],
       ),
@@ -96,11 +92,11 @@ class _WideShell extends StatelessWidget {
             onDestinationSelected: shell._onDestinationSelected,
             labelType: NavigationRailLabelType.all,
             destinations: [
-              for (final destination in AppShell._destinations)
+              for (final section in shell.sections)
                 NavigationRailDestination(
-                  icon: Icon(destination.icon),
-                  selectedIcon: Icon(destination.selectedIcon),
-                  label: Text(destination.label),
+                  icon: Icon(section.icon),
+                  selectedIcon: Icon(section.selectedIcon),
+                  label: Text(section.label),
                 ),
             ],
           ),
