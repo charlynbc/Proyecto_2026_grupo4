@@ -19,10 +19,20 @@ import 'api_routes.dart';
 /// directo: el getter `state` de [Notifier] es `@visibleForTesting`, así
 /// que leer el estado actual desde afuera del propio notifier tiene que
 /// pasar por `ref.read(sessionProvider)`.
+///
+/// Solo se intenta renovar la sesión cuando la request llevaba token: un 401
+/// de una request pública (el login con credenciales incorrectas, el primer
+/// ingreso) no es una sesión caída. La sesión se da por terminada (con el
+/// aviso de sesión cerrada) solo cuando el servidor la rechaza de verdad:
+/// el refresh responde 401 o 403, o la request reintentada con el token
+/// nuevo vuelve a dar 401 (sesión revocada o cuenta inactivada). Un corte de
+/// red durante el refresh no cierra la sesión.
 class AuthInterceptor extends Interceptor {
   AuthInterceptor(this._dio, this._ref);
 
   static const _refreshPath = ApiRoutes.authRefresh;
+  static const _logoutPath = ApiRoutes.authLogout;
+  static const _retriedKey = 'authRetried';
 
   final Dio _dio;
   final Ref _ref;
@@ -42,37 +52,58 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
-    final isRefreshCall = err.requestOptions.path == _refreshPath;
-    if (isRefreshCall || err.response?.statusCode != 401) {
+    final options = err.requestOptions;
+    final isSessionRequest =
+        options.headers.containsKey('Authorization') &&
+        options.path != _refreshPath &&
+        options.path != _logoutPath;
+    if (err.response?.statusCode != 401 || !isSessionRequest) {
+      handler.next(err);
+      return;
+    }
+
+    if (options.extra[_retriedKey] == true) {
+      // Con el token recién renovado el servidor volvió a decir 401: la
+      // sesión fue revocada o la cuenta inactivada.
+      _expireSession();
       handler.next(err);
       return;
     }
 
     try {
-      await (_refreshing ??=
-          _refresh().whenComplete(() => _refreshing = null));
-    } catch (_) {
-      // Acá sí había una sesión activa (se estaba reintentando un request
-      // con token) y el refresh también falló: es una expiración real.
-      _ref.read(sessionProvider.notifier).clear(expired: true);
+      await (_refreshing ??= _refresh().whenComplete(() => _refreshing = null));
+    } catch (e) {
+      if (_isRejectedByServer(e)) _expireSession();
       handler.next(err);
       return;
     }
 
     try {
       // Vuelve a pasar por onRequest, que relee el token ya renovado.
-      handler.resolve(await _dio.fetch<dynamic>(err.requestOptions));
+      options.extra[_retriedKey] = true;
+      handler.resolve(await _dio.fetch<dynamic>(options));
     } on DioException catch (e) {
       handler.next(e);
     }
   }
 
+  void _expireSession() =>
+      _ref.read(sessionProvider.notifier).clear(expired: true);
+
+  /// El servidor respondió que la sesión no sirve (401 o 403 del refresh) o
+  /// devolvió una sesión que no se entiende. Cualquier otra falla (sin
+  /// conexión, timeout, 5xx) no dice nada sobre la sesión.
+  bool _isRejectedByServer(Object e) {
+    if (e is FormatException) return true;
+    if (e is! DioException) return false;
+    final status = e.response?.statusCode;
+    return status == 401 || status == 403;
+  }
+
   Future<void> _refresh() async {
     final response = await _dio.post<Map<String, dynamic>>(_refreshPath);
-    final data = response.data!;
-    _ref.read(sessionProvider.notifier).setAuthenticated(
-          accessToken: data['token'] as String,
-          role: data['role'] as String,
-        );
+    _ref
+        .read(sessionProvider.notifier)
+        .setAuthenticatedFromResponse(response.data ?? const {});
   }
 }
