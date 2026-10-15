@@ -9,6 +9,8 @@ import 'package:agenda_medica/features/agenda/providers/agenda_repository_provid
 import 'package:agenda_medica/features/agenda/repositories/agenda_repository.dart';
 import 'package:agenda_medica/features/agenda/repositories/api_agenda_repository.dart';
 import 'package:agenda_medica/features/agenda/repositories/fake_agenda_repository.dart';
+import 'package:agenda_medica/features/auth/models/access_type.dart';
+import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/auth/repositories/api_auth_repository.dart';
@@ -124,10 +126,15 @@ void main() {
       () async {
         final (_, repo, container) = await build();
         for (final person in TestData.people) {
-          await repo.login(ci: person.ci, password: kTestPassword);
+          final role = UserRole.tryParse(person.role)!;
+          await repo.login(
+            ci: person.ci,
+            password: kTestPassword,
+            access: AccessType.forRole(role),
+          );
           final session = container.read(sessionProvider);
           expect(session.isAuthenticated, isTrue);
-          expect(session.role, person.role);
+          expect(session.role, role);
         }
       },
     );
@@ -135,11 +142,41 @@ void main() {
     test('rechaza contraseña o cédula desconocida (401)', () async {
       final (_, repo, _) = await build();
       expect(
-        repo.login(ci: TestData.people.first.ci, password: 'otra'),
+        repo.login(
+          ci: TestData.people.first.ci,
+          password: 'otra',
+          access: AccessType.socio,
+        ),
         throwsA(isA<InvalidCredentialsException>()),
       );
       expect(
-        repo.login(ci: '11111111', password: kTestPassword),
+        repo.login(
+          ci: '11111111',
+          password: kTestPassword,
+          access: AccessType.socio,
+        ),
+        throwsA(isA<InvalidCredentialsException>()),
+      );
+    });
+
+    test('rechaza una cuenta por el acceso que no le corresponde', () async {
+      final (_, repo, _) = await build();
+      final socio = TestData.people.firstWhere((p) => p.role == kRoleMember);
+      final staff = TestData.people.firstWhere((p) => p.role == kRoleStaff);
+      await expectLater(
+        repo.login(
+          ci: socio.ci,
+          password: kTestPassword,
+          access: AccessType.empleado,
+        ),
+        throwsA(isA<InvalidCredentialsException>()),
+      );
+      await expectLater(
+        repo.login(
+          ci: staff.ci,
+          password: kTestPassword,
+          access: AccessType.socio,
+        ),
         throwsA(isA<InvalidCredentialsException>()),
       );
     });
