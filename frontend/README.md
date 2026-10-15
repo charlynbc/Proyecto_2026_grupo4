@@ -31,6 +31,13 @@ contraseña `prueba1234`, y la sesión queda con el rol de esa persona:
 | `67890127` | Dra. Florencia Acosta | MEDICO |
 
 Cualquier otra cédula o contraseña da el error de credenciales incorrectas.
+Como en el servidor, el acceso tiene que coincidir con la cuenta: Ana (SOCIO)
+entra por "Socio" y los demás por "Empleado" (solo web, en `/login?acceso=empleado`);
+por el acceso equivocado el error es el mismo.
+
+**Primer ingreso con datos de prueba.** El pedido de enlace siempre responde lo
+mismo. Para activar una cuenta abrí `/#/primer-ingreso?token=cualquiera`; los
+tokens `vencido` y `usado` simulan un enlace que ya no sirve.
 
 **Errores para ver en pantalla.** Los fakes devuelven los mismos errores que la
 API: al reservar, algunos horarios aparecen libres pero fallan como "otro socio

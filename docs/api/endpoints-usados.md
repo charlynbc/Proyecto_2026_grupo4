@@ -17,11 +17,11 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 
 | # | Método y ruta | Roles | RF | Pantalla del front | Estado | Usada por el front | Campos y errores |
 |---|---|---|---|---|---|---|---|
-| 1 | `POST /api/auth/login` | público | 01 | Login | PROPUESTA | - | [contrato #1](contrato-v1.md#e01) |
-| 2 | `POST /api/auth/refresh` | público (cookie) | 01 | Renovación de sesión | PROPUESTA | - | [contrato #2](contrato-v1.md#e02) |
-| 3 | `POST /api/auth/logout` | autenticado | 03 | Cerrar sesión | PROPUESTA | - | [contrato #3](contrato-v1.md#e03) |
-| 4 | `POST /api/auth/primer-ingreso/solicitar` | público | 02 | Pedir activación | PROPUESTA | - | [contrato #4](contrato-v1.md#e04) |
-| 5 | `POST /api/auth/primer-ingreso/completar` | público (token) | 02 | Activar cuenta | PROPUESTA | - | [contrato #5](contrato-v1.md#e05) |
+| 1 | `POST /api/auth/login` | público | 01 | Login | PROPUESTA | feat/front-acceso-roles 14/10/2026 | [contrato #1](contrato-v1.md#e01) |
+| 2 | `POST /api/auth/refresh` | público (cookie) | 01 | Renovación de sesión | PROPUESTA | feat/front-acceso-roles 14/10/2026 | [contrato #2](contrato-v1.md#e02) |
+| 3 | `POST /api/auth/logout` | autenticado | 03 | Cerrar sesión | PROPUESTA | feat/front-acceso-roles 14/10/2026 | [contrato #3](contrato-v1.md#e03) |
+| 4 | `POST /api/auth/primer-ingreso/solicitar` | público | 02 | Pedir activación | PROPUESTA | feat/front-acceso-roles 14/10/2026 | [contrato #4](contrato-v1.md#e04) |
+| 5 | `POST /api/auth/primer-ingreso/completar` | público (token) | 02 | Activar cuenta | PROPUESTA | feat/front-acceso-roles 14/10/2026 | [contrato #5](contrato-v1.md#e05) |
 | 6 | `GET /api/especialidades` | autenticado | 29 | Formularios y listado | PROPUESTA | - | [contrato #6](contrato-v1.md#e06) |
 | 7 | `POST /api/especialidades` | ADMINISTRADOR | 29 | Alta de especialidad | PROPUESTA | - | [contrato #7](contrato-v1.md#e07) |
 | 8 | `GET /api/consultorios` | autenticado | 33 | Formularios y listado | PROPUESTA | - | [contrato #8](contrato-v1.md#e08) |
@@ -65,8 +65,8 @@ Dejan de usarse cuando se migra cada pantalla. Cuando una deje de usarse se tach
 
 | Ruta actual | La reemplaza | Estado |
 |---|---|---|
-| `POST /api/auth/login` con `{cedula, clave}` | #1, con `{ci, password, acceso}` | cambia el cuerpo |
-| `POST /api/auth/refresh`, `POST /api/auth/logout` | #2 y #3 | sin cambios previstos |
+| `POST /api/auth/login` con `{cedula, clave}` | #1, con `{ci, password, acceso}` | migrada en feat/front-acceso-roles (14/10/2026) |
+| `POST /api/auth/refresh`, `POST /api/auth/logout` | #2 y #3 | sin cambios; el cliente lee `role` como `UserRole` (feat/front-acceso-roles, 14/10/2026) |
 | `GET /api/profesionales` | #10 | pendiente |
 | `GET /api/profesionales/{id}/horarios` | #16 | pendiente |
 | `POST /api/reservas` | #17, con `{numeroId, paseId?}` | pendiente |
