@@ -22,13 +22,13 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 | 3 | `POST /api/auth/logout` | autenticado | 03 | Cerrar sesión | PROPUESTA | feat/front-acceso-roles 14/10/2026 | [contrato #3](contrato-v1.md#e03) |
 | 4 | `POST /api/auth/primer-ingreso/solicitar` | público | 02 | Pedir activación | PROPUESTA | feat/front-acceso-roles 14/10/2026 | [contrato #4](contrato-v1.md#e04) |
 | 5 | `POST /api/auth/primer-ingreso/completar` | público (token) | 02 | Activar cuenta | PROPUESTA | feat/front-acceso-roles 14/10/2026 | [contrato #5](contrato-v1.md#e05) |
-| 6 | `GET /api/especialidades` | autenticado | 29 | Formularios y listado | PROPUESTA | - | [contrato #6](contrato-v1.md#e06) |
-| 7 | `POST /api/especialidades` | ADMINISTRADOR | 29 | Alta de especialidad | PROPUESTA | - | [contrato #7](contrato-v1.md#e07) |
-| 8 | `GET /api/consultorios` | autenticado | 33 | Formularios y listado | PROPUESTA | - | [contrato #8](contrato-v1.md#e08) |
-| 9 | `POST /api/consultorios` | ADMINISTRADOR | 33 | Alta de consultorio | PROPUESTA | - | [contrato #9](contrato-v1.md#e09) |
+| 6 | `GET /api/especialidades` | autenticado | 29 | Formularios y listado | PROPUESTA | feat/front-admin 19/10/2026 | [contrato #6](contrato-v1.md#e06) |
+| 7 | `POST /api/especialidades` | ADMINISTRADOR | 29 | Alta de especialidad | PROPUESTA | feat/front-admin 19/10/2026 | [contrato #7](contrato-v1.md#e07) |
+| 8 | `GET /api/consultorios` | autenticado | 33 | Formularios y listado | PROPUESTA | feat/front-admin 19/10/2026 | [contrato #8](contrato-v1.md#e08) |
+| 9 | `POST /api/consultorios` | ADMINISTRADOR | 33 | Alta de consultorio | PROPUESTA | feat/front-admin 19/10/2026 | [contrato #9](contrato-v1.md#e09) |
 | 10 | `GET /api/medicos?especialidadId=` | autenticado | 13, 08 | Selector de médico | PROPUESTA | - | [contrato #10](contrato-v1.md#e10) |
-| 11 | `POST /api/usuarios` | ADMINISTRADOR | 31 | Alta de usuario | PROPUESTA | - | [contrato #11](contrato-v1.md#e11) |
-| 12 | `GET /api/usuarios` | ADMINISTRADOR | 35 | Consulta de usuarios | PROPUESTA | - | [contrato #12](contrato-v1.md#e12) |
+| 11 | `POST /api/usuarios` | ADMINISTRADOR | 31 | Alta de usuario | PROPUESTA | feat/front-admin 19/10/2026 | [contrato #11](contrato-v1.md#e11) |
+| 12 | `GET /api/usuarios` | ADMINISTRADOR | 35 | Consulta de usuarios | PROPUESTA | feat/front-admin 19/10/2026 | [contrato #12](contrato-v1.md#e12) |
 | 13 | `POST /api/turnos-semanales` | FUNCIONARIO | 13 | Alta de turno semanal | PROPUESTA | - | [contrato #13](contrato-v1.md#e13) |
 | 14 | `GET /api/turnos-semanales/{id}` | FUNCIONARIO | 17 | Detalle de configuración | PROPUESTA | - | [contrato #14](contrato-v1.md#e14) |
 | 15 | `GET /api/turnos` | FUNCIONARIO | 17 | Consulta de turnos | PROPUESTA | - | [contrato #15](contrato-v1.md#e15) |
