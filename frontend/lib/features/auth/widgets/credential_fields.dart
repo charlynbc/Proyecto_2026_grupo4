@@ -11,11 +11,18 @@ class CiFormField extends StatelessWidget {
     required this.controller,
     this.enabled = true,
     this.autovalidateMode,
+    this.focusNode,
+    this.validator = validate,
   });
 
   final TextEditingController controller;
   final bool enabled;
   final AutovalidateMode? autovalidateMode;
+  final FocusNode? focusNode;
+
+  /// Por defecto [validate]; el login usa uno que espera a que se termine de
+  /// escribir.
+  final FormFieldValidator<String> validator;
 
   static String? validate(String? value) {
     final ci = value?.trim() ?? '';
@@ -31,6 +38,7 @@ class CiFormField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      focusNode: focusNode,
       keyboardType: TextInputType.number,
       inputFormatters: [
         FilteringTextInputFormatter.digitsOnly,
@@ -40,7 +48,7 @@ class CiFormField extends StatelessWidget {
         labelText: 'Cédula de identidad',
         hintText: 'Sin puntos ni guiones',
       ),
-      validator: validate,
+      validator: validator,
       autovalidateMode: autovalidateMode,
       enabled: enabled,
     );
@@ -57,6 +65,7 @@ class PasswordFormField extends StatefulWidget {
     this.hint,
     this.enabled = true,
     this.autovalidateMode,
+    this.focusNode,
     this.onSubmitted,
   });
 
@@ -66,6 +75,7 @@ class PasswordFormField extends StatefulWidget {
   final String? hint;
   final bool enabled;
   final AutovalidateMode? autovalidateMode;
+  final FocusNode? focusNode;
   final ValueChanged<String>? onSubmitted;
 
   @override
@@ -79,6 +89,7 @@ class _PasswordFormFieldState extends State<PasswordFormField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: widget.controller,
+      focusNode: widget.focusNode,
       obscureText: _obscure,
       decoration: InputDecoration(
         labelText: widget.label,
