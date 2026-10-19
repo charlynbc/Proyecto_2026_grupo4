@@ -498,4 +498,215 @@ void main() {
       expect(find.text('No pudimos registrar el usuario.'), findsOneWidget);
     });
   });
+
+  group('fecha de nacimiento como la cédula', () {
+    const dateLabel = 'Fecha de nacimiento (dd/mm/aaaa)';
+    const formatError =
+        'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.';
+    const missingError =
+        'Esa fecha no existe en el calendario. Revisá el día y el mes.';
+
+    Future<void> focusAndType(WidgetTester tester, String text) async {
+      await tester.ensureVisible(_field(dateLabel));
+      await tester.tap(_field(dateLabel));
+      await tester.pump();
+      await tester.enterText(_field(dateLabel), text);
+      await tester.pump();
+    }
+
+    /// Sale del campo de la fecha pasando al del nombre.
+    Future<void> leaveDate(WidgetTester tester) async {
+      await tester.ensureVisible(_field('Nombre'));
+      await tester.tap(_field('Nombre'));
+      await tester.pump();
+    }
+
+    void expectNoDateError() {
+      expect(find.text(formatError), findsNothing);
+      expect(find.text(missingError), findsNothing);
+      expect(find.textContaining('no puede ser futura'), findsNothing);
+      expect(find.textContaining('Revisá el año'), findsNothing);
+      expect(find.text('Ingresá la fecha de nacimiento.'), findsNothing);
+    }
+
+    String dateText(WidgetTester tester) =>
+        tester.widget<TextFormField>(_field(dateLabel)).controller!.text;
+
+    testWidgets('con foco y menos de 10 caracteres no marca error', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await focusAndType(tester, '15/03/19');
+
+      expectNoDateError();
+    });
+
+    testWidgets('con 10 caracteres valida ya, sin enviar', (tester) async {
+      await _pump(tester);
+
+      await focusAndType(tester, '31/02/1990');
+      expect(find.text(missingError), findsOneWidget);
+      expect(find.text(formatError), findsNothing);
+
+      await focusAndType(tester, '01/01/${DateTime.now().year + 1}');
+      expect(
+        find.text('La fecha de nacimiento no puede ser futura.'),
+        findsOneWidget,
+      );
+
+      await focusAndType(tester, '15/03/1850');
+      expect(find.text('Revisá el año de nacimiento.'), findsOneWidget);
+
+      await focusAndType(tester, '15/03/1978');
+      expectNoDateError();
+    });
+
+    testWidgets('al salir con la fecha incompleta avisa del formato', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await focusAndType(tester, '15/03');
+      expectNoDateError();
+      await leaveDate(tester);
+
+      expect(find.text(formatError), findsOneWidget);
+    });
+
+    testWidgets('un campo borrado por completo no marca error al salir', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await focusAndType(tester, '15/03');
+      await focusAndType(tester, '');
+      await leaveDate(tester);
+
+      expectNoDateError();
+    });
+
+    testWidgets('vacía se reclama al enviar y el aviso queda visible', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      // La toca y se va sin escribir: todavía no es un error.
+      await focusAndType(tester, '');
+      await leaveDate(tester);
+      expectNoDateError();
+
+      await _submit(tester);
+      expect(find.text('Ingresá la fecha de nacimiento.'), findsOneWidget);
+
+      // Seguir moviéndose por el formulario no lo borra.
+      await tester.tap(_field('Apellido'));
+      await tester.pump();
+      expect(find.text('Ingresá la fecha de nacimiento.'), findsOneWidget);
+    });
+
+    testWidgets('solo acepta dígitos y barras, hasta 10 caracteres', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await focusAndType(tester, 'ab12/x3');
+      expect(dateText(tester), '12/3');
+
+      await focusAndType(tester, '15/03/19781');
+      expect(dateText(tester), '15/03/1978');
+    });
+  });
+
+  group('teléfono', () {
+    const phoneError = 'El teléfono tiene que tener entre 8 y 15 dígitos.';
+
+    String text(WidgetTester tester, String label) =>
+        tester.widget<TextFormField>(_field(label)).controller!.text;
+
+    Future<_Harness> registerWith(
+      WidgetTester tester, {
+      String phone1 = '099111222',
+      String? phone2,
+    }) async {
+      final h = await _pump(tester);
+      await _fill(tester, phone1: phone1);
+      if (phone2 != null) await _enter(tester, 'Teléfono 2 (opcional)', phone2);
+      await _chooseRole(tester, 'Funcionario');
+      await _submit(tester);
+      return h;
+    }
+
+    for (final label in ['Teléfono 1', 'Teléfono 2 (opcional)']) {
+      testWidgets('$label no acepta letras al escribir', (tester) async {
+        await _pump(tester);
+
+        await _enter(tester, label, 'abc123');
+
+        expect(text(tester, label), '123');
+      });
+
+      testWidgets('$label conserva +, espacios, guiones y paréntesis', (
+        tester,
+      ) async {
+        await _pump(tester);
+
+        await _enter(tester, label, '+598 99 123 456');
+        expect(text(tester, label), '+598 99 123 456');
+
+        await _enter(tester, label, '(02) 123-4567');
+        expect(text(tester, label), '(02) 123-4567');
+      });
+    }
+
+    testWidgets('con 7 dígitos se rechaza al enviar', (tester) async {
+      final h = await registerWith(tester, phone1: '1234567');
+
+      expect(find.text(phoneError), findsOneWidget);
+      expect(currentLocation(h.router), kNewUserPath);
+    });
+
+    testWidgets('con 8 dígitos se acepta', (tester) async {
+      final h = await registerWith(tester, phone1: '12345678');
+
+      expect(find.text(phoneError), findsNothing);
+      expect(currentLocation(h.router), kUsersPath);
+    });
+
+    testWidgets('cuenta solo los dígitos, no los símbolos', (tester) async {
+      final h = await registerWith(tester, phone1: '+598 99 123 456');
+
+      expect(find.text(phoneError), findsNothing);
+      expect(currentLocation(h.router), kUsersPath);
+    });
+
+    testWidgets('con 16 dígitos se rechaza', (tester) async {
+      final h = await registerWith(tester, phone1: '1234567890123456');
+
+      expect(find.text(phoneError), findsOneWidget);
+      expect(currentLocation(h.router), kNewUserPath);
+    });
+
+    testWidgets('el teléfono 2 vacío sigue valiendo', (tester) async {
+      final h = await registerWith(tester);
+
+      expect(find.text(phoneError), findsNothing);
+      expect(currentLocation(h.router), kUsersPath);
+    });
+
+    testWidgets('el teléfono 2 con pocos dígitos se rechaza', (tester) async {
+      final h = await registerWith(tester, phone2: '1234567');
+
+      expect(find.text(phoneError), findsOneWidget);
+      expect(currentLocation(h.router), kNewUserPath);
+    });
+
+    testWidgets('el teléfono 1 sigue siendo obligatorio', (tester) async {
+      final h = await registerWith(tester, phone1: '');
+
+      expect(find.text('Ingresá un teléfono.'), findsOneWidget);
+      expect(find.text(phoneError), findsNothing);
+      expect(currentLocation(h.router), kNewUserPath);
+    });
+  });
 }

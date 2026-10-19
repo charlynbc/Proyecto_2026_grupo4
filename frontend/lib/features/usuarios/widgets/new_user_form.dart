@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/forms/early_ci_validation.dart';
+import '../../../core/forms/early_field_validation.dart';
+import '../../../core/forms/phone_field_rules.dart';
 import '../../../core/forms/submit_state.dart';
 import '../../../core/utils/uruguay_time.dart';
 import '../../auth/models/user_role.dart';
@@ -47,6 +50,9 @@ class NewUserForm extends ConsumerStatefulWidget {
 class _NewUserFormState extends ConsumerState<NewUserForm> {
   static const int _firstYear = 1900;
 
+  /// Largo de `dd/mm/aaaa`.
+  static const int _dateLength = 10;
+
   final _formKey = GlobalKey<FormState>();
   final _ciController = TextEditingController();
   final _ciFocus = FocusNode();
@@ -54,6 +60,13 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _birthDateController = TextEditingController();
+  final _birthDateFocus = FocusNode();
+  late final _birthDateValidation = EarlyFieldValidation(
+    focusNode: _birthDateFocus,
+    emptyMessage: 'Ingresá la fecha de nacimiento.',
+    completeLength: _dateLength,
+    check: _checkBirthDate,
+  );
   final _emailController = TextEditingController();
   final _phone1Controller = TextEditingController();
   final _phone2Controller = TextEditingController();
@@ -67,17 +80,19 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   @override
   void initState() {
     super.initState();
-    // Sin esto no se revalida la cédula al perder el foco.
-    _ciFocus.addListener(_onCiFocusChanged);
+    // Sin esto no se revalidan la cédula ni la fecha al perder el foco.
+    _ciFocus.addListener(_onFocusChanged);
+    _birthDateFocus.addListener(_onFocusChanged);
   }
 
-  void _onCiFocusChanged() {
+  void _onFocusChanged() {
     if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _ciFocus.dispose();
+    _birthDateFocus.dispose();
     _ciController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -92,9 +107,8 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   String? _required(String? value, String message) =>
       (value ?? '').trim().isEmpty ? message : null;
 
-  String? _validateBirthDate(String? value) {
-    final text = (value ?? '').trim();
-    if (text.isEmpty) return 'Ingresá la fecha de nacimiento.';
+  /// El error de una fecha no vacía, o `null` si está bien.
+  String? _checkBirthDate(String text) {
     if (!hasUiDateFormat(text)) {
       return 'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.';
     }
@@ -109,6 +123,9 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
     if (date.year < _firstYear) return 'Revisá el año de nacimiento.';
     return null;
   }
+
+  String? _validatePhone1(String? value) =>
+      _required(value, 'Ingresá un teléfono.') ?? validateOptionalPhone(value);
 
   String? _validateEmail(String? value) {
     final text = (value ?? '').trim();
@@ -158,7 +175,9 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
     FocusScope.of(context).unfocus();
     setState(() => _autovalidate = AutovalidateMode.onUserInteraction);
     final formValid = _ciValidation.validateAll(
-      () => _formKey.currentState?.validate() ?? false,
+      () => _birthDateValidation.validateAll(
+        () => _formKey.currentState?.validate() ?? false,
+      ),
     );
     final specialtiesMissing =
         _role == UserRole.medico && _specialtyIds.isEmpty;
@@ -241,9 +260,14 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _birthDateController,
+            focusNode: _birthDateFocus,
             enabled: enabled,
-            autovalidateMode: _autovalidate,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             keyboardType: TextInputType.datetime,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
+              LengthLimitingTextInputFormatter(_dateLength),
+            ],
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(
               labelText: 'Fecha de nacimiento (dd/mm/aaaa)',
@@ -253,7 +277,7 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
                 onPressed: enabled ? _pickBirthDate : null,
               ),
             ),
-            validator: _validateBirthDate,
+            validator: _birthDateValidation.validate,
           ),
           const SizedBox(height: 16),
           TextFormField(
@@ -271,19 +295,23 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
             enabled: enabled,
             autovalidateMode: _autovalidate,
             keyboardType: TextInputType.phone,
+            inputFormatters: kPhoneInputFormatters,
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(labelText: 'Teléfono 1'),
-            validator: (v) => _required(v, 'Ingresá un teléfono.'),
+            validator: _validatePhone1,
           ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _phone2Controller,
             enabled: enabled,
+            autovalidateMode: _autovalidate,
             keyboardType: TextInputType.phone,
+            inputFormatters: kPhoneInputFormatters,
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
               labelText: 'Teléfono 2 (opcional)',
             ),
+            validator: validateOptionalPhone,
           ),
           const SizedBox(height: 16),
           TextFormField(
