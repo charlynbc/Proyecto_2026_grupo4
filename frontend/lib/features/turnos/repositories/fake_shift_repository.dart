@@ -2,6 +2,8 @@ import '../../../core/fakes/fake_admin_database.dart';
 import '../../../core/fakes/fake_shift_database.dart';
 import '../models/doctor.dart';
 import '../models/new_weekly_shift.dart';
+import '../models/shift_filters.dart';
+import '../models/shift_page.dart';
 import '../models/weekly_shift.dart';
 import 'shift_repository.dart';
 
@@ -37,6 +39,12 @@ class FakeShiftRepository implements ShiftRepository {
   Future<WeeklyShift> createWeeklyShift(NewWeeklyShift data) async {
     await Future<void>.delayed(latency);
     return _db.createWeeklyShift(data);
+  }
+
+  @override
+  Future<ShiftPage> listShifts(ShiftFilters filters) async {
+    await Future<void>.delayed(latency);
+    return _db.listShifts(filters);
   }
 
   @override

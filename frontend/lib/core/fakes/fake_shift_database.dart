@@ -6,6 +6,9 @@ import '../../features/consultorios/models/clinic.dart';
 import '../../features/especialidades/models/specialty.dart';
 import '../../features/turnos/models/doctor.dart';
 import '../../features/turnos/models/new_weekly_shift.dart';
+import '../../features/turnos/models/shift.dart';
+import '../../features/turnos/models/shift_filters.dart';
+import '../../features/turnos/models/shift_page.dart';
 import '../../features/turnos/models/shift_number.dart';
 import '../../features/turnos/models/shift_numbers_rules.dart';
 import '../../features/turnos/models/shift_state.dart';
@@ -13,6 +16,7 @@ import '../../features/turnos/models/weekday_names.dart';
 import '../../features/turnos/models/weekly_shift.dart';
 import '../../features/turnos/repositories/shift_repository.dart';
 import '../../features/usuarios/models/user_account.dart';
+import '../utils/text_fold.dart';
 import '../utils/uruguay_time.dart';
 import 'fake_admin_database.dart';
 
@@ -175,6 +179,111 @@ class FakeShiftDatabase {
     );
     weeklyShifts.add(weeklyShift);
     return weeklyShift;
+  }
+
+  /// Lo que muestra el listado de una fecha concreta (`TurnoDTO`): los datos
+  /// del médico, la especialidad y el consultorio salen de [admin].
+  Shift toShift(FakeShift shift) {
+    final doctor = admin.accounts.firstWhere((a) => a.id == shift.doctorId);
+    return Shift(
+      id: shift.id,
+      weeklyShiftId: shift.weeklyShiftId,
+      date: shift.date,
+      weekday: shift.weekday,
+      startMinutes: shift.startMinutes,
+      endMinutes: shift.endMinutes,
+      doctor: DoctorRef(
+        id: doctor.id,
+        firstName: doctor.firstName,
+        lastName: doctor.lastName,
+      ),
+      specialty: admin.specialties.firstWhere((s) => s.id == shift.specialtyId),
+      clinic: admin.clinics.firstWhere((c) => c.id == shift.clinicId),
+      numberCount: shift.numbers.length,
+      state: shift.state,
+    );
+  }
+
+  /// Filtra, ordena y pagina como lo hará el servidor (contrato #15).
+  ///
+  /// `size` fuera de 1 a 100, `page` negativa y un "desde" posterior al
+  /// "hasta" son `VALIDACION`. Por `medico` se ordena por apellido y nombre;
+  /// por `especialidad`, por su nombre: sin distinguir mayúsculas ni tildes.
+  /// `sentido` invierte ese criterio principal; los empates se desempatan
+  /// siempre por fecha y horario ascendentes.
+  ShiftPage listShifts(ShiftFilters filters) {
+    if (filters.size < 1 || filters.size > 100) {
+      throw const ShiftValidationException(
+        'El tamaño de la página tiene que estar entre 1 y 100.',
+      );
+    }
+    if (filters.page < 0) {
+      throw const ShiftValidationException(
+        'El número de página no puede ser negativo.',
+      );
+    }
+    final from = filters.fromDate;
+    final to = filters.toDate;
+    if (from != null && to != null && from.isAfter(to)) {
+      throw const ShiftValidationException(
+        'La fecha "Desde" no puede ser posterior a la fecha "Hasta".',
+      );
+    }
+
+    final matching = [
+      for (final shift in shifts)
+        if ((filters.doctorId == null || shift.doctorId == filters.doctorId) &&
+            (filters.specialtyId == null ||
+                shift.specialtyId == filters.specialtyId) &&
+            (filters.weekday == null || shift.weekday == filters.weekday) &&
+            (from == null || !shift.date.isBefore(from)) &&
+            (to == null || !shift.date.isAfter(to)) &&
+            (filters.state == null || shift.state == filters.state))
+          toShift(shift),
+    ];
+
+    int byDateAndTime(Shift a, Shift b) {
+      final byDate = a.date.compareTo(b.date);
+      if (byDate != 0) return byDate;
+      final byStart = a.startMinutes.compareTo(b.startMinutes);
+      return byStart != 0 ? byStart : a.id.compareTo(b.id);
+    }
+
+    int primary(Shift a, Shift b) => switch (filters.order) {
+      ShiftOrder.date => byDateAndTime(a, b),
+      ShiftOrder.doctor => _compareDoctors(a.doctor, b.doctor),
+      ShiftOrder.specialty => foldForSort(
+        a.specialty.name,
+      ).compareTo(foldForSort(b.specialty.name)),
+    };
+
+    matching.sort((a, b) {
+      final order = primary(a, b);
+      if (order != 0) return filters.ascending ? order : -order;
+      return byDateAndTime(a, b);
+    });
+
+    final start = filters.page * filters.size;
+    final items = start >= matching.length
+        ? <Shift>[]
+        : matching.sublist(
+            start,
+            (start + filters.size).clamp(0, matching.length),
+          );
+    return ShiftPage(
+      items: items,
+      page: filters.page,
+      size: filters.size,
+      total: matching.length,
+    );
+  }
+
+  static int _compareDoctors(DoctorRef a, DoctorRef b) {
+    final byLastName = foldForSort(a.lastName)
+        .compareTo(foldForSort(b.lastName));
+    return byLastName != 0
+        ? byLastName
+        : foldForSort(a.firstName).compareTo(foldForSort(b.firstName));
   }
 
   WeeklyShift? weeklyShiftById(int id) {

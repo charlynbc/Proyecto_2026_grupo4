@@ -1,6 +1,8 @@
 import '../../../core/network/api_exception.dart';
 import '../models/doctor.dart';
 import '../models/new_weekly_shift.dart';
+import '../models/shift_filters.dart';
+import '../models/shift_page.dart';
 import '../models/weekly_shift.dart';
 
 abstract class ShiftRepository {
@@ -13,6 +15,10 @@ abstract class ShiftRepository {
   Future<WeeklyShift> createWeeklyShift(NewWeeklyShift data);
 
   Future<WeeklyShift> getWeeklyShift(int id);
+
+  /// Una página de fechas concretas de turnos (RF-17), con los filtros, el
+  /// orden y la paginación resueltos del lado del servidor.
+  Future<ShiftPage> listShifts(ShiftFilters filters);
 }
 
 /// Un dato que no cumple las reglas (`VALIDACION`, 400).

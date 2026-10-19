@@ -8,6 +8,12 @@ class DoctorRef {
     required this.lastName,
   });
 
+  factory DoctorRef.fromJson(Map<String, dynamic> json) => DoctorRef(
+    id: json['id'] as int,
+    firstName: json['nombre'] as String,
+    lastName: json['apellido'] as String,
+  );
+
   final int id;
   final String firstName;
   final String lastName;
