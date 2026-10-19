@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/forms/early_ci_validation.dart';
 import '../../../core/forms/submit_state.dart';
 import '../../../core/utils/uruguay_time.dart';
-import '../../../core/validators/uruguayan_ci_validator.dart';
 import '../../auth/models/user_role.dart';
+import '../../auth/widgets/credential_fields.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../models/new_user.dart';
 import '../models/role_label.dart';
@@ -16,15 +17,13 @@ import '../screens/user_routes.dart';
 final DateFormat _uiDate = DateFormat('dd/MM/yyyy');
 final RegExp _datePattern = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
 final RegExp _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-final RegExp _ciCharacters = RegExp(r'^[\d.\-\s]+$');
 
-/// La CI sin puntos, guiones ni espacios, o `null` si trae otros caracteres.
-String? normalizeCi(String raw) {
-  if (!_ciCharacters.hasMatch(raw)) return null;
-  return raw.replaceAll(RegExp(r'[.\-\s]'), '');
-}
+/// Si [text] tiene la forma `dd/mm/aaaa`, exista o no esa fecha.
+bool hasUiDateFormat(String text) => _datePattern.hasMatch(text.trim());
 
-/// Una fecha `dd/mm/aaaa` real (no `31/02/2000`), o `null`.
+/// Una fecha `dd/mm/aaaa` que existe en el calendario (no `31/02/2000`), o
+/// `null` si no tiene esa forma o no existe. Para distinguir los dos casos,
+/// [hasUiDateFormat].
 DateTime? parseUiDate(String text) {
   final match = _datePattern.firstMatch(text.trim());
   if (match == null) return null;
@@ -50,6 +49,8 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
 
   final _formKey = GlobalKey<FormState>();
   final _ciController = TextEditingController();
+  final _ciFocus = FocusNode();
+  late final _ciValidation = EarlyCiValidation(_ciFocus);
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _birthDateController = TextEditingController();
@@ -64,7 +65,19 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   bool _specialtyMissing = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Sin esto no se revalida la cédula al perder el foco.
+    _ciFocus.addListener(_onCiFocusChanged);
+  }
+
+  void _onCiFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _ciFocus.dispose();
     _ciController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -79,22 +92,15 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   String? _required(String? value, String message) =>
       (value ?? '').trim().isEmpty ? message : null;
 
-  String? _validateCi(String? value) {
-    final raw = (value ?? '').trim();
-    if (raw.isEmpty) return 'Ingresá la cédula.';
-    final ci = normalizeCi(raw);
-    if (ci == null || !isValidUruguayanCi(ci)) {
-      return 'La cédula no es válida. Revisá los números, incluido el último.';
-    }
-    return null;
-  }
-
   String? _validateBirthDate(String? value) {
     final text = (value ?? '').trim();
     if (text.isEmpty) return 'Ingresá la fecha de nacimiento.';
+    if (!hasUiDateFormat(text)) {
+      return 'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.';
+    }
     final date = parseUiDate(text);
     if (date == null) {
-      return 'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.';
+      return 'Esa fecha no existe en el calendario. Revisá el día y el mes.';
     }
     final today = UruguayTime.today();
     if (date.isAfter(DateTime(today.year, today.month, today.day))) {
@@ -147,8 +153,13 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   }
 
   Future<void> _submit() async {
+    // Sin foco en ningún campo, los errores del envío no se borran al
+    // reconstruir el formulario.
+    FocusScope.of(context).unfocus();
     setState(() => _autovalidate = AutovalidateMode.onUserInteraction);
-    final formValid = _formKey.currentState?.validate() ?? false;
+    final formValid = _ciValidation.validateAll(
+      () => _formKey.currentState?.validate() ?? false,
+    );
     final specialtiesMissing =
         _role == UserRole.medico && _specialtyIds.isEmpty;
     setState(() => _specialtyMissing = specialtiesMissing);
@@ -160,7 +171,7 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
         .read(createUserControllerProvider.notifier)
         .submit(
           NewUser(
-            ci: normalizeCi(_ciController.text.trim())!,
+            ci: _ciController.text.trim(),
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
             birthDate: parseUiDate(_birthDateController.text)!,
@@ -200,17 +211,12 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextFormField(
+          CiFormField(
             controller: _ciController,
+            focusNode: _ciFocus,
+            validator: _ciValidation.validate,
             enabled: enabled,
-            autovalidateMode: _autovalidate,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Cédula de identidad',
-              helperText: 'Con el dígito verificador, por ejemplo 1.234.567-2',
-            ),
-            validator: _validateCi,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
           ),
           const SizedBox(height: 16),
           TextFormField(

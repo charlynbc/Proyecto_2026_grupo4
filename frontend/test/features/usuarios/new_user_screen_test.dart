@@ -117,7 +117,7 @@ void main() {
 
       await _submit(tester);
 
-      expect(find.text('Ingresá la cédula.'), findsOneWidget);
+      expect(find.text('Ingresá tu cédula.'), findsOneWidget);
       expect(find.text('Ingresá el nombre.'), findsOneWidget);
       expect(find.text('Ingresá el apellido.'), findsOneWidget);
       expect(find.text('Ingresá la fecha de nacimiento.'), findsOneWidget);
@@ -140,27 +140,29 @@ void main() {
 
       expect(
         find.text(
-          'La cédula no es válida. Revisá los números, incluido el último.',
+          'La cédula no es válida. Escribila completa, con el dígito '
+          'verificador, sin puntos ni guiones.',
         ),
         findsOneWidget,
       );
       expect(h.db.accounts.length, before);
     });
 
-    testWidgets('una CI con letras o de largo incorrecto se rechaza', (
+    testWidgets('una CI de largo incorrecto se rechaza al enviar', (
       tester,
     ) async {
       await _pump(tester);
-      const message =
-          'La cédula no es válida. Revisá los números, incluido el último.';
-
-      await _enter(tester, 'Cédula de identidad', '3141592a');
-      await _submit(tester);
-      expect(find.text(message), findsOneWidget);
 
       await _enter(tester, 'Cédula de identidad', '314159');
       await _submit(tester);
-      expect(find.text(message), findsOneWidget);
+
+      expect(
+        find.text(
+          'La cédula no es válida. Escribila completa, con el dígito '
+          'verificador, sin puntos ni guiones.',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('un correo sin forma de correo se rechaza', (tester) async {
@@ -172,6 +174,28 @@ void main() {
       expect(
         find.text('Ingresá un correo válido, por ejemplo nombre@ejemplo.org.'),
         findsOneWidget,
+      );
+    });
+
+    testWidgets('una fecha con formato correcto pero inexistente lo dice', (
+      tester,
+    ) async {
+      await _pump(tester);
+      const fieldLabel = 'Fecha de nacimiento (dd/mm/aaaa)';
+
+      // 2021 no fue bisiesto.
+      await _enter(tester, fieldLabel, '29/02/2021');
+      await _submit(tester);
+
+      expect(
+        find.text(
+          'Esa fecha no existe en el calendario. Revisá el día y el mes.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.'),
+        findsNothing,
       );
     });
 
@@ -189,7 +213,9 @@ void main() {
       await _enter(tester, fieldLabel, '31/02/1990');
       await _submit(tester);
       expect(
-        find.text('Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.'),
+        find.text(
+          'Esa fecha no existe en el calendario. Revisá el día y el mes.',
+        ),
         findsOneWidget,
       );
 
@@ -200,6 +226,98 @@ void main() {
         find.text('La fecha de nacimiento no puede ser futura.'),
         findsOneWidget,
       );
+    });
+  });
+
+  group('cédula como en el login', () {
+    const ciLabel = 'Cédula de identidad';
+    const ciError =
+        'La cédula no es válida. Escribila completa, con el dígito '
+        'verificador, sin puntos ni guiones.';
+
+    Future<void> focusAndType(
+      WidgetTester tester,
+      String label,
+      String text,
+    ) async {
+      await tester.ensureVisible(_field(label));
+      await tester.tap(_field(label));
+      await tester.pump();
+      await tester.enterText(_field(label), text);
+      await tester.pump();
+    }
+
+    void expectNoCiError() {
+      expect(find.textContaining('La cédula no es válida'), findsNothing);
+      expect(find.textContaining('Ingresá la cédula'), findsNothing);
+      expect(find.textContaining('Ingresá tu cédula'), findsNothing);
+    }
+
+    testWidgets('con foco y menos de 8 dígitos no marca error', (tester) async {
+      await _pump(tester);
+
+      await focusAndType(tester, ciLabel, '1234567');
+
+      expectNoCiError();
+    });
+
+    testWidgets('con 8 dígitos de verificador inválido marca el error largo', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await focusAndType(tester, ciLabel, '31415920');
+
+      expect(find.text(ciError), findsOneWidget);
+    });
+
+    testWidgets('al salir con pocos dígitos marca error', (tester) async {
+      await _pump(tester);
+      await focusAndType(tester, ciLabel, '123');
+      expect(find.text(ciError), findsNothing);
+
+      await focusAndType(tester, 'Nombre', 'Marta');
+      await tester.pumpAndSettle();
+
+      expect(find.text(ciError), findsOneWidget);
+    });
+
+    testWidgets('una cédula borrada por completo no marca error al salir', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await focusAndType(tester, ciLabel, '1234');
+      await focusAndType(tester, ciLabel, '');
+      await focusAndType(tester, 'Nombre', 'Marta');
+      await tester.pumpAndSettle();
+
+      expectNoCiError();
+    });
+
+    testWidgets('al enviar con la cédula vacía pide ingresarla, y el aviso '
+        'sigue visible si ya se había tocado el campo', (tester) async {
+      final h = await _pump(tester);
+      final before = h.db.accounts.length;
+
+      await focusAndType(tester, ciLabel, '1234');
+      await focusAndType(tester, ciLabel, '');
+      await focusAndType(tester, 'Nombre', 'Marta');
+      await _submit(tester);
+
+      expect(find.text('Ingresá tu cédula.'), findsOneWidget);
+      expect(h.db.accounts.length, before);
+    });
+
+    testWidgets('solo admite dígitos y hasta 8', (tester) async {
+      await _pump(tester);
+
+      await _enter(tester, ciLabel, '3.141.592-1x9');
+
+      final field = tester.widget<TextField>(
+        find.descendant(of: _field(ciLabel), matching: find.byType(TextField)),
+      );
+      expect(field.controller!.text, '31415921');
     });
   });
 
