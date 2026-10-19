@@ -12,47 +12,55 @@
 
 [**2. Diagramas de clases 5**](#diagramas-de-clases)
 
-> [2.1. Vista general de servicios 5](#vista-general-de-servicios)
+> [2.1. Acceso, activación y usuarios 5](#acceso-activación-y-usuarios)
 >
-> [2.2. Representación de diagramas de clases 6](#representación-de-diagramas-de-clases)
+> [2.2. Agenda, consultas, cancelaciones y llegada 6](#agenda-consultas-cancelaciones-y-llegada)
 >
-> [2.3. Contratos de operación y correspondencia con mensajes 14](#contratos-de-operación-y-correspondencia-con-mensajes)
+> [2.3. Planificación de turnos 7](#planificación-de-turnos)
+>
+> [2.4. Atención clínica y pases 7](#atención-clínica-y-pases)
+>
+> [2.5. Catálogos 8](#catálogos)
+>
+> [2.6. Estadísticas 8](#estadísticas)
+>
+> [2.7. Notificaciones 9](#notificaciones)
 
-[**3. Diagramas de secuencia de casos de uso críticos 16**](#diagramas-de-secuencia-de-casos-de-uso-críticos)
+[**3. Diagramas de secuencia de casos de uso críticos 10**](#diagramas-de-secuencia-de-casos-de-uso-críticos)
 
-> [3.1. Todos los roles 16](#todos-los-roles)
+> [3.1. Todos los roles 10](#todos-los-roles)
 >
-> [3.2. Rol Socio 18](#rol-socio)
+> [3.2. Rol Socio 12](#rol-socio)
 >
-> [3.3. Rol Funcionario 23](#rol-funcionario)
+> [3.3. Rol Funcionario 17](#rol-funcionario)
 >
-> [3.4. Rol Médico 30](#rol-médico)
+> [3.4. Rol Médico 24](#rol-médico)
 >
-> [3.5. Rol Administrador 34](#rol-administrador)
+> [3.5. Rol Administrador 28](#rol-administrador)
 
-[**4. Decisiones transversales del backend 41**](#decisiones-transversales-del-backend)
+[**4. Decisiones transversales del backend 35**](#decisiones-transversales-del-backend)
 
-> [4.1. Transacciones y concurrencia 41](#transacciones-y-concurrencia)
+> [4.1. Transacciones y concurrencia 35](#transacciones-y-concurrencia)
 >
-> [4.2. Estados e historial 42](#estados-e-historial)
+> [4.2. Estados e historial 36](#estados-e-historial)
 >
-> [4.3. Seguridad y protección de información clínica 42](#seguridad-y-protección-de-información-clínica)
+> [4.3. Seguridad y protección de información clínica 36](#seguridad-y-protección-de-información-clínica)
 >
-> [4.4. Notificaciones y horarios 42](#notificaciones-y-horarios)
+> [4.4. Notificaciones y horarios 36](#notificaciones-y-horarios)
 >
-> [4.5. Interacción con la API y errores 42](#interacción-con-la-api-y-errores)
+> [4.5. Interacción con la API y errores 36](#interacción-con-la-api-y-errores)
 
-[**5. Trazabilidad y verificación 44**](#trazabilidad-y-verificación)
+[**5. Trazabilidad y verificación 38**](#trazabilidad-y-verificación)
 
-> [5.1. Correspondencia entre casos críticos y diagramas 44](#correspondencia-entre-casos-críticos-y-diagramas)
+> [5.1. Correspondencia entre casos críticos y diagramas 38](#correspondencia-entre-casos-críticos-y-diagramas)
 >
-> [5.2. Escenarios de validación 45](#escenarios-de-validación)
+> [5.2. Escenarios de validación 39](#escenarios-de-validación)
 
-[**6. Mockups 46**](#mockups)
+[**6. Mockups 40**](#mockups)
 
-> [6.1. Web 46](#web)
+> [6.1. Web 40](#web)
 >
-> [6.2. Mobile 54](#mobile)
+> [6.2. Mobile 48](#mobile)
 
 # 1. Introducción
 
@@ -66,7 +74,7 @@ El documento funciona como vínculo entre el análisis y la implementación. Se 
 
 ## 1.2. Alcance
 
-El alcance comprende el diseño del servidor Spring Boot, la API REST, la lógica de negocio, la persistencia PostgreSQL mediante JDBC, la autenticación, las transacciones, la auditoría, la integridad de reservas y pases y el procesamiento de notificaciones. Se detallan los 22 casos de uso originalmente identificados como críticos y los tres flujos de cancelación incorporados como prioritarios por el equipo. También se incluyen mockups web y móviles para flujos seleccionados, vinculados con los requerimientos funcionales indicados en cada pantalla; estos prototipos no representan funcionalidades ya implementadas.
+El alcance comprende el diseño del servidor Spring Boot, la API REST, la lógica de negocio, la persistencia PostgreSQL mediante JDBC, la autenticación, las transacciones, la integridad de reservas y pases y el procesamiento de notificaciones. Se detallan los 22 casos de uso originalmente identificados como críticos y los tres flujos de cancelación incorporados como prioritarios por el equipo. También se incluyen mockups web y móviles para flujos seleccionados, vinculados con los requerimientos funcionales indicados en cada pantalla; estos prototipos no representan funcionalidades ya implementadas.
 
 ##  
 
@@ -89,196 +97,73 @@ El alcance comprende el diseño del servidor Spring Boot, la API REST, la lógic
 
 ## 1.4. Documentos de referencia
 
-Para asegurar la trazabilidad, este diseño toma como base el Documento de Requerimientos (45 RF y 29 RNF), el Documento de Casos de Uso, el Modelo de Dominio y su diagrama UML, el Modelo de Datos.
+Para asegurar la trazabilidad, este diseño toma como base el Documento de Requerimientos (45 RF y 28 RNF), el Documento de Casos de Uso, el Modelo de Dominio y su diagrama UML, el Modelo de Datos.
 
 # 2. Diagramas de clases
 
-Se adopta una arquitectura de monolito modular. Los controladores HTTP exponen la API, los servicios aplican reglas y orquestan operaciones, los repositorios ejecutan SQL explícito mediante JdbcTemplate y las entidades representan los conceptos persistidos. Las dependencias entre módulos se resuelven mediante contratos de servicio para evitar el acoplamiento entre repositorios ajenos.
+Las figuras de esta sección presentan las clases Service que implementan las operaciones de los casos de uso críticos y los flujos de cancelación priorizados. Cada caja incluye las firmas de sus operaciones públicas, con parámetros y tipo de retorno. Los nombres se corresponden con los mensajes de los diagramas de secuencia del capítulo 3.
 
-## 2.1. Vista general de servicios
+## **2.1. Acceso, activación y usuarios**
 
-<img src="imagenes/diseno/image17.png" style="width:6.34698in;height:2.59494in" />
+<img src="imagenes/diseno/image11.png" style="width:6.5in;height:3.95868in" />
 
-*Figura 1. Componentes principales y dependencias del backend.*
+*Figura 1. Servicios de acceso, activación y gestión de cuentas (S01, S02, S17 y S19).*
 
-La vista identifica los bloques de responsabilidad del servidor. La seguridad se aplica a cada petición protegida. Las transacciones se delimitan en la capa de negocio y las integraciones de correo y notificaciones móviles se ejecutan sin condicionar el éxito de las operaciones clínicas o administrativas.
+AuthService autentica; ActivacionService gestiona el primer ingreso. TokenService emite el token y UsuarioService mantiene las cuentas del padrón.
+
+## **2.2. Agenda, consultas, cancelaciones y llegada**
+
+<img src="imagenes/diseno/image3.png" style="width:6.49952in;height:5.58368in" />
+
+*Figura 2. Servicios de agenda, cancelación y aviso de llegada (S03-S05, S10, S12 y S23-S25).*
+
+AgendaService concentra disponibilidad, reserva y consultas de agenda. En agendar, paseId puede ser nulo cuando la especialidad no exige pase. CancelacionService distingue los tres actores que pueden cancelar. CancelacionMedicoDTO incluye el alcance, el motivo y el identificador de la consulta o del turno afectado.
+
+## **2.3. Planificación de turnos**
+
+<img src="imagenes/diseno/image30.png" style="width:6.5in;height:2.60451in" />
+
+*Figura 3. Servicio de turnos semanales y fechas concretas (S07-S09, S11 y S13).*
+
+La suspensión presenta previamente las fechas y la cantidad de consultas afectadas. Al confirmar, cantidadConfirmada permite detectar un cambio concurrente y solicitar una nueva confirmación, como muestra S08.
+
+## **2.4. Atención clínica y pases**
+
+<img src="imagenes/diseno/image14.png" style="width:6.5in;height:2.37882in" />
+
+*Figura 4. Servicios de historia clínica, resultados y pases (S06, S14 y S15).*
+
+AtencionService obtiene la historia desde las atenciones y registra el resultado de una consulta. PaseService valida y crea los pases dentro de la misma operación de atención.
+
+## **2.5. Catálogos**
+
+<img src="imagenes/diseno/image4.png" style="width:6.5in;height:1.76944in" />
+
+*Figura 5. Servicios de especialidades y consultorios (S16 y S18).*
+
+Las altas aplican las reglas de unicidad de cada catálogo antes de confirmar su persistencia.
+
+## **2.6. Estadísticas**
+
+<img src="imagenes/diseno/image38.png" style="width:6.5in;height:1.58889in" />
+
+*Figura 6. Servicio de estadísticas (S20-S22).*
+
+EstadisticaService reúne las tres consultas agregadas que utiliza el administrador.
 
 ##  
 
-## 2.2. Representación de diagramas de clases
+## **2.7. Notificaciones**
 
-Las siguientes figuras presentan en forma separada los subsistemas del backend. Los nombres de clases y operaciones identifican el diseño que debe respetar la implementación; la distribución física en archivos Java puede evolucionar sin alterar las responsabilidades definidas.
+<img src="imagenes/diseno/image34.png" style="width:6.5in;height:1.18264in" />
 
-### 2.2.1. Autenticación y seguridad
+*Figura 7. Servicio de notificación utilizado por los flujos críticos.*
 
-<img src="imagenes/diseno/image19.png" style="width:6.34641in;height:3.4477in" />
-
-*Figura 2. Clases de autenticación y gestión de sesiones.*
-
-AuthController: Expone el inicio y cierre de sesión, la renovación y el primer ingreso. Se limita a validaciones de entrada y respuestas HTTP.
-
-AuthService: Valida las credenciales, controla el estado de la cuenta y coordina la creación o revocación de la sesión.
-
-TokenService: Emite y valida el JWT. Su validación se complementa con el estado de sesión y la habilitación actual de la cuenta.
-
-CuentaRepository: Obtiene las cuentas por documento y tipo de acceso, sin permitir la mezcla de perfiles socio y empleado.
-
-SesionRepository y EnlaceCuentaRepository: Conservan los hashes de credenciales de renovación y de enlaces de un solo uso, con vencimiento y revocación.
-
-> Consideración de diseño. La activación de cuenta requiere padrón previo, correo verificado y enlace de un único uso. Una inactivación administrativa no puede revertirse mediante primer ingreso.
-
-### 2.2.2. Usuarios y cuentas
-
-<img src="imagenes/diseno/image25.png" style="width:6.34722in;height:2.89531in" />
-
-*Figura 3. Clases de gestión de identidad y padrón.*
-
-Persona: Representa la identidad nacional, única por cédula.
-
-Cuenta: Contiene el rol y los datos de acceso; una misma persona puede mantener cuentas de socio y empleado independientes.
-
-UsuarioService: Valida altas individuales o CSV, actualización, inactivación, reactivación y corrección de datos.
-
-PersonaRepository / CuentaRepository: Aseguran la persistencia de identidad y credenciales sin duplicación de personas.
-
-> Consideración de diseño. La autorización se determina por cuenta y rol, pero los conflictos de interés se verifican por la cédula de Persona.
-
-### 2.2.3. Planificación de turnos
-
-<img src="imagenes/diseno/image26.png" style="width:6.34722in;height:5.49508in" />
-
-*Figura 4. Clases de planificación semanal y turnos concretos.*
-
-TurnoSemanal: Define profesional, especialidad, consultorio, día y rango de vigencia de la recurrencia.
-
-NumeroSemanal: Especifica los números y franjas del patrón.
-
-Turno y Numero: Representan la fecha concreta y cada número que podrá reservarse.
-
-TurnoService: Comprueba disponibilidad de médico y consultorio, genera fechas y números y aplica suspensiones o rehabilitaciones.
-
-TurnoRepository: Guarda el patrón y las instancias manteniendo el consultorio histórico de cada turno.
-
-> Consideración de diseño. La suspensión de fechas es inmediata y no modifica la recurrencia; la rehabilitación no restaura consultas canceladas.
-
-### 2.2.4. Consultas y avisos de llegada
-
-<img src="imagenes/diseno/image24.png" style="width:6.34615in;height:6.5033in" />
-
-*Figura 5. Clases de agenda, cancelaciones y avisos de llegada.*
-
-Consulta: Relaciona un socio con un número y, cuando corresponde, un pase; almacena el estado registrado y el historial.
-
-AgendaService: Consulta disponibilidad, aplica restricciones de anticipación, cupos y superposición, y confirma la agenda.
-
-CancelacionService: Aplica las reglas particulares del socio, funcionario y médico y conserva autores y motivos.
-
-ConsultaRepository: Garantiza la ocupación de números y pases mediante restricciones e inserciones transaccionales.
-
-AvisoLlegada: Registra presencia única del socio en una fecha, aplicable a todas sus consultas de ese día.
-
-> Consideración de diseño. Una consulta cancelada conserva el vínculo histórico pero libera la ocupación; ATENDIDA y NO_SE_PRESENTO no liberan el número ni el pase.
-
-### 2.2.5. Atención clínica y pases
-
-<img src="imagenes/diseno/image29.png" style="width:6.34704in;height:2.84884in" />
-
-*Figura 6. Clases de atención, historia clínica y pases.*
-
-AtencionService: Verifica que el profesional pueda atender una consulta propia del día y que exista aviso de llegada.
-
-Atencion: Registra afección, tratamiento y observaciones; existe como máximo una por consulta.
-
-PaseService: Valida duplicados, especialidad destino, vigencia y uso del pase.
-
-Pase: Autorización originada en una atención, cuyo consumo se deduce de las consultas no canceladas que lo referencian.
-
-AtencionRepository y PaseRepository: Persisten el resultado y sus autorizaciones de manera consistente.
-
-> Consideración de diseño. La historia clínica se obtiene desde las atenciones registradas; no se crea una copia independiente de esa información.
-
-### 2.2.6. Contratos entre módulos
-
-<img src="imagenes/diseno/image32.png" style="width:6.34722in;height:2.20359in" />
-
-*Figura 7. Contrato ConsultasDelTurno y dependencias de cancelación.*
-
-ConsultasDelTurno: Define el contrato de acceso que el módulo turno necesita para cancelar reservas institucionales.
-
-TurnoService: Invoca el contrato, sin acceder al repositorio perteneciente al módulo consulta.
-
-CancelacionService: Implementa las operaciones de cancelación, conserva el historial y coordina sus notificaciones.
-
-> Consideración de diseño. El contrato evita dependencias circulares y conserva en consulta la responsabilidad sobre las modificaciones de reservas.
-
-### 2.2.7. Notificaciones y estadísticas
-
-<img src="imagenes/diseno/image44.png" style="width:6.34722in;height:3.72634in" />
-
-*Figura 8. Clases de mensajería y consultas estadísticas.*
-
-NotificacionService: Registra el aviso interno y los intentos de entrega pendientes como parte de la operación de negocio.
-
-EmailSender / PushSender: Son interfaces de infraestructura para enviar mensajes mediante correo electrónico o Firebase.
-
-EstadisticaService: Calcula demanda, ocupación por turno y resultados sin utilizar datos clínicos innecesarios.
-
-EstadisticaRepository: Ejecuta consultas SQL agregadas y filtradas.
-
-> Consideración de diseño. Un fallo de SMTP o FCM no revierte una consulta ya confirmada; los envíos se realizan después del commit y admiten reintentos.
-
-###  
-
-### 2.2.8. Servicios auxiliares y contratos ausentes en la vista original
-
-Se incorporan las clases que participaban en secuencias pero no aparecían explícitas en los diagramas de clases. Las relaciones de dependencia corresponden a interfaces y operaciones del backend, sin crear responsabilidades ajenas al subsistema.
-
-<img src="imagenes/diseno/image27.png" style="width:6.15in;height:2.53358in" />
-
-Figura 9. Clases auxiliares, repositorios y métodos que completan las dependencias de las secuencias.
-
-El flujo de activación se inicia mediante una solicitud del titular en Primer ingreso (RF-02). El Alta de usuarios (RF-31) solo registra una cuenta pendiente, sin enviar correo. LlegadaService y LlegadaRepository modelan la presencia por socio y fecha, que AtencionService debe consultar antes de registrar un resultado.
-
-##  
-
-## 2.3. Contratos de operación y correspondencia con mensajes
-
-Las firmas siguientes hacen explícitos parámetros y valores de retorno. Los tipos DTO son contratos de transporte, no entidades persistidas. Las operaciones marcadas como transaccionales deben iniciar y terminar en la capa de servicio.
-
-| **Clase / interfaz**   | **Operación, parámetros y retorno**                                                                                                                                                                                                                  | **Secuencias**     |
-|------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------|
-| AuthService            | autenticar(ci: String, clave: String, acceso: TipoAcceso): SesionDTO                                                                                                                                                                                 | S01                |
-| ActivacionService      | solicitar(ci: String, acceso: TipoAcceso): SolicitudAceptadaDTO; activar(token: String, datos: DatosActivacionDTO, clave: String): CuentaDTO                                                                                                         | S02                |
-| CuentaRepository       | buscarPorCiYAcceso(ci: String, acceso: TipoAcceso): Optional\<Cuenta\>                                                                                                                                                                               | S01, S02, S17      |
-| EnlaceCuentaRepository | crear(hash: String, vence: Instant): Enlace; consumir(hash: String): boolean                                                                                                                                                                         | S02                |
-| TokenService           | emitirJWT(cuentaId: Long, rol: Rol): TokenDTO                                                                                                                                                                                                        | S01                |
-| AgendaService          | consultarDisponibilidad(filtros: FiltroDisponibilidadDTO): List\<NumeroDisponibleDTO\>; agendar(socioId: Long, numeroId: Long, paseId: Long?): ConsultaDTO                                                                                           | S03, S04           |
-| AgendaService          | consultarHistorial(socioId: Long, filtros: FiltroHistorialDTO): Page\<ConsultaHistorialDTO\>; consultarAgendas(filtros: FiltroAgendaDTO): Page\<AgendaOperativaDTO\>                                                                                 | S05, S12           |
-| TurnoRepository        | bloquearTurno(numeroId: Long): Turno; buscarTurnos(filtros: FiltroTurnosDTO): Page\<TurnoDTO\>                                                                                                                                                       | S04, S08, S09, S11 |
-| ConsultaRepository     | bloquearConsulta(id: Long): Consulta; buscarAgendadasHoy(ci: String): List\<Consulta\>; guardar(consulta: Consulta): Consulta                                                                                                                        | S04, S10, S14      |
-| ConsultaService        | obtenerHistoria(socioId: Long, filtros: FiltroHistoriaDTO): HistoriaDTO; obtenerConsultasHoy(ci: String): List\<ConsultaDTO\>                                                                                                                        | S06, S10           |
-| CancelacionService     | cancelarPorSocio(socioId: Long, consultaId: Long): CancelacionDTO; cancelarPorFuncionario(funcionarioId: Long, consultaId: Long, motivo: String): CancelacionDTO; cancelarPorMedico(medicoId: Long, solicitud: CancelacionMedicoDTO): CancelacionDTO | S23, S24, S25      |
-| TurnoService           | crearTurnoSemanal(datos: AltaTurnoDTO): TurnoSemanalDTO; suspenderFechas(filtro: FiltroFechasDTO, ids: List\<Long\>): ResultadoFechasDTO; rehabilitarFechas(filtro: FiltroFechasDTO, ids: List\<Long\>): ResultadoFechasDTO                          | S07, S08, S09      |
-| TurnoService           | consultarTurnos(filtros: FiltroTurnosDTO): Page\<TurnoDTO\>; consultarTurnosDelMedico(medicoId: Long, fecha: LocalDate): TurnosPacientesDTO                                                                                                          | S11, S13           |
-| LlegadaService         | registrarAviso(ci: String, funcionarioId: Long, fecha: LocalDate): AvisoLlegadaDTO; existeAviso(socioId: Long, fecha: LocalDate): boolean                                                                                                            | S10, S14           |
-| LlegadaRepository      | insertarSiNoExiste(socioId: Long, fecha: LocalDate, funcionarioId: Long): AvisoLlegada; existePorSocioYFecha(socioId: Long, fecha: LocalDate): boolean                                                                                               | S10, S14           |
-| AtencionService        | registrarResultado(medicoId: Long, consultaId: Long, datos: ResultadoConsultaDTO): ResultadoConsultaDTO                                                                                                                                              | S14, S15           |
-| AtencionRepository     | guardarAtencion(atencion: Atencion): Atencion; buscarPorSocio(socioId: Long, filtros: FiltroHistoriaDTO): List\<AtencionDTO\>                                                                                                                        | S06, S14           |
-| PaseService            | validarYCrearEnAtencion(atencionId: Long, solicitudes: List\<PaseNuevoDTO\>): List\<PaseDTO\>                                                                                                                                                        | S15                |
-| PaseRepository         | guardarTodos(pases: List\<Pase\>): List\<Pase\>                                                                                                                                                                                                      | S15                |
-| UsuarioService         | crearUsuarioPendiente(datos: AltaUsuarioDTO): CuentaDTO; consultarPadron(filtros: FiltroUsuariosDTO): Page\<UsuarioDTO\>                                                                                                                             | S17, S19           |
-| EspecialidadService    | crear(nombre: String, requierePase: boolean): EspecialidadDTO                                                                                                                                                                                        | S16                |
-| ConsultorioService     | crear(datos: AltaConsultorioDTO): ConsultorioDTO                                                                                                                                                                                                     | S18                |
-| EstadisticaService     | calcularPorEspecialidad(filtro: FiltroEstadisticaDTO): List\<EstadisticaEspecialidadDTO\>; calcularPorTurno(filtro: FiltroEstadisticaDTO): List\<EstadisticaTurnoDTO\>; calcularConsultas(filtro: FiltroEstadisticaDTO): EstadisticaConsultaDTO      | S20, S21, S22      |
-| NotificacionService    | encolarEnlace(cuentaId: Long, hashEnlace: String): void; registrarAvisoPendiente(evento: EventoNotificacionDTO): void                                                                                                                                | S02, S08, S14      |
-| AuditoriaService       | registrar(accion: TipoAuditoria, actorId: Long, recursoId: Long, fecha: Instant): void                                                                                                                                                               | S08-S10, S14, S24  |
-| AuditoriaRepository    | guardarRegistro(registro: EventoAuditoria): EventoAuditoria                                                                                                                                                                                          | S08-S10, S14, S24  |
-| EspecialidadRepository | insertarConUnicidadNormalizada(datos: Especialidad): Especialidad                                                                                                                                                                                    | S16                |
-| ConsultorioRepository  | insertarConUnicidadNormalizada(datos: Consultorio): Consultorio                                                                                                                                                                                      | S18                |
+NotificacionService registra avisos pendientes; la entrega externa ocurre después de confirmar la operación de negocio.
 
 # 3. Diagramas de secuencia de casos de uso críticos
 
-En este capítulo se representan los diagramas de secuencia de los casos de uso considerados críticos por el Grupo 4. Se utiliza la estructura Actor → Controlador → Servicio → Persistencia / subsistema colaborador, incluyendo el orden de los mensajes y las principales validaciones y operaciones transaccionales.
+En este capítulo se presentan los diagramas de secuencia de los casos de uso considerados críticos por el Grupo 4. Se utiliza la estructura Actor → Controlador → Servicio → Persistencia / subsistema colaborador, incluyendo el orden de los mensajes y las principales validaciones y operaciones transaccionales.
 
 Se incorporan además las cancelaciones realizadas por socio, funcionario y médico (RF-10, RF-19 y RF-27), que se priorizaron para el diseño del backend. El nivel de detalle de los mensajes representa colaboraciones del servidor; no describe la presentación de pantallas web o móviles.
 
@@ -288,7 +173,7 @@ Se incorporan además las cancelaciones realizadas por socio, funcionario y méd
 
 Actor: Todos los roles \| Requerimiento: RF-01 \| Subsistema: auth / security
 
-<img src="imagenes/diseno/image43.png" style="width:6.26389in;height:3.3046in" />
+<img src="imagenes/diseno/image41.png" style="width:6.26389in;height:3.3046in" />
 
 *Diagrama de secuencia S01 · CU 3.1.1 - Iniciar sesión*
 
@@ -302,7 +187,7 @@ Actor: Todos los roles \| Requerimiento: RF-01 \| Subsistema: auth / security
 
 Actor: Socio o empleado \| Requerimiento: RF-02 \| Subsistema: auth / usuario
 
-<img src="imagenes/diseno/image45.png" style="width:6.26389in;height:4.76938in" />
+<img src="imagenes/diseno/image44.png" style="width:6.26389in;height:4.76938in" />
 
 *Diagrama de secuencia S02 · CU 3.1.2 - Primer ingreso*
 
@@ -318,7 +203,7 @@ Actor: Socio o empleado \| Requerimiento: RF-02 \| Subsistema: auth / usuario
 
 Actor: Socio \| Requerimiento: RF-08 \| Subsistema: consulta / turno
 
-<img src="imagenes/diseno/image31.png" style="width:6.26389in;height:2.71183in" />
+<img src="imagenes/diseno/image32.png" style="width:6.26389in;height:2.71183in" />
 
 *Diagrama de secuencia S03 · CU 3.2.1 - Consultar disponibilidad*
 
@@ -332,7 +217,7 @@ Actor: Socio \| Requerimiento: RF-08 \| Subsistema: consulta / turno
 
 Actor: Socio \| Requerimiento: RF-09 \| Subsistema: consulta / pase
 
-<img src="imagenes/diseno/image48.png" style="width:6.26389in;height:3.83971in" />
+<img src="imagenes/diseno/image45.png" style="width:6.26389in;height:3.83971in" />
 
 *Diagrama de secuencia S04 · CU 3.2.2 - Agendar consulta*
 
@@ -348,7 +233,7 @@ Concurrencia adicional. La transacción de agendar y la de suspender adquieren e
 
 Actor: Socio \| Requerimiento: RF-11 \| Subsistema: consulta
 
-<img src="imagenes/diseno/image47.png" style="width:6.26389in;height:2.82281in" />
+<img src="imagenes/diseno/image43.png" style="width:6.26389in;height:2.82281in" />
 
 *Diagrama de secuencia S05 · CU 3.2.3 - Consultar historial de agendas*
 
@@ -362,7 +247,7 @@ Actor: Socio \| Requerimiento: RF-11 \| Subsistema: consulta
 
 Actor: Socio \| Requerimiento: RF-12 \| Subsistema: atencion
 
-<img src="imagenes/diseno/image33.png" style="width:6.26389in;height:2.86558in" />
+<img src="imagenes/diseno/image19.png" style="width:6.26389in;height:2.86558in" />
 
 *Diagrama de secuencia S06 · CU 3.2.4 - Consultar historia clínica*
 
@@ -376,7 +261,7 @@ Actor: Socio \| Requerimiento: RF-12 \| Subsistema: atencion
 
 Actor: Socio \| Requerimiento: RF-10 \| Subsistema: consulta / pase
 
-<img src="imagenes/diseno/image34.png" style="width:6.26389in;height:2.86177in" />
+<img src="imagenes/diseno/image15.png" style="width:6.26389in;height:2.86177in" />
 
 *Diagrama de secuencia S23 · RF-10 - Cancelar por el socio*
 
@@ -392,7 +277,7 @@ Actor: Socio \| Requerimiento: RF-10 \| Subsistema: consulta / pase
 
 Actor: Funcionario \| Requerimiento: RF-13 \| Subsistema: turno
 
-<img src="imagenes/diseno/image40.png" style="width:6.26389in;height:3.45521in" />
+<img src="imagenes/diseno/image39.png" style="width:6.26389in;height:3.45521in" />
 
 *Diagrama de secuencia S07 · CU 3.3.1 - Alta de turno semanal*
 
@@ -406,7 +291,7 @@ Actor: Funcionario \| Requerimiento: RF-13 \| Subsistema: turno
 
 Actor: Funcionario \| Requerimiento: RF-14 \| Subsistema: turno / consulta
 
-<img src="imagenes/diseno/image38.png" style="width:6.26389in;height:4.7182in" />
+<img src="imagenes/diseno/image40.png" style="width:6.26389in;height:4.68784in" />
 
 *Diagrama de secuencia S08 · CU 3.3.2 - Suspender fechas*
 
@@ -420,13 +305,13 @@ Actor: Funcionario \| Requerimiento: RF-14 \| Subsistema: turno / consulta
 
 Actor: Funcionario \| Requerimiento: RF-15 \| Subsistema: turno
 
-<img src="imagenes/diseno/image46.png" style="width:6.26389in;height:3.60226in" />
+<img src="imagenes/diseno/image42.png" style="width:6.26388in;height:3.70742in" />
 
 *Diagrama de secuencia S09 · CU 3.3.3 - Rehabilitar fechas*
 
 > Descripción del flujo. TurnoService consulta el estado de cada fecha suspendida, comprueba que el médico esté activo y verifica nuevamente conflictos de médico y consultorio. Si no existen, registra el evento y rehabilita la fecha sin modificar números.
 >
-> Regla de negocio. Si existe un conflicto, se devuelve 409 sin modificar la fecha. Nunca se restauran agendas canceladas por suspensión.
+> Regla de negocio. Si existe un conflicto, se devuelve 409 sin modificar la fecha. Nunca se restauran las agendas canceladas por suspensión.
 >
 > Variantes y validaciones. Una superposición detectada al rehabilitar produce rechazo, sin cancelar agendas ajenas ni alterar horarios.
 
@@ -434,11 +319,11 @@ Actor: Funcionario \| Requerimiento: RF-15 \| Subsistema: turno
 
 Actor: Funcionario \| Requerimiento: RF-16 \| Subsistema: consulta
 
-<img src="imagenes/diseno/image20.png" style="width:6.26389in;height:4.37459in" />
+<img src="imagenes/diseno/image5.png" style="width:6.26152in;height:4.37459in" />
 
 *Diagrama de secuencia S10 · CU 3.3.4 - Registrar aviso de llegada*
 
-> Descripción del flujo. LlegadaService identifica al socio por CI, descarta el conflicto de interés del funcionario y comprueba consultas agendadas en el día. El repositorio conserva el aviso inicial ante un segundo intento.
+> Descripción del flujo. LlegadaService identifica al socio por CI, descarta el conflicto de interés del funcionario y comprueba consultas agendadas en el día. El repositorio conserva el aviso inicial ante un segundo intento. La fecha del aviso se obtiene del servidor.
 >
 > Regla de negocio. La unicidad es por socio y día. Un registro repetido conserva la primera hora y el primer funcionario.
 >
@@ -450,7 +335,7 @@ Verificación adicional. Para crear la llegada se consulta ConsultaRepository.bu
 
 Actor: Funcionario \| Requerimiento: RF-17 \| Subsistema: turno
 
-<img src="imagenes/diseno/image37.png" style="width:6.26389in;height:2.59184in" />
+<img src="imagenes/diseno/image23.png" style="width:6.26389in;height:2.59184in" />
 
 *Diagrama de secuencia S11 · CU 3.3.5 - Consultar turnos*
 
@@ -464,7 +349,7 @@ Actor: Funcionario \| Requerimiento: RF-17 \| Subsistema: turno
 
 Actor: Funcionario \| Requerimiento: RF-18 \| Subsistema: consulta
 
-<img src="imagenes/diseno/image18.png" style="width:6.26389in;height:2.90485in" />
+<img src="imagenes/diseno/image17.png" style="width:6.26389in;height:2.90485in" />
 
 *Diagrama de secuencia S12 · CU 3.3.6 - Consultar agendas*
 
@@ -478,7 +363,7 @@ Actor: Funcionario \| Requerimiento: RF-18 \| Subsistema: consulta
 
 Actor: Funcionario \| Requerimiento: RF-19 \| Subsistema: consulta / pase
 
-<img src="imagenes/diseno/image28.png" style="width:6.26389in;height:2.33737in" />
+<img src="imagenes/diseno/image9.png" style="width:6.26389in;height:2.11609in" />
 
 *Diagrama de secuencia S24 · RF-19 - Cancelar por funcionario*
 
@@ -508,27 +393,27 @@ Actor: Médico \| Requerimiento: RF-21 \| Subsistema: turno / consulta
 
 Actor: Médico \| Requerimiento: RF-23 \| Subsistema: atencion / consulta
 
-<img src="imagenes/diseno/image15.png" style="width:6.26389in;height:3.10271in" />
+<img src="imagenes/diseno/image24.png" style="width:6.26388in;height:3.10271in" />
 
 *Diagrama de secuencia S14 · CU 3.4.2 - Registrar resultado*
 
-> Descripción del flujo. AtencionService bloquea la Consulta, valida médico asignado, fecha actual, estado AGENDADA y que el médico no sea el socio. Consulta explícitamente LlegadaRepository.existePorSocioYFecha(socioId, hoy), indispensable en ambas ramas. Con NO_SE_PRESENTO solo registra estado definitivo y auditoría; con ATENDIDA valida afección, guarda Atención y pases en la misma transacción y notifica después del commit.
+> Descripción del flujo. AtencionService bloquea la Consulta, valida médico asignado, fecha actual, estado AGENDADA y que el médico no sea el socio. Consulta explícitamente LlegadaRepository.existePorSocioYFecha(socioId, hoy), indispensable en ambas ramas. Con NO_SE_PRESENTO solo registra el estado definitivo, el médico y el momento; con ATENDIDA valida afección, guarda Atención y pases en la misma transacción y notifica después del commit.
 >
 > Regla de negocio. NO_SE_PRESENTO solo modifica el resultado definitivo. ATENDIDA guarda registro clínico y, si corresponde, sus pases.
 >
 > Variantes y validaciones. El resultado “No se presentó a la consulta” es definitivo y no crea Atención; el resultado “Atendida” sí la crea.
 
-Secuencia alternativa explícita. ATENDIDA requiere afección y, si existen, pases válidos; NO_SE_PRESENTO solo actualiza Consulta y auditoría. Ambas requieren aviso de llegada de hoy; ausencia de llegada genera 409, y médico no autorizado 403.
+Secuencia alternativa explícita. ATENDIDA requiere afección y, si existen, pases válidos; NO_SE_PRESENTO solo actualiza Consulta con el resultado, el médico y el momento. Ambas requieren aviso de llegada de hoy; ausencia de llegada genera 409, y médico no autorizado 403.
 
 ### 3.4.3. CU 3.4.3 - Registrar pases
 
 Actor: Médico \| Requerimiento: RF-24 \| Subsistema: atencion / pase
 
-<img src="imagenes/diseno/image49.png" style="width:6.26389in;height:3.00613in" />
+<img src="imagenes/diseno/image8.png" style="width:6.26256in;height:3.00613in" />
 
 *Diagrama de secuencia S15 · CU 3.4.3 - Registrar pases*
 
-> Descripción del flujo. La solicitud incluye los pases junto con los datos definitivos de atención. PaseService valida destinos, vigencia y duplicados antes de insertar las autorizaciones en la misma transacción.
+> Descripción del flujo. La solicitud incluye los datos definitivos de atención y, opcionalmente, uno o más pases, con un máximo de uno por especialidad. PaseService valida destinos, vigencia y duplicados antes de insertar las autorizaciones en la misma transacción.
 >
 > Regla de negocio. Los pases nacen junto a la atención, no por alta aislada. Su vencimiento está asociado al permiso de especialidad.
 >
@@ -538,7 +423,7 @@ Actor: Médico \| Requerimiento: RF-24 \| Subsistema: atencion / pase
 
 Actor: Médico \| Requerimiento: RF-27 \| Subsistema: consulta / turno
 
-<img src="imagenes/diseno/image41.png" style="width:6.26389in;height:4.01266in" />
+<img src="imagenes/diseno/image46.png" style="width:6.26389in;height:3.79711in" />
 
 *Diagrama de secuencia S25 · RF-27 - Cancelación por médico*
 
@@ -554,7 +439,7 @@ Actor: Médico \| Requerimiento: RF-27 \| Subsistema: consulta / turno
 
 Actor: Administrador \| Requerimiento: RF-29 \| Subsistema: especialidad
 
-<img src="imagenes/diseno/image11.png" style="width:6.26389in;height:3.23608in" />
+<img src="imagenes/diseno/image37.png" style="width:6.26389in;height:3.23608in" />
 
 *Diagrama de secuencia S16 · CU 3.5.1 - Alta individual de especialidades*
 
@@ -570,7 +455,7 @@ Concurrencia adicional. Un índice UNIQUE sobre la clave normalizada de especial
 
 Actor: Administrador \| Requerimiento: RF-31 \| Subsistema: usuario
 
-<img src="imagenes/diseno/image23.png" style="width:6.26389in;height:3.77177in" />
+<img src="imagenes/diseno/image20.png" style="width:6.26389in;height:3.77177in" />
 
 *Diagrama de secuencia S17 · CU 3.5.2 - Alta individual de usuarios*
 
@@ -584,7 +469,7 @@ Actor: Administrador \| Requerimiento: RF-31 \| Subsistema: usuario
 
 Actor: Administrador \| Requerimiento: RF-33 \| Subsistema: consultorio
 
-<img src="imagenes/diseno/image36.png" style="width:6.26389in;height:3.55024in" />
+<img src="imagenes/diseno/image18.png" style="width:6.26389in;height:3.55024in" />
 
 *Diagrama de secuencia S18 · CU 3.5.3 - Alta individual de consultorios*
 
@@ -600,7 +485,7 @@ Concurrencia adicional. El nombre y/o número único normalizados se protegen me
 
 Actor: Administrador \| Requerimiento: RF-35 \| Subsistema: usuario
 
-<img src="imagenes/diseno/image42.png" style="width:6.26389in;height:2.906in" />
+<img src="imagenes/diseno/image47.png" style="width:6.26389in;height:2.906in" />
 
 *Diagrama de secuencia S19 · CU 3.5.4 - Consultar usuarios*
 
@@ -614,7 +499,7 @@ Actor: Administrador \| Requerimiento: RF-35 \| Subsistema: usuario
 
 Actor: Administrador \| Requerimiento: RF-39 \| Subsistema: estadistica
 
-<img src="imagenes/diseno/image22.png" style="width:6.26389in;height:2.43825in" />
+<img src="imagenes/diseno/image27.png" style="width:6.26389in;height:2.43825in" />
 
 *Diagrama de secuencia S20 · CU 3.5.5 - Estadísticas por especialidad*
 
@@ -628,7 +513,7 @@ Actor: Administrador \| Requerimiento: RF-39 \| Subsistema: estadistica
 
 Actor: Administrador \| Requerimiento: RF-40 \| Subsistema: estadistica
 
-<img src="imagenes/diseno/image30.png" style="width:6.26389in;height:4.22772in" />
+<img src="imagenes/diseno/image22.png" style="width:6.26389in;height:4.22772in" />
 
 *Diagrama de secuencia S21 · CU 3.5.6 - Estadísticas por turno*
 
@@ -642,7 +527,7 @@ Actor: Administrador \| Requerimiento: RF-40 \| Subsistema: estadistica
 
 Actor: Administrador \| Requerimiento: RF-41 \| Subsistema: estadistica
 
-<img src="imagenes/diseno/image13.png" style="width:6.26389in;height:3.06914in" />
+<img src="imagenes/diseno/image16.png" style="width:6.26389in;height:3.06914in" />
 
 *Diagrama de secuencia S22 · CU 3.5.7 - Estadísticas de consultas*
 
@@ -662,14 +547,14 @@ Política de bloqueo de agenda y suspensión: ambas rutas adquieren en primer lu
 
 ## 
 
-| **Operación**         | **Efecto atómico**                                                                                 |
-|-----------------------|----------------------------------------------------------------------------------------------------|
-| Alta de turno semanal | Persistencia de patrón, números semanales, fechas concretas y números concretos.                   |
-| Agendar consulta      | Bloqueo del socio, validación de límites y pase, inserción de consulta y avisos pendientes.        |
-| Cancelar consulta     | Actualización del estado, autor y momento; liberación lógica del número/pase y registro de avisos. |
-| Suspender fechas      | Cambio de estado, registro de evento y cancelación institucional de las consultas afectadas.       |
-| Atender consulta      | Registro del resultado, atención clínica, pases y notificación de actualización.                   |
-| Primer ingreso        | Consumo de enlace de un uso, hash de contraseña, datos obligatorios y activación.                  |
+| **Operación**         | **Efecto atómico**                                                                                               |
+|-----------------------|------------------------------------------------------------------------------------------------------------------|
+| Alta de turno semanal | Persistencia de patrón, números semanales, fechas concretas y números concretos.                                 |
+| Agendar consulta      | Bloqueo del socio, validación de límites y pase, inserción de consulta y avisos pendientes.                      |
+| Cancelar consulta     | Actualización del estado, autor y momento; liberación lógica del número/pase y registro de avisos.               |
+| Suspender fechas      | Cambio de estado, registro del funcionario y del momento y cancelación institucional de las consultas afectadas. |
+| Atender consulta      | Registro del resultado, atención clínica, pases y notificación de actualización.                                 |
+| Primer ingreso        | Consumo de enlace de un uso, hash de contraseña, datos obligatorios y activación.                                |
 
 ##  
 
@@ -685,7 +570,7 @@ El médico puede consultar historia clínica de un paciente con consulta propia 
 
 ## 4.4. Notificaciones y horarios
 
-La generación de notificaciones se registra con la operación de negocio; las entregas por SMTP y Firebase se procesan tras confirmar la transacción. Una falla del proveedor externo no revierte cambios ya confirmados. El sistema emplea America/Montevideo para reglas del calendario asistencial y conserva los instantes auditables con información de zona horaria.
+La generación de notificaciones se registra con la operación de negocio; las entregas por SMTP y Firebase se procesan tras confirmar la transacción. Una falla del proveedor externo no revierte cambios ya confirmados. El sistema emplea America/Montevideo para reglas del calendario asistencial y conserva las fechas y horas registradas con información de zona horaria.
 
 ## 4.5. Interacción con la API y errores
 
@@ -762,7 +647,7 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-01, RF-02*
 
-<img src="imagenes/diseno/image14.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image28.png" style="width:6.3499in;height:3.77083in" />
 
 <u>Funcionalidades del funcionario</u>
 
@@ -770,13 +655,13 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-16*
 
-<img src="imagenes/diseno/image6.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image13.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.3. Alta de turno semanal
 
 *Cubre: RF-13*
 
-<img src="imagenes/diseno/image5.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image10.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.4. Consultar turnos, suspender y rehabilitar fechas
 
@@ -788,7 +673,7 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-18*
 
-<img src="imagenes/diseno/image8.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image25.png" style="width:6.3499in;height:3.77083in" />
 
 <u>Funcionalidades del médico</u>
 
@@ -796,13 +681,13 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-21*
 
-<img src="imagenes/diseno/image4.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image7.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.7. Registrar atención y emitir pases
 
 *Cubre: RF-23, RF-24*
 
-<img src="imagenes/diseno/image3.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image6.png" style="width:6.3499in;height:3.77083in" />
 
 <u>Funcionalidades del administrador</u>
 
@@ -810,19 +695,19 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-31, RF-35*
 
-<img src="imagenes/diseno/image39.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image33.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.9. Registrar especialidades y consultorios
 
 *Cubre: RF-29, RF-33*
 
-<img src="imagenes/diseno/image1.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image2.png" style="width:6.3499in;height:3.77083in" />
 
 ### 6.1.10. Consultar estadísticas
 
 *Cubre: RF-39, RF-40, RF-41*
 
-<img src="imagenes/diseno/image7.png" style="width:6.3499in;height:3.77083in" />
+<img src="imagenes/diseno/image29.png" style="width:6.3499in;height:3.77083in" />
 
 ## 6.2. Mobile
 
@@ -832,28 +717,28 @@ Cada pantalla se presenta junto con los requerimientos funcionales que cubre, se
 
 *Cubre: RF-01, RF-02*
 
-<img src="imagenes/diseno/image2.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image1.png" style="width:2.72917in;height:5.9062in" />
 
 ### 6.2.2. Consultar disponibilidad
 
 *Cubre: RF-08*
 
-<img src="imagenes/diseno/image16.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image26.png" style="width:2.72917in;height:5.9062in" />
 
 ### 6.2.3. Agendar consulta
 
 *Cubre: RF-09*
 
-<img src="imagenes/diseno/image10.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image36.png" style="width:2.72917in;height:5.9062in" />
 
 ### 6.2.4. Consultar histórico de agendas
 
 *Cubre: RF-11*
 
-<img src="imagenes/diseno/image9.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image21.png" style="width:2.72917in;height:5.9062in" />
 
 ### 6.2.5. Consultar historia clínica
 
 *Cubre: RF-12*
 
-<img src="imagenes/diseno/image21.png" style="width:2.72917in;height:5.9062in" />
+<img src="imagenes/diseno/image31.png" style="width:2.72917in;height:5.9062in" />
