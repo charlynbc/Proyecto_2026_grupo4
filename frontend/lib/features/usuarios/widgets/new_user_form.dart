@@ -9,16 +9,9 @@ import '../../../core/validators/uruguayan_ci_validator.dart';
 import '../../auth/models/user_role.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../models/new_user.dart';
+import '../models/role_label.dart';
 import '../providers/create_user_controller.dart';
 import '../screens/user_routes.dart';
-
-/// Nombre del rol para el administrador.
-String roleLabel(UserRole role) => switch (role) {
-  UserRole.socio => 'Socio',
-  UserRole.funcionario => 'Funcionario',
-  UserRole.medico => 'Médico',
-  UserRole.administrador => 'Administrador',
-};
 
 final DateFormat _uiDate = DateFormat('dd/MM/yyyy');
 final RegExp _datePattern = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
