@@ -9,6 +9,13 @@ import '../../features/auth/screens/first_login_activation_screen.dart';
 import '../../features/auth/screens/first_login_request_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
+import '../../features/consultorios/screens/clinics_screen.dart';
+import '../../features/consultorios/screens/new_clinic_screen.dart';
+import '../../features/especialidades/screens/new_specialty_screen.dart';
+import '../../features/especialidades/screens/specialties_screen.dart';
+import '../../features/usuarios/screens/new_user_screen.dart';
+import '../../features/usuarios/screens/user_routes.dart';
+import '../../features/usuarios/screens/users_screen.dart';
 import '../widgets/coming_soon_screen.dart';
 import 'app_sections.dart';
 import 'app_shell.dart';
@@ -99,16 +106,56 @@ RouteBase _roleShell(UserRole role) {
         AppShell(navigationShell: navigationShell, sections: role.sections),
     branches: [
       for (final section in role.sections)
-        StatefulShellBranch(
+        StatefulShellBranch(routes: [_sectionRoute(role, section)]),
+    ],
+  );
+}
+
+/// La ruta de una sección. Las del administrador (usuarios, especialidades y
+/// consultorios) tienen su pantalla y una subruta para el alta; el resto
+/// muestra "Próximamente".
+GoRoute _sectionRoute(UserRole role, AppSection section) {
+  final path = role.sectionPath(section);
+  if (role == UserRole.administrador) {
+    switch (path) {
+      case kUsersPath:
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const UsersScreen(),
           routes: [
             GoRoute(
-              path: role.sectionPath(section),
-              builder: (context, state) =>
-                  ComingSoonScreen(title: section.label),
+              path: 'nuevo',
+              builder: (context, state) => const NewUserScreen(),
             ),
           ],
-        ),
-    ],
+        );
+      case kSpecialtiesPath:
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const SpecialtiesScreen(),
+          routes: [
+            GoRoute(
+              path: 'nueva',
+              builder: (context, state) => const NewSpecialtyScreen(),
+            ),
+          ],
+        );
+      case kClinicsPath:
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const ClinicsScreen(),
+          routes: [
+            GoRoute(
+              path: 'nuevo',
+              builder: (context, state) => const NewClinicScreen(),
+            ),
+          ],
+        );
+    }
+  }
+  return GoRoute(
+    path: path,
+    builder: (context, state) => ComingSoonScreen(title: section.label),
   );
 }
 

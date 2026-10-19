@@ -5,6 +5,13 @@ import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
+import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart';
+import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
+import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
+import 'package:agenda_medica/features/especialidades/screens/specialties_screen.dart';
+import 'package:agenda_medica/features/usuarios/screens/new_user_screen.dart';
+import 'package:agenda_medica/features/usuarios/screens/user_routes.dart';
+import 'package:agenda_medica/features/usuarios/screens/users_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,9 +102,15 @@ void main() {
           expect(find.text(section.label), findsNothing);
         }
       }
-      // Lo que no existe todavía va a "Próximamente".
-      expect(find.text('Próximamente'), findsOneWidget);
+      // Lo que no existe todavía va a "Próximamente"; la home del
+      // administrador ya es el padrón de usuarios.
+      expect(
+        find.text('Próximamente'),
+        role == UserRole.administrador ? findsNothing : findsOneWidget,
+        reason: role.name,
+      );
     }
+    await unmountApp(tester);
   });
 
   testWidgets(
@@ -134,6 +147,65 @@ void main() {
       await goTo(tester, container, role.sectionPath(last));
       expect(locationOf(container), role.sectionPath(last));
     }
+    await unmountApp(tester);
+  });
+
+  group('área del administrador', () {
+    testWidgets('cada sección abre su pantalla y estadísticas sigue en '
+        '"Próximamente"', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+      expect(find.byType(UsersScreen), findsOneWidget);
+
+      final screens = {
+        kUsersPath: find.byType(UsersScreen),
+        kSpecialtiesPath: find.byType(SpecialtiesScreen),
+        kClinicsPath: find.byType(ClinicsScreen),
+        kNewUserPath: find.byType(NewUserScreen),
+        kNewSpecialtyPath: find.byType(NewSpecialtyScreen),
+        kNewClinicPath: find.byType(NewClinicScreen),
+      };
+      for (final entry in screens.entries) {
+        await goTo(tester, container, entry.key);
+        expect(locationOf(container), entry.key);
+        expect(entry.value, findsOneWidget, reason: entry.key);
+      }
+
+      await goTo(tester, container, '/admin/estadisticas');
+      expect(locationOf(container), '/admin/estadisticas');
+      expect(find.text('Próximamente'), findsOneWidget);
+    });
+
+    testWidgets('el alta se abre y se cierra dentro del menú del '
+        'administrador', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+
+      await tester.tap(find.text('Especialidades').first);
+      await tester.pumpAndSettle();
+      expect(locationOf(container), kSpecialtiesPath);
+
+      await tester.tap(find.text('Nueva especialidad'));
+      await tester.pumpAndSettle();
+      expect(locationOf(container), kNewSpecialtyPath);
+
+      await tester.tap(find.byTooltip('Volver'));
+      await tester.pumpAndSettle();
+      expect(locationOf(container), kSpecialtiesPath);
+      expect(find.byType(SpecialtiesScreen), findsOneWidget);
+    });
+
+    testWidgets('las subrutas de alta tampoco se abren sin sesión ni con '
+        'otro rol', (tester) async {
+      final anonymous = await pumpApp(tester);
+      await goTo(tester, anonymous, kNewUserPath);
+      expect(locationOf(anonymous), '/login');
+
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.funcionario);
+      await goTo(tester, container, kNewClinicPath);
+      expect(locationOf(container), UserRole.funcionario.homePath);
+    });
   });
 
   testWidgets('sin sesión, una ruta de un rol lleva al login', (tester) async {

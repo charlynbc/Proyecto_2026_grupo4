@@ -116,6 +116,18 @@ Future<ProviderContainer> pumpApp(
   return container;
 }
 
+/// Desmonta la app y deja correr lo pendiente. Un test que arma varias apps
+/// (una por rol) y termina con una pantalla de `autoDispose` a la vista lo
+/// llama al final: al desmontar el árbol Riverpod agenda la liberación de esos
+/// providers con un timer, y el test falla si queda uno pendiente.
+Future<void> unmountApp(WidgetTester tester) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  // La liberación de un provider puede agendar la de otro que dependía de él.
+  for (var i = 0; i < 3; i++) {
+    await tester.pump(const Duration(milliseconds: 1));
+  }
+}
+
 String locationOf(ProviderContainer container) => container
     .read(goRouterProvider)
     .routerDelegate
