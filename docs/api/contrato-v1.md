@@ -172,12 +172,12 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 18 | `GET /api/consultas` | `AgendaService.consultarHistorial(socioId, filtros)` | `FiltroHistorialDTO`, `ConsultaHistorialDTO` | S05 | 11 |
 | 19 | `GET /api/consultas/{id}` | detalle de una consulta (RF-11) | `ConsultaHistorialDTO` | S05 | 11 |
 | 20 | `POST /api/consultas/{id}/cancelar` | `CancelacionService.cancelarPorSocio(socioId, consultaId)` | `CancelacionDTO` | S23 | 10 |
-| 21 | `GET /api/historia-clinica` | `ConsultaService.obtenerHistoria(socioId, filtros)` | `FiltroHistoriaDTO`, `HistoriaDTO`, `AtencionDTO` | S06 | 12 |
+| 21 | `GET /api/historia-clinica` | `AtencionService.obtenerHistoria(socioId, filtros)` | `FiltroHistoriaDTO`, `HistoriaDTO`, `AtencionDTO` | S06 | 12 |
 | 22 | `GET /api/historia-clinica/{idAtencion}` | detalle de una atención (RF-12) | `AtencionDTO`, `PaseDTO` | S06 | 12 |
-| 23 | `POST /api/turnos/suspensiones/previsualizar` | previa de `TurnoService.suspenderFechas` (S08) | `FiltroFechasDTO` | S08 | 14 |
-| 24 | `POST /api/turnos/suspensiones` | `TurnoService.suspenderFechas(filtro, ids)` | `FiltroFechasDTO`, `ResultadoFechasDTO` | S08 | 14 |
+| 23 | `POST /api/turnos/suspensiones/previsualizar` | `TurnoService.previsualizarSuspension(ids)` | `VistaPreviaSuspensionDTO` | S08 | 14 |
+| 24 | `POST /api/turnos/suspensiones` | `TurnoService.suspenderFechas(filtro, ids, cantidadConfirmada)` | `FiltroFechasDTO`, `ResultadoFechasDTO` | S08 | 14 |
 | 25 | `POST /api/turnos/rehabilitaciones` | `TurnoService.rehabilitarFechas(filtro, ids)` | `FiltroFechasDTO`, `ResultadoFechasDTO` | S09 | 15 |
-| 26 | `GET /api/avisos-llegada/consultas-hoy` | `ConsultaService.obtenerConsultasHoy(ci)` | `ConsultaDTO` | S10 | 16 |
+| 26 | `GET /api/avisos-llegada/consultas-hoy` | sin operación propia; derivado de S10 (`buscarAgendadasHoy(ci)`) | `ConsultaDTO` | S10 | 16 |
 | 27 | `POST /api/avisos-llegada` | `LlegadaService.registrarAviso(ci, funcionarioId, fecha)` | `AvisoLlegadaDTO` | S10 | 16 |
 | 28 | `GET /api/agendas` | `AgendaService.consultarAgendas(filtros)` | `FiltroAgendaDTO`, `AgendaOperativaDTO` | S12 | 18 |
 | 29 | `GET /api/medico/turnos` | `TurnoService.consultarTurnosDelMedico(medicoId, fecha)` | `TurnosPacientesDTO` | S13 | 21 |
@@ -939,7 +939,7 @@ Sin cuerpo. Pasa la consulta a `CANCELADA_SOCIO`, la conserva en el histórico, 
 #### #21 · `GET /api/historia-clinica`
 
 - **Roles:** SOCIO (solo la propia).
-- **RF:** RF-12. **Diseño:** `obtenerHistoria(socioId, filtros: FiltroHistoriaDTO): HistoriaDTO` (S06). **Estado:** PROPUESTA.
+- **RF:** RF-12. **Diseño:** `AtencionService.obtenerHistoria(socioId, filtros: FiltroHistoriaDTO): HistoriaDTO` (S06). **Estado:** PROPUESTA.
 
 El servidor autoriza la identidad del socio con el token. **No existe parámetro para consultar la historia de otra persona** (S06).
 
@@ -1025,7 +1025,7 @@ RF-14 y RF-15 identifican los turnos "por médico, especialidad y rango de fecha
 #### #23 · `POST /api/turnos/suspensiones/previsualizar`
 
 - **Roles:** FUNCIONARIO.
-- **RF:** RF-14 (confirmación previa). **Diseño:** S08 ("antes de confirmar, se muestran las fechas y la cantidad de consultas Agendadas que se cancelarán"). **Estado:** PROPUESTA.
+- **RF:** RF-14 (confirmación previa). **Diseño:** `TurnoService.previsualizarSuspension(ids: List<Long>): VistaPreviaSuspensionDTO` (figura 3, S08: "antes de confirmar, se muestran las fechas y la cantidad de consultas Agendadas que se cancelarán"). **Estado:** PROPUESTA (la operación figura en el Diseño; la ruta es propuesta).
 
 Es de solo lectura: no cambia nada. Se usa `POST` porque lleva una lista de ids.
 
@@ -1033,17 +1033,15 @@ Es de solo lectura: no cambia nada. Se usa `POST` porque lleva una lista de ids.
 
 | Campo | Tipo | Obligatorio | Notas |
 |---|---|---|---|
-| `filtro` | `FiltroFechasDTO` | sí | |
-| `ids` | lista de enteros | sí | Al menos uno. Qué significa "todos los del rango": P-12. |
+| `ids` | lista de enteros | sí | Al menos uno. Qué significa "todos los del rango": P-12. No lleva `filtro`, como la firma del Diseño. |
 
 ```json
 {
-  "filtro": { "medicoId": 17, "especialidadId": 3, "fechaDesde": "2026-10-20", "fechaHasta": "2026-11-03" },
   "ids": [301, 308, 315]
 }
 ```
 
-**Respuesta 200**
+**Respuesta 200** (`VistaPreviaSuspensionDTO`)
 
 ```json
 {
@@ -1064,7 +1062,7 @@ Es de solo lectura: no cambia nada. Se usa `POST` porque lleva una lista de ids.
 #### #24 · `POST /api/turnos/suspensiones`
 
 - **Roles:** FUNCIONARIO.
-- **RF:** RF-14. **Diseño:** `suspenderFechas(filtro, ids): ResultadoFechasDTO` (S08). **Estado:** PROPUESTA.
+- **RF:** RF-14. **Diseño:** `suspenderFechas(filtro, ids, cantidadConfirmada: int): ResultadoFechasDTO` (S08). **Estado:** PROPUESTA.
 
 Suspende de inmediato, cancela por la institución las consultas `AGENDADA`, devuelve los pases y registra los avisos a los socios con la observación, todo en una transacción y todo o nada (S08, diseño 5.2). No borra nada ni toca el patrón semanal.
 
@@ -1075,14 +1073,14 @@ Suspende de inmediato, cancela por la institución las consultas `AGENDADA`, dev
 | `filtro` | `FiltroFechasDTO` | sí | |
 | `ids` | lista de enteros | sí | Al menos uno. |
 | `observacion` | texto | no | Se incluye en la notificación a cada socio. |
-| `cantidadConsultasConfirmada` | entero ≥ 0 | sí | **PROPUESTA:** el `cantidadConsultasACancelar` que el funcionario vio en #23. Implementa S08: "si esta cambió, se solicita una nueva confirmación antes de aplicar cambios". |
+| `cantidadConfirmada` | entero ≥ 0 | sí | El `cantidadConsultasACancelar` que el funcionario vio en #23. Implementa S08: "si esta cambió, se solicita una nueva confirmación antes de aplicar cambios". |
 
 ```json
 {
   "filtro": { "medicoId": 17, "especialidadId": 3, "fechaDesde": "2026-10-20", "fechaHasta": "2026-11-03" },
   "ids": [301, 308, 315],
   "observacion": "Se creará otro turno la semana próxima.",
-  "cantidadConsultasConfirmada": 5
+  "cantidadConfirmada": 5
 }
 ```
 
@@ -1156,7 +1154,7 @@ Reactiva turnos suspendidos sin modificar médico, especialidad, fecha, consulto
 #### #26 · `GET /api/avisos-llegada/consultas-hoy`
 
 - **Roles:** FUNCIONARIO.
-- **RF:** RF-16. **Diseño:** `obtenerConsultasHoy(ci): List<ConsultaDTO>` (S10). **Estado:** PROPUESTA.
+- **RF:** RF-16. **Diseño:** sin operación propia; derivado de S10 (`buscarAgendadasHoy(ci)`). **Estado:** PROPUESTA.
 
 Devuelve las consultas **en `AGENDADA` de hoy** del socio con esa CI (mismo criterio que `buscarAgendadasHoy(ci)`).
 
@@ -1896,7 +1894,7 @@ Las rutas que propone este contrato se detallan en la sección 3. Decisiones sob
 1. **`POST /api/consultas`:** el cuerpo usa `numeroId` y `paseId?` (no `idNumero` e `idPase?`), que son los nombres de la firma `agendar(socioId, numeroId, paseId?)` del Diseño 2.1 a 2.7 (figuras 1 a 7). Se aplicó la misma regla a todo el contrato: referencias como `<entidad>Id`.
 2. **Login y refresh:** la respuesta mantiene `role` por compatibilidad con el cliente actual (P-22); es la única excepción a `rol`. El refresh devuelve la misma forma que el login.
 3. **`primer-ingreso/solicitar`:** "siempre 202" vale para todo pedido bien formado. Un pedido mal formado (falta un campo) recibe `400 VALIDACION` porque no depende de la CI ni de su existencia.
-4. **Suspensiones:** el Diseño exige volver a pedir confirmación si la cantidad de consultas cambió entre la previsualización y la confirmación (S08). Por eso #24 lleva `cantidadConsultasConfirmada` y puede responder `409 CONFIRMACION_DESACTUALIZADA`.
+4. **Suspensiones:** el Diseño exige volver a pedir confirmación si la cantidad de consultas cambió entre la previsualización y la confirmación (S08). Por eso #24 lleva `cantidadConfirmada` y puede responder `409 CONFIRMACION_DESACTUALIZADA`.
 5. **Médico:** el Diseño define una sola operación `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO`. Se parte la operación del Diseño en dos pedidos, #29 y #30, para seguir el flujo del CU 3.4.1.
 6. **Consultas de hoy:** `GET /api/avisos-llegada/consultas-hoy?ci=` devuelve solo `AGENDADA` de hoy. Con la CI del propio funcionario responde `403 CONFLICTO_DE_INTERES` ya en la búsqueda, no recién al marcar (CU 3.3.4, paso 3).
 
@@ -1945,9 +1943,9 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-21 | ¿Se aplican las mismas reglas de tiempo de respuesta al login para cuentas inexistentes y existentes (para que el tiempo no revele nada)? Es una exigencia de implementación, no de interfaz. | #1 | no depende de eso. |
 | P-22 | La respuesta de sesión usa `role` por compatibilidad con el cliente actual, el resto usa `rol` (como las RF). ¿Se unifica? | #1, #2 | lee `role` en la sesión. |
 | P-23 | ¿Cómo se enteran el cliente web y el Android de que algo cambió (una consulta cancelada o suspendida, una notificación nueva, un aviso de llegada) fuera de los 15 s de arquitectura 8.5? RNF-23 y RNF-25 prevén correo, notificación interna y push Android, pero no definen cómo se refresca la lista del socio ni qué recibe la web, que no tiene push (RNF-23 lo limita a Android). | #28, #30, #32 | consulta cada 15 s solo en #28 y #30; #32 solo se consulta al abrir la lista. |
-| P-24 | La pantalla de aviso de llegada (6.1.2) muestra el **nombre, el apellido y la CI del socio**, "Socio" y "Hoy 13/10/2026" antes de registrar, y el estado alternativo "El socio ya registró su llegada hoy a las 08:55 (Funcionario X)". `obtenerConsultasHoy(ci): List<ConsultaDTO>` no trae al socio ni dice si ya hay aviso; el aviso existente solo se conoce después de #27. Amplía P-15. La fecha de hoy ¿la toma el cliente de su reloj o del servidor (hora de Uruguay)? | #26, #27 | muestra solo las consultas, usa el reloj del dispositivo para "Hoy" y el `200` de #27 para el estado alternativo. |
+| P-24 | La pantalla de aviso de llegada (6.1.2) muestra el **nombre, el apellido y la CI del socio**, "Socio" y "Hoy 13/10/2026" antes de registrar, y el estado alternativo "El socio ya registró su llegada hoy a las 08:55 (Funcionario X)". #26 (derivado de `buscarAgendadasHoy(ci)`, S10) no trae al socio ni dice si ya hay aviso; el aviso existente solo se conoce después de #27. Amplía P-15. La fecha de hoy ¿la toma el cliente de su reloj o del servidor (hora de Uruguay)? **Parcialmente resuelta:** el Diseño 3.3.4 ya dice que la fecha del aviso la toma el servidor; queda pendiente lo del nombre y la CI del socio. | #26, #27 | muestra solo las consultas, usa el reloj del dispositivo para "Hoy" y el `200` de #27 para el estado alternativo. |
 | P-25 | Los mockups escriben "Dra. Apellido" y "Dr. Apellido" para los médicos (6.1.2, 6.1.4, 6.1.5, 6.1.6, 6.2.2 a 6.2.5). El modelo de datos no tiene ningún dato que indique el tratamiento (Persona solo tiene nombre, apellido y fecha de nacimiento). | #10, #16, #18, #21, #28, #29, #30 | muestra "nombre apellido" sin título. |
-| P-26 | Suspender y rehabilitar (6.1.4): la pantalla permite marcar filas de médicos y especialidades distintos, con los filtros en "Todos" y fechas vacías, y no tiene "seleccionar todos". `FiltroFechasDTO` (`medicoId`, `especialidadId`, `fechaDesde`, `fechaHasta`, los cuatro obligatorios en #23 a #25) supone una sola combinación. ¿El filtro es opcional, o el cliente debe agrupar la selección y hacer un pedido por médico y especialidad? Complementa P-12. | #23, #24, #25 | exige que la selección sea de un solo médico y una sola especialidad, y envía como rango el menor y el mayor `fecha` seleccionados. |
+| P-26 | Suspender y rehabilitar (6.1.4): la pantalla permite marcar filas de médicos y especialidades distintos, con los filtros en "Todos" y fechas vacías, y no tiene "seleccionar todos". `FiltroFechasDTO` (`medicoId`, `especialidadId`, `fechaDesde`, `fechaHasta`, los cuatro obligatorios en #24 y #25; #23 ya no lleva filtro) supone una sola combinación. ¿El filtro es opcional, o el cliente debe agrupar la selección y hacer un pedido por médico y especialidad? Complementa P-12. | #23, #24, #25 | exige que la selección sea de un solo médico y una sola especialidad, y envía como rango el menor y el mayor `fecha` seleccionados. |
 | P-27 | Registrar atención (6.1.7): la pantalla muestra "vence 11/01/2027" **antes de guardar** el pase, y el contrato solo envía `vigenciaDias`. ¿Desde cuándo cuenta la vigencia y el día de emisión entra o no? Además, la regla "no se puede emitir un pase si el socio ya tiene uno vigente o una consulta agendada en esa especialidad" no se puede comprobar antes de guardar: no hay endpoint para eso, y el `409 PASE_DUPLICADO` llega al finalizar. | #31 | calcula el vencimiento como hoy más `vigenciaDias` solo para mostrarlo, y deja la validación al servidor. |
 | P-28 | La tabla de pacientes (6.1.6) tiene "Ver atención" para consultas `ATENDIDA`. RF-25 (consultas atendidas por el médico) y RF-22 (historia clínica previa) quedaron fuera del contrato (sección 8) y no hay endpoint que devuelva una atención a un médico. | #30 | no muestra "Ver atención". |
 | P-29 | Confirmar consulta (6.2.3): "En total: 1 de 3. En Cardiología: 0 de 1." necesita el conteo de consultas activas y los **límites** (3 y 1), que son parámetros del servidor (3.1.3) y no viajan en ningún endpoint. "Se usará el pase a Cardiología, vigente hasta 12/12/2026" necesita el pase y su vencimiento antes de confirmar (ver P-07 y P-08). | #17, #18, #22 | cuenta las consultas `AGENDADA` de #18 cuyo día no terminó, no muestra los límites y no muestra el recuadro de pase si no conoce uno. |
