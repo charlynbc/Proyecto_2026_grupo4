@@ -619,7 +619,9 @@ void main() {
   });
 
   group('teléfono', () {
-    const phoneError = 'El teléfono tiene que tener entre 8 y 15 dígitos.';
+    const phoneError =
+        'Ese teléfono no parece válido. Revisá el número; si es de otro país, '
+        'empezalo con + y el código de país.';
 
     String text(WidgetTester tester, String label) =>
         tester.widget<TextFormField>(_field(label)).controller!.text;
@@ -666,8 +668,8 @@ void main() {
       expect(currentLocation(h.router), kNewUserPath);
     });
 
-    testWidgets('con 8 dígitos se acepta', (tester) async {
-      final h = await registerWith(tester, phone1: '12345678');
+    testWidgets('un celular uruguayo válido se acepta', (tester) async {
+      final h = await registerWith(tester, phone1: '099 123 456');
 
       expect(find.text(phoneError), findsNothing);
       expect(currentLocation(h.router), kUsersPath);
@@ -711,7 +713,9 @@ void main() {
   });
 
   group('teléfono mientras se escribe', () {
-    const phoneError = 'El teléfono tiene que tener entre 8 y 15 dígitos.';
+    const phoneError =
+        'Ese teléfono no parece válido. Revisá el número; si es de otro país, '
+        'empezalo con + y el código de país.';
     const requiredError = 'Ingresá un teléfono.';
     const phone1 = 'Teléfono 1';
     const phone2 = 'Teléfono 2 (opcional)';
@@ -761,10 +765,10 @@ void main() {
           },
         );
 
-        testWidgets('con 8 dígitos válidos no marca error', (tester) async {
+        testWidgets('un número válido no marca error', (tester) async {
           await _pump(tester);
 
-          await focusAndType(tester, label, '12345678');
+          await focusAndType(tester, label, '099 123 456');
           expectNoPhoneError();
 
           await focusAndType(tester, label, '(02) 123-4567');
