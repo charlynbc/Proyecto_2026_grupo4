@@ -196,6 +196,16 @@ void main() {
       expect(find.text(passwordError), findsOneWidget);
     });
 
+    testWidgets('el mensaje largo de cédula inválida no se corta en una '
+        'sola línea', (tester) async {
+      await pumpApp(tester);
+
+      await focusAndType(tester, _ciField, '12345678');
+
+      final message = tester.widget<Text>(find.text(ciError));
+      expect(message.maxLines, greaterThanOrEqualTo(2));
+    });
+
     testWidgets('al enviar se valida todo aunque un campo tenga foco', (
       tester,
     ) async {
