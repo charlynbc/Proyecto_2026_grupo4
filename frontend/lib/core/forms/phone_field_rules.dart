@@ -20,12 +20,18 @@ final List<TextInputFormatter> kPhoneInputFormatters = [
   FilteringTextInputFormatter.allow(RegExp(r'[0-9 +\-()]')),
 ];
 
+int _digitCount(String text) => text.replaceAll(RegExp(r'\D'), '').length;
+
+/// Si al teléfono [text] todavía le faltan dígitos: mientras se escribe, no se
+/// marca error hasta llegar a [kPhoneMinDigits]. Cuenta dígitos, no caracteres.
+bool isPhoneIncomplete(String text) => _digitCount(text) < kPhoneMinDigits;
+
 /// Valida un teléfono opcional: vacío vale; si no, tiene que tener entre
 /// [kPhoneMinDigits] y [kPhoneMaxDigits] dígitos.
 String? validateOptionalPhone(String? value) {
   final text = (value ?? '').trim();
   if (text.isEmpty) return null;
-  final digits = text.replaceAll(RegExp(r'\D'), '').length;
+  final digits = _digitCount(text);
   if (digits < kPhoneMinDigits || digits > kPhoneMaxDigits) {
     return kInvalidPhoneMessage;
   }

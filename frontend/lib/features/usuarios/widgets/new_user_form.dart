@@ -69,7 +69,22 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   );
   final _emailController = TextEditingController();
   final _phone1Controller = TextEditingController();
+  final _phone1Focus = FocusNode();
+  late final _phone1Validation = EarlyFieldValidation(
+    focusNode: _phone1Focus,
+    emptyMessage: 'Ingresá un teléfono.',
+    isIncomplete: isPhoneIncomplete,
+    check: validateOptionalPhone,
+  );
   final _phone2Controller = TextEditingController();
+  final _phone2Focus = FocusNode();
+  // El teléfono 2 es opcional: vacío nunca da error.
+  late final _phone2Validation = EarlyFieldValidation(
+    focusNode: _phone2Focus,
+    emptyMessage: null,
+    isIncomplete: isPhoneIncomplete,
+    check: validateOptionalPhone,
+  );
   final _addressController = TextEditingController();
 
   AutovalidateMode _autovalidate = AutovalidateMode.disabled;
@@ -83,6 +98,8 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
     // Sin esto no se revalidan la cédula ni la fecha al perder el foco.
     _ciFocus.addListener(_onFocusChanged);
     _birthDateFocus.addListener(_onFocusChanged);
+    _phone1Focus.addListener(_onFocusChanged);
+    _phone2Focus.addListener(_onFocusChanged);
   }
 
   void _onFocusChanged() {
@@ -93,6 +110,8 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   void dispose() {
     _ciFocus.dispose();
     _birthDateFocus.dispose();
+    _phone1Focus.dispose();
+    _phone2Focus.dispose();
     _ciController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -123,9 +142,6 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
     if (date.year < _firstYear) return 'Revisá el año de nacimiento.';
     return null;
   }
-
-  String? _validatePhone1(String? value) =>
-      _required(value, 'Ingresá un teléfono.') ?? validateOptionalPhone(value);
 
   String? _validateEmail(String? value) {
     final text = (value ?? '').trim();
@@ -177,6 +193,8 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
     final formValid = EarlyFieldValidation.validateAllOf([
       _ciValidation,
       _birthDateValidation,
+      _phone1Validation,
+      _phone2Validation,
     ], () => _formKey.currentState?.validate() ?? false);
     final specialtiesMissing =
         _role == UserRole.medico && _specialtyIds.isEmpty;
@@ -291,26 +309,28 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
           const SizedBox(height: 16),
           TextFormField(
             controller: _phone1Controller,
+            focusNode: _phone1Focus,
             enabled: enabled,
-            autovalidateMode: _autovalidate,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             keyboardType: TextInputType.phone,
             inputFormatters: kPhoneInputFormatters,
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(labelText: 'Teléfono 1'),
-            validator: _validatePhone1,
+            validator: _phone1Validation.validate,
           ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _phone2Controller,
+            focusNode: _phone2Focus,
             enabled: enabled,
-            autovalidateMode: _autovalidate,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             keyboardType: TextInputType.phone,
             inputFormatters: kPhoneInputFormatters,
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
               labelText: 'Teléfono 2 (opcional)',
             ),
-            validator: validateOptionalPhone,
+            validator: _phone2Validation.validate,
           ),
           const SizedBox(height: 16),
           TextFormField(

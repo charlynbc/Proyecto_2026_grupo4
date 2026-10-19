@@ -709,4 +709,145 @@ void main() {
       expect(currentLocation(h.router), kNewUserPath);
     });
   });
+
+  group('teléfono mientras se escribe', () {
+    const phoneError = 'El teléfono tiene que tener entre 8 y 15 dígitos.';
+    const requiredError = 'Ingresá un teléfono.';
+    const phone1 = 'Teléfono 1';
+    const phone2 = 'Teléfono 2 (opcional)';
+
+    Future<void> focusAndType(
+      WidgetTester tester,
+      String label,
+      String text,
+    ) async {
+      await tester.ensureVisible(_field(label));
+      await tester.tap(_field(label));
+      await tester.pump();
+      await tester.enterText(_field(label), text);
+      await tester.pump();
+    }
+
+    /// Sale del campo pasando al del nombre.
+    Future<void> leaveField(WidgetTester tester) async {
+      await tester.ensureVisible(_field('Nombre'));
+      await tester.tap(_field('Nombre'));
+      await tester.pump();
+    }
+
+    void expectNoPhoneError() {
+      expect(find.text(phoneError), findsNothing);
+      expect(find.text(requiredError), findsNothing);
+    }
+
+    for (final label in [phone1, phone2]) {
+      group(label, () {
+        testWidgets('con foco y 7 dígitos no marca error', (tester) async {
+          await _pump(tester);
+
+          await focusAndType(tester, label, '1234567');
+
+          expectNoPhoneError();
+        });
+
+        testWidgets(
+          'cuenta dígitos, no caracteres: "(02) 123" no marca error',
+          (tester) async {
+            await _pump(tester);
+
+            await focusAndType(tester, label, '(02) 123');
+
+            expectNoPhoneError();
+          },
+        );
+
+        testWidgets('con 8 dígitos válidos no marca error', (tester) async {
+          await _pump(tester);
+
+          await focusAndType(tester, label, '12345678');
+          expectNoPhoneError();
+
+          await focusAndType(tester, label, '(02) 123-4567');
+          expectNoPhoneError();
+        });
+
+        testWidgets('con 16 dígitos marca el error ya, sin enviar', (
+          tester,
+        ) async {
+          await _pump(tester);
+
+          await focusAndType(tester, label, '1234567890123456');
+
+          expect(find.text(phoneError), findsOneWidget);
+          // No hay tope que bloquee la escritura.
+          expect(
+            tester.widget<TextFormField>(_field(label)).controller!.text,
+            '1234567890123456',
+          );
+        });
+
+        testWidgets('al salir con menos de 8 dígitos marca el error', (
+          tester,
+        ) async {
+          await _pump(tester);
+
+          await focusAndType(tester, label, '123');
+          expectNoPhoneError();
+          await leaveField(tester);
+
+          expect(find.text(phoneError), findsOneWidget);
+        });
+
+        testWidgets('un campo borrado por completo no marca error al salir', (
+          tester,
+        ) async {
+          await _pump(tester);
+
+          await focusAndType(tester, label, '123');
+          await focusAndType(tester, label, '');
+          await leaveField(tester);
+
+          expectNoPhoneError();
+        });
+      });
+    }
+
+    testWidgets('teléfono 1 vacío solo se reclama al enviar y queda visible', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      // Lo toca y se va sin escribir: todavía no es un error.
+      await focusAndType(tester, phone1, '');
+      await leaveField(tester);
+      expectNoPhoneError();
+
+      await _submit(tester);
+      expect(find.text(requiredError), findsOneWidget);
+      expect(find.text(phoneError), findsNothing);
+
+      // Seguir moviéndose por el formulario no lo borra.
+      await tester.tap(_field('Apellido'));
+      await tester.pump();
+      expect(find.text(requiredError), findsOneWidget);
+    });
+
+    testWidgets('teléfono 2 vacío nunca da error', (tester) async {
+      await _pump(tester);
+
+      await focusAndType(tester, phone2, '');
+      await leaveField(tester);
+      expectNoPhoneError();
+
+      await _submit(tester);
+      // El único reclamo es el del teléfono 1 (obligatorio).
+      expect(find.text(requiredError), findsOneWidget);
+      expect(find.text(phoneError), findsNothing);
+
+      await tester.tap(_field('Apellido'));
+      await tester.pump();
+      expect(find.text(requiredError), findsOneWidget);
+      expect(find.text(phoneError), findsNothing);
+    });
+  });
 }
