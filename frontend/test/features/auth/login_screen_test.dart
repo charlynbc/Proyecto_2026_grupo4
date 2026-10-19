@@ -117,4 +117,98 @@ void main() {
 
     expect(locationOf(container), '/primer-ingreso/solicitar?acceso=empleado');
   });
+
+  group('validación anticipada', () {
+    const ciError =
+        'La cédula no es válida. Escribila completa, con el dígito '
+        'verificador, sin puntos ni guiones.';
+    const passwordError = 'Ingresá tu contraseña.';
+
+    Future<void> focusAndType(
+      WidgetTester tester,
+      Finder field,
+      String text,
+    ) async {
+      await tester.tap(field);
+      await tester.pump();
+      await tester.enterText(field, text);
+      await tester.pump();
+    }
+
+    Future<void> moveFocusTo(WidgetTester tester, Finder field) async {
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('con foco y menos de 8 dígitos la cédula no marca error', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+
+      await focusAndType(tester, _ciField, '1234567');
+
+      expect(find.text(ciError), findsNothing);
+    });
+
+    testWidgets('con 8 dígitos de verificador inválido marca error aunque '
+        'tenga foco', (tester) async {
+      await pumpApp(tester);
+
+      await focusAndType(tester, _ciField, '12345678');
+
+      expect(find.text(ciError), findsOneWidget);
+    });
+
+    testWidgets('al salir del campo con pocos dígitos marca error', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await focusAndType(tester, _ciField, '123');
+      expect(find.text(ciError), findsNothing);
+
+      await moveFocusTo(tester, _passwordField);
+
+      expect(find.text(ciError), findsOneWidget);
+    });
+
+    testWidgets('una cédula válida no marca error, con o sin foco', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+
+      await focusAndType(tester, _ciField, _validCi);
+      expect(find.text(ciError), findsNothing);
+
+      await moveFocusTo(tester, _passwordField);
+      expect(find.text(ciError), findsNothing);
+    });
+
+    testWidgets('la contraseña vacía marca error recién al perder el foco', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await focusAndType(tester, _passwordField, 'abc');
+      await focusAndType(tester, _passwordField, '');
+      expect(find.text(passwordError), findsNothing);
+
+      await moveFocusTo(tester, _ciField);
+
+      expect(find.text(passwordError), findsOneWidget);
+    });
+
+    testWidgets('al enviar se valida todo aunque un campo tenga foco', (
+      tester,
+    ) async {
+      final auth = RecordingAuthRepository();
+      await pumpApp(tester, auth: auth);
+      await focusAndType(tester, _ciField, '123');
+
+      await tester.tap(_submit);
+      await tester.pumpAndSettle();
+
+      expect(find.text(ciError), findsOneWidget);
+      expect(find.text(passwordError), findsOneWidget);
+      expect(auth.logins, isEmpty);
+    });
+  });
 }
