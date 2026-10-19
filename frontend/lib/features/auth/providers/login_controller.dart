@@ -22,6 +22,12 @@ class LoginController extends Notifier<LoginState> {
   @override
   LoginState build() => const LoginState();
 
+  /// Descarta el error del intento anterior. No toca un ingreso en curso ni
+  /// un estado sin error.
+  void clearError() {
+    if (state.status == LoginStatus.error) state = const LoginState();
+  }
+
   Future<void> submit({
     required String ci,
     required String password,
@@ -43,8 +49,10 @@ class LoginController extends Notifier<LoginState> {
   }
 }
 
-/// `autoDispose`: al cambiar de acceso o salir de la pantalla se descarta el
-/// error del intento anterior.
+/// `autoDispose`: al salir de la pantalla se descarta el estado. Al cambiar
+/// de acceso no alcanza: el formulario nuevo se suscribe en el mismo frame en
+/// que se desmonta el viejo, así que el provider sigue vivo; por eso
+/// `LoginForm` llama a [LoginController.clearError] al montarse.
 final loginControllerProvider =
     NotifierProvider.autoDispose<LoginController, LoginState>(
       LoginController.new,

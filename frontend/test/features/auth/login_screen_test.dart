@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/repositories/auth_repository.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,25 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/pump_app.dart';
 
 const _validCi = '12345672';
+
+/// Un [AuthRepository] cuyo login queda esperando hasta que el test lo
+/// completa, para probar qué pasa a mitad de un ingreso.
+class _PendingAuthRepository implements AuthRepository {
+  final Completer<void> completer = Completer<void>();
+
+  @override
+  Future<void> login({
+    required String ci,
+    required String password,
+    required AccessType access,
+  }) => completer.future;
+
+  @override
+  Future<void> refresh() async => throw const AuthException();
+
+  @override
+  Future<void> logout() async {}
+}
 
 Finder get _ciField => find.byType(TextFormField).at(0);
 Finder get _passwordField => find.byType(TextFormField).at(1);
@@ -84,6 +105,53 @@ void main() {
     expect(auth.logins, isEmpty);
     expect(find.textContaining('La cédula no es válida'), findsOneWidget);
     expect(find.text('Ingresá tu contraseña.'), findsOneWidget);
+  });
+
+  group('error de un ingreso fallido', () {
+    testWidgets('desaparece al cambiar de acceso, en los dos sentidos', (
+      tester,
+    ) async {
+      final auth = RecordingAuthRepository();
+      await pumpApp(tester, auth: auth);
+
+      await _fillAndSubmit(tester);
+      expect(find.text(kInvalidCredentialsMessage), findsOneWidget);
+
+      await tester.tap(find.text('Ingresar por el acceso de empleados'));
+      await tester.pumpAndSettle();
+      expect(find.text('Acceso para empleados'), findsOneWidget);
+      expect(find.text(kInvalidCredentialsMessage), findsNothing);
+
+      await _fillAndSubmit(tester);
+      expect(find.text(kInvalidCredentialsMessage), findsOneWidget);
+
+      await tester.tap(find.text('Ingresar por el acceso de socios'));
+      await tester.pumpAndSettle();
+      expect(find.text('Acceso para socios'), findsOneWidget);
+      expect(find.text(kInvalidCredentialsMessage), findsNothing);
+    });
+
+    testWidgets('cambiar de acceso no corta un ingreso en curso', (
+      tester,
+    ) async {
+      final auth = _PendingAuthRepository();
+      await pumpApp(tester, auth: auth);
+
+      await tester.enterText(_ciField, _validCi);
+      await tester.enterText(_passwordField, 'cualquiera1');
+      await tester.tap(_submit);
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      await tester.tap(find.text('Ingresar por el acceso de empleados'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      auth.completer.complete();
+      await tester.pumpAndSettle();
+    });
   });
 
   testWidgets('en Android solo hay acceso de socios, sin selector', (

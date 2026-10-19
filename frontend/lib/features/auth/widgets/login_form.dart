@@ -42,6 +42,12 @@ class _LoginFormState extends ConsumerState<LoginForm> {
     // cuando el formulario se reconstruye.
     _ciFocus.addListener(_onFocusChanged);
     _passwordFocus.addListener(_onFocusChanged);
+    // El error de un ingreso fallido es del acceso anterior: se descarta al
+    // montar el formulario de otro acceso. Diferido, porque no se puede
+    // modificar un provider mientras se construye el árbol.
+    Future.microtask(() {
+      if (mounted) ref.read(loginControllerProvider.notifier).clearError();
+    });
   }
 
   @override
