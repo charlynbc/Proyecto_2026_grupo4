@@ -53,6 +53,10 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   /// Largo de `dd/mm/aaaa`.
   static const int _dateLength = 10;
 
+  /// Los mensajes de fecha, correo y teléfono son largos: con una sola línea
+  /// (lo normal) se cortan con "…".
+  static const int _errorMaxLines = 3;
+
   final _formKey = GlobalKey<FormState>();
   final _ciController = TextEditingController();
   final _ciFocus = FocusNode();
@@ -288,6 +292,7 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(
               labelText: 'Fecha de nacimiento (dd/mm/aaaa)',
+              errorMaxLines: _errorMaxLines,
               suffixIcon: IconButton(
                 icon: const Icon(Icons.calendar_today_outlined),
                 tooltip: 'Elegir fecha de nacimiento',
@@ -303,7 +308,10 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
             autovalidateMode: _autovalidate,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(labelText: 'Correo electrónico'),
+            decoration: const InputDecoration(
+              labelText: 'Correo electrónico',
+              errorMaxLines: _errorMaxLines,
+            ),
             validator: _validateEmail,
           ),
           const SizedBox(height: 16),
@@ -315,7 +323,10 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
             keyboardType: TextInputType.phone,
             inputFormatters: kPhoneInputFormatters,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(labelText: 'Teléfono 1'),
+            decoration: const InputDecoration(
+              labelText: 'Teléfono 1',
+              errorMaxLines: _errorMaxLines,
+            ),
             validator: _phone1Validation.validate,
           ),
           const SizedBox(height: 16),
@@ -329,6 +340,7 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
             textInputAction: TextInputAction.next,
             decoration: const InputDecoration(
               labelText: 'Teléfono 2 (opcional)',
+              errorMaxLines: _errorMaxLines,
             ),
             validator: _phone2Validation.validate,
           ),

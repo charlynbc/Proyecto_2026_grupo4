@@ -854,4 +854,72 @@ void main() {
       expect(find.text(phoneError), findsNothing);
     });
   });
+
+  group('mensajes de error largos', () {
+    // Sin errorMaxLines el mensaje se corta con "…" en una sola línea.
+    Future<void> expectErrorNotCut(
+      WidgetTester tester, {
+      required String label,
+      required String input,
+      required String message,
+    }) async {
+      await _pump(tester);
+
+      await _enter(tester, label, input);
+      await _submit(tester);
+
+      final error = tester.widget<Text>(find.text(message));
+      expect(error.maxLines, greaterThanOrEqualTo(2));
+    }
+
+    testWidgets('el del teléfono 1 no se corta', (tester) async {
+      await expectErrorNotCut(
+        tester,
+        label: 'Teléfono 1',
+        input: '12345678',
+        message:
+            'Ese teléfono no parece válido. Revisá el número; si es de otro '
+            'país, empezalo con + y el código de país.',
+      );
+    });
+
+    testWidgets('el del teléfono 2 no se corta', (tester) async {
+      await expectErrorNotCut(
+        tester,
+        label: 'Teléfono 2 (opcional)',
+        input: '12345678',
+        message:
+            'Ese teléfono no parece válido. Revisá el número; si es de otro '
+            'país, empezalo con + y el código de país.',
+      );
+    });
+
+    testWidgets('el de la fecha mal escrita no se corta', (tester) async {
+      await expectErrorNotCut(
+        tester,
+        label: 'Fecha de nacimiento (dd/mm/aaaa)',
+        input: '15/03',
+        message: 'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.',
+      );
+    });
+
+    testWidgets('el de la fecha inexistente no se corta', (tester) async {
+      await expectErrorNotCut(
+        tester,
+        label: 'Fecha de nacimiento (dd/mm/aaaa)',
+        input: '29/02/2021',
+        message:
+            'Esa fecha no existe en el calendario. Revisá el día y el mes.',
+      );
+    });
+
+    testWidgets('el del correo no se corta', (tester) async {
+      await expectErrorNotCut(
+        tester,
+        label: 'Correo electrónico',
+        input: 'marta.example.org',
+        message: 'Ingresá un correo válido, por ejemplo nombre@ejemplo.org.',
+      );
+    });
+  });
 }
