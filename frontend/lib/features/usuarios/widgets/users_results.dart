@@ -9,9 +9,12 @@ import '../models/user_page.dart';
 import '../providers/user_filters_controller.dart';
 import '../providers/users_page_provider.dart';
 
-/// Ancho desde el que el padrón se muestra como tabla; en pantallas angostas
-/// cada cuenta es una tarjeta.
-const double kUsersTableMinWidth = 600;
+/// Ancho disponible desde el que el padrón se muestra como tabla; con menos,
+/// cada cuenta es una tarjeta. La tabla mide 864 px con Roboto y las cuentas
+/// del seed de los datos falsos (`columnSpacing: 24`, `horizontalMargin: 16`);
+/// se suma ~7 % para correos más largos que los del seed. Si la tabla igual no
+/// entra, queda el desplazamiento horizontal.
+const double kUsersTableMinWidth = 925;
 
 final DateFormat _uiDate = DateFormat('dd/MM/yyyy');
 
@@ -59,10 +62,20 @@ class UsersResults extends ConsumerWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (MediaQuery.sizeOf(context).width >= kUsersTableMinWidth)
-                  _UsersTable(data.items)
-                else
-                  for (final account in data.items) _UserCard(account),
+                // Se decide con el ancho que hay de verdad en este lugar (la
+                // pantalla menos márgenes y menú), no con el de la ventana.
+                LayoutBuilder(
+                  builder: (context, constraints) =>
+                      constraints.maxWidth >= kUsersTableMinWidth
+                      ? _UsersTable(data.items)
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final account in data.items)
+                              _UserCard(account),
+                          ],
+                        ),
+                ),
                 const SizedBox(height: 8),
                 _Pager(data),
               ],
@@ -71,39 +84,61 @@ class UsersResults extends ConsumerWidget {
   }
 }
 
-class _UsersTable extends StatelessWidget {
+class _UsersTable extends StatefulWidget {
   const _UsersTable(this.items);
 
   final List<UserAccount> items;
 
   @override
+  State<_UsersTable> createState() => _UsersTableState();
+}
+
+class _UsersTableState extends State<_UsersTable> {
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: DataTable(
-        columns: const [
-          DataColumn(label: Text('CI')),
-          DataColumn(label: Text('Apellido y nombre')),
-          DataColumn(label: Text('Rol')),
-          DataColumn(label: Text('Correo')),
-          DataColumn(label: Text('Estado')),
-          DataColumn(label: Text('Activada')),
-          DataColumn(label: Text('Alta')),
-        ],
-        rows: [
-          for (final a in items)
-            DataRow(
-              cells: [
-                DataCell(Text(a.ci)),
-                DataCell(Text(_fullName(a))),
-                DataCell(Text(roleLabel(a.role))),
-                DataCell(Text(a.email)),
-                DataCell(Text(a.status.label)),
-                DataCell(Text(a.activated ? 'Sí' : 'No')),
-                DataCell(Text(_createdOn(a))),
-              ],
-            ),
-        ],
+    // La barra se ve siempre (si la tabla no entra) para que se note que se
+    // puede desplazar.
+    return Scrollbar(
+      controller: _scrollController,
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          columnSpacing: 24,
+          horizontalMargin: 16,
+          columns: const [
+            DataColumn(label: Text('CI')),
+            DataColumn(label: Text('Apellido y nombre')),
+            DataColumn(label: Text('Rol')),
+            DataColumn(label: Text('Correo')),
+            DataColumn(label: Text('Estado')),
+            DataColumn(label: Text('Activada')),
+            DataColumn(label: Text('Alta')),
+          ],
+          rows: [
+            for (final a in widget.items)
+              DataRow(
+                cells: [
+                  DataCell(Text(a.ci)),
+                  DataCell(Text(_fullName(a))),
+                  DataCell(Text(roleLabel(a.role))),
+                  DataCell(Text(a.email)),
+                  DataCell(Text(a.status.label)),
+                  DataCell(Text(a.activated ? 'Sí' : 'No')),
+                  DataCell(Text(_createdOn(a))),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

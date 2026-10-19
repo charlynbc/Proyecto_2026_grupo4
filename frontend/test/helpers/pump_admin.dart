@@ -11,8 +11,9 @@ Future<GoRouter> pumpAdminScreens(
   required List<RouteBase> routes,
   required String initialLocation,
   required List<Override> overrides,
+  Size size = const Size(900, 1800),
 }) async {
-  tester.view.physicalSize = const Size(900, 1800);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
@@ -30,4 +31,3 @@ Future<GoRouter> pumpAdminScreens(
 
 String currentLocation(GoRouter router) =>
     router.routerDelegate.currentConfiguration.uri.toString();
-
