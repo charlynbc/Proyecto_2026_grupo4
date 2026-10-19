@@ -47,6 +47,8 @@ class CiFormField extends StatelessWidget {
       decoration: const InputDecoration(
         labelText: 'Cédula de identidad',
         hintText: 'Sin puntos ni guiones',
+        // El mensaje de cédula inválida es largo: sin esto se corta con "…".
+        errorMaxLines: 3,
       ),
       validator: validator,
       autovalidateMode: autovalidateMode,
