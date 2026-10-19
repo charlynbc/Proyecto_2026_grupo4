@@ -3,7 +3,7 @@
 Lugar en el repo: `docs/api/endpoints-usados.md`. Se mantiene a medida que avanza el frontend.
 
 **Estado de la ruta**
-- PROPUESTA: la propuso el frontend a partir del Diseño 2.3. El backend no la confirmó.
+- PROPUESTA: la propuso el frontend a partir del Diseño 2.1 a 2.7 (figuras 1 a 7). El backend no la confirmó.
 - CONFIRMADA: el backend la implementó o la aceptó tal cual.
 - CAMBIADA: el backend usa otra. Se anota la ruta nueva y qué campos cambiaron.
 
@@ -53,8 +53,8 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 | 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos | PROPUESTA | - | [contrato #29](contrato-v1.md#e29) |
 | 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21 | Pacientes del turno | PROPUESTA | - | [contrato #30](contrato-v1.md#e30) |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases | PROPUESTA | - | [contrato #31](contrato-v1.md#e31) |
-| 32 | `GET /api/notificaciones` | SOCIO | RNF-24 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
-| 33 | `POST /api/dispositivos` | SOCIO | RNF-24 | Registro de token push | PROPUESTA | - | [contrato #33](contrato-v1.md#e33) |
+| 32 | `GET /api/notificaciones` | SOCIO | RNF-23 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
+| 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push | PROPUESTA | - | [contrato #33](contrato-v1.md#e33) |
 | 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | PROPUESTA | - | [contrato #34](contrato-v1.md#e34) |
 | 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | PROPUESTA | - | [contrato #35](contrato-v1.md#e35) |
 | 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | PROPUESTA | - | [contrato #36](contrato-v1.md#e36) |

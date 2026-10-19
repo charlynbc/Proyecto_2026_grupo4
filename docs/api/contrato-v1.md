@@ -4,7 +4,7 @@ Estado del documento: **PROPUESTA del frontend**, 14/10/2026, rama `docs/contrat
 
 ## 0. Cómo leer este documento
 
-- **Fuentes.** Las operaciones y los DTO salen de `docs/analisis/diseno.md` sección 2.3 y de las secuencias S01 a S25. Las reglas salen de `requerimientos.md` (RF y RNF). Los flujos salen de `casos-de-uso.md`. Las reglas de la API (rutas bajo `/api`, recursos en plural, acciones explícitas de cambio de estado, error uniforme) salen de `arquitectura.md` 7.4, 8.3 y 8.5 y de `diseno.md` 4.5.
+- **Fuentes.** Las operaciones y los DTO salen de `docs/analisis/diseno.md` secciones 2.1 a 2.7 (figuras 1 a 7) y de las secuencias S01 a S25. Las reglas salen de `requerimientos.md` (RF y RNF). Los flujos salen de `casos-de-uso.md`. Las reglas de la API (rutas bajo `/api`, recursos en plural, acciones explícitas de cambio de estado, error uniforme) salen de `arquitectura.md` 7.4, 8.3 y 8.5 y de `diseno.md` 4.5.
 - **PROPUESTA.** El Diseño no define ninguna ruta HTTP ni el nombre exacto de cada campo. Por eso **todas las rutas y todos los campos de este documento son PROPUESTA**, salvo los nombres de operación, de DTO y de parámetro que figuran en la tabla de la sección 2 (esos son del Diseño). Donde además se propone una regla o un mecanismo que ningún documento define, aparece la marca **PROPUESTA:** en el texto.
 - **Preguntas abiertas.** Lo que ningún documento resuelve está en la sección 9, sin decidir. En cada endpoint se la cita como `P-nn`. Mientras no se resuelvan, el cliente adopta el comportamiento más conservador.
 - **Mockups.** La sección 6 se hizo mirando las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), pantalla por pantalla. Las diferencias entre lo que muestra cada pantalla y lo que cubre el contrato están en esa sección y en las preguntas P-23 a P-33.
@@ -33,7 +33,7 @@ Estado del documento: **PROPUESTA del frontend**, 14/10/2026, rama `docs/contrat
 | Instante (cuándo ocurrió algo) | ISO 8601 con desfase, hora de Uruguay | `"2026-10-14T10:12:45-03:00"` |
 | Día de la semana | entero 1 a 7 (1 lunes, 7 domingo), igual que el modelo de datos | `2` |
 
-Los días, los horarios y los vencimientos se interpretan en la hora oficial de Uruguay (RNF-16). "Hoy" es siempre el de Uruguay según el reloj del servidor. El cliente muestra `dd/mm/aaaa` y 24 h (RNF-21); ese formateo es del cliente, el JSON siempre va en ISO.
+Los días, los horarios y los vencimientos se interpretan en la hora oficial de Uruguay (RNF-15). "Hoy" es siempre el de Uruguay según el reloj del servidor. El cliente muestra `dd/mm/aaaa` y 24 h (RNF-20); ese formateo es del cliente, el JSON siempre va en ISO.
 
 ### 1.3 Paginación
 
@@ -71,7 +71,7 @@ Los filtros son parámetros de query, opcionales salvo que se indique. Un filtro
 
 ### 1.6 Identificadores y nombres
 
-- Una entidad se identifica con `id`. Una referencia a otra entidad se llama `<entidad>Id` (`numeroId`, `paseId`, `especialidadId`, `medicoId`, `consultorioId`), como en las firmas de la sección 2.3 del Diseño.
+- Una entidad se identifica con `id`. Una referencia a otra entidad se llama `<entidad>Id` (`numeroId`, `paseId`, `especialidadId`, `medicoId`, `consultorioId`), como en las firmas de las figuras 1 a 7 del Diseño (secciones 2.1 a 2.7).
 - Las entidades que el cliente muestra en pantalla viajan anidadas como objeto de referencia (sección 1.8), no como ids sueltos.
 - **Excepción heredada:** la respuesta de sesión usa `role` (no `rol`) porque el cliente ya la lee así. En los demás DTO se usa `rol` (P-22).
 - CI: **PROPUESTA:** solo dígitos, sin puntos ni guion, con el dígito verificador incluido (ej. `"45678911"`). El cliente normaliza antes de enviar (P-17).
@@ -146,22 +146,22 @@ Los filtros son parámetros de query, opcionales salvo que se indique. Un filtro
 | `agendadaEn` | instante | |
 | `canceladaEn`, `motivoCancelacion` | instante o `null`, texto o `null` | Solo con estados cancelados. El motivo existe en las cancelaciones institucionales (modelo de datos, `motivo_cancelacion`). |
 
-## 2. Correspondencia con el Diseño 2.3
+## 2. Correspondencia con el Diseño 2.1 a 2.7 (figuras 1 a 7)
 
 Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. El JSON de cada DTO se define en la sección del endpoint.
 
-| # | Endpoint | Operación del Diseño 2.3 | DTO que nombra | Secuencia | RF |
+| # | Endpoint | Operación del Diseño 2.1 a 2.7 (figuras 1 a 7) | DTO que nombra | Secuencia | RF |
 |---|---|---|---|---|---|
 | 1 | `POST /api/auth/login` | `AuthService.autenticar(ci, clave, acceso)` | `SesionDTO`, `TokenDTO` | S01 | 01 |
 | 2 | `POST /api/auth/refresh` | `AuthService` (renovación, arquitectura 8.3) | `SesionDTO` | S01 | 01 |
 | 3 | `POST /api/auth/logout` | `AuthService` (cierre, arquitectura 8.3) | - | - | 03 |
 | 4 | `POST /api/auth/primer-ingreso/solicitar` | `ActivacionService.solicitar(ci, acceso)` | `SolicitudAceptadaDTO` | S02 | 02 |
 | 5 | `POST /api/auth/primer-ingreso/completar` | `ActivacionService.activar(token, datos, clave)` | `DatosActivacionDTO`, `CuentaDTO` | S02 | 02 |
-| 6 | `GET /api/especialidades` | listado de catálogo (sin operación en 2.3) | `EspecialidadDTO` | - | 29, 13, 08, 31 |
+| 6 | `GET /api/especialidades` | listado de catálogo (sin operación en 2.1 a 2.7) | `EspecialidadDTO` | - | 29, 13, 08, 31 |
 | 7 | `POST /api/especialidades` | `EspecialidadService.crear(nombre, requierePase)` | `EspecialidadDTO` | S16 | 29 |
-| 8 | `GET /api/consultorios` | listado de catálogo (sin operación en 2.3) | `ConsultorioDTO` | - | 33, 13 |
+| 8 | `GET /api/consultorios` | listado de catálogo (sin operación en 2.1 a 2.7) | `ConsultorioDTO` | - | 33, 13 |
 | 9 | `POST /api/consultorios` | `ConsultorioService.crear(datos)` | `AltaConsultorioDTO`, `ConsultorioDTO` | S18 | 33 |
-| 10 | `GET /api/medicos` | listado de apoyo (sin operación en 2.3) | - | - | 13, 08, 14, 15, 17, 18 |
+| 10 | `GET /api/medicos` | listado de apoyo (sin operación en 2.1 a 2.7) | - | - | 13, 08, 14, 15, 17, 18 |
 | 11 | `POST /api/usuarios` | `UsuarioService.crearUsuarioPendiente(datos)` | `AltaUsuarioDTO`, `CuentaDTO` | S17 | 31 |
 | 12 | `GET /api/usuarios` | `UsuarioService.consultarPadron(filtros)` | `FiltroUsuariosDTO`, `UsuarioDTO` | S19 | 35 |
 | 13 | `POST /api/turnos-semanales` | `TurnoService.crearTurnoSemanal(datos)` | `AltaTurnoDTO`, `TurnoSemanalDTO` | S07 | 13 |
@@ -183,8 +183,8 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 29 | `GET /api/medico/turnos` | `TurnoService.consultarTurnosDelMedico(medicoId, fecha)` | `TurnosPacientesDTO` | S13 | 21 |
 | 30 | `GET /api/medico/turnos/{id}/numeros` | ídem (detalle de un turno) | `TurnosPacientesDTO` | S13 | 21 |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | `AtencionService.registrarResultado(medicoId, consultaId, datos)` y `PaseService.validarYCrearEnAtencion(atencionId, solicitudes)` | `ResultadoConsultaDTO`, `PaseNuevoDTO`, `PaseDTO` | S14, S15 | 23, 24 |
-| 32 | `GET /api/notificaciones` | listado de avisos internos (sin operación de lectura en 2.3) | - | - | RNF-24 |
-| 33 | `POST /api/dispositivos` | registro de destino push (sin operación en 2.3) | - | - | RNF-24 |
+| 32 | `GET /api/notificaciones` | listado de avisos internos (sin operación de lectura en 2.1 a 2.7) | - | - | RNF-23 |
+| 33 | `POST /api/dispositivos` | registro de destino push (sin operación en 2.1 a 2.7) | - | - | RNF-23 |
 | 34 | `GET /api/estadisticas/especialidades` | `EstadisticaService.calcularPorEspecialidad(filtro)` | `FiltroEstadisticaDTO`, `EstadisticaEspecialidadDTO` | S20 | 39 |
 | 35 | `GET /api/estadisticas/turnos` | `EstadisticaService.calcularPorTurno(filtro)` | `FiltroEstadisticaDTO`, `EstadisticaTurnoDTO` | S21 | 40 |
 | 36 | `GET /api/estadisticas/consultas` | `EstadisticaService.calcularConsultas(filtro)` | `FiltroEstadisticaDTO`, `EstadisticaConsultaDTO` | S22 | 41 |
@@ -469,7 +469,7 @@ Sin parámetros. Todos los consultorios, sin paginar, ordenados por `nombre`. Lo
 #### #10 · `GET /api/medicos`
 
 - **Roles:** cualquier rol autenticado.
-- **RF:** RF-13, RF-08, RF-14, RF-15, RF-17, RF-18 (selectores de médico). **Diseño:** sin operación en 2.3. **Estado:** PROPUESTA.
+- **RF:** RF-13, RF-08, RF-14, RF-15, RF-17, RF-18 (selectores de médico). **Diseño:** sin operación en 2.1 a 2.7. **Estado:** PROPUESTA.
 
 | Parámetro | Tipo | Obligatorio | Notas |
 |---|---|---|---|
@@ -819,7 +819,7 @@ El `socioId` sale del token. Toda la validación y la inserción ocurren en una 
 }
 ```
 
-**Errores** (todos con mensaje que indica qué regla falló, RNF-23)
+**Errores** (todos con mensaje que indica qué regla falló, RNF-22)
 
 | Status | `code` | Cuándo |
 |---|---|---|
@@ -1455,7 +1455,7 @@ Longitud máxima de los textos: P-18. Vencimiento y duplicados de pases en panta
 #### #32 · `GET /api/notificaciones`
 
 - **Roles:** SOCIO (solo las propias).
-- **RF:** RNF-24 ("por la interfaz del sistema"), RNF-26. **Diseño:** sin operación de lectura en 2.3 (solo `registrarAvisoPendiente`); el modelo de datos tiene la tabla Notificacion. **Estado:** PROPUESTA.
+- **RF:** RNF-23 ("por la interfaz del sistema"), RNF-25. **Diseño:** sin operación de lectura en 2.1 a 2.7 (solo `registrarAvisoPendiente`); el modelo de datos tiene la tabla Notificacion. **Estado:** PROPUESTA.
 
 | Parámetro | Tipo | Notas |
 |---|---|---|
@@ -1488,7 +1488,7 @@ El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni
 #### #33 · `POST /api/dispositivos`
 
 - **Roles:** SOCIO.
-- **RF:** RNF-24 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.3; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA.
+- **RF:** RNF-23 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA.
 
 Registra el token de Firebase del dispositivo del socio autenticado.
 
@@ -1519,7 +1519,7 @@ Las tres usan el mismo `FiltroEstadisticaDTO`, que viaja en la query:
 | `fechaDesde` | fecha | Opcional. Por defecto, el primer día del mes en curso (RF-44, CU 3.5.5). |
 | `fechaHasta` | fecha | Opcional. Por defecto, el último día del mes en curso. |
 
-Cada respuesta repite `desde` y `hasta`, el período realmente aplicado. Un denominador cero se informa como **"Sin datos"** y un numerador cero con denominador positivo como **0 %** (RF-44): en el JSON, un porcentaje o tasa en `null` significa "Sin datos"; el `0` es 0 %. Los porcentajes van como número entre 0 y 100, con hasta 2 decimales (**PROPUESTA**, P-13). Estas consultas pueden demorar más que las demás (RNF-17): el cliente muestra que la operación está en curso.
+Cada respuesta repite `desde` y `hasta`, el período realmente aplicado. Un denominador cero se informa como **"Sin datos"** y un numerador cero con denominador positivo como **0 %** (RF-44): en el JSON, un porcentaje o tasa en `null` significa "Sin datos"; el `0` es 0 %. Los porcentajes van como número entre 0 y 100, con hasta 2 decimales (**PROPUESTA**, P-13). Estas consultas pueden demorar más que las demás (RNF-16): el cliente muestra que la operación está en curso.
 
 Errores comunes: `400 VALIDACION` (fecha mal formada o rango invertido).
 
@@ -1676,7 +1676,7 @@ Toda respuesta de error (4xx y 5xx) tiene este cuerpo y ningún otro campo:
 ```
 
 - `code`: texto estable en `MAYÚSCULAS_CON_GUION_BAJO`. Es lo que el cliente usa para decidir qué hacer. No cambia aunque cambie el texto.
-- `message`: texto en español, sin términos técnicos, que dice qué pasó y qué puede hacer el usuario (RNF-23). Es seguro para mostrarlo tal cual.
+- `message`: texto en español, sin términos técnicos, que dice qué pasó y qué puede hacer el usuario (RNF-22). Es seguro para mostrarlo tal cual.
 - Nunca se incluyen trazas, SQL, nombres de tablas, datos clínicos ni nada que confirme la existencia de una cuenta (RNF-10, RNF-12, diseño 4.5).
 
 Una respuesta de error sin cuerpo JSON válido (por ejemplo un corte del proxy) la trata el cliente como `500 ERROR_INTERNO`.
@@ -1828,7 +1828,7 @@ Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2"
 
 - **Se ve:** tres pestañas "Demanda por especialidad", "Utilización por turno" y "Consultas por estado" (esta última activa). "Desde" y "Hasta" (01/10/2026 y 31/10/2026), botón "Consultar" y "Por defecto: mes en curso". Dos tarjetas: "Consultas del período (por fecha de consulta)" con el total, y "Tasa de cancelación por el socio" con un porcentaje y "Sin datos si el total es cero". Gráfico de barras "Consultas por estado" con los siete estados (Agendada, Atendida, Cancelada por el socio, Cancelada por la institución, No asistió, No atendida, No se presentó a la consulta) y su cantidad. Pie: "Las cifras son de ejemplo. Operaciones largas: se informa «Calculando…» mientras se genera el resultado."
 - **Endpoints:** pestaña "Demanda por especialidad" → #34; "Utilización por turno" → #35; "Consultas por estado" → #36 (`total`, `tasaCancelacionSocio`, `porEstado`). Las fechas se envían como `fechaDesde` y `fechaHasta`; la respuesta devuelve `desde` y `hasta`, que sirven para llenar los campos cuando el usuario no los tocó.
-- **Coincide con el contrato:** los siete estados, "Sin datos" como `null` y el mes en curso por defecto. "Calculando…" lo muestra el cliente mientras espera (RNF-17).
+- **Coincide con el contrato:** los siete estados, "Sin datos" como `null` y el mes en curso por defecto. "Calculando…" lo muestra el cliente mientras espera (RNF-16).
 - **Sin mockup:** el contenido de las dos primeras pestañas no está dibujado; el contrato de #34 y #35 se apoya solo en RF-39, RF-40, S20 y S21 (P-13).
 
 ### 6.2 Móvil, socio
@@ -1885,7 +1885,7 @@ Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis
 | 6.2.3 Agendar consulta (confirmar) | 09 | #17 (y #22 para el pase, P-08) |
 | 6.2.4 Mis consultas | 11 | #18, #6, #10 (#19 y #20 sin pantalla dibujada) |
 | 6.2.5 Mi historia clínica | 12 | #21, #22, #6, #10 |
-| Sin pantalla en los mockups | RNF-24 | #32, #33 (el registro del dispositivo se hace al iniciar sesión) |
+| Sin pantalla en los mockups | RNF-23 | #32, #33 (el registro del dispositivo se hace al iniciar sesión) |
 
 ## 7. Correcciones y contradicciones resueltas
 
@@ -1893,7 +1893,7 @@ Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis
 
 Las rutas que propone este contrato se detallan en la sección 3. Decisiones sobre su contenido:
 
-1. **`POST /api/consultas`:** el cuerpo usa `numeroId` y `paseId?` (no `idNumero` e `idPase?`), que son los nombres de la firma `agendar(socioId, numeroId, paseId?)` del Diseño 2.3. Se aplicó la misma regla a todo el contrato: referencias como `<entidad>Id`.
+1. **`POST /api/consultas`:** el cuerpo usa `numeroId` y `paseId?` (no `idNumero` e `idPase?`), que son los nombres de la firma `agendar(socioId, numeroId, paseId?)` del Diseño 2.1 a 2.7 (figuras 1 a 7). Se aplicó la misma regla a todo el contrato: referencias como `<entidad>Id`.
 2. **Login y refresh:** la respuesta mantiene `role` por compatibilidad con el cliente actual (P-22); es la única excepción a `rol`. El refresh devuelve la misma forma que el login.
 3. **`primer-ingreso/solicitar`:** "siempre 202" vale para todo pedido bien formado. Un pedido mal formado (falta un campo) recibe `400 VALIDACION` porque no depende de la CI ni de su existencia.
 4. **Suspensiones:** el Diseño exige volver a pedir confirmación si la cantidad de consultas cambió entre la previsualización y la confirmación (S08). Por eso #24 lleva `cantidadConsultasConfirmada` y puede responder `409 CONFIRMACION_DESACTUALIZADA`.
@@ -1908,7 +1908,7 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 |---|---|---|
 | C1 | CU 3.1.1 (flujo 6.A) muestra un mensaje distinto cuando la cuenta está inactiva. RF-01, RNF-10 y S01 exigen que la respuesta no revele qué dato falló ni confirme la existencia de la cuenta. | Gana RF-01 / RNF-10: cuenta inactiva, inexistente o pendiente reciben el mismo `401 CREDENCIALES_INVALIDAS`. |
 | C2 | Arquitectura 7.4 dice `404` para un recurso "inexistente o ajeno". Diseño 4.5 dice `403` para "propiedad del recurso no autorizado" y `404` solo si procede. S14 dice `403` para "médico no autorizado". Ningún RF fija el status. | Sin requerimiento que decida, se adopta lo más conservador (no confirmar que el recurso existe, RNF-10): `404 NO_ENCONTRADO` para recursos ajenos. `403` queda para el rol (`SIN_PERMISO`) y el conflicto de interés. Pasa a Preguntas abiertas (P-10). |
-| C3 | S16 dice que se recibe "el identificador de especialidad"; la firma 2.3 es `crear(nombre, requierePase)`. | Gana la firma 2.3 (nombre y `requierePase`); el `id` lo genera el servidor. |
+| C3 | S16 dice que se recibe "el identificador de especialidad"; la firma del Diseño (figuras 1 a 7) es `crear(nombre, requierePase)`. | Gana esa firma (nombre y `requierePase`); el `id` lo genera el servidor. |
 
 ## 8. Fuera de este contrato
 
@@ -1925,7 +1925,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-01 | El error uniforme es solo `{code, message}`. ¿Cómo se informa **qué campo** falló en un formulario (400) y **qué fechas y números** chocan en un solapamiento (CU 3.3.1, 7.A.2: "informa las fechas y números en conflicto")? | #11, #13, #25 y todos los formularios | muestra el `message` completo en un aviso general, sin marcar campos. |
 | P-02 | La protección CSRF de `refresh` y `logout` (arquitectura 8.3) no define el mecanismo: ¿qué cabecera, cómo la obtiene el cliente, cómo la gestiona Android? Tampoco el nombre ni el `Path` de la cookie. | #2, #3 | no envía nada especial. |
 | P-03 | RF-01 no define límite de intentos fallidos ni bloqueo temporal de login. | #1 | no asume ninguno. |
-| P-04 | El primer ingreso (CU 3.1.2, pasos 8 y 9) valida el enlace y **muestra el correo registrado, no editable**, antes de pedir los datos. El Diseño 2.3 solo tiene `activar(token, datos, clave)`: no hay operación para validar el enlace ni leer el correo. Tampoco se define a qué ruta del cliente apunta el enlace ni cómo viaja el token. | #5 | muestra el formulario sin el correo y valida el enlace recién al enviar. |
+| P-04 | El primer ingreso (CU 3.1.2, pasos 8 y 9) valida el enlace y **muestra el correo registrado, no editable**, antes de pedir los datos. El Diseño 2.1 a 2.7 (figuras 1 a 7) solo tiene `activar(token, datos, clave)`: no hay operación para validar el enlace ni leer el correo. Tampoco se define a qué ruta del cliente apunta el enlace ni cómo viaja el token. | #5 | muestra el formulario sin el correo y valida el enlace recién al enviar. |
 | P-05 | ¿El backend puede distinguir en el mensaje de #5 una cuenta inactivada de un enlace vencido? Hoy van con el mismo código, y el aviso "pedí uno nuevo" no ayuda a una cuenta inactivada. | #5 | muestra el mensaje único. |
 | P-06 | Después de #5, ¿el cliente debe quedar con sesión iniciada o volver al login? CU 3.1.2 paso 12 dice "invita a iniciar sesión". | #5 | vuelve al login. |
 | P-07 | Si la especialidad requiere pase y el pedido de #17 no trae `paseId`: ¿el servidor busca el pase usable del socio (RF-09: "el sistema verifica que el socio tenga un pase") o rechaza? | #17 | siempre envía `paseId` cuando conoce el pase. |
@@ -1935,7 +1935,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-11 | Paginación: `HistoriaDTO` (#21) no declara `Page<>`; la disponibilidad (#16) y las consultas de hoy son `List<>` sin tope. ¿Se pagina #16 y #21? ¿Cuál es el máximo de resultados de #16 (30 días × todos los médicos)? | #16, #21, #26 | asume los listados tal como figuran arriba. |
 | P-12 | RF-14 y RF-15 permiten suspender o rehabilitar "todos los turnos del rango". ¿`ids` vacío significa todos, o el cliente debe enviar todos los ids (y entonces tener todas las páginas de #15)? | #23, #24, #25 | exige `ids` con al menos un valor y solo opera sobre lo que el funcionario ve y selecciona. |
 | P-13 | Estadísticas: ¿"cada turno" de RF-40 es el patrón semanal o la fecha concreta? ¿El porcentaje es 0 a 100 o 0 a 1? ¿La unidad de "Sin datos" es `null`? | #34, #35, #36 | usa 0 a 100 y `null` como "Sin datos". |
-| P-14 | Notificaciones: ¿hay estado leído/no leído y cómo se marca (RF y modelo de datos no lo definen)? ¿Se listan los recordatorios aún no vencidos (`programada_para` futuro)? ¿Cuánto tiempo se conservan? ¿Se da de baja el token push al cerrar sesión o cuando otro socio inicia sesión en el mismo dispositivo (`token` es único)? RNF-24 habla de push en Android; ¿vale también el push web? | #32, #33 | lista todo sin estado de lectura; no da de baja el token. |
+| P-14 | Notificaciones: ¿hay estado leído/no leído y cómo se marca (RF y modelo de datos no lo definen)? ¿Se listan los recordatorios aún no vencidos (`programada_para` futuro)? ¿Cuánto tiempo se conservan? ¿Se da de baja el token push al cerrar sesión o cuando otro socio inicia sesión en el mismo dispositivo (`token` es único)? RNF-23 habla de push en Android; ¿vale también el push web? | #32, #33 | lista todo sin estado de lectura; no da de baja el token. |
 | P-15 | RF-16 pide mostrar las consultas del día para confirmar al socio. ¿Se debe mostrar también su nombre y apellido para verificar que es la persona correcta? `List<ConsultaDTO>` no los trae. | #26 | muestra solo las consultas. |
 | P-16 | ¿Qué médicos lista #10: solo activos (RF-13), o también inactivos para filtrar turnos históricos o suspendidos (RF-17, RF-45)? ¿Un socio ve a todos los médicos activos o solo a los que tienen números ofrecidos? | #10, #15, #16 | muestra solo médicos activos. |
 | P-17 | Formato de la CI en el cable: solo dígitos (propuesta) o con puntos y guion. ¿Quién normaliza? Los mockups piden "Sin puntos ni guiones" en los campos de CI, pero no definen el formato en el cable. | #1, #4, #11, #26, #27, #28 | envía solo dígitos. |
@@ -1944,7 +1944,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-20 | Duración y vigencia del JWT del lado del cliente: ¿se incluye `expiresIn` en la respuesta de sesión? Hoy el cliente solo conoce los 15 minutos por arquitectura 8.3. | #1, #2 | renueva ante el primer `401`. |
 | P-21 | ¿Se aplican las mismas reglas de tiempo de respuesta al login para cuentas inexistentes y existentes (para que el tiempo no revele nada)? Es una exigencia de implementación, no de interfaz. | #1 | no depende de eso. |
 | P-22 | La respuesta de sesión usa `role` por compatibilidad con el cliente actual, el resto usa `rol` (como las RF). ¿Se unifica? | #1, #2 | lee `role` en la sesión. |
-| P-23 | ¿Cómo se enteran el cliente web y el Android de que algo cambió (una consulta cancelada o suspendida, una notificación nueva, un aviso de llegada) fuera de los 15 s de arquitectura 8.5? RNF-24 y RNF-26 prevén correo, notificación interna y push Android, pero no definen cómo se refresca la lista del socio ni qué recibe la web, que no tiene push (RNF-24 lo limita a Android). | #28, #30, #32 | consulta cada 15 s solo en #28 y #30; #32 solo se consulta al abrir la lista. |
+| P-23 | ¿Cómo se enteran el cliente web y el Android de que algo cambió (una consulta cancelada o suspendida, una notificación nueva, un aviso de llegada) fuera de los 15 s de arquitectura 8.5? RNF-23 y RNF-25 prevén correo, notificación interna y push Android, pero no definen cómo se refresca la lista del socio ni qué recibe la web, que no tiene push (RNF-23 lo limita a Android). | #28, #30, #32 | consulta cada 15 s solo en #28 y #30; #32 solo se consulta al abrir la lista. |
 | P-24 | La pantalla de aviso de llegada (6.1.2) muestra el **nombre, el apellido y la CI del socio**, "Socio" y "Hoy 13/10/2026" antes de registrar, y el estado alternativo "El socio ya registró su llegada hoy a las 08:55 (Funcionario X)". `obtenerConsultasHoy(ci): List<ConsultaDTO>` no trae al socio ni dice si ya hay aviso; el aviso existente solo se conoce después de #27. Amplía P-15. La fecha de hoy ¿la toma el cliente de su reloj o del servidor (hora de Uruguay)? | #26, #27 | muestra solo las consultas, usa el reloj del dispositivo para "Hoy" y el `200` de #27 para el estado alternativo. |
 | P-25 | Los mockups escriben "Dra. Apellido" y "Dr. Apellido" para los médicos (6.1.2, 6.1.4, 6.1.5, 6.1.6, 6.2.2 a 6.2.5). El modelo de datos no tiene ningún dato que indique el tratamiento (Persona solo tiene nombre, apellido y fecha de nacimiento). | #10, #16, #18, #21, #28, #29, #30 | muestra "nombre apellido" sin título. |
 | P-26 | Suspender y rehabilitar (6.1.4): la pantalla permite marcar filas de médicos y especialidades distintos, con los filtros en "Todos" y fechas vacías, y no tiene "seleccionar todos". `FiltroFechasDTO` (`medicoId`, `especialidadId`, `fechaDesde`, `fechaHasta`, los cuatro obligatorios en #23 a #25) supone una sola combinación. ¿El filtro es opcional, o el cliente debe agrupar la selección y hacer un pedido por médico y especialidad? Complementa P-12. | #23, #24, #25 | exige que la selección sea de un solo médico y una sola especialidad, y envía como rango el menor y el mayor `fecha` seleccionados. |
