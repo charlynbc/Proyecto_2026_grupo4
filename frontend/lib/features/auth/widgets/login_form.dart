@@ -67,8 +67,11 @@ class _LoginFormState extends ConsumerState<LoginForm> {
 
   String? _validateCi(String? value) {
     final ci = value?.trim() ?? '';
+    // Un campo en blanco no es una cédula mal escrita: solo se reclama al
+    // enviar.
+    if (ci.isEmpty) return _validatingAll ? 'Ingresá tu cédula.' : null;
     if (_isTyping(_ciFocus) && ci.length < 8) return null;
-    if (ci.isEmpty || !isValidUruguayanCi(ci)) {
+    if (!isValidUruguayanCi(ci)) {
       return 'La cédula no es válida. Escribila completa, con el dígito '
           'verificador, sin puntos ni guiones.';
     }
