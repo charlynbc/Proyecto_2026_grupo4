@@ -302,6 +302,36 @@ void main() {
       expect(auth.logins, isEmpty);
     });
 
+    testWidgets('al enviar con la cédula vacía que ya se tocó, el error '
+        'sigue visible', (tester) async {
+      final auth = RecordingAuthRepository();
+      await pumpApp(tester, auth: auth);
+
+      await focusAndType(tester, _ciField, '1234');
+      await focusAndType(tester, _ciField, '');
+      await focusAndType(tester, _passwordField, 'cualquiera1');
+      await tester.tap(_submit);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ingresá tu cédula.'), findsOneWidget);
+      expect(auth.logins, isEmpty);
+    });
+
+    testWidgets('al enviar con la contraseña vacía que ya se tocó, el error '
+        'sigue visible', (tester) async {
+      final auth = RecordingAuthRepository();
+      await pumpApp(tester, auth: auth);
+
+      await focusAndType(tester, _ciField, _validCi);
+      await focusAndType(tester, _passwordField, 'abc');
+      await focusAndType(tester, _passwordField, '');
+      await tester.tap(_submit);
+      await tester.pumpAndSettle();
+
+      expect(find.text(passwordError), findsOneWidget);
+      expect(auth.logins, isEmpty);
+    });
+
     testWidgets('al enviar se valida todo aunque un campo tenga foco', (
       tester,
     ) async {

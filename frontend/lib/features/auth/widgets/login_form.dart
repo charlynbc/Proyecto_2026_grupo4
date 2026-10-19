@@ -35,6 +35,12 @@ class _LoginFormState extends ConsumerState<LoginForm> {
   /// Verdadero solo mientras se valida al enviar: ahí se ignora el foco.
   bool _validatingAll = false;
 
+  /// Ya se apretó "Ingresar" al menos una vez. A diferencia de
+  /// [_validatingAll], persiste: sin él, el error de un campo vacío que el
+  /// usuario ya tocó se borra en el próximo rebuild, que revalida ese campo
+  /// cuando [_validatingAll] ya volvió a falso.
+  bool _submitAttempted = false;
+
   @override
   void initState() {
     super.initState();
@@ -68,8 +74,11 @@ class _LoginFormState extends ConsumerState<LoginForm> {
   String? _validateCi(String? value) {
     final ci = value?.trim() ?? '';
     // Un campo en blanco no es una cédula mal escrita: solo se reclama al
-    // enviar.
-    if (ci.isEmpty) return _validatingAll ? 'Ingresá tu cédula.' : null;
+    // enviar, y después del primer intento mientras no se esté escribiendo.
+    if (ci.isEmpty) {
+      final claim = _validatingAll || (_submitAttempted && !_ciFocus.hasFocus);
+      return claim ? 'Ingresá tu cédula.' : null;
+    }
     if (_isTyping(_ciFocus) && ci.length < 8) return null;
     if (!isValidUruguayanCi(ci)) {
       return 'La cédula no es válida. Escribila completa, con el dígito '
@@ -87,6 +96,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
     // Sin foco en ningún campo, los errores del envío no se borran al
     // reconstruir el formulario (tocar un botón no siempre suelta el foco).
     FocusScope.of(context).unfocus();
+    _submitAttempted = true;
     _validatingAll = true;
     final valid = _formKey.currentState?.validate() ?? false;
     _validatingAll = false;
