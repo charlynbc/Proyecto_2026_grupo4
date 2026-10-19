@@ -1,0 +1,313 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+
+import '../../features/auth/models/user_role.dart';
+import '../../features/consultorios/models/clinic.dart';
+import '../../features/especialidades/models/specialty.dart';
+import '../../features/turnos/models/doctor.dart';
+import '../../features/turnos/models/new_weekly_shift.dart';
+import '../../features/turnos/models/shift_number.dart';
+import '../../features/turnos/models/shift_numbers_rules.dart';
+import '../../features/turnos/models/shift_state.dart';
+import '../../features/turnos/models/weekday_names.dart';
+import '../../features/turnos/models/weekly_shift.dart';
+import '../../features/turnos/repositories/shift_repository.dart';
+import '../../features/usuarios/models/user_account.dart';
+import '../utils/uruguay_time.dart';
+import 'fake_admin_database.dart';
+
+/// Una fecha concreta de un turno semanal, como la guarda el servidor falso.
+/// Además de lo que muestra el listado (`TurnoDTO`) guarda sus [numbers], que
+/// hacen falta para detectar cruces.
+class FakeShift {
+  FakeShift({
+    required this.id,
+    required this.weeklyShiftId,
+    required this.date,
+    required this.weekday,
+    required this.startMinutes,
+    required this.endMinutes,
+    required this.numbers,
+    required this.doctorId,
+    required this.specialtyId,
+    required this.clinicId,
+  });
+
+  final int id;
+  final int weeklyShiftId;
+
+  /// Clave de día en UTC.
+  final DateTime date;
+  final int weekday;
+  final int startMinutes;
+  final int endMinutes;
+  final List<ShiftNumber> numbers;
+  final int doctorId;
+  final int specialtyId;
+  final int clinicId;
+
+  ShiftState _state = ShiftState.active;
+  ShiftState get state => _state;
+}
+
+/// Estado en memoria de los turnos del funcionario. Lee médicos,
+/// especialidades y consultorios de [FakeAdminDatabase] pero no la modifica.
+/// Se pierde al recargar la app.
+class FakeShiftDatabase {
+  FakeShiftDatabase(this.admin, {bool seed = true}) {
+    if (seed) _seed();
+  }
+
+  final FakeAdminDatabase admin;
+
+  final List<WeeklyShift> weeklyShifts = [];
+  final List<FakeShift> shifts = [];
+
+  int _nextWeeklyShiftId = 1;
+  int _nextShiftId = 1;
+
+  static final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
+
+  /// Suspende una fecha concreta. Los turnos suspendidos no generan cruces.
+  void suspendShift(int shiftId) {
+    shifts.firstWhere((s) => s.id == shiftId)._state = ShiftState.suspended;
+  }
+
+  /// Los médicos activos (cuenta de médico en estado activo), con sus
+  /// especialidades.
+  List<Doctor> activeDoctors() => [
+    for (final account in admin.accounts)
+      if (account.role == UserRole.medico &&
+          account.status == AccountStatus.active)
+        Doctor(
+          id: account.id,
+          firstName: account.firstName,
+          lastName: account.lastName,
+          specialties: [
+            for (final id in account.specialtyIds)
+              ...admin.specialties.where((s) => s.id == id),
+          ],
+        ),
+  ];
+
+  /// Las reglas de RF-13, en este orden: médico existe, médico activo,
+  /// especialidad del médico, consultorio existe, fechas, reglas de los
+  /// números y, al final, cruces. Si algo falla no se crea nada.
+  WeeklyShift createWeeklyShift(NewWeeklyShift data) {
+    final doctor = admin.accounts.where(
+      (a) => a.id == data.doctorId && a.role == UserRole.medico,
+    );
+    if (doctor.isEmpty) throw const ShiftNotFoundException();
+    final account = doctor.first;
+    if (account.status != AccountStatus.active) {
+      throw const InactiveDoctorException();
+    }
+    if (!account.specialtyIds.contains(data.specialtyId)) {
+      throw const SpecialtyNotOfDoctorException();
+    }
+    final clinics = admin.clinics.where((c) => c.id == data.clinicId);
+    if (clinics.isEmpty) throw const ShiftNotFoundException();
+    final Specialty specialty = admin.specialties.firstWhere(
+      (s) => s.id == data.specialtyId,
+    );
+    final Clinic clinic = clinics.first;
+
+    if (data.weekday < 1 || data.weekday > 7) {
+      throw const ShiftValidationException('Elegí un día de la semana.');
+    }
+    if (data.endDate.isBefore(data.startDate)) {
+      throw const ShiftValidationException(
+        'La fecha de fin tiene que ser igual o posterior a la de inicio.',
+      );
+    }
+    final dates = weekdayDatesOf(data.startDate, data.endDate, data.weekday);
+    if (dates.isEmpty) {
+      throw ShiftValidationException(
+        'Entre el ${_format(data.startDate)} y el ${_format(data.endDate)} '
+        'no hay ningún ${weekdayName(data.weekday)}. Elegí otro día o '
+        'ampliá las fechas.',
+      );
+    }
+    final numberErrors = validateNumbers(data.numbers);
+    if (numberErrors.isNotEmpty) {
+      throw ShiftValidationException(numberErrors.join(' '));
+    }
+
+    _checkOverlaps(data, dates);
+
+    final weeklyShiftId = _nextWeeklyShiftId++;
+    final firstStart = data.numbers
+        .map((n) => n.startMinutes)
+        .reduce((a, b) => a < b ? a : b);
+    final lastEnd = data.numbers
+        .map((n) => n.endMinutes)
+        .reduce((a, b) => a > b ? a : b);
+    for (final date in dates) {
+      shifts.add(
+        FakeShift(
+          id: _nextShiftId++,
+          weeklyShiftId: weeklyShiftId,
+          date: date,
+          weekday: data.weekday,
+          startMinutes: firstStart,
+          endMinutes: lastEnd,
+          numbers: List.unmodifiable(data.numbers),
+          doctorId: account.id,
+          specialtyId: data.specialtyId,
+          clinicId: data.clinicId,
+        ),
+      );
+    }
+    final weeklyShift = WeeklyShift(
+      id: weeklyShiftId,
+      doctor: DoctorRef(
+        id: account.id,
+        firstName: account.firstName,
+        lastName: account.lastName,
+      ),
+      specialty: specialty,
+      clinic: clinic,
+      weekday: data.weekday,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      numbers: List.unmodifiable(data.numbers),
+      shiftCount: dates.length,
+    );
+    weeklyShifts.add(weeklyShift);
+    return weeklyShift;
+  }
+
+  WeeklyShift? weeklyShiftById(int id) {
+    for (final weeklyShift in weeklyShifts) {
+      if (weeklyShift.id == id) return weeklyShift;
+    }
+    return null;
+  }
+
+  /// Busca cruces de los números nuevos con los de los turnos activos del
+  /// mismo médico o del mismo consultorio, en cada fecha del período.
+  void _checkOverlaps(NewWeeklyShift data, List<DateTime> dates) {
+    final conflictDates = <DateTime>{};
+    final conflictNumbers = <int>{};
+    var byDoctor = false;
+    var byClinic = false;
+
+    for (final existing in shifts) {
+      if (existing.state != ShiftState.active) continue;
+      if (!dates.contains(existing.date)) continue;
+      final sameDoctor = existing.doctorId == data.doctorId;
+      final sameClinic = existing.clinicId == data.clinicId;
+      if (!sameDoctor && !sameClinic) continue;
+      for (final mine in data.numbers) {
+        final crosses = existing.numbers.any(
+          (other) =>
+              mine.startMinutes < other.endMinutes &&
+              other.startMinutes < mine.endMinutes,
+        );
+        if (!crosses) continue;
+        conflictDates.add(existing.date);
+        conflictNumbers.add(mine.number);
+        byDoctor = byDoctor || sameDoctor;
+        byClinic = byClinic || sameClinic;
+      }
+    }
+    if (conflictDates.isEmpty) return;
+
+    final sortedDates = conflictDates.toList()..sort();
+    final sortedNumbers = conflictNumbers.toList()..sort();
+    final owner = byDoctor && byClinic
+        ? 'del médico y del consultorio'
+        : byDoctor
+        ? 'del médico'
+        : 'del consultorio';
+    final numbersLabel = sortedNumbers.length == 1
+        ? 'número ${sortedNumbers.single}'
+        : 'números ${_joinWithAnd(sortedNumbers.map((n) => '$n').toList())}';
+    throw OverlappingShiftException(
+      'No se pudo guardar: los horarios se cruzan con turnos activos $owner '
+      'el ${_joinWithAnd(sortedDates.map(_format).toList())} '
+      '($numbersLabel). Cambiá los horarios o las fechas y volvé a guardar.',
+    );
+  }
+
+  static String _format(DateTime date) => _dateFormat.format(date);
+
+  static String _joinWithAnd(List<String> items) => items.length <= 1
+      ? items.join()
+      : '${items.sublist(0, items.length - 1).join(', ')} y ${items.last}';
+
+  /// Turnos de ejemplo a partir de la semana que viene, con una fecha
+  /// suspendida, para poder probar el listado y los cruces.
+  void _seed() {
+    final now = UruguayTime.toUruguay(admin.clock());
+    final today = DateTime.utc(now.year, now.month, now.day);
+    // El próximo lunes (si hoy es lunes, el de la semana siguiente).
+    final monday = DateTime.utc(
+      today.year,
+      today.month,
+      today.day + (8 - today.weekday),
+    );
+    DateTime inWeeks(int weeks) =>
+        DateTime.utc(monday.year, monday.month, monday.day + 7 * weeks);
+
+    final byLastName = {
+      for (final a in admin.accounts)
+        if (a.role == UserRole.medico && a.status == AccountStatus.active)
+          a.lastName: a,
+    };
+    final clinics = admin.clinics;
+    final morning = [
+      ShiftNumber(number: 1, startMinutes: 9 * 60, endMinutes: 9 * 60 + 20),
+      ShiftNumber(
+        number: 2,
+        startMinutes: 9 * 60 + 20,
+        endMinutes: 9 * 60 + 40,
+      ),
+      ShiftNumber(number: 3, startMinutes: 9 * 60 + 40, endMinutes: 10 * 60),
+    ];
+    final afternoon = [
+      ShiftNumber(number: 1, startMinutes: 15 * 60, endMinutes: 15 * 60 + 30),
+      ShiftNumber(number: 2, startMinutes: 15 * 60 + 30, endMinutes: 16 * 60),
+    ];
+
+    final first = createWeeklyShift(
+      NewWeeklyShift(
+        doctorId: byLastName['Méndez']!.id,
+        specialtyId: 1,
+        clinicId: clinics[0].id,
+        weekday: 1,
+        startDate: inWeeks(0),
+        endDate: inWeeks(4),
+        numbers: morning,
+      ),
+    );
+    createWeeklyShift(
+      NewWeeklyShift(
+        doctorId: byLastName['Silva']!.id,
+        specialtyId: 2,
+        clinicId: clinics[1].id,
+        weekday: 2,
+        startDate: inWeeks(0),
+        endDate: inWeeks(5),
+        numbers: afternoon,
+      ),
+    );
+    createWeeklyShift(
+      NewWeeklyShift(
+        doctorId: byLastName['Acosta']!.id,
+        specialtyId: 3,
+        clinicId: clinics[2].id,
+        weekday: 4,
+        startDate: inWeeks(1),
+        endDate: inWeeks(6),
+        numbers: morning,
+      ),
+    );
+    suspendShift(shifts.firstWhere((s) => s.weeklyShiftId == first.id).id);
+  }
+}
+
+/// Un único estado en memoria por ejecución de la app.
+final fakeShiftDatabaseProvider = Provider<FakeShiftDatabase>(
+  (ref) => FakeShiftDatabase(ref.watch(fakeAdminDatabaseProvider)),
+);
