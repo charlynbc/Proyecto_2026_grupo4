@@ -11,6 +11,8 @@ class CreateClinicController extends Notifier<SubmitState> {
   SubmitState build() => const SubmitState();
 
   Future<void> submit({required String name, required String location}) async {
+    // Si se sale de la pantalla mientras se envía, el alta igual termina.
+    final link = ref.keepAlive();
     state = const SubmitState(status: SubmitStatus.loading);
     try {
       final repository = await ref.read(clinicRepositoryProvider.future);
@@ -22,6 +24,8 @@ class CreateClinicController extends Notifier<SubmitState> {
         status: SubmitStatus.error,
         errorMessage: apiMessageOf(e),
       );
+    } finally {
+      link.close();
     }
   }
 }

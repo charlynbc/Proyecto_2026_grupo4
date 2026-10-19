@@ -12,6 +12,8 @@ class CreateUserController extends Notifier<SubmitState> {
   SubmitState build() => const SubmitState();
 
   Future<void> submit(NewUser user) async {
+    // Si se sale de la pantalla mientras se envía, el alta igual termina.
+    final link = ref.keepAlive();
     state = const SubmitState(status: SubmitStatus.loading);
     try {
       final repository = await ref.read(userRepositoryProvider.future);
@@ -23,6 +25,8 @@ class CreateUserController extends Notifier<SubmitState> {
         status: SubmitStatus.error,
         errorMessage: apiMessageOf(e),
       );
+    } finally {
+      link.close();
     }
   }
 }

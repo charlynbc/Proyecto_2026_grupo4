@@ -14,6 +14,8 @@ class CreateSpecialtyController extends Notifier<SubmitState> {
     required String name,
     required bool requiresReferral,
   }) async {
+    // Si se sale de la pantalla mientras se envía, el alta igual termina.
+    final link = ref.keepAlive();
     state = const SubmitState(status: SubmitStatus.loading);
     try {
       final repository = await ref.read(specialtyRepositoryProvider.future);
@@ -25,6 +27,8 @@ class CreateSpecialtyController extends Notifier<SubmitState> {
         status: SubmitStatus.error,
         errorMessage: apiMessageOf(e),
       );
+    } finally {
+      link.close();
     }
   }
 }
