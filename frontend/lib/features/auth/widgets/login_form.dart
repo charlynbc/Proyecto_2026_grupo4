@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/validators/uruguayan_ci_validator.dart';
+import '../../../core/forms/early_ci_validation.dart';
 import '../models/access_type.dart';
 import '../providers/login_controller.dart';
 import 'auth_scaffold.dart';
@@ -32,14 +32,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
   final _ciFocus = FocusNode();
   final _passwordFocus = FocusNode();
 
-  /// Verdadero solo mientras se valida al enviar: ahí se ignora el foco.
-  bool _validatingAll = false;
-
-  /// Ya se apretó "Ingresar" al menos una vez. A diferencia de
-  /// [_validatingAll], persiste: sin él, el error de un campo vacío que el
-  /// usuario ya tocó se borra en el próximo rebuild, que revalida ese campo
-  /// cuando [_validatingAll] ya volvió a falso.
-  bool _submitAttempted = false;
+  late final _ciValidation = EarlyCiValidation(_ciFocus);
 
   @override
   void initState() {
@@ -69,37 +62,19 @@ class _LoginFormState extends ConsumerState<LoginForm> {
     if (mounted) setState(() {});
   }
 
-  bool _isTyping(FocusNode node) => node.hasFocus && !_validatingAll;
-
-  String? _validateCi(String? value) {
-    final ci = value?.trim() ?? '';
-    // Un campo en blanco no es una cédula mal escrita: solo se reclama al
-    // enviar, y después del primer intento mientras no se esté escribiendo.
-    if (ci.isEmpty) {
-      final claim = _validatingAll || (_submitAttempted && !_ciFocus.hasFocus);
-      return claim ? 'Ingresá tu cédula.' : null;
-    }
-    if (_isTyping(_ciFocus) && ci.length < 8) return null;
-    if (!isValidUruguayanCi(ci)) {
-      return 'La cédula no es válida. Escribila completa, con el dígito '
-          'verificador, sin puntos ni guiones.';
-    }
-    return null;
-  }
-
   String? _validatePassword(String? value) {
-    if (_isTyping(_passwordFocus) && (value ?? '').isEmpty) return null;
-    return (value ?? '').isEmpty ? 'Ingresá tu contraseña.' : null;
+    final isEmpty = (value ?? '').isEmpty;
+    if (_ciValidation.isTyping(_passwordFocus) && isEmpty) return null;
+    return isEmpty ? 'Ingresá tu contraseña.' : null;
   }
 
   Future<void> _submit() async {
     // Sin foco en ningún campo, los errores del envío no se borran al
     // reconstruir el formulario (tocar un botón no siempre suelta el foco).
     FocusScope.of(context).unfocus();
-    _submitAttempted = true;
-    _validatingAll = true;
-    final valid = _formKey.currentState?.validate() ?? false;
-    _validatingAll = false;
+    final valid = _ciValidation.validateAll(
+      () => _formKey.currentState?.validate() ?? false,
+    );
     if (!valid) return;
     await ref
         .read(loginControllerProvider.notifier)
@@ -123,7 +98,7 @@ class _LoginFormState extends ConsumerState<LoginForm> {
           CiFormField(
             controller: _ciController,
             focusNode: _ciFocus,
-            validator: _validateCi,
+            validator: _ciValidation.validate,
             enabled: !loginState.isLoading,
             autovalidateMode: AutovalidateMode.onUserInteraction,
           ),
