@@ -2,28 +2,39 @@ import 'package:flutter/widgets.dart';
 
 /// Validación de un campo "sin molestar": mientras se escribe no marca error
 /// hasta que el texto tiene [completeLength] caracteres, y un campo vacío no es
-/// un dato mal escrito, así que solo se reclama al enviar. La usan la cédula y
-/// la fecha de nacimiento.
+/// un dato mal escrito, así que solo se reclama al enviar. La usan la cédula, la
+/// fecha de nacimiento y los teléfonos.
 ///
 /// El formulario tiene que hacer `setState` cuando cambia el foco de
 /// [focusNode]: el campo solo revalida cuando el formulario se reconstruye,
 /// y sin eso no se revalida al perder el foco.
 class EarlyFieldValidation {
+  /// Hay que pasar [completeLength] o [isIncomplete].
   EarlyFieldValidation({
     required this.focusNode,
     required this.emptyMessage,
-    required this.completeLength,
+    this.completeLength,
+    this.isIncomplete,
     required this.check,
-  });
+  }) : assert(
+         completeLength != null || isIncomplete != null,
+         'Falta completeLength o isIncomplete',
+       );
 
   /// El foco del campo.
   final FocusNode focusNode;
 
-  /// Lo que se reclama si el campo está en blanco al enviar.
-  final String emptyMessage;
+  /// Lo que se reclama si el campo está en blanco al enviar. Con `null`, un
+  /// campo vacío es válido.
+  final String? emptyMessage;
 
   /// Con foco y menos caracteres que estos, todavía no se marca error.
-  final int completeLength;
+  /// Lo reemplaza [isIncomplete] si se pasa.
+  final int? completeLength;
+
+  /// Si se pasa, decide en lugar de [completeLength] si el texto (no vacío)
+  /// todavía está incompleto, por ejemplo contando dígitos y no caracteres.
+  final bool Function(String text)? isIncomplete;
 
   /// El error de un texto no vacío, o `null` si está bien.
   final String? Function(String text) check;
@@ -49,19 +60,33 @@ class EarlyFieldValidation {
       final claim = _validatingAll || (_submitAttempted && !focusNode.hasFocus);
       return claim ? emptyMessage : null;
     }
-    if (isTyping(focusNode) && text.length < completeLength) return null;
+    final incomplete =
+        isIncomplete?.call(text) ?? text.length < completeLength!;
+    if (isTyping(focusNode) && incomplete) return null;
     return check(text);
   }
 
   /// Valida todo el formulario al enviarlo, con [validateForm], ignorando el
   /// foco. Devuelve si el formulario es válido.
-  bool validateAll(bool Function() validateForm) {
-    _submitAttempted = true;
-    _validatingAll = true;
+  bool validateAll(bool Function() validateForm) =>
+      validateAllOf([this], validateForm);
+
+  /// Como [validateAll] para varios campos a la vez: los enciende todos y
+  /// llama a [validateForm] una sola vez.
+  static bool validateAllOf(
+    List<EarlyFieldValidation> validations,
+    bool Function() validateForm,
+  ) {
+    for (final validation in validations) {
+      validation._submitAttempted = true;
+      validation._validatingAll = true;
+    }
     try {
       return validateForm();
     } finally {
-      _validatingAll = false;
+      for (final validation in validations) {
+        validation._validatingAll = false;
+      }
     }
   }
 }

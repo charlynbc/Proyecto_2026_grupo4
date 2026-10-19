@@ -174,11 +174,10 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
     // reconstruir el formulario.
     FocusScope.of(context).unfocus();
     setState(() => _autovalidate = AutovalidateMode.onUserInteraction);
-    final formValid = _ciValidation.validateAll(
-      () => _birthDateValidation.validateAll(
-        () => _formKey.currentState?.validate() ?? false,
-      ),
-    );
+    final formValid = EarlyFieldValidation.validateAllOf([
+      _ciValidation,
+      _birthDateValidation,
+    ], () => _formKey.currentState?.validate() ?? false);
     final specialtiesMissing =
         _role == UserRole.medico && _specialtyIds.isEmpty;
     setState(() => _specialtyMissing = specialtiesMissing);
