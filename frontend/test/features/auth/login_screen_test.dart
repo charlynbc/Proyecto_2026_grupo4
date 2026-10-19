@@ -274,6 +274,34 @@ void main() {
       expect(message.maxLines, greaterThanOrEqualTo(2));
     });
 
+    testWidgets('una cédula borrada por completo no marca error al salir '
+        'del campo', (tester) async {
+      await pumpApp(tester);
+
+      await focusAndType(tester, _ciField, '1234');
+      await focusAndType(tester, _ciField, '');
+      expect(find.text(ciError), findsNothing);
+
+      await moveFocusTo(tester, _passwordField);
+
+      expect(find.text(ciError), findsNothing);
+      expect(find.text('Ingresá tu cédula.'), findsNothing);
+    });
+
+    testWidgets('al enviar con la cédula vacía pide ingresarla', (
+      tester,
+    ) async {
+      final auth = RecordingAuthRepository();
+      await pumpApp(tester, auth: auth);
+
+      await tester.tap(_submit);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Ingresá tu cédula.'), findsOneWidget);
+      expect(find.text(ciError), findsNothing);
+      expect(auth.logins, isEmpty);
+    });
+
     testWidgets('al enviar se valida todo aunque un campo tenga foco', (
       tester,
     ) async {
