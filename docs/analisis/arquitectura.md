@@ -24,7 +24,7 @@
 >
 > [5.2. Matriz de casos críticos vigentes 8](#matriz-de-casos-críticos-vigentes)
 >
-> [5.3. Cancelaciones priorizadas en el diseño 9](#cancelaciones-priorizadas-en-el-diseño)
+> [5.3. Cancelaciones priorizadas en el diseño 10](#cancelaciones-priorizadas-en-el-diseño)
 >
 > [5.4. Aspectos arquitectónicos de los casos críticos 10](#aspectos-arquitectónicos-de-los-casos-críticos)
 
@@ -40,53 +40,53 @@
 >
 > [6.5. Pases emitidos durante el registro 13](#pases-emitidos-durante-el-registro)
 >
-> [6.6. Administración, estadísticas y operaciones no críticas 13](#administración-estadísticas-y-operaciones-no-críticas)
+> [6.6. Administración, estadísticas y operaciones no críticas 14](#administración-estadísticas-y-operaciones-no-críticas)
 
 [7. Vista lógica del sistema 15](#vista-lógica-del-sistema)
 
 > [7.1. Capas, dependencias y reglas 15](#capas-dependencias-y-reglas)
 >
-> [7.1.1. Responsabilidades de los módulos 16](#responsabilidades-de-los-módulos)
+> [7.1.1. Responsabilidades de los módulos 17](#responsabilidades-de-los-módulos)
 >
-> [7.1.2. Cliente Flutter web y Android 17](#cliente-flutter-web-y-android)
+> [7.1.2. Cliente Flutter web y Android 18](#cliente-flutter-web-y-android)
 >
-> [7.2. Interfaz ConsultasDelTurno y ausencia de ciclos 17](#interfaz-consultasdelturno-y-ausencia-de-ciclos)
+> [7.2. Interfaz ConsultasDelTurno y ausencia de ciclos 18](#interfaz-consultasdelturno-y-ausencia-de-ciclos)
 >
-> [7.3. Repositorios y persistencia 17](#repositorios-y-persistencia)
+> [7.3. Repositorios y persistencia 18](#repositorios-y-persistencia)
 >
-> [7.4. API REST y errores 18](#api-rest-y-errores)
+> [7.4. API REST y errores 19](#api-rest-y-errores)
 
-[8. Vista de procesos 19](#vista-de-procesos)
+[8. Vista de procesos 20](#vista-de-procesos)
 
-> [8.1. Concurrencia 19](#concurrencia)
+> [8.1. Concurrencia 20](#concurrencia)
 >
-> [8.2. Eventos y notificaciones 19](#eventos-y-notificaciones)
+> [8.2. Eventos y notificaciones 21](#eventos-y-notificaciones)
 >
-> [8.3. Sesiones e inactivación inmediata 20](#sesiones-e-inactivación-inmediata)
+> [8.3. Sesiones e inactivación inmediata 21](#sesiones-e-inactivación-inmediata)
 >
-> [8.4. Recordatorios y estados derivados 21](#recordatorios-y-estados-derivados)
+> [8.4. Recordatorios y estados derivados 22](#recordatorios-y-estados-derivados)
 >
-> [8.5. Listados de pacientes presentes 21](#listados-de-pacientes-presentes)
+> [8.5. Listados de pacientes presentes 22](#listados-de-pacientes-presentes)
 
-[9. Vista física y operativa 22](#vista-física-y-operativa)
+[9. Vista física y operativa 23](#vista-física-y-operativa)
 
-> [9.1. Entornos 22](#entornos)
+> [9.1. Entornos 23](#entornos)
 >
-> [9.2. Migraciones y respaldos 22](#migraciones-y-respaldos)
+> [9.2. Cambios en la base de datos y respaldos 24](#cambios-en-la-base-de-datos-y-respaldos)
 >
-> [9.3. Secretos y servicios externos 23](#secretos-y-servicios-externos)
+> [9.3. Secretos y servicios externos 24](#secretos-y-servicios-externos)
 >
-> [9.4. Plataforma y control de cambios 23](#plataforma-y-control-de-cambios)
+> [9.4. Plataforma y control de cambios 24](#plataforma-y-control-de-cambios)
 >
-> [9.5. Almacenamiento de imágenes de cartelera 23](#almacenamiento-de-imágenes-de-cartelera)
+> [9.5. Almacenamiento de imágenes de cartelera 25](#almacenamiento-de-imágenes-de-cartelera)
 
-[10. Decisiones arquitectónicas 25](#decisiones-arquitectónicas)
+[10. Decisiones arquitectónicas 26](#decisiones-arquitectónicas)
 
-[11. Riesgos y medidas de control 26](#riesgos-y-medidas-de-control)
+[11. Riesgos y medidas de control 27](#riesgos-y-medidas-de-control)
 
-> [11.1. Evolución futura 27](#evolución-futura)
+> [11.1. Evolución futura 28](#evolución-futura)
 >
-> [11.2. Escenarios de verificación de la arquitectura 27](#escenarios-de-verificación-de-la-arquitectura)
+> [11.2. Escenarios de verificación de la arquitectura 28](#escenarios-de-verificación-de-la-arquitectura)
 
 # 1. Introducción
 
@@ -111,13 +111,11 @@ La arquitectura se apoya en 45 RF, de los cuales 22 son críticos, y 29 RNF. RF-
 | Procesos     | ¿Qué sucede en ejecución?      | Transacciones, concurrencia, sesiones, notificaciones y tareas.                |
 | Física       | ¿Dónde se ejecuta?             | Cliente Flutter, Spring Boot, PostgreSQL, SMTP, FCM y canales de comunicación. |
 
-##  
-
 ## 2.2. Estilo seleccionado
 
 Cliente-servidor de tres niveles y monolito modular. Un único backend Java 25/Spring Boot 4.1 expone una API REST por HTTPS para web y Android. Las reglas de negocio y el acceso a PostgreSQL residen exclusivamente en el servidor. Cada módulo funcional agrupa controlador, servicios de negocio, repositorio y DTO; las dependencias entre módulos deben ser acíclicas.
 
-<img src="imagenes/arquitectura/image3.png" style="width:4.6in;height:5.89783in" />
+<img src="imagenes/arquitectura/image5.png" style="width:5in;height:5in" />
 
 Figura A1. Organización lógica en capas.
 
@@ -156,7 +154,7 @@ Figura A1. Organización lógica en capas.
 | RNF-17  | Rendimiento           | Índices, SQL filtrado, paginación y pool; verificar \<3 s en consultas y agenda.                                                               |
 | RNF-18  | Disponibilidad        | Activación y prueba antes de demostraciones; sin promesa de continuidad.                                                                       |
 | RNF-19  | Respaldo              | pg_dump periódico y restauración ensayada.                                                                                                     |
-| RNF-20  | Reconstrucción        | Migraciones Flyway versionadas; integrar sobre base existente usando baseline controlado.                                                      |
+| RNF-20  | Reconstrucción        | Bases de pruebas y producción en Supabase; los cambios se verifican en pruebas antes de aplicarse en producción; respaldos según RNF-19.       |
 | RNF-21  | Idioma                | API usa ISO 8601 y mensajes en español; cliente formatea.                                                                                      |
 | RNF-22  | Adaptabilidad         | Responsabilidad de Flutter; API desacoplada de presentación.                                                                                   |
 | RNF-23  | Mensajes              | Errores estándar: code, message; códigos 400/401/403/404/409/500.                                                                              |
@@ -199,6 +197,8 @@ Socio: web/Android. Funcionario, Médico y Administrador: web. Todo usuario aute
 | 3.5.5  | RF-39  | Estadísticas especialidad     | estadistica           | lecturas agregadas                   |
 | 3.5.6  | RF-40  | Estadísticas turnos           | estadistica           | lecturas agregadas                   |
 | 3.5.7  | RF-41  | Estadísticas consultas        | estadistica           | lecturas agregadas                   |
+
+##  
 
 ## 5.3. Cancelaciones priorizadas en el diseño
 
@@ -247,7 +247,7 @@ AuthController → AuthService → UsuarioService/UsuarioRepository y SesionRepo
 
 ConsultaController → DisponibilidadService/AgendaService → TurnoService, PaseService, ParametroService y repositorios del módulo consulta. La consulta de disponibilidad no reserva nada. Al confirmar, AgendaService vuelve a verificar todas las condiciones y persiste dentro de una transacción. La exclusividad la respalda un índice único parcial sobre Consulta.id_numero. Para los límites por socio se serializa la validación bloqueando la identidad correspondiente.
 
-<img src="imagenes/arquitectura/image2.png" style="width:2.83509in;height:3.94271in" />
+<img src="imagenes/arquitectura/image4.png" style="width:2.83509in;height:3.94271in" />
 
 Figura A2. Transacción de agendamiento y separación de entrega externa.
 
@@ -263,6 +263,8 @@ AtencionController → AtencionService. La historia clínica se construye a part
 
 PaseService valida fecha de vencimiento (1 a 365 días, 90 por defecto), especialidad de destino y ausencia de otro pase disponible o consulta activa incompatible. Los pases nuevos se crean junto con Atencion, no en una operación independiente después de guardarla. La situación del pase se deriva de vencimiento y de Consulta.id_pase en estados no cancelados.
 
+##  
+
 ## 6.6. Administración, estadísticas y operaciones no críticas
 
 UsuarioService, EspecialidadService y ConsultorioService aplican altas individuales y cargas CSV; las consultas estadísticas se realizan con agregados SQL desde un repositorio propio de solo lectura. RF-38 permite corregir los datos administrados conservando el estado y contenido de las consultas y atenciones registradas. La conservación del historial no exige versiones anteriores de los datos corregidos ni un registro general de modificaciones (RNF-14). Cartelera y notificación quedan como módulos separados.
@@ -277,7 +279,11 @@ Cada paquete funcional contiene clases Controller, Service, Repository y DTO; lo
 
 Figura A3. Dependencias principales (esquema simplificado, no exhaustivo).
 
-###  
+El diagrama de capas complementa la vista de dependencias y distingue las responsabilidades de presentación, negocio y persistencia.
+
+<img src="imagenes/arquitectura/image2.png" style="width:6.25in;height:4.42708in" />
+
+Figura A4. Separación en capas del sistema.
 
 ### 7.1.1. Responsabilidades de los módulos
 
@@ -332,6 +338,8 @@ El alta de turnos, la modificación de consultorio y la rehabilitación serializ
 
 Las transacciones adquieren los recursos múltiples en un orden uniforme: médico y consultorio, turnos, cuentas de socios, consultas y pases; dentro de cada grupo se ordenan por identificador. Los bloqueos se mantienen hasta el commit o rollback. Las comprobaciones que dependen de esos recursos se repiten después de adquirirlos; los conflictos se traducen a una respuesta controlada de la API.
 
+##  
+
 ## 8.2. Eventos y notificaciones
 
 Notificacion y sus EnvioNotificacion en estado PENDIENTE se registran dentro de la transacción de negocio, según R-MDAT-20. Luego del COMMIT un ejecutor intenta el envío externo por SMTP/FCM y actualiza los resultados. La falla externa nunca revierte la operación y el aviso interno ya existe al confirmar.
@@ -362,21 +370,21 @@ La API soporta filtros por fecha, turno, médico y llegada. El cliente consulta 
 
 # 9. Vista física y operativa
 
-<img src="imagenes/arquitectura/image4.png" style="width:6.55in;height:1.71963in" />
+<img src="imagenes/arquitectura/image3.png" style="width:6.80556in;height:4.3669in" />
 
-Figura A4. Despliegue del prototipo.
+Figura A5. Modelo de despliegue del sistema.
 
 ## 9.1. Entornos
 
-| **Entorno**          | **Servidor y base**                                                                                                                  | **Objetivo**                                                |
-|----------------------|--------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|
-| Desarrollo           | Spring local + PostgreSQL 17 local mediante Docker; la configuración permite utilizar una base PostgreSQL de desarrollo en Supabase. | Desarrollar sin afectar datos de demostración.              |
-| Integración continua | GitHub Actions; PostgreSQL efímero y migraciones.                                                                                    | Compilar y probar cada PR; verificar esquema reproducible.  |
-| Demostración         | Railway (contenedor) + Supabase PostgreSQL 17 mediante Supavisor modo sesión.                                                        | Mostrar sistema y recuperar entorno de manera reproducible. |
+| **Entorno**          | **Servidor y base**                                                                                       | **Objetivo**                                                        |
+|----------------------|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| Desarrollo           | Backend de desarrollo conectado a la base de pruebas de Supabase.                                         | Desarrollar y verificar cambios sin afectar la base de producción.  |
+| Integración continua | GitHub Actions; compilación y pruebas automatizadas.                                                      | Compilar y probar cada PR.                                          |
+| Demostración         | Railway (aplicación web y API) + base online de Supabase PostgreSQL 17 mediante Supavisor en modo sesión. | Mostrar el sistema conectado a la base configurada para el entorno. |
 
-## 9.2. Migraciones y respaldos
+## 9.2. Cambios en la base de datos y respaldos
 
-Flyway versiona la evolución del esquema. Las tablas actuales creadas en la POC requieren una línea base cuidadosamente identificada; no ejecutar nuevamente cargas de prueba ni migraciones destructivas en Supabase compartido. Se hacen respaldos lógicos periódicos con pg_dump, restauración ensayada y respaldo antes de las demostraciones.
+El equipo utiliza dos bases PostgreSQL 17 alojadas en Supabase: una de pruebas y otra de producción. Los cambios en la base se realizan y verifican primero en pruebas; una vez validados, se aplican en producción. Ambas bases son compartidas por los integrantes del equipo. Se hacen respaldos lógicos periódicos con pg_dump, restauración ensayada y respaldo antes de las demostraciones.
 
 ## 9.3. Secretos y servicios externos
 
@@ -386,7 +394,7 @@ Los parámetros de la sección 3.1.3 de Requerimientos se suministran como confi
 
 ## 9.4. Plataforma y control de cambios
 
-Un artefacto Docker reproducible, control de cambios mediante PR, compilación y pruebas automatizadas, migraciones en un PostgreSQL temporal y comprobación de la imagen de demostración. El contenedor entrega la aplicación Flutter web y la API desde el mismo origen. La aplicación Android se distribuye como APK y consume la API pública HTTPS.
+El backend y la aplicación web se despliegan en Railway; los cambios de código se controlan mediante PR, compilación y pruebas automatizadas. El servicio entrega la aplicación Flutter web y la API desde el mismo origen. La aplicación Android se distribuye como APK y consume la API pública HTTPS.
 
 ## 9.5. Almacenamiento de imágenes de cartelera
 
@@ -401,7 +409,7 @@ El acceso al almacenamiento se encapsula mediante una interfaz del backend y su 
 | DA-01  | Monolito modular y REST                         | Adoptada   | Evita complejidad de microservicios; separa por responsabilidad.                                                           |
 | DA-02  | Java 25 + Spring Boot 4.1                       | Adoptada   | Java responde al requisito docente; Java 25 y Spring Boot 4.1 son elecciones tecnológicas del equipo.                      |
 | DA-03  | JdbcTemplate con SQL explícito                  | Adoptada   | Control de consultas, transacciones, índices y bloqueos.                                                                   |
-| DA-04  | Persistencia en PostgreSQL 17 y Flyway          | Adoptada   | Baseline de POC y migraciones; evitar cargas duplicadas.                                                                   |
+| DA-04  | Persistencia en PostgreSQL 17 sobre Supabase    | Adoptada   | Bases de pruebas y producción alojadas en Supabase; los cambios se verifican en pruebas antes de aplicarse en producción.  |
 | DA-05  | Índices únicos parciales en Consulta            | Adoptada   | id_numero e id_pase excluyen solo consultas canceladas.                                                                    |
 | DA-06  | Sesión de servidor verificable                  | Adoptada   | JWT + validación de Sesion y Cuenta en cada petición para revocación inmediata.                                            |
 | DA-07  | Suspensiones inmediatas                         | Adoptada   | Fechas concretas actuales o futuras, con efecto inmediato y sin restauración automática de reservas.                       |
@@ -450,6 +458,6 @@ Caída de SMTP o FCM: la operación de negocio permanece confirmada y el envío 
 
 Reinicio y recordatorios: se recuperan los envíos elegibles sin duplicar sus registros; no se envían recordatorios de consultas canceladas o cuya hora ya pasó.
 
-Respaldo y restauración: las migraciones reproducen restricciones e índices, y la restauración conserva consultas, atenciones y referencias a imágenes recuperables.
+Respaldo y restauración: los respaldos conservan el esquema, sus restricciones e índices, además de consultas, atenciones y referencias a imágenes recuperables.
 
 Rendimiento: las consultas y la agenda cumplen el límite de RNF-17, incluyendo la comprobación de sesión; los listados visibles se actualizan con el intervalo definido en 8.5. Estos escenarios orientan las pruebas detalladas del Documento de Verificación.

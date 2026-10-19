@@ -78,7 +78,7 @@
 >
 > [3.3.7. Usabilidad 28](#usabilidad)
 >
-> [3.3.8. Notificaciones 29](#notificaciones)
+> [3.3.8. Notificaciones 28](#notificaciones)
 >
 > [3.3.9. Mantenibilidad y portabilidad 29](#mantenibilidad-y-portabilidad)
 
@@ -422,42 +422,40 @@ Los requerimientos no funcionales establecen las condiciones de calidad, segurid
 
 **RNF-14 Conservación del historial:** Las consultas, incluidas las canceladas, y las atenciones registradas deberán conservarse para su consulta posterior. Ninguna consulta se elimina. Esta conservación no implica mantener versiones anteriores de los datos corregidos ni un historial general de modificaciones.
 
-**RNF-15 Auditoría de acciones:** El aviso de llegada, el registro de No se presentó a la consulta, las suspensiones y rehabilitaciones de fechas, las cancelaciones y las inactivaciones registrarán quién las realizó y cuándo.
-
-**RNF-16 Zona horaria:** Los días, los horarios y los vencimientos se interpretarán en la hora oficial de Uruguay.
+**RNF-15 Zona horaria:** Los días, los horarios y los vencimientos se interpretarán en la hora oficial de Uruguay.
 
 ### 3.3.5. Rendimiento
 
-**RNF-17 Tiempo de respuesta:** Las operaciones de consulta y de agenda deberán responder en menos de 3 segundos en condiciones normales de uso, sin contar el tiempo de red del usuario. Las cargas masivas y las estadísticas podrán demorar más, informando al usuario que la operación está en curso.
+**RNF-16 Tiempo de respuesta:** Las operaciones de consulta y de agenda deberán responder en menos de 3 segundos en condiciones normales de uso, sin contar el tiempo de red del usuario. Las cargas masivas y las estadísticas podrán demorar más, informando al usuario que la operación está en curso.
 
 ### 3.3.6. Disponibilidad y respaldo
 
-**RNF-18 Disponibilidad:** Por tratarse de un prototipo, el sistema deberá estar disponible durante las instancias de demostración y evaluación. No se establece un objetivo de disponibilidad continua.
+**RNF-17 Disponibilidad:** Por tratarse de un prototipo, el sistema deberá estar disponible durante las instancias de demostración y evaluación. No se establece un objetivo de disponibilidad continua.
 
-**RNF-19 Respaldo de la información:** La base de datos deberá contar con respaldos periódicos que permitan restaurar la información ante una pérdida de datos.
+**RNF-18 Respaldo de la información:** La base de datos deberá contar con respaldos periódicos que permitan restaurar la información ante una pérdida de datos.
 
-**RNF-20 Reconstrucción del esquema:** La estructura de la base de datos, incluidas sus restricciones e índices, deberá poder recrearse a partir de scripts versionados en el repositorio del proyecto, de modo que un entorno nuevo reproduzca las mismas reglas de integridad.
+**RNF-19 Reconstrucción del esquema:** La estructura de la base de datos, incluidas sus restricciones e índices, deberá poder recrearse a partir de scripts versionados en el repositorio del proyecto, de modo que un entorno nuevo reproduzca las mismas reglas de integridad.
 
 ### 3.3.7. Usabilidad
 
-**RNF-21 Idioma y formatos:** La interfaz estará en español. Las fechas se mostrarán en formato dd/mm/aaaa y las horas en formato de 24 horas.
+**RNF-20 Idioma y formatos:** La interfaz estará en español. Las fechas se mostrarán en formato dd/mm/aaaa y las horas en formato de 24 horas.
 
-**RNF-22 Diseño adaptable:** La aplicación web deberá adaptarse a pantallas de computadora, tableta y teléfono móvil.
+**RNF-21 Diseño adaptable:** La aplicación web deberá adaptarse a pantallas de computadora, tableta y teléfono móvil.
 
-**RNF-23 Mensajes al usuario:** Cada operación deberá informar su resultado. Ante un error, el mensaje indicará qué ocurrió y qué puede hacer el usuario, sin términos técnicos.
+**RNF-22 Mensajes al usuario:** Cada operación deberá informar su resultado. Ante un error, el mensaje indicará qué ocurrió y qué puede hacer el usuario, sin términos técnicos.
 
 ### 3.3.8. Notificaciones
 
-**RNF-24 Canales de notificación:** Las notificaciones al socio mencionadas en los requerimientos se enviarán por correo electrónico y por la interfaz del sistema. También se enviarán como notificaciones push en la aplicación Android si el socio la instaló y otorgó el permiso correspondiente.
+**RNF-23 Canales de notificación:** Las notificaciones al socio mencionadas en los requerimientos se enviarán por correo electrónico y por la interfaz del sistema. También se enviarán como notificaciones push en la aplicación Android si el socio la instaló y otorgó el permiso correspondiente.
 
-**RNF-25 Independencia de la operación:** Una falla en el envío de una notificación no deberá impedir ni revertir la operación que la originó.
+**RNF-24 Independencia de la operación:** Una falla en el envío de una notificación no deberá impedir ni revertir la operación que la originó.
 
-**RNF-26 Recordatorio automático de consulta:** El sistema enviará al socio una notificación de recordatorio 24 horas antes de cada consulta Agendada, con especialidad, médico, fecha, hora y consultorio, por los canales definidos en RNF-24. Si la consulta pasa a Agendada con menos de 24 horas de anticipación, no se envía el recordatorio.
+**RNF-25 Recordatorio automático de consulta:** El sistema enviará al socio una notificación de recordatorio 24 horas antes de cada consulta Agendada, con especialidad, médico, fecha, hora y consultorio, por los canales definidos en RNF-24. Si la consulta pasa a Agendada con menos de 24 horas de anticipación, no se envía el recordatorio.
 
 ### 3.3.9. Mantenibilidad y portabilidad
 
-**RNF-27 Parámetros configurables:** Los valores de la sección 3.1.3 deberán poder modificarse sin cambiar el código fuente. No se incluye una pantalla de administración de esos parámetros.
+**RNF-26 Parámetros configurables:** Los valores de la sección 3.1.3 deberán poder modificarse sin cambiar el código fuente. No se incluye una pantalla de administración de esos parámetros.
 
-**RNF-28 Configuración por entorno:** El sistema deberá poder ejecutarse en distintos entornos (desarrollo, pruebas y demostración) modificando únicamente su configuración, sin cambios en el código ni en el artefacto desplegado.
+**RNF-27 Configuración por entorno:** El sistema deberá poder ejecutarse en distintos entornos (desarrollo, pruebas y demostración) modificando únicamente su configuración, sin cambios en el código ni en el artefacto desplegado.
 
-**RNF-29 Tecnología del servidor:** El servidor deberá implementarse en Java, según lo establece la propuesta del proyecto.
+**RNF-28 Tecnología del servidor:** El servidor deberá implementarse en Java, según lo establece la propuesta del proyecto.
