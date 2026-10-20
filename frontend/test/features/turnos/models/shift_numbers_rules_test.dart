@@ -160,6 +160,106 @@ void main() {
     });
   });
 
+  group('omitCoveredNumbers', () {
+    ShiftNumber g(String start, String end) => n(1, start, end);
+
+    test('omite un número idéntico a uno existente', () {
+      final result = omitCoveredNumbers(
+        existing: [n(1, '09:00', '09:20')],
+        generated: [g('09:00', '09:20'), g('09:20', '09:40')],
+      );
+      expect(result.omitted, 1);
+      expect(result.kept.map((e) => e.startMinutes), [
+        ShiftNumber.parseTime('09:20'),
+      ]);
+    });
+
+    test('omite un número contenido en uno existente', () {
+      final result = omitCoveredNumbers(
+        existing: [n(1, '09:00', '09:40')],
+        generated: [g('09:10', '09:30')],
+      );
+      expect(result.omitted, 1);
+      expect(result.kept, isEmpty);
+    });
+
+    test('conserva un solapamiento parcial', () {
+      final result = omitCoveredNumbers(
+        existing: [n(1, '09:10', '09:30')],
+        generated: [g('09:00', '09:20'), g('09:20', '09:40')],
+      );
+      expect(result.omitted, 0);
+      expect(result.kept.length, 2);
+    });
+
+    test('conserva un generado que contiene a uno existente', () {
+      final result = omitCoveredNumbers(
+        existing: [n(1, '09:05', '09:15')],
+        generated: [g('09:00', '09:20')],
+      );
+      expect(result.omitted, 0);
+      expect(result.kept.length, 1);
+    });
+
+    test('los extremos que se tocan no cuentan como contenidos', () {
+      final result = omitCoveredNumbers(
+        existing: [n(1, '09:00', '09:20')],
+        generated: [g('09:20', '09:40')],
+      );
+      expect(result.omitted, 0);
+    });
+
+    test('cubierto solo por la suma de dos existentes, se conserva', () {
+      // 09:10-09:30 queda tapado por 09:00-09:20 más 09:20-09:40, pero no
+      // completo dentro de ninguno de los dos: no es un duplicado.
+      final result = omitCoveredNumbers(
+        existing: [n(1, '09:00', '09:20'), n(2, '09:20', '09:40')],
+        generated: [g('09:10', '09:30')],
+      );
+      expect(result.omitted, 0);
+      expect(result.kept.length, 1);
+    });
+
+    test('con el mismo inicio que el existente y menos largo, se omite', () {
+      final result = omitCoveredNumbers(
+        existing: [n(1, '09:00', '09:40')],
+        generated: [g('09:00', '09:20')],
+      );
+      expect(result.omitted, 1);
+      expect(result.kept, isEmpty);
+    });
+
+    test('con el mismo final que el existente y menos largo, se omite', () {
+      final result = omitCoveredNumbers(
+        existing: [n(1, '09:00', '09:40')],
+        generated: [g('09:20', '09:40')],
+      );
+      expect(result.omitted, 1);
+      expect(result.kept, isEmpty);
+    });
+
+    test('sin números cargados no omite nada', () {
+      final result = omitCoveredNumbers(
+        existing: [],
+        generated: [g('09:00', '09:20')],
+      );
+      expect(result.omitted, 0);
+      expect(result.kept.length, 1);
+    });
+
+    test('conserva el orden y los datos de los que quedan', () {
+      final result = omitCoveredNumbers(
+        existing: [n(1, '09:20', '09:40')],
+        generated: [
+          n(7, '09:00', '09:20'),
+          n(8, '09:20', '09:40'),
+          n(9, '09:40', '10:00'),
+        ],
+      );
+      expect(result.kept.map((e) => e.number), [7, 9]);
+    });
+  });
+
   group('countWeekdayDates', () {
     // 19/10/2026 es lunes.
     final monday = DateTime.utc(2026, 10, 19);

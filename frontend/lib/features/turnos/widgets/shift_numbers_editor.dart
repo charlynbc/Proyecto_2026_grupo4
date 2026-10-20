@@ -37,6 +37,7 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
   int _generatorEnd = 10 * 60;
   int _generatorDuration = _defaultDuration;
   int? _leftoverMinutes;
+  String? _omittedMessage;
 
   List<ShiftNumber> get _numbers => widget.numbers;
 
@@ -77,12 +78,30 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
       durationMinutes: _generatorDuration,
       firstNumber: _numbers.length + 1,
     );
+    final filtered = omitCoveredNumbers(
+      existing: _numbers,
+      generated: generated.numbers,
+    );
     setState(() {
       _leftoverMinutes = generated.leftoverMinutes > 0
           ? generated.leftoverMinutes
           : null;
+      _omittedMessage = _omittedNotice(filtered.omitted, filtered.kept.length);
     });
-    _emit([..._numbers, ...generated.numbers]);
+    // Si se omitieron todos no se agrega nada: la lista queda como estaba.
+    if (filtered.kept.isNotEmpty) _emit([..._numbers, ...filtered.kept]);
+  }
+
+  /// El aviso de los números generados que ya estaban cargados, o `null` si
+  /// no se omitió ninguno.
+  static String? _omittedNotice(int omitted, int kept) {
+    if (omitted == 0) return null;
+    if (kept == 0) {
+      return 'Esos números ya estaban cargados: no se agregó ninguno.';
+    }
+    return omitted == 1
+        ? 'Se omitió 1 número que ya estaba cargado.'
+        : 'Se omitieron $omitted números que ya estaban cargados.';
   }
 
   @override
@@ -224,6 +243,11 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
                 ),
               ],
             ),
+            if (_omittedMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_omittedMessage!),
+              ),
             if (_leftoverMinutes != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),

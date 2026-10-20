@@ -70,6 +70,27 @@ class GeneratedNumbers {
   final int leftoverMinutes;
 }
 
+/// Quita de [generated] los números que ya están cargados: los que quedan
+/// completos dentro de uno de [existing] (idénticos o contenidos). Los que
+/// pisan solo una parte de uno cargado, y los que contienen a uno cargado, se
+/// conservan: de esos avisa [validateNumbers]. Devuelve los que quedan, en
+/// orden y sin cambios, y cuántos se omitieron.
+({List<ShiftNumber> kept, int omitted}) omitCoveredNumbers({
+  required List<ShiftNumber> existing,
+  required List<ShiftNumber> generated,
+}) {
+  bool isCovered(ShiftNumber number) => existing.any(
+    (other) =>
+        other.startMinutes <= number.startMinutes &&
+        number.endMinutes <= other.endMinutes,
+  );
+  final kept = [
+    for (final number in generated)
+      if (!isCovered(number)) number,
+  ];
+  return (kept: kept, omitted: generated.length - kept.length);
+}
+
 GeneratedNumbers generateConsecutive({
   required int startMinutes,
   required int endMinutes,

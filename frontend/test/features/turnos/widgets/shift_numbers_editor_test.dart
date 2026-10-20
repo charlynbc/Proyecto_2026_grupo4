@@ -15,6 +15,9 @@ class EditorHarness {
 
   List<ShiftNumber> numbers;
   final bool showEmptyError;
+
+  /// Cuántas veces el editor avisó un cambio de la lista.
+  int changes = 0;
 }
 
 Future<EditorHarness> pumpEditor(
@@ -34,7 +37,10 @@ Future<EditorHarness> pumpEditor(
             child: ShiftNumbersEditor(
               numbers: host.numbers,
               showEmptyError: host.showEmptyError,
-              onChanged: (value) => setState(() => host.numbers = value),
+              onChanged: (value) => setState(() {
+                host.numbers = value;
+                host.changes++;
+              }),
             ),
           ),
         ),
@@ -213,5 +219,158 @@ void main() {
     await tester.tap(find.text('Generar números'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Sobraron 10 minutos'), findsOneWidget);
+  });
+
+  // Decisión: "Generar números" omite solo los duplicados totales. Un número
+  // generado se omite si su intervalo queda completo dentro de uno ya cargado
+  // (idéntico o contenido). Los solapamientos parciales y el caso en que el
+  // generado contiene a uno existente pasan, y los avisa la validación de
+  // siempre. El rango por defecto del generador es 09:00 a 10:00 cada 20 min:
+  // 09:00-09:20, 09:20-09:40 y 09:40-10:00.
+  group('generar números no repite los que ya están cargados', () {
+    String times(List<ShiftNumber> numbers) => numbers
+        .map(
+          (e) =>
+              '${ShiftNumber.formatTime(e.startMinutes)}-'
+              '${ShiftNumber.formatTime(e.endMinutes)}',
+        )
+        .join(' ');
+
+    const omittedOne = 'Se omitió 1 número que ya estaba cargado.';
+    const omittedAll =
+        'Esos números ya estaban cargados: no se agregó ninguno.';
+
+    Future<void> generate(WidgetTester tester) async {
+      await tester.tap(find.text('Generar números'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('un número idéntico a uno cargado se omite y se avisa', (
+      tester,
+    ) async {
+      final host = await pumpEditor(tester, initial: [n(1, '09:00', '09:20')]);
+
+      await generate(tester);
+
+      expect(times(host.numbers), '09:00-09:20 09:20-09:40 09:40-10:00');
+      expect(host.numbers.map((e) => e.number), [1, 2, 3]);
+      expect(find.text(omittedOne), findsOneWidget);
+      expect(find.textContaining('se solapan'), findsNothing);
+    });
+
+    testWidgets('un número contenido en uno cargado se omite, y se cuentan', (
+      tester,
+    ) async {
+      // 09:00-09:40 contiene a 09:00-09:20 y a 09:20-09:40.
+      final host = await pumpEditor(tester, initial: [n(1, '09:00', '09:40')]);
+
+      await generate(tester);
+
+      expect(times(host.numbers), '09:00-09:40 09:40-10:00');
+      expect(
+        find.text('Se omitieron 2 números que ya estaban cargados.'),
+        findsOneWidget,
+      );
+      expect(find.text(omittedOne), findsNothing);
+    });
+
+    testWidgets('un solapamiento parcial pasa y lo avisa la validación', (
+      tester,
+    ) async {
+      // 09:10-09:30 pisa una parte de 09:00-09:20 y otra de 09:20-09:40.
+      final host = await pumpEditor(tester, initial: [n(1, '09:10', '09:30')]);
+
+      await generate(tester);
+
+      expect(host.numbers.length, 4);
+      expect(find.textContaining('se solapan'), findsWidgets);
+      expect(find.textContaining('Se omit'), findsNothing);
+    });
+
+    testWidgets('si el generado contiene a uno cargado, pasa', (tester) async {
+      // 09:05-09:15 queda dentro de 09:00-09:20, pero no al revés.
+      final host = await pumpEditor(tester, initial: [n(1, '09:05', '09:15')]);
+
+      await generate(tester);
+
+      expect(host.numbers.length, 4);
+      expect(times(host.numbers), startsWith('09:05-09:15 09:00-09:20'));
+      expect(find.textContaining('se solapan'), findsWidgets);
+      expect(find.textContaining('Se omit'), findsNothing);
+    });
+
+    testWidgets('si se omiten todos, la lista no cambia y se avisa', (
+      tester,
+    ) async {
+      final initial = [
+        n(1, '09:00', '09:20'),
+        n(2, '09:20', '09:40'),
+        n(3, '09:40', '10:00'),
+      ];
+      final host = await pumpEditor(tester, initial: initial);
+
+      await generate(tester);
+
+      expect(host.changes, 0, reason: 'no se agregó nada: no hubo cambio');
+      expect(identical(host.numbers, initial), isTrue);
+      expect(times(host.numbers), '09:00-09:20 09:20-09:40 09:40-10:00');
+      expect(find.text(omittedAll), findsOneWidget);
+    });
+
+    testWidgets('apretar dos veces seguidas el mismo rango no cambia el '
+        'resultado', (tester) async {
+      final host = await pumpEditor(tester);
+
+      await generate(tester);
+      final afterFirst = times(host.numbers);
+      expect(afterFirst, '09:00-09:20 09:20-09:40 09:40-10:00');
+      expect(find.textContaining('Se omit'), findsNothing);
+      final changesAfterFirst = host.changes;
+
+      await generate(tester);
+
+      expect(times(host.numbers), afterFirst);
+      expect(host.numbers.length, 3);
+      expect(host.changes, changesAfterFirst);
+      expect(find.text(omittedAll), findsOneWidget);
+    });
+
+    testWidgets('el aviso se va al generar algo que sí es nuevo', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: [n(1, '09:00', '09:20')]);
+      await generate(tester);
+      expect(find.text(omittedOne), findsOneWidget);
+
+      // Otro rango, sin nada repetido.
+      await tester.tap(find.byKey(const Key('generator-start-hour')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('11').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('generator-end-hour')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('12').last);
+      await tester.pumpAndSettle();
+      await generate(tester);
+
+      expect(find.textContaining('Se omit'), findsNothing);
+      expect(find.text(omittedAll), findsNothing);
+    });
+
+    testWidgets('el aviso de lo omitido convive con el de los minutos que '
+        'sobraron', (tester) async {
+      // Cada 25 minutos: 09:00-09:25 y 09:25-09:50, sobran 10.
+      final host = await pumpEditor(tester, initial: [n(1, '09:00', '09:25')]);
+      await tester.tap(find.byKey(const Key('generator-duration')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('25 min').last);
+      await tester.pumpAndSettle();
+
+      await generate(tester);
+
+      expect(times(host.numbers), '09:00-09:25 09:25-09:50');
+      expect(find.text(omittedOne), findsOneWidget);
+      expect(find.textContaining('Sobraron 10 minutos'), findsOneWidget);
+    });
   });
 }
