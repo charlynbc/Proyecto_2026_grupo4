@@ -154,15 +154,20 @@ Future<void> _save(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-/// Cardiología, Esteban Silva, Consultorio 12, los miércoles del 21/10 al
-/// 11/11/2026 (cuatro fechas) y tres números de 20 minutos de 09:00 a 10:00.
-Future<void> _fillValid(WidgetTester tester) async {
+/// Cardiología, Esteban Silva, Consultorio 12 y los miércoles del 21/10 al
+/// 11/11/2026 (cuatro fechas), sin números.
+Future<void> _fillFields(WidgetTester tester) async {
   await _choose(tester, 'field-specialty', 'Cardiología');
   await _choose(tester, 'field-doctor', 'Esteban Silva');
   await _choose(tester, 'field-clinic', 'Consultorio 12');
   await _choose(tester, 'field-weekday', 'Miércoles');
   await _type(tester, 'field-from', '21/10/2026');
   await _type(tester, 'field-to', '11/11/2026');
+}
+
+/// Lo de [_fillFields] y tres números de 20 minutos de 09:00 a 10:00.
+Future<void> _fillValid(WidgetTester tester) async {
+  await _fillFields(tester);
   await _tapText(tester, 'Generar números');
 }
 
@@ -415,6 +420,33 @@ void main() {
       expect(find.textContaining('entre 10 y 60 minutos'), findsOneWidget);
       expect(harness.repository.createCalls, 0);
     });
+
+    testWidgets(
+      'con números solapados no se envía y se avisa del solapamiento',
+      (tester) async {
+        final harness = await _pump(tester);
+        await _fillFields(tester);
+
+        // 09:00-09:20 y 09:20-09:40; el segundo pasa a empezar a las 09:10 y
+        // pisa los últimos 10 minutos del primero.
+        await _tapText(tester, 'Agregar número');
+        await _tapText(tester, 'Agregar número');
+        await _choose(tester, 'number-1-start-minute', '10');
+        await _save(tester);
+
+        // El mensaje está una sola vez: el del editor, no uno del servidor.
+        expect(
+          find.text(
+            'Los números 1 y 2 se solapan (09:00–09:20 y 09:10–09:40).',
+          ),
+          findsOneWidget,
+        );
+        expect(find.byKey(const Key('server-error')), findsNothing);
+        expect(harness.repository.createCalls, 0);
+        expect(currentLocation(harness.router), kNewWeeklyShiftPath);
+        expect(harness.shiftDb.weeklyShifts.length, 4);
+      },
+    );
   });
 
   group('envío', () {
