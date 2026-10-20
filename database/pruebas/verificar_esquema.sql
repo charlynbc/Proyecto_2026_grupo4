@@ -75,14 +75,7 @@ DO $$ BEGIN
 EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: un empleado habilitado por CI (R-MDAT-02)';
 END $$;
 
--- El rol de una cuenta es inmutable.
-DO $$ BEGIN
-    UPDATE cuenta SET rol = 'ADMINISTRADOR' WHERE id_cuenta = 3;
-    RAISE EXCEPTION 'FALLA: se aceptó un cambio de rol';
-EXCEPTION WHEN raise_exception THEN
-    IF SQLERRM LIKE 'FALLA%' THEN RAISE; END IF;
-    RAISE NOTICE 'ok: rol inmutable';
-END $$;
+
 
 -- R-MDAT-03: no se completa el primer ingreso sin dirección ni contraseña.
 DO $$ BEGIN
@@ -99,14 +92,7 @@ DO $$ BEGIN
 EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: especialidad única (R-MDAT-04)';
 END $$;
 
--- El turno semanal exige que el médico tenga esa especialidad.
-DO $$ BEGIN
-    INSERT INTO turno_semanal (id_turno_semanal, id_medico, id_especialidad, id_consultorio,
-                               id_funcionario_alta, dia_semana, fecha_inicio, fecha_fin)
-        OVERRIDING SYSTEM VALUE VALUES (99, 2, 1, 1, 3, 2, '2026-11-03', '2026-12-29');
-    RAISE EXCEPTION 'FALLA: se aceptó un turno de una especialidad que el médico no tiene';
-EXCEPTION WHEN foreign_key_violation THEN RAISE NOTICE 'ok: médico con la especialidad del turno';
-END $$;
+
 
 -- R-MDAT-07: los extremos de una franja están en múltiplos de cinco minutos.
 DO $$ BEGIN
@@ -142,9 +128,9 @@ EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: pase de uso único (R-MDA
 END $$;
 
 -- R-MDAT-21: un solo recordatorio por consulta.
-INSERT INTO notificacion (id_consulta, tipo, contenido) VALUES ((SELECT id_consulta FROM consulta WHERE id_pase = 1 AND estado = 'AGENDADA'), 'RECORDATORIO', 'Mañana tenés consulta');
+INSERT INTO notificacion (id_consulta, tipo, contenido, programada_para) VALUES ((SELECT id_consulta FROM consulta WHERE id_pase = 1 AND estado = 'AGENDADA'), 'RECORDATORIO', 'Mañana tenés consulta', '2026-11-01 09:00-03');
 DO $$ BEGIN
-    INSERT INTO notificacion (id_consulta, tipo, contenido) VALUES ((SELECT id_consulta FROM consulta WHERE id_pase = 1 AND estado = 'AGENDADA'), 'RECORDATORIO', 'Otra vez');
+    INSERT INTO notificacion (id_consulta, tipo, contenido, programada_para) VALUES ((SELECT id_consulta FROM consulta WHERE id_pase = 1 AND estado = 'AGENDADA'), 'RECORDATORIO', 'Otra vez', '2026-11-01 09:00-03');
     RAISE EXCEPTION 'FALLA: se aceptaron dos recordatorios para la misma consulta';
 EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'ok: un recordatorio por consulta (R-MDAT-21)';
 END $$;

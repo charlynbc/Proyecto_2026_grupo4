@@ -13,10 +13,17 @@ database/
 └── poc-sql/                    scripts de las pruebas de concepto, no se usan
 ```
 
-`schema.sql` sale del Documento de Modelo de Datos (versión del 19/10/2026).
-Cada restricción cita la regla R-MDAT que implementa. Las tablas del documento
-(`Persona`, `TurnoSemanal`, …) se escriben en minúscula con guion bajo
-(`persona`, `turno_semanal`, …).
+`schema.sql` es el script con el que Martín creó la base `prod` en Supabase
+(`crear_estructura_v1.sql`, 13/10/2026), sin cambios. Implementa el Documento
+de Modelo de Datos: las tablas del documento (`Persona`, `TurnoSemanal`, …) se
+escriben en minúscula con guion bajo (`persona`, `turno_semanal`, …) y quedan
+en el esquema `public`.
+
+Las bases del proyecto no son la base por defecto `postgres` de Supabase sino
+bases propias dentro del mismo servidor (`prod` y la de pruebas). Por eso el
+panel web de Supabase no muestra sus tablas: se ven conectándose con DBeaver o
+`psql` a esa base. Por la misma razón, la Data API de Supabase, que solo sirve
+la base `postgres`, no las expone.
 
 ## Por qué `schema.sql` tiene que estar siempre al día
 
@@ -59,8 +66,9 @@ La prueba termina en `ROLLBACK`, así que no deja datos.
 
 La base controla todo lo que se puede expresar sobre una sola fila o con un
 índice: claves, unicidades (incluidos los índices únicos parciales de
-RNF-13), dominios con `CHECK` y que el rol de una cuenta no cambie. Las reglas
-que dependen de varias tablas o de la configuración las verifica el backend
-dentro de la transacción, como indica la sección 5 del Modelo de Datos: los
-solapamientos de turnos, las duraciones admitidas, los límites de agenda, que
-un médico tenga rol `MEDICO` y que un anuncio tenga texto o imagen.
+RNF-13) y dominios con `CHECK`. Las reglas que dependen de varias tablas o de
+la configuración las verifica el backend dentro de la transacción, como indica
+la sección 5 del Modelo de Datos: los solapamientos de turnos, las duraciones
+admitidas, los límites de agenda, que un médico tenga rol `MEDICO` y la
+especialidad del turno, que el rol de una cuenta no cambie y que un anuncio
+tenga texto o imagen.
