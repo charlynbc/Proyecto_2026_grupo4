@@ -3,3 +3,10 @@ const String kShiftsPath = '/funcionario/turnos';
 
 /// Alta de turno semanal (RF-13), colgada de la consulta.
 const String kNewWeeklyShiftPath = '/funcionario/turnos/nuevo';
+
+/// Detalle de una configuración semanal: el patrón de ruta, con `:id`.
+const String kWeeklyShiftDetailPath = '/funcionario/turnos/configuracion/:id';
+
+/// La ruta concreta del detalle de la configuración semanal [id].
+String weeklyShiftDetailLocation(int id) =>
+    '/funcionario/turnos/configuracion/$id';
