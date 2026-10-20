@@ -73,6 +73,16 @@ List<List<String>> _rows(WidgetTester tester) => [
     [for (final cell in row.cells) (cell.child as Text).data!],
 ];
 
+// Los mensajes se escriben a mano: así una mutación del texto se detecta.
+const String _badDateFormat =
+    'Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.';
+const String _nonexistentDate =
+    'Esa fecha no existe en el calendario. Revisá el día y el mes.';
+
+const String _pickFrom = 'Elegir la fecha desde';
+const String _pickTo = 'Elegir la fecha hasta';
+const String _clearDate = 'Borrar la fecha';
+
 const _date = 0;
 const _doctor = 1;
 const _specialty = 2;
@@ -93,8 +103,16 @@ Future<void> _apply(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _typeDate(WidgetTester tester, String label, String text) =>
-    tester.enterText(find.widgetWithText(TextField, label), text);
+Future<void> _typeDate(WidgetTester tester, String label, String text) async {
+  await tester.enterText(find.widgetWithText(TextField, label), text);
+  await tester.pump();
+}
+
+/// Lo que hay escrito en el campo de fecha con esa etiqueta.
+String _fieldText(WidgetTester tester, String label) => tester
+    .widget<TextField>(find.widgetWithText(TextField, label))
+    .controller!
+    .text;
 
 /// Cuánto se puede desplazar la tabla hacia los costados: 0 si entra entera.
 double _tableOverflow(WidgetTester tester) {
@@ -329,22 +347,160 @@ void main() {
       expect(find.text('Página 1 de 2 · 32 turnos'), findsOneWidget);
     });
 
-    for (final text in ['2026-10-20', '31/02/2026', '20/10']) {
-      testWidgets('la fecha "$text" no se acepta', (tester) async {
+    // Lo que se escribe, lo que queda en el campo tras el filtro de caracteres
+    // (solo dígitos y barras), el mensaje y si ya se ve antes de apretar
+    // "Buscar": el error aparece al completar los 10 caracteres o al soltar el
+    // foco, no al primer carácter.
+    for (final c in [
+      (
+        typed: '2026-10-20',
+        shown: '20261020',
+        message: _badDateFormat,
+        visibleBeforeSearch: false,
+      ),
+      (
+        typed: '31/02/2026',
+        shown: '31/02/2026',
+        message: _nonexistentDate,
+        visibleBeforeSearch: true,
+      ),
+      (
+        typed: '20/10',
+        shown: '20/10',
+        message: _badDateFormat,
+        visibleBeforeSearch: false,
+      ),
+    ]) {
+      testWidgets('la fecha "${c.typed}" no se acepta y no busca', (
+        tester,
+      ) async {
         await _pump(tester);
+        // Un filtro pendiente: si "Buscar" buscara igual, la lista cambiaría.
+        await _choose(tester, const Key('filter-state'), 'Suspendida');
 
-        await _typeDate(tester, 'Desde', text);
+        await _typeDate(tester, 'Desde', c.typed);
+
+        expect(_fieldText(tester, 'Desde'), c.shown);
+        expect(
+          find.text(c.message),
+          c.visibleBeforeSearch ? findsOneWidget : findsNothing,
+          reason: 'antes de apretar "Buscar"',
+        );
+
         await _apply(tester);
 
-        expect(
-          find.text(
-            'Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.',
-          ),
-          findsOneWidget,
-        );
+        expect(find.text(c.message), findsOneWidget);
         expect(find.text('Página 1 de 2 · 32 turnos'), findsOneWidget);
       });
     }
+
+    testWidgets('Enter en "Desde" con 20/10 no busca y muestra el error', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _choose(tester, const Key('filter-doctor'), 'Carla Méndez');
+      await _apply(tester);
+      expect(_rows(tester), hasLength(4));
+      // Pendiente, sin aplicar: si Enter buscara, quedarían 1 solo turno.
+      await _choose(tester, const Key('filter-state'), 'Suspendida');
+      await _typeDate(tester, 'Desde', '20/10');
+      expect(find.text(_badDateFormat), findsNothing);
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+
+      expect(find.text(_badDateFormat), findsOneWidget);
+      expect(_rows(tester), hasLength(4));
+      expect(find.text('Página 1 de 1 · 4 turnos'), findsOneWidget);
+    });
+
+    testWidgets('Enter con una fecha válida sí busca', (tester) async {
+      await _pump(tester);
+      await _typeDate(tester, 'Desde', '20/10/2026');
+      await _typeDate(tester, 'Hasta', '22/10/2026');
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+
+      expect(_rows(tester).map((r) => r[_date]), ['20/10/2026', '22/10/2026']);
+    });
+  });
+
+  group('el calendario y la cruz de las fechas', () {
+    testWidgets('el calendario de "Hasta" abre en la fecha de "Desde"', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _typeDate(tester, 'Desde', '10/11/2026');
+
+      await tester.tap(find.byTooltip(_pickTo));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aceptar'));
+      await tester.pumpAndSettle();
+
+      expect(_fieldText(tester, 'Hasta'), '10/11/2026');
+    });
+
+    testWidgets('el calendario de "Desde" abre en lo que ya está escrito', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _typeDate(tester, 'Desde', '10/11/2026');
+
+      await tester.tap(find.byTooltip(_pickFrom));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aceptar'));
+      await tester.pumpAndSettle();
+
+      expect(_fieldText(tester, 'Desde'), '10/11/2026');
+    });
+
+    testWidgets('elegir un día escribe la fecha en dd/mm/aaaa', (tester) async {
+      await _pump(tester);
+      await _typeDate(tester, 'Desde', '10/11/2026');
+
+      await tester.tap(find.byTooltip(_pickFrom));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('15'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aceptar'));
+      await tester.pumpAndSettle();
+
+      expect(_fieldText(tester, 'Desde'), '15/11/2026');
+    });
+
+    testWidgets('la cruz borra la fecha y "Buscar" vuelve a traer todo', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _typeDate(tester, 'Desde', '20/10/2026');
+      await _typeDate(tester, 'Hasta', '22/10/2026');
+      await _apply(tester);
+      expect(_rows(tester), hasLength(2));
+
+      // Primero queda la de "Desde"; al borrarla, la que sigue es la de "Hasta".
+      await tester.tap(find.byTooltip(_clearDate).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(_clearDate).first);
+      await tester.pumpAndSettle();
+      expect(_fieldText(tester, 'Desde'), isEmpty);
+      expect(_fieldText(tester, 'Hasta'), isEmpty);
+      await _apply(tester);
+
+      expect(_rows(tester), hasLength(20));
+      expect(find.text('Página 1 de 2 · 32 turnos'), findsOneWidget);
+    });
+
+    testWidgets('una fecha que no existe lo dice al completarla', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await _typeDate(tester, 'Hasta', '31/02/2026');
+
+      expect(find.text(_nonexistentDate), findsOneWidget);
+      expect(find.text(_badDateFormat), findsNothing);
+    });
   });
 
   group('orden', () {

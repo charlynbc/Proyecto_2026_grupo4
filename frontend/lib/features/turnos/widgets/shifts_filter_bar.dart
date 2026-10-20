@@ -1,23 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../especialidades/providers/specialties_provider.dart';
 import '../../../core/utils/ui_date.dart';
+import '../../../core/widgets/ui_date_field.dart';
+import '../../especialidades/providers/specialties_provider.dart';
+import '../models/shift_date_range.dart';
 import '../models/shift_filters.dart';
 import '../models/shift_state.dart';
 import '../models/weekday_names.dart';
 import '../providers/doctors_provider.dart';
 import '../providers/shift_filters_controller.dart';
 
-const String _invalidDateMessage =
-    'Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.';
 const String _invalidRangeMessage =
     'La fecha "Desde" no puede ser posterior a la fecha "Hasta".';
 
 /// Filtros de la consulta de turnos (RF-17): médico, especialidad, día de la
 /// semana, rango de fechas y estado se aplican juntos con "Buscar"; el orden
-/// se aplica apenas se cambia. Cada error de fecha se muestra una sola vez,
-/// debajo del campo que lo causa.
+/// se aplica apenas se cambia.
+///
+/// El error de formato de una fecha (mal escrita o inexistente) lo muestra el
+/// propio campo, y es la única fuente: la barra no arma el suyo. La barra solo
+/// agrega el error de rango, que ningún campo puede saber por sí solo.
 class ShiftsFilterBar extends ConsumerStatefulWidget {
   const ShiftsFilterBar({super.key});
 
@@ -32,8 +35,7 @@ class _ShiftsFilterBarState extends ConsumerState<ShiftsFilterBar> {
   int? _specialtyId;
   int? _weekday;
   ShiftState? _state;
-  String? _fromError;
-  String? _toError;
+  String? _rangeError;
 
   @override
   void initState() {
@@ -58,24 +60,28 @@ class _ShiftsFilterBarState extends ConsumerState<ShiftsFilterBar> {
     super.dispose();
   }
 
+  void _clearRangeError() {
+    if (_rangeError != null) setState(() => _rangeError = null);
+  }
+
   void _search() {
+    // Tocar "Buscar" no mueve el foco del campo de fecha: se lo suelta acá
+    // para que el campo muestre su error si la fecha quedó a medias.
+    FocusScope.of(context).unfocus();
+
     final fromText = _fromController.text.trim();
     final toText = _toController.text.trim();
+    // Con una fecha mal escrita o inexistente no se busca; el error ya lo
+    // muestra el campo.
+    if (uiDateError(fromText) != null || uiDateError(toText) != null) return;
+
     final from = fromText.isEmpty ? null : parseUiDate(fromText);
     final to = toText.isEmpty ? null : parseUiDate(toText);
-
-    String? fromError;
-    String? toError;
-    if (fromText.isNotEmpty && from == null) fromError = _invalidDateMessage;
-    if (toText.isNotEmpty && to == null) toError = _invalidDateMessage;
     if (from != null && to != null && from.isAfter(to)) {
-      toError = _invalidRangeMessage;
+      setState(() => _rangeError = _invalidRangeMessage);
+      return;
     }
-    setState(() {
-      _fromError = fromError;
-      _toError = toError;
-    });
-    if (fromError != null || toError != null) return;
+    setState(() => _rangeError = null);
 
     ref
         .read(shiftFiltersControllerProvider.notifier)
@@ -156,38 +162,34 @@ class _ShiftsFilterBarState extends ConsumerState<ShiftsFilterBar> {
           ),
         ),
         SizedBox(
-          width: 150,
-          child: TextField(
+          width: 220,
+          child: UiDateField(
             controller: _fromController,
-            keyboardType: TextInputType.datetime,
+            label: 'Desde',
+            pickerHelpText: 'Fecha desde',
+            pickerTooltip: 'Elegir la fecha desde',
+            firstDate: kShiftDatePickerFirstDate,
+            lastDate: kShiftDatePickerLastDate,
             textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              labelText: 'Desde',
-              hintText: 'dd/mm/aaaa',
-              errorText: _fromError,
-              errorMaxLines: 4,
-            ),
-            onChanged: (_) {
-              if (_fromError != null) setState(() => _fromError = null);
-            },
+            onChanged: (_) => _clearRangeError(),
             onSubmitted: (_) => _search(),
           ),
         ),
         SizedBox(
-          width: 150,
-          child: TextField(
+          width: 220,
+          child: UiDateField(
             controller: _toController,
-            keyboardType: TextInputType.datetime,
+            label: 'Hasta',
+            pickerHelpText: 'Fecha hasta',
+            pickerTooltip: 'Elegir la fecha hasta',
+            firstDate: kShiftDatePickerFirstDate,
+            lastDate: kShiftDatePickerLastDate,
+            // El calendario de "Hasta" abre en la fecha de "Desde", si es válida.
+            initialPickerDate: () => parseUiDate(_fromController.text),
+            // El único error que pone la barra: el rango entre las dos fechas.
+            errorText: _rangeError,
             textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              labelText: 'Hasta',
-              hintText: 'dd/mm/aaaa',
-              errorText: _toError,
-              errorMaxLines: 4,
-            ),
-            onChanged: (_) {
-              if (_toError != null) setState(() => _toError = null);
-            },
+            onChanged: (_) => _clearRangeError(),
             onSubmitted: (_) => _search(),
           ),
         ),
