@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'core/config/app_locale.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/models/user_role.dart';
@@ -70,6 +71,9 @@ class _MyAppState extends ConsumerState<MyApp> {
     });
     return MaterialApp.router(
       title: 'Agenda Médica',
+      locale: kAppLocale,
+      supportedLocales: kSupportedLocales,
+      localizationsDelegates: kLocalizationsDelegates,
       scaffoldMessengerKey: _scaffoldMessengerKey,
       theme: appTheme,
       routerConfig: router,
