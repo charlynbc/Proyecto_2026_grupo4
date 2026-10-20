@@ -38,6 +38,7 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
   int _generatorDuration = _defaultDuration;
   int? _leftoverMinutes;
   String? _omittedMessage;
+  String? _addNotice;
 
   List<ShiftNumber> get _numbers => widget.numbers;
 
@@ -48,25 +49,45 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
     ]);
   }
 
+  /// El aviso de "Agregar número" vive hasta la siguiente acción del editor.
+  void _clearAddNotice() {
+    if (_addNotice != null) setState(() => _addNotice = null);
+  }
+
   void _update(int index, ShiftNumber number) {
+    _clearAddNotice();
     final updated = [..._numbers]..[index] = number;
     _emit(updated);
   }
 
   void _remove(int index) {
+    _clearAddNotice();
     _emit([..._numbers]..removeAt(index));
   }
 
+  /// Agrega un número con lo que tenga el generador en este momento: con la
+  /// lista vacía arranca en su hora de inicio y, si no, donde termina el
+  /// último; dura la duración elegida. No lo limita la hora final del
+  /// generador. Si terminaría después de las 23:55 (el máximo del selector de
+  /// horas), no agrega nada y avisa.
   void _add() {
-    final start = _numbers.isEmpty
-        ? 9 * 60
-        : (_numbers.last.endMinutes).clamp(0, _lastEnd - _defaultDuration);
+    final start = _numbers.isEmpty ? _generatorStart : _numbers.last.endMinutes;
+    final end = start + _generatorDuration;
+    if (end > _lastEnd) {
+      setState(() {
+        _addNotice =
+            'No entra otro número de $_generatorDuration minutos antes de '
+            'las ${ShiftNumber.formatTime(_lastEnd)}.';
+      });
+      return;
+    }
+    _clearAddNotice();
     _emit([
       ..._numbers,
       ShiftNumber(
         number: _numbers.length + 1,
         startMinutes: start,
-        endMinutes: start + _defaultDuration,
+        endMinutes: end,
       ),
     ]);
   }
@@ -87,6 +108,7 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
           ? generated.leftoverMinutes
           : null;
       _omittedMessage = _omittedNotice(filtered.omitted, filtered.kept.length);
+      _addNotice = null;
     });
     // Si se omitieron todos no se agrega nada: la lista queda como estaba.
     if (filtered.kept.isNotEmpty) _emit([..._numbers, ...filtered.kept]);
@@ -133,6 +155,14 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
             label: const Text('Agregar número'),
           ),
         ),
+        if (_addNotice != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              _addNotice!,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+          ),
         const SizedBox(height: 16),
         _generator(theme),
       ],

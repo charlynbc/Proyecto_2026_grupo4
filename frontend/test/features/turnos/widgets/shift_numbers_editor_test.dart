@@ -373,4 +373,226 @@ void main() {
       expect(find.textContaining('Sobraron 10 minutos'), findsOneWidget);
     });
   });
+
+  // Decisión: "Agregar número" usa lo que tenga el generador en ese momento.
+  // Con la lista vacía arranca en la hora de inicio del generador; con
+  // números cargados, donde termina el último. Dura la duración elegida en el
+  // generador. No lo limita la hora final del generador. Si el número
+  // terminaría después de las 23:55 (el máximo del selector), no se agrega.
+  group('agregar número usa la configuración vigente del generador', () {
+    String time(int minutes) => ShiftNumber.formatTime(minutes);
+
+    Future<void> setDuration(WidgetTester tester, int minutes) async {
+      await tester.tap(find.byKey(const Key('generator-duration')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('$minutes min').last);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> add(WidgetTester tester) async {
+      await tester.tap(find.text('Agregar número'));
+      await tester.pumpAndSettle();
+    }
+
+    String noFit(int minutes) =>
+        'No entra otro número de $minutes minutos antes de las 23:55.';
+
+    testWidgets(
+      'con los valores iniciales del generador, el resultado es el de '
+      'siempre: 09:00 a 09:20',
+      (tester) async {
+        final host = await pumpEditor(tester);
+
+        await add(tester);
+
+        expect(time(host.numbers.single.startMinutes), '09:00');
+        expect(time(host.numbers.single.endMinutes), '09:20');
+      },
+    );
+
+    testWidgets(
+      'con la lista vacía arranca en la hora de inicio del generador',
+      (tester) async {
+        final host = await pumpEditor(tester);
+        await selectInt(tester, const Key('generator-start-hour'), 11);
+        await selectInt(tester, const Key('generator-start-minute'), 30);
+
+        await add(tester);
+
+        expect(time(host.numbers.single.startMinutes), '11:30');
+        expect(time(host.numbers.single.endMinutes), '11:50');
+      },
+    );
+
+    testWidgets('con la lista vacía dura lo que dice el generador', (
+      tester,
+    ) async {
+      final host = await pumpEditor(tester);
+      await setDuration(tester, 30);
+
+      await add(tester);
+
+      expect(time(host.numbers.single.startMinutes), '09:00');
+      expect(time(host.numbers.single.endMinutes), '09:30');
+    });
+
+    testWidgets('con un número cargado arranca donde terminó y dura lo del '
+        'generador', (tester) async {
+      final host = await pumpEditor(tester, initial: [n(1, '09:00', '09:20')]);
+      await setDuration(tester, 25);
+
+      await add(tester);
+
+      expect(host.numbers.length, 2);
+      expect(time(host.numbers.last.startMinutes), '09:20');
+      expect(time(host.numbers.last.endMinutes), '09:45');
+      expect(host.numbers.last.number, 2);
+    });
+
+    testWidgets('con un número cargado no lo limita la hora final del '
+        'generador', (tester) async {
+      // El generador termina a las 10:00; el número que se agrega, después.
+      final host = await pumpEditor(tester, initial: [n(1, '10:00', '10:20')]);
+
+      await add(tester);
+
+      expect(time(host.numbers.last.startMinutes), '10:20');
+      expect(time(host.numbers.last.endMinutes), '10:40');
+    });
+
+    testWidgets('si termina después de las 23:55, no agrega, no hay cambio y '
+        'avisa', (tester) async {
+      // 23:50 + 25 minutos = 24:15.
+      final initial = [n(1, '23:25', '23:50')];
+      final host = await pumpEditor(tester, initial: initial);
+      await setDuration(tester, 25);
+
+      await add(tester);
+
+      expect(host.changes, 0);
+      expect(identical(host.numbers, initial), isTrue);
+      expect(find.text(noFit(25)), findsOneWidget);
+    });
+
+    testWidgets('con la lista vacía y el generador en 23:00 de 60 minutos, no '
+        'agrega y avisa', (tester) async {
+      // 23:00 + 60 minutos = 24:00.
+      final host = await pumpEditor(tester);
+      await selectInt(tester, const Key('generator-start-hour'), 23);
+      await setDuration(tester, 60);
+
+      await add(tester);
+
+      expect(host.numbers, isEmpty);
+      expect(host.changes, 0);
+      expect(find.text(noFit(60)), findsOneWidget);
+    });
+
+    testWidgets('un número que termina justo a las 23:55 sí entra', (
+      tester,
+    ) async {
+      final host = await pumpEditor(tester, initial: [n(1, '23:00', '23:30')]);
+      await setDuration(tester, 25);
+
+      await add(tester);
+
+      expect(time(host.numbers.last.startMinutes), '23:30');
+      expect(time(host.numbers.last.endMinutes), '23:55');
+      expect(find.textContaining('No entra'), findsNothing);
+    });
+
+    testWidgets('con la lista vacía, uno que termina justo a las 23:55 también '
+        'entra', (tester) async {
+      final host = await pumpEditor(tester);
+      await selectInt(tester, const Key('generator-start-hour'), 23);
+      await selectInt(tester, const Key('generator-start-minute'), 30);
+      await setDuration(tester, 25);
+
+      await add(tester);
+
+      expect(time(host.numbers.single.startMinutes), '23:30');
+      expect(time(host.numbers.single.endMinutes), '23:55');
+    });
+
+    testWidgets('un minuto más y no entra: 23:30 con 30 minutos termina a las '
+        '24:00', (tester) async {
+      final host = await pumpEditor(tester);
+      await selectInt(tester, const Key('generator-start-hour'), 23);
+      await selectInt(tester, const Key('generator-start-minute'), 30);
+      await setDuration(tester, 30);
+
+      await add(tester);
+
+      expect(host.numbers, isEmpty);
+      expect(find.text(noFit(30)), findsOneWidget);
+    });
+
+    testWidgets('el aviso se limpia en la siguiente acción: agregar', (
+      tester,
+    ) async {
+      final host = await pumpEditor(tester, initial: [n(1, '23:00', '23:30')]);
+      await setDuration(tester, 30);
+      await add(tester);
+      expect(find.text(noFit(30)), findsOneWidget);
+
+      await setDuration(tester, 25);
+      await add(tester);
+
+      expect(find.textContaining('No entra'), findsNothing);
+      expect(host.numbers.length, 2);
+    });
+
+    testWidgets('el aviso se limpia en la siguiente acción: quitar', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: [n(1, '23:25', '23:50')]);
+      await setDuration(tester, 25);
+      await add(tester);
+      expect(find.text(noFit(25)), findsOneWidget);
+
+      await tester.tap(find.text('Quitar'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('No entra'), findsNothing);
+    });
+
+    testWidgets('el aviso se limpia en la siguiente acción: generar', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: [n(1, '23:25', '23:50')]);
+      await setDuration(tester, 25);
+      await add(tester);
+      expect(find.text(noFit(25)), findsOneWidget);
+
+      await tester.tap(find.text('Generar números'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('No entra'), findsNothing);
+    });
+
+    testWidgets('el aviso se limpia en la siguiente acción: editar una hora', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: [n(1, '23:25', '23:50')]);
+      await setDuration(tester, 25);
+      await add(tester);
+      expect(find.text(noFit(25)), findsOneWidget);
+
+      await selectInt(tester, const Key('number-0-start-minute'), 20);
+
+      expect(find.textContaining('No entra'), findsNothing);
+    });
+
+    testWidgets('si se repite el intento, el aviso sigue una sola vez', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: [n(1, '23:25', '23:50')]);
+      await setDuration(tester, 25);
+
+      await add(tester);
+      await add(tester);
+
+      expect(find.text(noFit(25)), findsOneWidget);
+    });
+  });
 }
