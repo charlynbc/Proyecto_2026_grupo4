@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../especialidades/providers/specialties_provider.dart';
-import '../models/shift_date_format.dart';
+import '../../../core/utils/ui_date.dart';
 import '../models/shift_filters.dart';
 import '../models/shift_state.dart';
 import '../models/weekday_names.dart';

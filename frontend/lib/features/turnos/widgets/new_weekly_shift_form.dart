@@ -7,7 +7,7 @@ import '../../../core/forms/early_field_validation.dart';
 import '../../consultorios/providers/clinics_provider.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../models/new_weekly_shift.dart';
-import '../models/shift_date_format.dart';
+import '../../../core/utils/ui_date.dart';
 import '../models/shift_number.dart';
 import '../models/shift_numbers_rules.dart';
 import '../models/weekday_names.dart';

@@ -1,4 +1,4 @@
-import 'package:agenda_medica/features/turnos/models/shift_date_format.dart';
+import 'package:agenda_medica/core/utils/ui_date.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/shift.dart';
-import '../models/shift_date_format.dart';
+import '../../../core/utils/ui_date.dart';
 import '../models/shift_number.dart';
 import '../models/shift_page.dart';
 import '../models/weekday_names.dart';

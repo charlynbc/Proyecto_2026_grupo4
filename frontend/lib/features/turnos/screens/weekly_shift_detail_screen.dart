@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/centered_content.dart';
-import '../models/shift_date_format.dart';
+import '../../../core/utils/ui_date.dart';
 import '../models/shift_number.dart';
 import '../models/weekday_names.dart';
 import '../models/weekly_shift.dart';
