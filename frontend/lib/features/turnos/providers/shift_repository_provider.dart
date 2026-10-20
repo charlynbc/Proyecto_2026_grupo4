@@ -2,16 +2,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/fakes/fake_shift_database.dart';
+import '../../../core/network/dio_client.dart';
+import '../repositories/api_shift_repository.dart';
 import '../repositories/fake_shift_repository.dart';
 import '../repositories/shift_repository.dart';
 
+/// Punto único de inyección del repositorio de turnos. Con `USE_FAKES=true`
+/// devuelve la implementación en memoria.
 final shiftRepositoryProvider = FutureProvider<ShiftRepository>((ref) async {
   if (ref.watch(useFakesProvider)) {
     return FakeShiftRepository(ref.watch(fakeShiftDatabaseProvider));
   }
-  // TODO(turnos-paso-5): reemplazar por ApiShiftRepository(await
-  // ref.watch(dioProvider.future)). Mientras tanto, con USE_FAKES en false la
-  // consulta de turnos no funciona. Antes del PR este lanzamiento no puede
-  // quedar en el código.
-  throw UnimplementedError('Falta ApiShiftRepository (paso 5 de turnos).');
+  final dio = await ref.watch(dioProvider.future);
+  return ApiShiftRepository(dio);
 });

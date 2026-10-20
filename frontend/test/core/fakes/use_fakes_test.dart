@@ -20,6 +20,9 @@ import 'package:agenda_medica/features/reservas/providers/reservation_repository
 import 'package:agenda_medica/features/reservas/repositories/api_reservation_repository.dart';
 import 'package:agenda_medica/features/reservas/repositories/fake_reservation_repository.dart';
 import 'package:agenda_medica/features/reservas/repositories/reservation_repository.dart';
+import 'package:agenda_medica/features/turnos/providers/shift_repository_provider.dart';
+import 'package:agenda_medica/features/turnos/repositories/api_shift_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/fake_shift_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,6 +61,12 @@ void main() {
             .read(reservationRepositoryProvider.future);
         expect(repo, isA<FakeReservationRepository>());
       });
+
+      test('turnos', () async {
+        final repo = await _container(useFakes: true)
+            .read(shiftRepositoryProvider.future);
+        expect(repo, isA<FakeShiftRepository>());
+      });
     },
   );
 
@@ -78,6 +87,12 @@ void main() {
       final repo = await _container(useFakes: false)
           .read(reservationRepositoryProvider.future);
       expect(repo, isA<ApiReservationRepository>());
+    });
+
+    test('turnos', () async {
+      final repo = await _container(useFakes: false)
+          .read(shiftRepositoryProvider.future);
+      expect(repo, isA<ApiShiftRepository>());
     });
   });
 
