@@ -33,6 +33,7 @@ class UiDateField extends StatefulWidget {
     this.enabled = true,
     this.errorText,
     this.validator,
+    this.showErrorsNow,
     this.onChanged,
     this.onSubmitted,
     this.textInputAction,
@@ -73,6 +74,12 @@ class UiDateField extends StatefulWidget {
   /// una fecha válida. Con el campo vacío es donde se reclama que sea
   /// obligatorio.
   final FormFieldValidator<String>? validator;
+
+  /// Mientras devuelve `true`, el campo informa su error de formato aunque la
+  /// fecha esté a medias o tenga el foco. Es para el formulario que valida el
+  /// envío: soltar el foco no es inmediato (el `FocusManager` lo aplica en un
+  /// microtask), así que sin esto una fecha a medias pasaría por válida.
+  final ValueGetter<bool>? showErrorsNow;
 
   /// Avisa la fecha cuando el texto es una fecha válida y `null` cuando está
   /// vacío o no lo es. Se llama al escribir, al elegir en el calendario y al
@@ -135,7 +142,9 @@ class _UiDateFieldState extends State<UiDateField> {
   }
 
   String? _validate(String? value) {
-    final early = _early.validate(value);
+    final early = (widget.showErrorsNow?.call() ?? false)
+        ? uiDateError((value ?? '').trim())
+        : _early.validate(value);
     if (early != null) return early;
     final text = (value ?? '').trim();
     final custom = widget.validator;

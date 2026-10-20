@@ -21,10 +21,11 @@ final DateTime _wideFirst = DateTime.utc(2000, 1, 1);
 final DateTime _wideLast = DateTime.utc(2100, 12, 31);
 
 class _Case {
-  _Case(this.controller, this.focusNode, this.changes);
+  _Case(this.controller, this.focusNode, this.changes, this.formKey);
 
   final TextEditingController controller;
   final FocusNode focusNode;
+  final GlobalKey<FormState> formKey;
 
   /// Lo que informó `onChanged`, en orden.
   final List<DateTime?> changes;
@@ -42,6 +43,7 @@ Future<_Case> _pump(
   DateTime? lastDate,
   ValueGetter<DateTime?>? initialPickerDate,
   DateTime Function()? today,
+  bool Function()? showErrorsNow,
   double width = 300,
 }) async {
   tester.view.physicalSize = const Size(900, 1800);
@@ -53,6 +55,7 @@ Future<_Case> _pump(
   final focusNode = FocusNode();
   addTearDown(focusNode.dispose);
   final changes = <DateTime?>[];
+  final formKey = GlobalKey<FormState>();
 
   await tester.pumpWidget(
     MaterialApp(
@@ -64,20 +67,24 @@ Future<_Case> _pump(
           alignment: Alignment.topLeft,
           child: SizedBox(
             width: width,
-            child: UiDateField(
-              controller: controller,
-              focusNode: focusNode,
-              label: _label,
-              pickerHelpText: _pickerHelp,
-              pickerTooltip: _pickerTooltip,
-              firstDate: firstDate ?? _wideFirst,
-              lastDate: lastDate ?? _wideLast,
-              initialPickerDate: initialPickerDate,
-              enabled: enabled,
-              errorText: errorText,
-              validator: validator,
-              onChanged: changes.add,
-              today: today ?? () => DateTime.utc(2026, 10, 20),
+            child: Form(
+              key: formKey,
+              child: UiDateField(
+                controller: controller,
+                focusNode: focusNode,
+                label: _label,
+                pickerHelpText: _pickerHelp,
+                pickerTooltip: _pickerTooltip,
+                firstDate: firstDate ?? _wideFirst,
+                lastDate: lastDate ?? _wideLast,
+                initialPickerDate: initialPickerDate,
+                enabled: enabled,
+                errorText: errorText,
+                validator: validator,
+                showErrorsNow: showErrorsNow,
+                onChanged: changes.add,
+                today: today ?? () => DateTime.utc(2026, 10, 20),
+              ),
             ),
           ),
         ),
@@ -85,7 +92,7 @@ Future<_Case> _pump(
     ),
   );
   await tester.pumpAndSettle();
-  return _Case(controller, focusNode, changes);
+  return _Case(controller, focusNode, changes, formKey);
 }
 
 Finder get _field => find.byType(TextFormField);
@@ -299,6 +306,62 @@ void main() {
       await _type(tester, '20/1');
 
       expect(find.text('Esa fecha ya pasó.'), findsNothing);
+    });
+
+    testWidgets('con showErrorsNow en true avisa de una fecha a medias aunque '
+        'tenga el foco', (tester) async {
+      var showNow = false;
+      final c = await _pump(tester, showErrorsNow: () => showNow);
+      await _type(tester, '20/10');
+      expect(c.focusNode.hasFocus, isTrue);
+      expect(find.text(_badFormat), findsNothing);
+
+      // Es lo que hace un formulario al validar el envío: el foco todavía no
+      // se soltó, pero el error tiene que verse.
+      showNow = true;
+      final valid = c.formKey.currentState!.validate();
+      await tester.pump();
+
+      expect(valid, isFalse);
+      expect(find.text(_badFormat), findsOneWidget);
+      expect(c.focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('con showErrorsNow en false no cambia nada: sigue sin avisar '
+        'mientras se tipea', (tester) async {
+      final c = await _pump(tester, showErrorsNow: () => false);
+      await _type(tester, '20/10');
+
+      final valid = c.formKey.currentState!.validate();
+      await tester.pump();
+
+      expect(valid, isTrue);
+      expect(find.text(_badFormat), findsNothing);
+    });
+
+    testWidgets('con showErrorsNow en true un campo vacío sigue sin error', (
+      tester,
+    ) async {
+      final c = await _pump(tester, showErrorsNow: () => true);
+
+      final valid = c.formKey.currentState!.validate();
+      await tester.pump();
+
+      expect(valid, isTrue);
+      expect(find.text(_badFormat), findsNothing);
+    });
+
+    testWidgets('con showErrorsNow en true una fecha válida no tiene error y '
+        'validate() da true', (tester) async {
+      final c = await _pump(tester, showErrorsNow: () => true);
+      await _type(tester, '20/10/2026');
+
+      final valid = c.formKey.currentState!.validate();
+      await tester.pump();
+
+      expect(valid, isTrue);
+      expect(find.text(_badFormat), findsNothing);
+      expect(find.text(_nonexistent), findsNothing);
     });
 
     testWidgets('con errorText (modo manual) lo muestra', (tester) async {
