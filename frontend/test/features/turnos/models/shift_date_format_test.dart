@@ -9,6 +9,28 @@ void main() {
     });
   });
 
+  group('hasUiDateFormat', () {
+    test('reconoce la forma dd/mm/aaaa, exista o no esa fecha', () {
+      expect(hasUiDateFormat('20/10/2026'), isTrue);
+      expect(hasUiDateFormat('31/02/2026'), isTrue);
+      expect(hasUiDateFormat('00/00/0000'), isTrue);
+    });
+
+    test('rechaza cualquier otra forma, sin recortar espacios', () {
+      for (final text in [
+        '2/10/2026',
+        '20-10-2026',
+        '20/10/26',
+        '2026-10-20',
+        ' 20/10/2026',
+        '20/10/2026 ',
+        '',
+      ]) {
+        expect(hasUiDateFormat(text), isFalse, reason: '"$text"');
+      }
+    });
+  });
+
   group('parseUiDate', () {
     test('lee una fecha válida como clave de día en UTC', () {
       expect(parseUiDate('20/10/2026'), DateTime.utc(2026, 10, 20));
