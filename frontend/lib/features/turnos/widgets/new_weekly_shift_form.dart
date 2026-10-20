@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/forms/early_field_validation.dart';
+import '../../../core/utils/ui_date.dart';
+import '../../../core/widgets/ui_date_field.dart';
 import '../../consultorios/providers/clinics_provider.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../models/new_weekly_shift.dart';
-import '../../../core/utils/ui_date.dart';
+import '../models/shift_date_range.dart';
 import '../models/shift_number.dart';
 import '../models/shift_numbers_rules.dart';
 import '../models/weekday_names.dart';
@@ -16,12 +16,6 @@ import '../providers/doctors_by_specialty_provider.dart';
 import '../screens/shift_routes.dart';
 import 'shift_numbers_editor.dart';
 
-const int _dateLength = 10;
-
-const String _badDateFormat =
-    'Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.';
-const String _nonexistentDate =
-    'Esa fecha no existe en el calendario. Revisá el día y el mes.';
 const String _fromAfterTo =
     'La fecha de inicio no puede ser posterior a la de fin.';
 
@@ -30,10 +24,10 @@ const String _fromAfterTo =
 /// son del servidor.
 ///
 /// Al guardar se valida en este orden, con un solo mensaje por causa: los
-/// campos obligatorios y el formato de cada fecha (debajo de su campo); que
-/// "desde" no sea posterior a "hasta"; que la vigencia tenga al menos una fecha
-/// del día elegido (estas dos solo si las dos fechas son válidas); y los
-/// números, en el editor.
+/// campos obligatorios (debajo de su campo); que "desde" no sea posterior a
+/// "hasta"; que la vigencia tenga al menos una fecha del día elegido (estas dos
+/// solo si las dos fechas son válidas); y los números, en el editor. El formato
+/// de cada fecha lo valida el propio campo de fecha.
 class NewWeeklyShiftForm extends ConsumerStatefulWidget {
   const NewWeeklyShiftForm({super.key});
 
@@ -45,20 +39,6 @@ class _NewWeeklyShiftFormState extends ConsumerState<NewWeeklyShiftForm> {
   final _formKey = GlobalKey<FormState>();
   final _fromController = TextEditingController();
   final _toController = TextEditingController();
-  final _fromFocus = FocusNode();
-  final _toFocus = FocusNode();
-  late final _fromValidation = EarlyFieldValidation(
-    focusNode: _fromFocus,
-    emptyMessage: 'Ingresá la fecha de inicio.',
-    completeLength: _dateLength,
-    check: _checkDate,
-  );
-  late final _toValidation = EarlyFieldValidation(
-    focusNode: _toFocus,
-    emptyMessage: 'Ingresá la fecha de fin.',
-    completeLength: _dateLength,
-    check: _checkDate,
-  );
 
   int? _specialtyId;
   int? _doctorId;
@@ -68,35 +48,23 @@ class _NewWeeklyShiftFormState extends ConsumerState<NewWeeklyShiftForm> {
 
   /// Ya se intentó guardar: desde ahí se reclama el editor vacío.
   bool _attempted = false;
+
+  /// Solo es verdadero mientras `_submit` corre `Form.validate()`.
+  bool _validatingSubmit = false;
   String? _rangeError;
   String? _weekdayError;
 
   @override
-  void initState() {
-    super.initState();
-    _fromFocus.addListener(_onFocusChanged);
-    _toFocus.addListener(_onFocusChanged);
-  }
-
-  @override
   void dispose() {
-    _fromFocus.dispose();
-    _toFocus.dispose();
     _fromController.dispose();
     _toController.dispose();
     super.dispose();
   }
 
-  void _onFocusChanged() {
-    if (mounted) setState(() {});
-  }
-
-  /// El error de una fecha no vacía, o `null` si está bien.
-  String? _checkDate(String text) {
-    if (!hasUiDateFormat(text)) return _badDateFormat;
-    if (parseUiDate(text) == null) return _nonexistentDate;
-    return null;
-  }
+  /// "Obligatoria" se reclama recién después del primer intento de guardar, no
+  /// apenas se vacía el campo.
+  String? _requiredDate(String? value, String message) =>
+      _attempted && (value ?? '').trim().isEmpty ? message : null;
 
   String? _required(Object? value, String message) =>
       value == null ? message : null;
@@ -140,10 +108,15 @@ class _NewWeeklyShiftFormState extends ConsumerState<NewWeeklyShiftForm> {
       _weekdayError = weekdayError;
     });
 
-    final formValid = EarlyFieldValidation.validateAllOf([
-      _fromValidation,
-      _toValidation,
-    ], () => _formKey.currentState?.validate() ?? false);
+    // Soltar el foco no es inmediato: mientras se valida, los campos de fecha
+    // tienen que avisar de una fecha a medias aunque todavía "tengan" el foco.
+    _validatingSubmit = true;
+    final bool formValid;
+    try {
+      formValid = _formKey.currentState?.validate() ?? false;
+    } finally {
+      _validatingSubmit = false;
+    }
     if (!formValid ||
         rangeError != null ||
         weekdayError != null ||
@@ -319,43 +292,36 @@ class _NewWeeklyShiftFormState extends ConsumerState<NewWeeklyShiftForm> {
                 : null,
           ),
           const SizedBox(height: 16),
-          TextFormField(
+          UiDateField(
             key: const Key('field-from'),
             controller: _fromController,
-            focusNode: _fromFocus,
             enabled: enabled,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            keyboardType: TextInputType.datetime,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
-              LengthLimitingTextInputFormatter(_dateLength),
-            ],
+            label: 'Vigencia desde (dd/mm/aaaa)',
+            pickerHelpText: 'Vigencia desde',
+            pickerTooltip: 'Elegir la fecha de inicio de la vigencia',
+            firstDate: kShiftDatePickerFirstDate,
+            lastDate: kShiftDatePickerLastDate,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Vigencia desde (dd/mm/aaaa)',
-              errorMaxLines: 4,
-            ),
-            validator: _fromValidation.validate,
+            showErrorsNow: () => _validatingSubmit,
+            validator: (v) => _requiredDate(v, 'Ingresá la fecha de inicio.'),
             onChanged: (_) => _clearCrossErrors(),
           ),
           const SizedBox(height: 16),
-          TextFormField(
+          UiDateField(
             key: const Key('field-to'),
             controller: _toController,
-            focusNode: _toFocus,
             enabled: enabled,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            keyboardType: TextInputType.datetime,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
-              LengthLimitingTextInputFormatter(_dateLength),
-            ],
+            label: 'Vigencia hasta (dd/mm/aaaa)',
+            pickerHelpText: 'Vigencia hasta',
+            pickerTooltip: 'Elegir la fecha de fin de la vigencia',
+            firstDate: kShiftDatePickerFirstDate,
+            lastDate: kShiftDatePickerLastDate,
+            // El calendario de "hasta" abre en la fecha de "desde", si es válida.
+            initialPickerDate: () => parseUiDate(_fromController.text),
             textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(
-              labelText: 'Vigencia hasta (dd/mm/aaaa)',
-              errorMaxLines: 4,
-            ),
-            validator: (v) => _toValidation.validate(v) ?? _rangeError,
+            showErrorsNow: () => _validatingSubmit,
+            validator: (v) =>
+                _requiredDate(v, 'Ingresá la fecha de fin.') ?? _rangeError,
             onChanged: (_) => _clearCrossErrors(),
           ),
           if (_weekdayError != null)

@@ -344,6 +344,22 @@ void main() {
       expect(harness.repository.createCalls, 0);
     });
 
+    testWidgets(
+      'una fecha de fin a medias también se avisa en su campo y no se '
+      'envía',
+      (tester) async {
+        final harness = await _pump(tester);
+        await _fillValid(tester);
+
+        // El filtro de caracteres deja "20261111": 8 caracteres, sin barras.
+        await _type(tester, 'field-to', '2026-11-11');
+        await _save(tester);
+
+        expect(find.text(_badDateFormat), findsOneWidget);
+        expect(harness.repository.createCalls, 0);
+      },
+    );
+
     testWidgets('una fecha que no existe se avisa distinto', (tester) async {
       final harness = await _pump(tester);
       await _fillValid(tester);
@@ -448,6 +464,79 @@ void main() {
         expect(harness.shiftDb.weeklyShifts.length, before);
       },
     );
+  });
+
+  group('el calendario de la vigencia', () {
+    const pickFrom = 'Elegir la fecha de inicio de la vigencia';
+    const pickTo = 'Elegir la fecha de fin de la vigencia';
+
+    String fieldText(WidgetTester tester, String key) => tester
+        .widget<TextField>(
+          find.descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(TextField),
+          ),
+        )
+        .controller!
+        .text;
+
+    Future<void> openAndAccept(WidgetTester tester, String tooltip) async {
+      final button = find.byTooltip(tooltip);
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aceptar'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('el de "Hasta" abre en la fecha de "Desde"', (tester) async {
+      await _pump(tester);
+      await _type(tester, 'field-from', '10/11/2026');
+
+      await openAndAccept(tester, pickTo);
+
+      expect(fieldText(tester, 'field-to'), '10/11/2026');
+    });
+
+    testWidgets('el de "Desde" abre en lo que ya está escrito', (tester) async {
+      await _pump(tester);
+      await _type(tester, 'field-from', '10/11/2026');
+
+      await openAndAccept(tester, pickFrom);
+
+      expect(fieldText(tester, 'field-from'), '10/11/2026');
+    });
+
+    testWidgets('elegir un día escribe la fecha en dd/mm/aaaa', (tester) async {
+      await _pump(tester);
+      await _type(tester, 'field-from', '10/11/2026');
+
+      final button = find.byTooltip(pickFrom);
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('15'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aceptar'));
+      await tester.pumpAndSettle();
+
+      expect(fieldText(tester, 'field-from'), '15/11/2026');
+    });
+
+    testWidgets('la cruz borra la fecha y no deja un reclamo mientras tanto', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _type(tester, 'field-from', '10/11/2026');
+
+      final cross = find.byTooltip('Borrar la fecha');
+      await tester.ensureVisible(cross);
+      await tester.tap(cross);
+      await tester.pumpAndSettle();
+
+      expect(fieldText(tester, 'field-from'), isEmpty);
+      expect(find.text(_missingFrom), findsNothing);
+    });
   });
 
   group('envío', () {
