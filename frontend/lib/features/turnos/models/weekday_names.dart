@@ -12,3 +12,10 @@ const List<String> kWeekdayNames = [
 
 /// El nombre de [weekday] (1 a 7), en minúscula.
 String weekdayName(int weekday) => kWeekdayNames[weekday - 1];
+
+/// El nombre de [weekday] con la primera letra en mayúscula, para cuando
+/// arranca un renglón o una celda.
+String weekdayLabel(int weekday) {
+  final name = weekdayName(weekday);
+  return '${name[0].toUpperCase()}${name.substring(1)}';
+}
