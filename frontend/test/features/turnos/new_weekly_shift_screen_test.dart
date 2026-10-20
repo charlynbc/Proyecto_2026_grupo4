@@ -425,6 +425,7 @@ void main() {
       'con números solapados no se envía y se avisa del solapamiento',
       (tester) async {
         final harness = await _pump(tester);
+        final before = harness.shiftDb.weeklyShifts.length;
         await _fillFields(tester);
 
         // 09:00-09:20 y 09:20-09:40; el segundo pasa a empezar a las 09:10 y
@@ -444,7 +445,7 @@ void main() {
         expect(find.byKey(const Key('server-error')), findsNothing);
         expect(harness.repository.createCalls, 0);
         expect(currentLocation(harness.router), kNewWeeklyShiftPath);
-        expect(harness.shiftDb.weeklyShifts.length, 4);
+        expect(harness.shiftDb.weeklyShifts.length, before);
       },
     );
   });
