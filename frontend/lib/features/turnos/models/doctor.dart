@@ -32,5 +32,16 @@ class Doctor extends DoctorRef {
     required this.specialties,
   });
 
+  /// Lee un médico de `GET /api/medicos` (#10), con sus especialidades.
+  factory Doctor.fromJson(Map<String, dynamic> json) => Doctor(
+    id: json['id'] as int,
+    firstName: json['nombre'] as String,
+    lastName: json['apellido'] as String,
+    specialties: [
+      for (final specialty in json['especialidades'] as List<dynamic>)
+        Specialty.fromJson(specialty as Map<String, dynamic>),
+    ],
+  );
+
   final List<Specialty> specialties;
 }

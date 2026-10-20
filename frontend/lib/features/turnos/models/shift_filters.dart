@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart' show ValueGetter;
 
-import 'shift.dart';
+import 'shift_date_format.dart';
 import 'shift_state.dart';
 
 /// Campos por los que se pueden ordenar los turnos (`orden`, contrato #15).

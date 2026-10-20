@@ -1,3 +1,4 @@
+import 'shift_date_format.dart';
 import 'shift_number.dart';
 
 /// Los datos para dar de alta un turno semanal (`AltaTurnoDTO`).
@@ -22,4 +23,16 @@ class NewWeeklyShift {
   final DateTime startDate;
   final DateTime endDate;
   final List<ShiftNumber> numbers;
+
+  /// El cuerpo de `POST /api/turnos-semanales` (#13): `diaSemana` de 1 a 7,
+  /// fechas `yyyy-MM-dd` y horas `HH:mm`.
+  Map<String, dynamic> toJson() => {
+    'medicoId': doctorId,
+    'especialidadId': specialtyId,
+    'consultorioId': clinicId,
+    'diaSemana': weekday,
+    'fechaInicio': formatDateKey(startDate),
+    'fechaFin': formatDateKey(endDate),
+    'numeros': [for (final number in numbers) number.toJson()],
+  };
 }
