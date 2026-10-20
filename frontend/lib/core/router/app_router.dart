@@ -13,6 +13,10 @@ import '../../features/consultorios/screens/clinics_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
+import '../../features/turnos/screens/new_weekly_shift_screen.dart';
+import '../../features/turnos/screens/shift_routes.dart';
+import '../../features/turnos/screens/shifts_screen.dart';
+import '../../features/turnos/screens/weekly_shift_detail_screen.dart';
 import '../../features/usuarios/screens/new_user_screen.dart';
 import '../../features/usuarios/screens/user_routes.dart';
 import '../../features/usuarios/screens/users_screen.dart';
@@ -112,10 +116,31 @@ RouteBase _roleShell(UserRole role) {
 }
 
 /// La ruta de una sección. Las del administrador (usuarios, especialidades y
-/// consultorios) tienen su pantalla y una subruta para el alta; el resto
-/// muestra "Próximamente".
+/// consultorios) y la de turnos del funcionario tienen su pantalla y sus
+/// subrutas; el resto muestra "Próximamente".
 GoRoute _sectionRoute(UserRole role, AppSection section) {
   final path = role.sectionPath(section);
+  if (role == UserRole.funcionario && path == kShiftsPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => const ShiftsScreen(),
+      routes: [
+        // `nuevo` (un segmento) y `configuracion/:id` (dos) no se pisan.
+        GoRoute(
+          path: 'nuevo',
+          builder: (context, state) => const NewWeeklyShiftScreen(),
+        ),
+        GoRoute(
+          path: 'configuracion/:id',
+          // Un id que no es un número no abre el detalle: vuelve al listado.
+          redirect: (context, state) =>
+              _weeklyShiftId(state) == null ? kShiftsPath : null,
+          builder: (context, state) =>
+              WeeklyShiftDetailScreen(id: _weeklyShiftId(state)!),
+        ),
+      ],
+    );
+  }
   if (role == UserRole.administrador) {
     switch (path) {
       case kUsersPath:
@@ -157,6 +182,13 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
     path: path,
     builder: (context, state) => ComingSoonScreen(title: section.label),
   );
+}
+
+/// El `:id` de la ruta del detalle de un turno semanal, o `null` si no son
+/// solo dígitos (o no entra en un entero).
+int? _weeklyShiftId(GoRouterState state) {
+  final text = state.pathParameters['id'] ?? '';
+  return RegExp(r'^\d+$').hasMatch(text) ? int.tryParse(text) : null;
 }
 
 /// Puente entre sessionProvider y GoRouter: cada cambio de sesión notifica a

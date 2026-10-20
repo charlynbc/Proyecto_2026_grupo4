@@ -9,6 +9,10 @@ import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart'
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
 import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
 import 'package:agenda_medica/features/especialidades/screens/specialties_screen.dart';
+import 'package:agenda_medica/features/turnos/screens/new_weekly_shift_screen.dart';
+import 'package:agenda_medica/features/turnos/screens/shift_routes.dart';
+import 'package:agenda_medica/features/turnos/screens/shifts_screen.dart';
+import 'package:agenda_medica/features/turnos/screens/weekly_shift_detail_screen.dart';
 import 'package:agenda_medica/features/usuarios/screens/new_user_screen.dart';
 import 'package:agenda_medica/features/usuarios/screens/user_routes.dart';
 import 'package:agenda_medica/features/usuarios/screens/users_screen.dart';
@@ -103,10 +107,13 @@ void main() {
         }
       }
       // Lo que no existe todavía va a "Próximamente"; la home del
-      // administrador ya es el padrón de usuarios.
+      // administrador ya es el padrón de usuarios y la del funcionario, la
+      // consulta de turnos.
+      final hasHomeScreen =
+          role == UserRole.administrador || role == UserRole.funcionario;
       expect(
         find.text('Próximamente'),
-        role == UserRole.administrador ? findsNothing : findsOneWidget,
+        hasHomeScreen ? findsNothing : findsOneWidget,
         reason: role.name,
       );
     }
@@ -205,6 +212,162 @@ void main() {
       await _loginAs(tester, container, UserRole.funcionario);
       await goTo(tester, container, kNewClinicPath);
       expect(locationOf(container), UserRole.funcionario.homePath);
+      // La home del funcionario ya es la consulta de turnos, con providers
+      // `autoDispose` que dejan un timer al desmontar.
+      await unmountApp(tester);
+    });
+  });
+
+  group('área del funcionario: turnos', () {
+    const turnosPaths = [kShiftsPath, kNewWeeklyShiftPath];
+
+    String detail(int id) => weeklyShiftDetailLocation(id);
+
+    test('las rutas cuelgan de la sección "Turnos" del funcionario', () {
+      final turnos = UserRole.funcionario.sections.firstWhere(
+        (s) => s.slug == 'turnos',
+      );
+      expect(kShiftsPath, UserRole.funcionario.sectionPath(turnos));
+      expect(kShiftsPath, UserRole.funcionario.homePath);
+      expect(kNewWeeklyShiftPath, startsWith('$kShiftsPath/'));
+      expect(kWeeklyShiftDetailPath, startsWith('$kShiftsPath/'));
+    });
+
+    testWidgets('al entrar, el funcionario ve la consulta de turnos y "Turnos" '
+        'en el menú', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.funcionario);
+
+      expect(locationOf(container), kShiftsPath);
+      expect(find.byType(ShiftsScreen), findsOneWidget);
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.text('Turnos'), findsWidgets);
+      expect(find.text('Próximamente'), findsNothing);
+    });
+
+    testWidgets('las tres rutas abren su pantalla', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.funcionario);
+
+      final screens = {
+        kShiftsPath: find.byType(ShiftsScreen),
+        kNewWeeklyShiftPath: find.byType(NewWeeklyShiftScreen),
+        detail(1): find.byType(WeeklyShiftDetailScreen),
+      };
+      for (final entry in screens.entries) {
+        await goTo(tester, container, entry.key);
+        expect(locationOf(container), entry.key);
+        expect(entry.value, findsOneWidget, reason: entry.key);
+      }
+      await unmountApp(tester);
+    });
+
+    testWidgets('"nuevo" y "configuracion/:id" no se pisan', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.funcionario);
+
+      await goTo(tester, container, kNewWeeklyShiftPath);
+      expect(find.byType(NewWeeklyShiftScreen), findsOneWidget);
+      expect(find.byType(WeeklyShiftDetailScreen), findsNothing);
+
+      await goTo(tester, container, detail(2));
+      expect(find.byType(WeeklyShiftDetailScreen), findsOneWidget);
+      expect(find.byType(NewWeeklyShiftScreen), findsNothing);
+      final screen = tester.widget<WeeklyShiftDetailScreen>(
+        find.byType(WeeklyShiftDetailScreen),
+      );
+      expect(screen.id, 2);
+      await unmountApp(tester);
+    });
+
+    testWidgets('un id que no es un número vuelve a la consulta', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.funcionario);
+
+      for (final bad in ['abc', 'nuevo', '1x', '-']) {
+        await goTo(tester, container, '$kShiftsPath/configuracion/$bad');
+        expect(locationOf(container), kShiftsPath, reason: bad);
+        expect(find.byType(ShiftsScreen), findsOneWidget, reason: bad);
+        expect(find.byType(WeeklyShiftDetailScreen), findsNothing);
+      }
+      await unmountApp(tester);
+    });
+
+    testWidgets('"configuracion" sin id no es una página', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.funcionario);
+
+      await goTo(tester, container, '$kShiftsPath/configuracion');
+
+      expect(find.text('Página no encontrada'), findsOneWidget);
+      await unmountApp(tester);
+    });
+
+    testWidgets(
+      '"Nuevo turno semanal" y "Cancelar" se mueven dentro del menú',
+      (tester) async {
+        final container = await pumpApp(tester);
+        await _loginAs(tester, container, UserRole.funcionario);
+
+        await tester.tap(find.text('Nuevo turno semanal'));
+        await tester.pumpAndSettle();
+        expect(locationOf(container), kNewWeeklyShiftPath);
+        expect(find.byType(NewWeeklyShiftScreen), findsOneWidget);
+        expect(find.byType(NavigationRail), findsOneWidget);
+
+        await tester.tap(find.text('Cancelar'));
+        await tester.pumpAndSettle();
+        expect(locationOf(container), kShiftsPath);
+        expect(find.byType(ShiftsScreen), findsOneWidget);
+        await unmountApp(tester);
+      },
+    );
+
+    testWidgets('"Volver al listado" del detalle lleva a la consulta', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.funcionario);
+      await goTo(tester, container, detail(1));
+
+      await tester.tap(find.text('Volver al listado'));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), kShiftsPath);
+      expect(find.byType(ShiftsScreen), findsOneWidget);
+      await unmountApp(tester);
+    });
+
+    testWidgets('socio, médico y administrador no entran a ninguna de las '
+        'tres rutas', (tester) async {
+      for (final role in [
+        UserRole.socio,
+        UserRole.medico,
+        UserRole.administrador,
+      ]) {
+        final container = await pumpApp(tester);
+        await _loginAs(tester, container, role);
+        for (final path in [...turnosPaths, detail(1)]) {
+          await goTo(tester, container, path);
+          expect(
+            locationOf(container),
+            role.homePath,
+            reason: '${role.name} → $path',
+          );
+        }
+      }
+      await unmountApp(tester);
+    });
+
+    testWidgets('sin sesión las tres rutas llevan al login', (tester) async {
+      final container = await pumpApp(tester);
+
+      for (final path in [...turnosPaths, detail(1)]) {
+        await goTo(tester, container, path);
+        expect(locationOf(container), '/login', reason: path);
+      }
     });
   });
 
