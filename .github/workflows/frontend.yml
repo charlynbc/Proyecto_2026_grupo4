@@ -33,6 +33,11 @@ jobs:
       - name: Descargar dependencias
         run: flutter pub get
 
+      # Algunos tests cargan la fuente Roboto desde el caché del SDK
+      # (test/helpers/load_roboto.dart); en el CI ese caché empieza sin ella.
+      - name: Descargar los artefactos del SDK
+        run: flutter precache
+
       - name: Analizar el código
         run: flutter analyze
 
