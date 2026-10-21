@@ -69,6 +69,13 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
     _emit([..._numbers]..removeAt(index));
   }
 
+  /// "Ordenar": deja la lista ordenada por hora de inicio y renumerada 1, 2, 3
+  /// a través de [_emit].
+  void _sort() {
+    _clearAddNotice();
+    _emit(sortNumbers(_numbers));
+  }
+
   /// Agrega un número con lo que tenga el generador en este momento: con la
   /// lista vacía arranca en su hora de inicio y, si no, donde termina el que
   /// termina más tarde (sea cual sea su lugar en la lista); dura la duración
@@ -153,6 +160,19 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
             child: Text(
               error,
               style: TextStyle(color: theme.colorScheme.error),
+            ),
+          ),
+        if (isOutOfOrder(_numbers))
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Wrap(
+              key: const Key('unsorted-notice'),
+              spacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Text('Los números no están en orden por hora.'),
+                TextButton(onPressed: _sort, child: const Text('Ordenar')),
+              ],
             ),
           ),
         const SizedBox(height: 4),

@@ -24,8 +24,9 @@ Future<EditorHarness> pumpEditor(
   WidgetTester tester, {
   List<ShiftNumber> initial = const [],
   bool showEmptyError = false,
+  Size size = const Size(1000, 2000),
 }) async {
-  tester.view.physicalSize = const Size(1000, 2000);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final host = EditorHarness(initial, showEmptyError: showEmptyError);
@@ -516,6 +517,170 @@ void main() {
     });
   });
 
+  // Decisión: si algún número empieza antes que el anterior (se compara solo el
+  // inicio), el editor lo avisa y ofrece "Ordenar". El aviso no es un error y
+  // no impide guardar. Agregar y generar ya dejan la lista ordenada, y editar
+  // una hora no la reordena.
+  group('aviso de números fuera de orden', () {
+    final notice = find.byKey(const Key('unsorted-notice'));
+    final noticeText = find.text('Los números no están en orden por hora.');
+    final sortButton = find.text('Ordenar');
+
+    final unsorted = [n(1, '10:00', '10:20'), n(2, '09:00', '09:20')];
+
+    testWidgets('aparece cuando un número empieza antes que el anterior', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: unsorted);
+
+      expect(notice, findsOneWidget);
+      expect(noticeText, findsOneWidget);
+      expect(sortButton, findsOneWidget);
+    });
+
+    testWidgets('no aparece con la lista vacía', (tester) async {
+      await pumpEditor(tester);
+
+      expect(notice, findsNothing);
+      expect(sortButton, findsNothing);
+    });
+
+    testWidgets('no aparece con un solo número', (tester) async {
+      await pumpEditor(tester, initial: [n(1, '09:00', '09:20')]);
+
+      expect(notice, findsNothing);
+      expect(sortButton, findsNothing);
+    });
+
+    testWidgets('no aparece con la lista ordenada', (tester) async {
+      await pumpEditor(
+        tester,
+        initial: [n(1, '09:00', '09:20'), n(2, '10:00', '10:20')],
+      );
+
+      expect(notice, findsNothing);
+      expect(sortButton, findsNothing);
+    });
+
+    testWidgets('con el mismo inicio no cuenta, aunque los fines estén al '
+        'revés', (tester) async {
+      await pumpEditor(
+        tester,
+        initial: [n(1, '09:00', '09:40'), n(2, '09:00', '09:20')],
+      );
+
+      expect(notice, findsNothing);
+    });
+
+    testWidgets('después de agregar un número desaparece, porque la lista '
+        'queda ordenada', (tester) async {
+      await pumpEditor(tester, initial: unsorted);
+      expect(notice, findsOneWidget);
+
+      await tester.tap(find.text('Agregar número'));
+      await tester.pumpAndSettle();
+
+      expect(notice, findsNothing);
+    });
+
+    testWidgets('después de generar números desaparece, porque la lista '
+        'queda ordenada', (tester) async {
+      await pumpEditor(
+        tester,
+        initial: [n(1, '11:00', '11:20'), n(2, '10:00', '10:20')],
+      );
+      expect(notice, findsOneWidget);
+
+      await tester.tap(find.text('Generar números'));
+      await tester.pumpAndSettle();
+
+      expect(notice, findsNothing);
+    });
+
+    testWidgets('"Ordenar" ordena, renumera 1..n y hace desaparecer el '
+        'aviso', (tester) async {
+      final host = await pumpEditor(tester, initial: unsorted);
+      expect(notice, findsOneWidget);
+
+      await tester.tap(sortButton);
+      await tester.pumpAndSettle();
+
+      await expectRows(tester, host, '09:00-09:20 10:00-10:20');
+      expect(notice, findsNothing);
+      expect(sortButton, findsNothing);
+    });
+
+    testWidgets('editar una hora no reordena y deja el aviso si queda '
+        'desordenada', (tester) async {
+      final host = await pumpEditor(
+        tester,
+        initial: [n(1, '09:00', '09:20'), n(2, '10:00', '10:30')],
+      );
+      expect(notice, findsNothing);
+
+      // La segunda fila pasa a empezar a las 08:00, antes que la primera.
+      await selectInt(tester, const Key('number-1-start-hour'), 8);
+
+      expect(rowsInList(host), '09:00-09:20 08:00-10:30');
+      expect(rowsOnScreen(tester), '09:00-09:20 08:00-10:30');
+      expect(notice, findsOneWidget);
+    });
+
+    testWidgets('editar una hora hasta dejarla en orden hace desaparecer el '
+        'aviso', (tester) async {
+      await pumpEditor(tester, initial: unsorted);
+      expect(notice, findsOneWidget);
+
+      // La primera fila pasa a empezar a las 08:00, antes que la segunda.
+      await selectInt(tester, const Key('number-0-start-hour'), 8);
+
+      expect(notice, findsNothing);
+    });
+
+    testWidgets('quitar el número que desordena hace desaparecer el aviso', (
+      tester,
+    ) async {
+      await pumpEditor(
+        tester,
+        initial: [
+          n(1, '10:00', '10:20'),
+          n(2, '09:00', '09:20'),
+          n(3, '11:00', '11:20'),
+        ],
+      );
+      expect(notice, findsOneWidget);
+
+      await tester.tap(find.text('Quitar').at(1));
+      await tester.pumpAndSettle();
+
+      expect(notice, findsNothing);
+    });
+
+    testWidgets('en 400 × 600 se alcanza, no desborda y funciona', (
+      tester,
+    ) async {
+      final host = await pumpEditor(
+        tester,
+        initial: unsorted,
+        size: const Size(400, 600),
+      );
+
+      expect(sortButton, findsOneWidget);
+      await tester.ensureVisible(sortButton);
+      await tester.pumpAndSettle();
+
+      final rect = tester.getRect(sortButton);
+      expect(rect.right, lessThanOrEqualTo(400));
+      expect(rect.bottom, lessThanOrEqualTo(600));
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(sortButton);
+      await tester.pumpAndSettle();
+      expect(rowsInList(host), '09:00-09:20 10:00-10:20');
+      expect(notice, findsNothing);
+    });
+  });
+
   // Decisión: "Agregar número" usa lo que tenga el generador en ese momento.
   // Con la lista vacía arranca en la hora de inicio del generador; con
   // números cargados, donde termina el último. Dura la duración elegida en el
@@ -723,6 +888,29 @@ void main() {
       await selectInt(tester, const Key('number-0-start-minute'), 20);
 
       expect(find.textContaining('No entra'), findsNothing);
+    });
+
+    testWidgets('el aviso se limpia en la siguiente acción: ordenar', (
+      tester,
+    ) async {
+      // Desordenada (23:25 antes que 09:20) y sin lugar para otro número: el
+      // intento de agregar no la ordena y deja los dos avisos a la vez.
+      final host = await pumpEditor(
+        tester,
+        initial: [n(1, '23:25', '23:50'), n(2, '09:20', '09:40')],
+      );
+      await setDuration(tester, 25);
+      await add(tester);
+      final orderNotice = find.byKey(const Key('unsorted-notice'));
+      expect(find.text(noFit(25)), findsOneWidget);
+      expect(orderNotice, findsOneWidget);
+
+      await tester.tap(find.text('Ordenar'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('No entra'), findsNothing);
+      await expectRows(tester, host, '09:20-09:40 23:25-23:50');
+      expect(orderNotice, findsNothing);
     });
 
     testWidgets('si se repite el intento, el aviso sigue una sola vez', (

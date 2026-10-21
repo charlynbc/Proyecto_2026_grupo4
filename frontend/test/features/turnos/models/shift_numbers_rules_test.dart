@@ -213,6 +213,68 @@ void main() {
     });
   });
 
+  group('isOutOfOrder', () {
+    test('una lista vacía o de un número no está desordenada', () {
+      expect(isOutOfOrder(const []), isFalse);
+      expect(isOutOfOrder([n(1, '09:00', '09:20')]), isFalse);
+    });
+
+    test('una lista ordenada por inicio no está desordenada', () {
+      expect(
+        isOutOfOrder([
+          n(1, '08:00', '08:20'),
+          n(2, '09:00', '09:20'),
+          n(3, '10:00', '10:20'),
+        ]),
+        isFalse,
+      );
+    });
+
+    test('un número que empieza antes que el anterior la desordena', () {
+      expect(
+        isOutOfOrder([n(1, '10:00', '10:20'), n(2, '09:00', '09:20')]),
+        isTrue,
+      );
+    });
+
+    test('alcanza con un solo par fuera de orden, esté donde esté', () {
+      expect(
+        isOutOfOrder([
+          n(1, '08:00', '08:20'),
+          n(2, '10:00', '10:20'),
+          n(3, '09:00', '09:20'),
+        ]),
+        isTrue,
+      );
+    });
+
+    test('el desorden en el primer par también cuenta', () {
+      expect(
+        isOutOfOrder([
+          n(1, '10:00', '10:20'),
+          n(2, '09:00', '09:20'),
+          n(3, '11:00', '11:20'),
+        ]),
+        isTrue,
+      );
+    });
+
+    test('con el mismo inicio no cuenta, aunque los fines estén al revés', () {
+      expect(
+        isOutOfOrder([n(1, '09:00', '09:40'), n(2, '09:00', '09:20')]),
+        isFalse,
+      );
+    });
+
+    test('un número que termina antes que el anterior pero empieza después no '
+        'la desordena', () {
+      expect(
+        isOutOfOrder([n(1, '09:00', '10:00'), n(2, '09:10', '09:20')]),
+        isFalse,
+      );
+    });
+  });
+
   group('generateConsecutive', () {
     test('genera números seguidos con la duración elegida', () {
       final result = generateConsecutive(

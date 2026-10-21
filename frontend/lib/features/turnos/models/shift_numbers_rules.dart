@@ -22,6 +22,15 @@ int? latestEnd(List<ShiftNumber> numbers) => numbers.isEmpty
     ? null
     : numbers.map((e) => e.endMinutes).reduce((a, b) => a > b ? a : b);
 
+/// Si algún número de [numbers] empieza antes que el anterior. Compara solo el
+/// inicio: con el mismo inicio no cuenta, aunque los fines estén al revés.
+bool isOutOfOrder(List<ShiftNumber> numbers) {
+  for (var i = 1; i < numbers.length; i++) {
+    if (numbers[i].startMinutes < numbers[i - 1].startMinutes) return true;
+  }
+  return false;
+}
+
 /// Los problemas de una lista de números, un mensaje por problema. Vacía si
 /// todo está bien. Los números se nombran como vienen en [numbers].
 List<String> validateNumbers(List<ShiftNumber> numbers) {

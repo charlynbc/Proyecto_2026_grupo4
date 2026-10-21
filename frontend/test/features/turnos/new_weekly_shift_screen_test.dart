@@ -670,6 +670,43 @@ void main() {
       );
     });
 
+    testWidgets('el aviso de números fuera de orden se va al guardar, porque '
+        'la lista queda ordenada', (tester) async {
+      await _pump(tester, createError: const ApiException());
+      await _fillMendezUnsorted(tester);
+      expect(find.byKey(const Key('unsorted-notice')), findsOneWidget);
+
+      await _save(tester);
+
+      expect(find.byKey(const Key('unsorted-notice')), findsNothing);
+    });
+
+    testWidgets('el aviso de números fuera de orden se alcanza en 400 × 600', (
+      tester,
+    ) async {
+      // Las filas se arman en una ventana alta (a 600 el menú de un desplegable
+      // no entra) y recién después se achica la ventana.
+      await _pump(tester, size: const Size(400, 3000));
+      await _fillMendezUnsorted(tester);
+      tester.view.physicalSize = const Size(400, 600);
+      await tester.pumpAndSettle();
+
+      final button = find.text('Ordenar');
+      expect(button, findsOneWidget);
+      await tester.ensureVisible(button);
+      await tester.pumpAndSettle();
+
+      final rect = tester.getRect(button);
+      expect(rect.right, lessThanOrEqualTo(400));
+      expect(rect.bottom, lessThanOrEqualTo(600));
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      expect(_rowsOnScreen(tester), '09:00-09:20 10:00-10:20');
+      expect(find.byKey(const Key('unsorted-notice')), findsNothing);
+    });
+
     testWidgets(
       'un cruce con otro turno se muestra arriba, sin marcar campos',
       (tester) async {
