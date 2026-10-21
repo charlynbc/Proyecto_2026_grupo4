@@ -43,6 +43,11 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
   int? _leftoverMinutes;
   String? _omittedMessage;
   String? _addNotice;
+  String? _rangeNotice;
+
+  static const String _invalidRangeMessage =
+      'La hora "Hasta" tiene que ser posterior a la hora "Desde": '
+      'no se agregó ningún número.';
 
   List<ShiftNumber> get _numbers => widget.numbers;
 
@@ -53,26 +58,32 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
     ]);
   }
 
-  /// El aviso de "Agregar número" vive hasta la siguiente acción del editor.
-  void _clearAddNotice() {
-    if (_addNotice != null) setState(() => _addNotice = null);
+  /// Los avisos de "Agregar número" y de "Generar números" con el rango
+  /// inválido viven hasta la siguiente acción del editor.
+  void _clearNotices() {
+    if (_addNotice != null || _rangeNotice != null) {
+      setState(() {
+        _addNotice = null;
+        _rangeNotice = null;
+      });
+    }
   }
 
   void _update(int index, ShiftNumber number) {
-    _clearAddNotice();
+    _clearNotices();
     final updated = [..._numbers]..[index] = number;
     _emit(updated);
   }
 
   void _remove(int index) {
-    _clearAddNotice();
+    _clearNotices();
     _emit([..._numbers]..removeAt(index));
   }
 
   /// "Ordenar": deja la lista ordenada por hora de inicio y renumerada 1, 2, 3
   /// a través de [_emit].
   void _sort() {
-    _clearAddNotice();
+    _clearNotices();
     _emit(sortNumbers(_numbers));
   }
 
@@ -90,10 +101,11 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
         _addNotice =
             'No entra otro número de $_generatorDuration minutos antes de '
             'las ${ShiftNumber.formatTime(_lastEnd)}.';
+        _rangeNotice = null;
       });
       return;
     }
-    _clearAddNotice();
+    _clearNotices();
     _emit(
       sortNumbers([
         ..._numbers,
@@ -107,6 +119,15 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
   }
 
   void _generate() {
+    if (_generatorEnd <= _generatorStart) {
+      setState(() {
+        _leftoverMinutes = null;
+        _omittedMessage = null;
+        _addNotice = null;
+        _rangeNotice = _invalidRangeMessage;
+      });
+      return;
+    }
     final generated = generateConsecutive(
       startMinutes: _generatorStart,
       endMinutes: _generatorEnd,
@@ -257,13 +278,19 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
                   keyPrefix: 'generator-start',
                   label: 'Desde',
                   minutes: _generatorStart,
-                  onChanged: (value) => setState(() => _generatorStart = value),
+                  onChanged: (value) => setState(() {
+                    _generatorStart = value;
+                    _rangeNotice = null;
+                  }),
                 ),
                 TimePickerField(
                   keyPrefix: 'generator-end',
                   label: 'Hasta',
                   minutes: _generatorEnd,
-                  onChanged: (value) => setState(() => _generatorEnd = value),
+                  onChanged: (value) => setState(() {
+                    _generatorEnd = value;
+                    _rangeNotice = null;
+                  }),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,7 +316,10 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
                         ],
                         onChanged: (value) {
                           if (value != null) {
-                            setState(() => _generatorDuration = value);
+                            setState(() {
+                              _generatorDuration = value;
+                              _rangeNotice = null;
+                            });
                           }
                         },
                       ),
@@ -302,6 +332,14 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
                 ),
               ],
             ),
+            if (_rangeNotice != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _rangeNotice!,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+              ),
             if (_omittedMessage != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),

@@ -517,6 +517,274 @@ void main() {
     });
   });
 
+  // Decisión: "Generar números" con la hora "Hasta" menor o igual que "Desde" no
+  // agrega nada y lo avisa, en color de error, dentro de la tarjeta del
+  // generador. El aviso vive como el de "Agregar número": se limpia con la
+  // siguiente acción del editor y al cambiar "Desde", "Hasta" o la duración.
+  // Los avisos de "Sobraron" y "Se omitieron" se reemplazan al generar, pero
+  // no se limpian al cambiar el rango.
+  group('generar con la hora Hasta menor o igual que Desde', () {
+    const rangeMessage =
+        'La hora "Hasta" tiene que ser posterior a la hora "Desde": '
+        'no se agregó ningún número.';
+    final rangeNotice = find.text(rangeMessage);
+    String noFit(int minutes) =>
+        'No entra otro número de $minutes minutos antes de las 23:55.';
+
+    Future<void> setDuration(WidgetTester tester, int minutes) async {
+      await tester.tap(find.byKey(const Key('generator-duration')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('$minutes min').last);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> generate(WidgetTester tester) async {
+      await tester.tap(find.text('Generar números'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> add(WidgetTester tester) async {
+      await tester.tap(find.text('Agregar número'));
+      await tester.pumpAndSettle();
+    }
+
+    /// El generador arranca de 09:00 a 10:00: "Hasta" a las 08:00 queda antes.
+    Future<void> generateWithHastaBefore(WidgetTester tester) async {
+      await selectInt(tester, const Key('generator-end-hour'), 8);
+      await generate(tester);
+    }
+
+    testWidgets('con Hasta igual a Desde avisa y no agrega nada', (
+      tester,
+    ) async {
+      final host = await pumpEditor(tester);
+      await selectInt(tester, const Key('generator-end-hour'), 9);
+
+      await generate(tester);
+
+      expect(rangeNotice, findsOneWidget);
+      expect(host.numbers, isEmpty);
+    });
+
+    testWidgets('con Hasta menor que Desde avisa y no agrega nada', (
+      tester,
+    ) async {
+      final host = await pumpEditor(tester);
+
+      await generateWithHastaBefore(tester);
+
+      expect(rangeNotice, findsOneWidget);
+      expect(host.numbers, isEmpty);
+    });
+
+    testWidgets('la lista queda idéntica y no hay cambios', (tester) async {
+      final initial = [n(1, '09:00', '09:20'), n(2, '09:20', '09:40')];
+      final host = await pumpEditor(tester, initial: initial);
+
+      await generateWithHastaBefore(tester);
+
+      expect(rangeNotice, findsOneWidget);
+      expect(host.changes, 0);
+      expect(identical(host.numbers, initial), isTrue);
+    });
+
+    testWidgets('el aviso va en el color de error del tema', (tester) async {
+      await pumpEditor(tester);
+
+      await generateWithHastaBefore(tester);
+
+      expect(rangeNotice, findsOneWidget);
+      final error = Theme.of(tester.element(rangeNotice)).colorScheme.error;
+      expect(tester.widget<Text>(rangeNotice).style?.color, error);
+    });
+
+    testWidgets('reemplaza los avisos de la tanda anterior', (tester) async {
+      // Cada 25 minutos: 09:00-09:25 ya estaba (se omite) y sobran 10 minutos.
+      await pumpEditor(tester, initial: [n(1, '09:00', '09:25')]);
+      await setDuration(tester, 25);
+      await generate(tester);
+      expect(
+        find.text('Se omitió 1 número que ya estaba cargado.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Sobraron 10 minutos'), findsOneWidget);
+
+      await generateWithHastaBefore(tester);
+
+      expect(rangeNotice, findsOneWidget);
+      expect(find.textContaining('Se omit'), findsNothing);
+      expect(find.textContaining('Sobraron'), findsNothing);
+    });
+
+    testWidgets('limpia el aviso de agregar: nunca están los dos a la vez', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: [n(1, '23:25', '23:50')]);
+      await setDuration(tester, 25);
+      await add(tester);
+      expect(find.text(noFit(25)), findsOneWidget);
+
+      await generateWithHastaBefore(tester);
+
+      expect(rangeNotice, findsOneWidget);
+      expect(find.text(noFit(25)), findsNothing);
+    });
+
+    testWidgets('agregar sin lugar reemplaza el aviso del rango: nunca están '
+        'los dos a la vez', (tester) async {
+      await pumpEditor(tester, initial: [n(1, '23:25', '23:50')]);
+      // La duración va primero: cambiarla después limpiaría el aviso del rango.
+      await setDuration(tester, 25);
+      await generateWithHastaBefore(tester);
+      expect(rangeNotice, findsOneWidget);
+
+      await add(tester);
+
+      expect(find.text(noFit(25)), findsOneWidget);
+      expect(rangeNotice, findsNothing);
+    });
+
+    // Cambiar un selector ya limpia el aviso, así que "generar con un rango
+    // válido" no se puede aislar: se prueba el recorrido completo.
+    testWidgets('corregido el rango, generar agrega los números y el aviso no '
+        'vuelve', (tester) async {
+      final host = await pumpEditor(tester);
+      await generateWithHastaBefore(tester);
+      expect(rangeNotice, findsOneWidget);
+
+      // Hasta a las 11:00: de 09:00 a 11:00 cada 20 minutos son 6 números.
+      await selectInt(tester, const Key('generator-end-hour'), 11);
+      await generate(tester);
+
+      expect(rangeNotice, findsNothing);
+      expect(host.numbers.length, 6);
+    });
+
+    testWidgets('se limpia en la siguiente acción: agregar', (tester) async {
+      final host = await pumpEditor(tester);
+      await generateWithHastaBefore(tester);
+      expect(rangeNotice, findsOneWidget);
+
+      await add(tester);
+
+      expect(rangeNotice, findsNothing);
+      expect(host.numbers.length, 1);
+    });
+
+    testWidgets('se limpia en la siguiente acción: quitar', (tester) async {
+      await pumpEditor(tester, initial: [n(1, '09:00', '09:20')]);
+      await generateWithHastaBefore(tester);
+      expect(rangeNotice, findsOneWidget);
+
+      await tester.tap(find.text('Quitar'));
+      await tester.pumpAndSettle();
+
+      expect(rangeNotice, findsNothing);
+    });
+
+    testWidgets('se limpia en la siguiente acción: ordenar', (tester) async {
+      await pumpEditor(
+        tester,
+        initial: [n(1, '10:00', '10:20'), n(2, '09:00', '09:20')],
+      );
+      await generateWithHastaBefore(tester);
+      expect(rangeNotice, findsOneWidget);
+
+      await tester.tap(find.text('Ordenar'));
+      await tester.pumpAndSettle();
+
+      expect(rangeNotice, findsNothing);
+    });
+
+    testWidgets('se limpia en la siguiente acción: editar una hora', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: [n(1, '09:00', '09:20')]);
+      await generateWithHastaBefore(tester);
+      expect(rangeNotice, findsOneWidget);
+
+      await selectInt(tester, const Key('number-0-start-minute'), 10);
+
+      expect(rangeNotice, findsNothing);
+    });
+
+    testWidgets('se limpia al cambiar Desde', (tester) async {
+      await pumpEditor(tester);
+      await generateWithHastaBefore(tester);
+      expect(rangeNotice, findsOneWidget);
+
+      await selectInt(tester, const Key('generator-start-hour'), 7);
+
+      expect(rangeNotice, findsNothing);
+    });
+
+    testWidgets('se limpia al cambiar Hasta', (tester) async {
+      await pumpEditor(tester);
+      await generateWithHastaBefore(tester);
+      expect(rangeNotice, findsOneWidget);
+
+      await selectInt(tester, const Key('generator-end-hour'), 7);
+
+      expect(rangeNotice, findsNothing);
+    });
+
+    testWidgets('se limpia al cambiar la duración', (tester) async {
+      await pumpEditor(tester);
+      await generateWithHastaBefore(tester);
+      expect(rangeNotice, findsOneWidget);
+
+      await setDuration(tester, 30);
+
+      expect(rangeNotice, findsNothing);
+    });
+
+    testWidgets('Hasta posterior a Desde pero menor que la duración avisa los '
+        'minutos que sobran, no este aviso', (tester) async {
+      await pumpEditor(tester);
+      // Hasta 09:10 con Desde 09:00 y 20 minutos: no entra ningún número.
+      await selectInt(tester, const Key('generator-end-hour'), 9);
+      await selectInt(tester, const Key('generator-end-minute'), 10);
+
+      await generate(tester);
+
+      expect(find.textContaining('Sobraron 10 minutos'), findsOneWidget);
+      expect(rangeNotice, findsNothing);
+    });
+
+    testWidgets('con un rango válido no aparece', (tester) async {
+      final host = await pumpEditor(tester);
+
+      await generate(tester);
+
+      expect(rangeNotice, findsNothing);
+      expect(host.numbers.length, 3);
+    });
+
+    testWidgets('en 400 × 600 el aviso se alcanza y no desborda', (
+      tester,
+    ) async {
+      // Se arma en una ventana alta (a 600 el menú de un desplegable no entra)
+      // y recién después se achica.
+      await pumpEditor(tester, size: const Size(400, 2000));
+      await selectInt(tester, const Key('generator-end-hour'), 8);
+      tester.view.physicalSize = const Size(400, 600);
+      await tester.pumpAndSettle();
+
+      final button = find.text('Generar números');
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+
+      expect(rangeNotice, findsOneWidget);
+      await tester.ensureVisible(rangeNotice);
+      await tester.pumpAndSettle();
+      final rect = tester.getRect(rangeNotice);
+      expect(rect.right, lessThanOrEqualTo(400));
+      expect(rect.bottom, lessThanOrEqualTo(600));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   // Decisión: si algún número empieza antes que el anterior (se compara solo el
   // inicio), el editor lo avisa y ofrece "Ordenar". El aviso no es un error y
   // no impide guardar. Agregar y generar ya dejan la lista ordenada, y editar
