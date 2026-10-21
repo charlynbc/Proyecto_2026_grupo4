@@ -81,7 +81,9 @@ public class SecurityConfig {
                                                 "/api/auth/registro",
                                                 "/api/auth/login",
                                                 "/api/auth/refresh",
-                                                "/api/auth/logout"
+                                                "/api/auth/logout",
+                                                "/api/auth/primer-ingreso/solicitar",
+                                                "/api/auth/primer-ingreso/completar"
                                         )
                                         .permitAll()
 
