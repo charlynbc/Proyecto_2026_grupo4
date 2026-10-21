@@ -9,6 +9,19 @@ const int kTimeStepMinutes = 5;
 /// Las duraciones que se pueden elegir al generar números seguidos.
 const List<int> kDurationOptions = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
 
+/// Los [numbers] ordenados por hora de inicio y, con el mismo inicio, por hora
+/// de fin. Devuelve una lista nueva y no renumera.
+List<ShiftNumber> sortNumbers(List<ShiftNumber> numbers) =>
+    [...numbers]..sort((a, b) {
+      final byStart = a.startMinutes.compareTo(b.startMinutes);
+      return byStart != 0 ? byStart : a.endMinutes.compareTo(b.endMinutes);
+    });
+
+/// La hora de fin más tarde de [numbers], o `null` si no hay ninguno.
+int? latestEnd(List<ShiftNumber> numbers) => numbers.isEmpty
+    ? null
+    : numbers.map((e) => e.endMinutes).reduce((a, b) => a > b ? a : b);
+
 /// Los problemas de una lista de números, un mensaje por problema. Vacía si
 /// todo está bien. Los números se nombran como vienen en [numbers].
 List<String> validateNumbers(List<ShiftNumber> numbers) {

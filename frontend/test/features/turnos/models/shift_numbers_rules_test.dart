@@ -94,6 +94,125 @@ void main() {
     });
   });
 
+  // El invariante en el que se apoya la validación: se compara cada número
+  // con el siguiente después de ordenar por inicio, así que el orden en que
+  // vengan no puede esconder un solapamiento. Los dos primeros tests lo
+  // documentan pero pasan también sin ordenar (un chequeo de vecinos sin
+  // ordenar solo puede marcar de más, no dejar pasar); el que protege el sort
+  // es el tercero, que sin ordenar da un error falso con números separados.
+  group('validateNumbers no depende del orden de la lista', () {
+    final overlapping = [
+      n(1, '09:30', '09:50'),
+      n(2, '09:00', '10:00'),
+      n(3, '09:10', '09:20'),
+    ];
+
+    List<List<ShiftNumber>> permutations(List<ShiftNumber> items) {
+      if (items.length <= 1) return [items];
+      return [
+        for (var i = 0; i < items.length; i++)
+          for (final rest in permutations([
+            ...items.sublist(0, i),
+            ...items.sublist(i + 1),
+          ]))
+            [items[i], ...rest],
+      ];
+    }
+
+    test('el caso 09:30-09:50, 09:00-10:00 y 09:10-09:20 se avisa', () {
+      final errors = validateNumbers(overlapping);
+
+      expect(errors, isNotEmpty);
+      expect(errors, everyElement(contains('se solapan')));
+    });
+
+    test('las seis formas de ordenarlos avisan el solapamiento', () {
+      final all = permutations(overlapping);
+      expect(all, hasLength(6));
+
+      for (final order in all) {
+        expect(
+          validateNumbers(order),
+          isNotEmpty,
+          reason: order.map((e) => e.number).join(','),
+        );
+      }
+    });
+
+    test('sin solapamientos, ninguna forma de ordenarlos da error', () {
+      final apart = [
+        n(1, '10:00', '10:20'),
+        n(2, '08:00', '08:20'),
+        n(3, '09:00', '09:20'),
+      ];
+
+      for (final order in permutations(apart)) {
+        expect(validateNumbers(order), isEmpty);
+      }
+    });
+  });
+
+  group('sortNumbers', () {
+    test('ordena por hora de inicio y no renumera', () {
+      final sorted = sortNumbers([
+        n(1, '10:00', '10:20'),
+        n(2, '08:00', '08:20'),
+        n(3, '09:00', '09:20'),
+      ]);
+
+      expect(sorted.map((e) => e.startMinutes), [8 * 60, 9 * 60, 10 * 60]);
+      expect(sorted.map((e) => e.number), [2, 3, 1]);
+    });
+
+    test('con el mismo inicio, desempata por la hora de fin', () {
+      final sorted = sortNumbers([
+        n(1, '09:00', '09:40'),
+        n(2, '09:00', '09:20'),
+      ]);
+
+      expect(sorted.map((e) => e.endMinutes), [9 * 60 + 20, 9 * 60 + 40]);
+    });
+
+    test('devuelve una lista nueva y deja la original como estaba', () {
+      final original = [n(1, '10:00', '10:20'), n(2, '08:00', '08:20')];
+
+      final sorted = sortNumbers(original);
+
+      expect(identical(sorted, original), isFalse);
+      expect(original.map((e) => e.number), [1, 2]);
+    });
+
+    test('una lista vacía o de un número queda igual', () {
+      expect(sortNumbers(const []), isEmpty);
+      expect(sortNumbers([n(1, '09:00', '09:20')]).single.number, 1);
+    });
+  });
+
+  group('latestEnd', () {
+    test('es la hora de fin más tarde, en cualquier orden', () {
+      expect(
+        latestEnd([
+          n(1, '09:00', '09:20'),
+          n(2, '09:10', '09:50'),
+          n(3, '08:00', '08:40'),
+        ]),
+        9 * 60 + 50,
+      );
+    });
+
+    test('puede no ser la del número que empieza último', () {
+      // 09:10-09:20 empieza después, pero 09:00-10:00 termina más tarde.
+      expect(
+        latestEnd([n(1, '09:00', '10:00'), n(2, '09:10', '09:20')]),
+        10 * 60,
+      );
+    });
+
+    test('sin números no hay hora de fin', () {
+      expect(latestEnd(const []), isNull);
+    });
+  });
+
   group('generateConsecutive', () {
     test('genera números seguidos con la duración elegida', () {
       final result = generateConsecutive(

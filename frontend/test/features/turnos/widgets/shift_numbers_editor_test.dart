@@ -58,6 +58,47 @@ Future<void> selectInt(WidgetTester tester, Key key, int value) async {
   await tester.pumpAndSettle();
 }
 
+/// Lo que muestran los cuatro desplegables de cada fila, como `HH:MM-HH:MM`,
+/// separado por espacios. Es lo que ve la persona, no la lista interna.
+String rowsOnScreen(WidgetTester tester) {
+  String shown(String key) => tester
+      .widget<Text>(
+        find.descendant(of: find.byKey(Key(key)), matching: find.byType(Text)),
+      )
+      .data!;
+  final rows = <String>[];
+  for (var i = 0; find.byKey(Key('number-row-$i')).evaluate().isNotEmpty; i++) {
+    rows.add(
+      '${shown('number-$i-start-hour')}:${shown('number-$i-start-minute')}-'
+      '${shown('number-$i-end-hour')}:${shown('number-$i-end-minute')}',
+    );
+  }
+  return rows.join(' ');
+}
+
+/// La lista interna del editor, con el mismo formato que [rowsOnScreen].
+String rowsInList(EditorHarness host) => host.numbers
+    .map(
+      (e) =>
+          '${ShiftNumber.formatTime(e.startMinutes)}-'
+          '${ShiftNumber.formatTime(e.endMinutes)}',
+    )
+    .join(' ');
+
+/// La lista y la pantalla muestran [expected], y los números van 1, 2, 3...
+/// en ese orden.
+Future<void> expectRows(
+  WidgetTester tester,
+  EditorHarness host,
+  String expected,
+) async {
+  expect(rowsInList(host), expected, reason: 'lista interna');
+  expect(rowsOnScreen(tester), expected, reason: 'desplegables de las filas');
+  expect(host.numbers.map((e) => e.number), [
+    for (var i = 1; i <= host.numbers.length; i++) i,
+  ], reason: 'numeración');
+}
+
 void main() {
   testWidgets('muestra cada número con su duración calculada', (tester) async {
     await pumpEditor(tester, initial: [n(1, '09:00', '09:20')]);
@@ -293,8 +334,13 @@ void main() {
 
       await generate(tester);
 
-      expect(host.numbers.length, 4);
-      expect(times(host.numbers), startsWith('09:05-09:15 09:00-09:20'));
+      // Ordenados por hora de inicio: 09:00, 09:05, 09:20 y 09:40. El cargado
+      // (09:05) queda segundo, entre 09:00-09:20 y 09:20-09:40.
+      await expectRows(
+        tester,
+        host,
+        '09:00-09:20 09:05-09:15 09:20-09:40 09:40-10:00',
+      );
       expect(find.textContaining('se solapan'), findsWidgets);
       expect(find.textContaining('Se omit'), findsNothing);
     });
@@ -371,6 +417,102 @@ void main() {
       expect(times(host.numbers), '09:00-09:25 09:25-09:50');
       expect(find.text(omittedOne), findsOneWidget);
       expect(find.textContaining('Sobraron 10 minutos'), findsOneWidget);
+    });
+  });
+
+  // Decisión: al agregar o generar, la lista queda ordenada por hora de inicio
+  // (con el mismo inicio, por hora de fin) y renumerada 1, 2, 3... en ese
+  // orden. "Agregar número" parte del número que termina más tarde, no del
+  // último de la lista. Editar una hora no reordena. En todos se mira lo que
+  // muestran los desplegables de cada fila, no solo la lista interna.
+  group('el orden por hora al agregar y al generar', () {
+    Future<void> setDuration(WidgetTester tester, int minutes) async {
+      await tester.tap(find.byKey(const Key('generator-duration')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('$minutes min').last);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> add(WidgetTester tester) async {
+      await tester.tap(find.text('Agregar número'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> generate(WidgetTester tester) async {
+      await tester.tap(find.text('Generar números'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('agregar parte del número que termina más tarde, no del '
+        'último de la lista', (tester) async {
+      // El último de la lista (08:00-08:40) no es el que termina más tarde
+      // (09:00-09:20). Con 30 minutos, desde 08:40 pisaría 09:00-09:20.
+      final host = await pumpEditor(
+        tester,
+        initial: [n(1, '09:00', '09:20'), n(2, '08:00', '08:40')],
+      );
+      await setDuration(tester, 30);
+
+      await add(tester);
+
+      await expectRows(tester, host, '08:00-08:40 09:00-09:20 09:20-09:50');
+      expect(find.textContaining('se solapan'), findsNothing);
+    });
+
+    testWidgets('agregar ordena y renumera lo que ya estaba, aunque el nuevo '
+        'caiga al final', (tester) async {
+      // Con 20 minutos, el nuevo es 09:20-09:40 (el máximo fin es 09:20).
+      final host = await pumpEditor(
+        tester,
+        initial: [n(1, '09:00', '09:20'), n(2, '08:00', '08:20')],
+      );
+
+      await add(tester);
+
+      await expectRows(tester, host, '08:00-08:20 09:00-09:20 09:20-09:40');
+    });
+
+    testWidgets('generar inserta por hora, no al final', (tester) async {
+      // El generador por defecto va de 09:00 a 10:00 cada 20 minutos.
+      final host = await pumpEditor(tester, initial: [n(1, '10:00', '10:20')]);
+
+      await generate(tester);
+
+      await expectRows(
+        tester,
+        host,
+        '09:00-09:20 09:20-09:40 09:40-10:00 10:00-10:20',
+      );
+    });
+
+    testWidgets('generar ordena también lo desordenado que ya había', (
+      tester,
+    ) async {
+      final host = await pumpEditor(
+        tester,
+        initial: [n(1, '11:00', '11:20'), n(2, '10:00', '10:20')],
+      );
+
+      await generate(tester);
+
+      await expectRows(
+        tester,
+        host,
+        '09:00-09:20 09:20-09:40 09:40-10:00 10:00-10:20 11:00-11:20',
+      );
+    });
+
+    testWidgets('editar una hora no reordena la lista', (tester) async {
+      final host = await pumpEditor(
+        tester,
+        initial: [n(1, '09:00', '09:20'), n(2, '10:00', '10:30')],
+      );
+
+      // La segunda fila pasa a empezar a las 08:00, antes que la primera.
+      await selectInt(tester, const Key('number-1-start-hour'), 8);
+
+      expect(rowsInList(host), '09:00-09:20 08:00-10:30');
+      expect(rowsOnScreen(tester), '09:00-09:20 08:00-10:30');
     });
   });
 

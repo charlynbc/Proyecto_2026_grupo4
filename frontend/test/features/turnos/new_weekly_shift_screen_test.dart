@@ -10,6 +10,7 @@ import 'package:agenda_medica/features/especialidades/providers/specialty_reposi
 import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_repository.dart';
 import 'package:agenda_medica/features/turnos/models/doctor.dart';
 import 'package:agenda_medica/features/turnos/models/new_weekly_shift.dart';
+import 'package:agenda_medica/features/turnos/models/shift_number.dart';
 import 'package:agenda_medica/features/turnos/models/weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/providers/shift_repository_provider.dart';
 import 'package:agenda_medica/features/turnos/repositories/fake_shift_repository.dart';
@@ -54,6 +55,9 @@ class _RecordingShiftRepository extends FakeShiftRepository {
   int createCalls = 0;
   int doctorsCalls = 0;
 
+  /// Lo último que el formulario mandó a guardar.
+  NewWeeklyShift? lastData;
+
   @override
   Future<List<Doctor>> listDoctors({int? specialtyId}) async {
     doctorsCalls++;
@@ -64,6 +68,7 @@ class _RecordingShiftRepository extends FakeShiftRepository {
   @override
   Future<WeeklyShift> createWeeklyShift(NewWeeklyShift data) async {
     createCalls++;
+    lastData = data;
     await gate?.future;
     if (createError != null) throw createError!;
     return super.createWeeklyShift(data);
@@ -181,6 +186,47 @@ List<int?> _options(WidgetTester tester, String key) => tester
     .items!
     .map((item) => item.value)
     .toList();
+
+/// Lo que muestran los cuatro desplegables de cada fila del editor, como
+/// `HH:MM-HH:MM` separado por espacios: lo que ve la persona, no la lista
+/// interna.
+String _rowsOnScreen(WidgetTester tester) {
+  String shown(String key) => tester
+      .widget<Text>(
+        find.descendant(of: find.byKey(Key(key)), matching: find.byType(Text)),
+      )
+      .data!;
+  final rows = <String>[];
+  for (var i = 0; find.byKey(Key('number-row-$i')).evaluate().isNotEmpty; i++) {
+    rows.add(
+      '${shown('number-$i-start-hour')}:${shown('number-$i-start-minute')}-'
+      '${shown('number-$i-end-hour')}:${shown('number-$i-end-minute')}',
+    );
+  }
+  return rows.join(' ');
+}
+
+/// Carla Méndez, Consultorio 3 y los martes del 20/10 al 10/11/2026 (como un
+/// turno sembrado con 09:00-09:20 y 09:20-09:40), con dos números cargados en
+/// desorden: 10:00-10:20 primero y 09:00-09:20 después. Solo el segundo cruza
+/// con el turno sembrado.
+Future<void> _fillMendezUnsorted(WidgetTester tester) async {
+  await _choose(tester, 'field-specialty', 'Medicina General');
+  await _choose(tester, 'field-doctor', 'Carla Méndez');
+  await _choose(tester, 'field-clinic', 'Consultorio 3');
+  await _choose(tester, 'field-weekday', 'Martes');
+  await _type(tester, 'field-from', '20/10/2026');
+  await _type(tester, 'field-to', '10/11/2026');
+  // Quedan 09:00-09:20 y 09:20-09:40. La fila 1 pasa a 10:00-10:20 y la fila 2
+  // a 09:00-09:20.
+  await _tapText(tester, 'Agregar número');
+  await _tapText(tester, 'Agregar número');
+  await _choose(tester, 'number-0-start-hour', '10');
+  await _choose(tester, 'number-0-end-hour', '10');
+  await _choose(tester, 'number-1-start-minute', '00');
+  await _choose(tester, 'number-1-end-minute', '20');
+  expect(_rowsOnScreen(tester), '10:00-10:20 09:00-09:20');
+}
 
 int _doctorId(FakeAdminDatabase admin, String lastName) => admin.accounts
     .firstWhere((a) => a.role == UserRole.medico && a.lastName == lastName)
@@ -560,6 +606,67 @@ void main() {
       expect(
         find.text('Se creó el turno semanal con 4 fechas.'),
         findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'guardar con filas desordenadas envía los números ordenados por '
+      'hora y numerados 1..n',
+      (tester) async {
+        final harness = await _pump(tester, createError: const ApiException());
+        await _fillMendezUnsorted(tester);
+
+        await _save(tester);
+
+        expect(harness.repository.createCalls, 1);
+        expect(
+          harness.repository.lastData!.numbers.map((e) => e.toJson()).toList(),
+          [
+            {'numero': 1, 'horaInicio': '09:00', 'horaFin': '09:20'},
+            {'numero': 2, 'horaInicio': '10:00', 'horaFin': '10:20'},
+          ],
+        );
+      },
+    );
+
+    testWidgets('después de guardar con error, la lista visible queda ordenada '
+        'y renumerada', (tester) async {
+      await _pump(tester, createError: const ApiException());
+      await _fillMendezUnsorted(tester);
+
+      await _save(tester);
+
+      // Lo que muestran los desplegables, fila por fila: la primera es el N.º 1.
+      expect(_rowsOnScreen(tester), '09:00-09:20 10:00-10:20');
+    });
+
+    testWidgets('el N.º que nombra el servidor es el de la fila de esa '
+        'posición en la pantalla', (tester) async {
+      final harness = await _pump(tester);
+      await _fillMendezUnsorted(tester);
+
+      await _save(tester);
+
+      final banner = find.byKey(const Key('server-error'));
+      expect(banner, findsOneWidget);
+      final message = tester
+          .widget<Text>(
+            find.descendant(of: banner, matching: find.byType(Text)),
+          )
+          .data!;
+      expect(message, contains('número 1'));
+      expect(message, isNot(contains('números')));
+      final flagged = int.parse(
+        RegExp(r'número (\d+)').firstMatch(message)![1]!,
+      );
+      final sent = harness.repository.lastData!.numbers.firstWhere(
+        (e) => e.number == flagged,
+      );
+      final rows = _rowsOnScreen(tester).split(' ');
+      expect(
+        rows[flagged - 1],
+        '${ShiftNumber.formatTime(sent.startMinutes)}-'
+        '${ShiftNumber.formatTime(sent.endMinutes)}',
       );
     });
 

@@ -10,6 +10,10 @@ import 'time_picker_field.dart';
 ///
 /// Es controlado: la lista vive en quien lo usa. Cada cambio se informa con
 /// [onChanged], con los números renumerados 1, 2, 3… en el orden de las filas.
+///
+/// "Agregar número" y "Generar números" dejan la lista ordenada por hora de
+/// inicio. Editar una hora no reordena: así la fila que se está tocando no
+/// salta de lugar.
 class ShiftNumbersEditor extends StatefulWidget {
   const ShiftNumbersEditor({
     super.key,
@@ -66,12 +70,13 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
   }
 
   /// Agrega un número con lo que tenga el generador en este momento: con la
-  /// lista vacía arranca en su hora de inicio y, si no, donde termina el
-  /// último; dura la duración elegida. No lo limita la hora final del
-  /// generador. Si terminaría después de las 23:55 (el máximo del selector de
-  /// horas), no agrega nada y avisa.
+  /// lista vacía arranca en su hora de inicio y, si no, donde termina el que
+  /// termina más tarde (sea cual sea su lugar en la lista); dura la duración
+  /// elegida. No lo limita la hora final del generador. Si terminaría después
+  /// de las 23:55 (el máximo del selector de horas), no agrega nada y avisa.
+  /// La lista queda ordenada por hora.
   void _add() {
-    final start = _numbers.isEmpty ? _generatorStart : _numbers.last.endMinutes;
+    final start = latestEnd(_numbers) ?? _generatorStart;
     final end = start + _generatorDuration;
     if (end > _lastEnd) {
       setState(() {
@@ -82,14 +87,16 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
       return;
     }
     _clearAddNotice();
-    _emit([
-      ..._numbers,
-      ShiftNumber(
-        number: _numbers.length + 1,
-        startMinutes: start,
-        endMinutes: end,
-      ),
-    ]);
+    _emit(
+      sortNumbers([
+        ..._numbers,
+        ShiftNumber(
+          number: _numbers.length + 1,
+          startMinutes: start,
+          endMinutes: end,
+        ),
+      ]),
+    );
   }
 
   void _generate() {
@@ -111,7 +118,9 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
       _addNotice = null;
     });
     // Si se omitieron todos no se agrega nada: la lista queda como estaba.
-    if (filtered.kept.isNotEmpty) _emit([..._numbers, ...filtered.kept]);
+    if (filtered.kept.isNotEmpty) {
+      _emit(sortNumbers([..._numbers, ...filtered.kept]));
+    }
   }
 
   /// El aviso de los números generados que ya estaban cargados, o `null` si

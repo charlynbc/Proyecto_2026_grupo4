@@ -102,10 +102,18 @@ class _NewWeeklyShiftFormState extends ConsumerState<NewWeeklyShiftForm> {
             'fechas.';
       }
     }
+    // Al guardar, los números quedan ordenados por hora y numerados 1, 2, 3
+    // también en pantalla, así el N.º que nombra un aviso del servidor es el
+    // de la fila de esa posición. Vale aunque el guardado después falle.
+    final sorted = sortNumbers(_numbers);
+    final ordered = [
+      for (var i = 0; i < sorted.length; i++) sorted[i].copyWith(number: i + 1),
+    ];
     setState(() {
       _attempted = true;
       _rangeError = rangeError;
       _weekdayError = weekdayError;
+      _numbers = ordered;
     });
 
     // Soltar el foco no es inmediato: mientras se valida, los campos de fecha
@@ -124,9 +132,6 @@ class _NewWeeklyShiftFormState extends ConsumerState<NewWeeklyShiftForm> {
       return;
     }
 
-    // Los números se mandan ordenados por hora y numerados 1, 2, 3…
-    final sorted = [..._numbers]
-      ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
     final created = await controller.submit(
       NewWeeklyShift(
         doctorId: _doctorId!,
@@ -135,10 +140,7 @@ class _NewWeeklyShiftFormState extends ConsumerState<NewWeeklyShiftForm> {
         weekday: _weekday!,
         startDate: from!,
         endDate: to!,
-        numbers: [
-          for (var i = 0; i < sorted.length; i++)
-            sorted[i].copyWith(number: i + 1),
-        ],
+        numbers: ordered,
       ),
     );
     if (!mounted || created == null) return;
