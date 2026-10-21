@@ -2,14 +2,14 @@ package uy.edu.proyecto.backend.usuario;
 
 import java.util.Optional;
 
-final class CiUruguaya {
+public final class CiUruguaya {
 
     private static final int[] PESOS = {2, 9, 8, 7, 6, 3, 4};
 
     private CiUruguaya() {
     }
 
-    static Optional<String> normalizarValida(String valor) {
+    public static Optional<String> normalizarValida(String valor) {
         if (valor == null) {
             return Optional.empty();
         }

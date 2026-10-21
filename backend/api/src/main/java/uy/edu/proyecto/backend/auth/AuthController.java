@@ -1,7 +1,5 @@
 package uy.edu.proyecto.backend.auth;
 
-import jakarta.validation.Valid;
-
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 
@@ -34,7 +32,6 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<LoginResponse> login(
-            @Valid
             @RequestBody
             LoginRequest request
     ) {

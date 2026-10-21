@@ -133,8 +133,9 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 "/api/reservas/**"
                                         )
-                                        .hasRole(
-                                                "PACIENTE"
+                                        .hasAnyRole(
+                                                "PACIENTE",
+                                                "SOCIO"
                                         )
 
                                         .anyRequest()
