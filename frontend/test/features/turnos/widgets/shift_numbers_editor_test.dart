@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:agenda_medica/features/turnos/models/shift_number.dart';
 import 'package:agenda_medica/features/turnos/widgets/shift_numbers_editor.dart';
+import 'package:agenda_medica/features/turnos/widgets/time_picker_field.dart';
 
 ShiftNumber n(int number, String start, String end) => ShiftNumber(
   number: number,
@@ -781,6 +782,126 @@ void main() {
       final rect = tester.getRect(rangeNotice);
       expect(rect.right, lessThanOrEqualTo(400));
       expect(rect.bottom, lessThanOrEqualTo(600));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  // Decisión: la etiqueta de minutos de una fila se muestra solo si la duración
+  // es positiva. Con el fin igual o anterior al inicio no hay etiqueta (ni un
+  // guion) y el mensaje de error es la única explicación. Con una duración
+  // positiva la etiqueta queda como siempre, aunque esté fuera de 10 a 60.
+  group('la etiqueta de minutos de cada fila', () {
+    Finder row(int index) => find.byKey(Key('number-row-$index'));
+    Finder minutesLabel(int index) =>
+        find.descendant(of: row(index), matching: find.textContaining(' min'));
+    Finder labelText(int index, String text) =>
+        find.descendant(of: row(index), matching: find.text(text));
+
+    testWidgets('un fin anterior al inicio no muestra etiqueta de minutos y '
+        'deja el mensaje de error', (tester) async {
+      await pumpEditor(tester, initial: [n(1, '23:00', '00:20')]);
+
+      expect(minutesLabel(0), findsNothing);
+      expect(
+        find.text(
+          'En el número 1, la hora de fin tiene que ser posterior a la de '
+          'inicio.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('un fin igual al inicio no muestra etiqueta de minutos', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: [n(1, '09:00', '09:00')]);
+
+      expect(minutesLabel(0), findsNothing);
+      expect(find.text('0 min'), findsNothing);
+    });
+
+    testWidgets('corregido el rango, la fila vuelve a mostrar sus minutos', (
+      tester,
+    ) async {
+      await pumpEditor(tester, initial: [n(1, '09:00', '08:20')]);
+      expect(minutesLabel(0), findsNothing);
+
+      // La hora de fin pasa a las 09:20: 20 minutos.
+      await selectInt(tester, const Key('number-0-end-hour'), 9);
+
+      expect(labelText(0, '20 min'), findsOneWidget);
+    });
+
+    testWidgets('al editar una hora que deja el fin antes del inicio, la '
+        'etiqueta desaparece', (tester) async {
+      await pumpEditor(tester, initial: [n(1, '09:00', '09:20')]);
+      expect(labelText(0, '20 min'), findsOneWidget);
+
+      // El inicio pasa a las 10:00, después del fin (09:20).
+      await selectInt(tester, const Key('number-0-start-hour'), 10);
+
+      expect(minutesLabel(0), findsNothing);
+    });
+
+    testWidgets('las otras filas conservan su etiqueta', (tester) async {
+      await pumpEditor(
+        tester,
+        initial: [
+          n(1, '09:00', '09:20'),
+          n(2, '10:00', '09:00'),
+          n(3, '11:00', '11:30'),
+        ],
+      );
+
+      expect(labelText(0, '20 min'), findsOneWidget);
+      expect(minutesLabel(1), findsNothing);
+      expect(labelText(2, '30 min'), findsOneWidget);
+    });
+
+    testWidgets('una fila sin etiqueta no deja hueco entre la hora de fin y '
+        'Quitar', (tester) async {
+      await pumpEditor(tester, initial: [n(1, '23:00', '00:20')]);
+      final fields = find.descendant(
+        of: row(0),
+        matching: find.byType(TimePickerField),
+      );
+      final start = tester.getRect(fields.at(0));
+      final end = tester.getRect(fields.at(1));
+      final remove = tester.getRect(
+        find.descendant(
+          of: row(0),
+          matching: find.widgetWithText(TextButton, 'Quitar'),
+        ),
+      );
+
+      // Entre campos de la misma fila hay la separación del Wrap (16 px). Entre
+      // la hora de fin y Quitar tiene que haber la misma: sin etiqueta no queda
+      // un hijo vacío que sume otra separación.
+      expect(remove.left - end.right, closeTo(end.left - start.right, 0.01));
+    });
+
+    testWidgets('una duración positiva fuera de 10 a 60 sigue mostrando sus '
+        'minutos junto a su aviso', (tester) async {
+      await pumpEditor(tester, initial: [n(1, '09:00', '10:30')]);
+
+      expect(labelText(0, '90 min'), findsOneWidget);
+      expect(find.textContaining('entre 10 y 60 minutos'), findsOneWidget);
+    });
+
+    testWidgets('en 400 × 600 la fila sin etiqueta no desborda', (
+      tester,
+    ) async {
+      await pumpEditor(
+        tester,
+        initial: [n(1, '23:00', '00:20')],
+        size: const Size(400, 600),
+      );
+
+      final remove = find.text('Quitar');
+      await tester.ensureVisible(remove);
+      await tester.pumpAndSettle();
+
+      expect(tester.getRect(remove).right, lessThanOrEqualTo(400));
       expect(tester.takeException(), isNull);
     });
   });

@@ -246,10 +246,11 @@ class _ShiftNumbersEditorState extends State<ShiftNumbersEditor> {
             onChanged: (value) =>
                 _update(index, number.copyWith(endMinutes: value)),
           ),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text('${number.duration} min'),
-          ),
+          if (number.duration > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text('${number.duration} min'),
+            ),
           TextButton(
             onPressed: () => _remove(index),
             child: const Text('Quitar'),
