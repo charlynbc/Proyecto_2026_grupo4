@@ -1,0 +1,242 @@
+package uy.edu.proyecto.backend.turno;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+import uy.edu.proyecto.backend.consultorio.Consultorio;
+import uy.edu.proyecto.backend.especialidad.Especialidad;
+
+@Repository
+public class TurnoSemanalRepository {
+
+    private final JdbcTemplate jdbcTemplate;
+
+    public TurnoSemanalRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    public Optional<CuentaMedica> bloquearMedico(Long idMedico) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT c.id_cuenta, c.rol, c.habilitada,
+                               p.nombre, p.apellido
+                        FROM public.cuenta c
+                        JOIN public.persona p ON p.ci = c.ci
+                        WHERE c.id_cuenta = ?
+                        FOR UPDATE OF c
+                        """,
+                        (rs, rowNum) -> new CuentaMedica(
+                                rs.getLong("id_cuenta"),
+                                rs.getString("rol"),
+                                rs.getBoolean("habilitada"),
+                                rs.getString("nombre"),
+                                rs.getString("apellido")
+                        ),
+                        idMedico
+                )
+                .stream()
+                .findFirst();
+    }
+
+    public Optional<Consultorio> bloquearConsultorio(Long idConsultorio) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT id_consultorio, nombre, ubicacion
+                        FROM public.consultorio
+                        WHERE id_consultorio = ?
+                        FOR UPDATE
+                        """,
+                        (rs, rowNum) -> new Consultorio(
+                                rs.getLong("id_consultorio"),
+                                rs.getString("nombre"),
+                                rs.getString("ubicacion")
+                        ),
+                        idConsultorio
+                )
+                .stream()
+                .findFirst();
+    }
+
+    public Optional<Especialidad> buscarEspecialidadDelMedico(
+            Long idMedico,
+            Long idEspecialidad
+    ) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT e.id_especialidad, e.nombre, e.requiere_pase
+                        FROM public.medico_especialidad me
+                        JOIN public.especialidad e
+                          ON e.id_especialidad = me.id_especialidad
+                        WHERE me.id_medico = ?
+                          AND me.id_especialidad = ?
+                        FOR KEY SHARE OF me, e
+                        """,
+                        (rs, rowNum) -> new Especialidad(
+                                rs.getLong("id_especialidad"),
+                                rs.getString("nombre"),
+                                rs.getBoolean("requiere_pase")
+                        ),
+                        idMedico,
+                        idEspecialidad
+                )
+                .stream()
+                .findFirst();
+    }
+
+    public List<NumeroExistente> buscarNumerosActivos(
+            Long idMedico,
+            Long idConsultorio,
+            LocalDate desde,
+            LocalDate hasta
+    ) {
+        return jdbcTemplate.query(
+                """
+                SELECT t.fecha, ts.id_medico, t.id_consultorio,
+                       n.numero, n.hora_inicio, n.hora_fin
+                FROM public.turno t
+                JOIN public.turno_semanal ts
+                  ON ts.id_turno_semanal = t.id_turno_semanal
+                JOIN public.numero n ON n.id_turno = t.id_turno
+                WHERE t.estado = 'ACTIVO'
+                  AND t.fecha BETWEEN ? AND ?
+                  AND (ts.id_medico = ? OR t.id_consultorio = ?)
+                ORDER BY t.fecha, n.hora_inicio, n.numero
+                """,
+                (rs, rowNum) -> new NumeroExistente(
+                        rs.getObject("fecha", LocalDate.class),
+                        rs.getLong("id_medico"),
+                        rs.getLong("id_consultorio"),
+                        rs.getInt("numero"),
+                        rs.getObject("hora_inicio", LocalTime.class),
+                        rs.getObject("hora_fin", LocalTime.class)
+                ),
+                desde,
+                hasta,
+                idMedico,
+                idConsultorio
+        );
+    }
+
+    public Long crearPatron(
+            Long idMedico,
+            Long idEspecialidad,
+            Long idConsultorio,
+            Long idFuncionario,
+            int diaSemana,
+            LocalDate fechaInicio,
+            LocalDate fechaFin
+    ) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO public.turno_semanal
+                    (id_medico, id_especialidad, id_consultorio,
+                     id_funcionario_alta, dia_semana, fecha_inicio, fecha_fin)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                RETURNING id_turno_semanal
+                """,
+                Long.class,
+                idMedico,
+                idEspecialidad,
+                idConsultorio,
+                idFuncionario,
+                diaSemana,
+                fechaInicio,
+                fechaFin
+        );
+    }
+
+    public Long crearNumeroSemanal(
+            Long idTurnoSemanal,
+            int numero,
+            LocalTime horaInicio,
+            LocalTime horaFin
+    ) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO public.numero_semanal
+                    (id_turno_semanal, numero, hora_inicio, hora_fin)
+                VALUES (?, ?, ?, ?)
+                RETURNING id_numero_semanal
+                """,
+                Long.class,
+                idTurnoSemanal,
+                numero,
+                horaInicio,
+                horaFin
+        );
+    }
+
+    public Long crearTurno(
+            Long idTurnoSemanal,
+            Long idConsultorio,
+            LocalDate fecha
+    ) {
+        return jdbcTemplate.queryForObject(
+                """
+                INSERT INTO public.turno
+                    (id_turno_semanal, id_consultorio, fecha)
+                VALUES (?, ?, ?)
+                RETURNING id_turno
+                """,
+                Long.class,
+                idTurnoSemanal,
+                idConsultorio,
+                fecha
+        );
+    }
+
+    public void crearNumeros(
+            Long idTurno,
+            List<NumeroInstancia> numeros
+    ) {
+        jdbcTemplate.batchUpdate(
+                """
+                INSERT INTO public.numero
+                    (id_turno, id_numero_semanal, numero,
+                     hora_inicio, hora_fin)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                numeros,
+                numeros.size(),
+                (statement, numero) -> {
+                    statement.setLong(1, idTurno);
+                    statement.setLong(2, numero.idNumeroSemanal());
+                    statement.setInt(3, numero.numero());
+                    statement.setObject(4, numero.horaInicio());
+                    statement.setObject(5, numero.horaFin());
+                }
+        );
+    }
+
+    public record CuentaMedica(
+            Long id,
+            String rol,
+            boolean habilitada,
+            String nombre,
+            String apellido
+    ) {
+    }
+
+    public record NumeroExistente(
+            LocalDate fecha,
+            Long idMedico,
+            Long idConsultorio,
+            int numero,
+            LocalTime horaInicio,
+            LocalTime horaFin
+    ) {
+    }
+
+    public record NumeroInstancia(
+            Long idNumeroSemanal,
+            int numero,
+            LocalTime horaInicio,
+            LocalTime horaFin
+    ) {
+    }
+}
