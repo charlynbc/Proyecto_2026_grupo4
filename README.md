@@ -135,9 +135,16 @@ con el frontend:
 
 ## Base de datos
 
-PostgreSQL 17 alojado en Supabase, en el esquema `"POC"` (mayúsculas, se
-escribe siempre entre comillas dobles).
+PostgreSQL 17 alojado en Supabase (proyecto AgendaMedica, São Paulo), con dos
+bases: `test` para desarrollar y `prod` para el despliegue. Las tablas están en
+el esquema `public`.
 
-> **Pendiente:** el esquema todavía no está versionado en el repositorio. Las
-> tablas se crearon a mano y el `CREATE TABLE` vive fuera de git. Se está
-> migrando a Flyway.
+El esquema completo está versionado en
+[`database/schema.sql`](database/schema.sql), y el CI lo prueba en cada Pull
+Request que toque `database/`. Cómo se cambia el esquema está en
+[`database/README.md`](database/README.md).
+
+> **Pendiente:** los endpoints heredados de la prueba de concepto
+> (`/api/reservas`, `/api/profesionales`, `/api/mis-reservas`,
+> `/api/auth/registro` y el login con `cedula`/`clave`) todavía consultan el
+> esquema `"POC"`, que no existe en las bases `test` y `prod`.
