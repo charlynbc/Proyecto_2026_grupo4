@@ -100,6 +100,14 @@ public class SecurityConfig {
                                         )
 
                                         .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/consultorios/importaciones/**"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
                                                 "/api/admin/**"
                                         )
                                         .hasRole(
