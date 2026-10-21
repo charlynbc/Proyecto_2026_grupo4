@@ -1,0 +1,60 @@
+# Compila y prueba el backend, y construye su imagen Docker, en cada Pull Request
+# que toque backend/api. Si algo falla, el PR queda en rojo antes de mergear.
+name: Backend
+
+on:
+  pull_request:
+    paths:
+      - "backend/api/**"
+      - ".github/workflows/backend.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/api/**"
+      - ".github/workflows/backend.yml"
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/api
+    services:
+      # Las pruebas levantan el contexto de Spring, que necesita una base.
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/postgres
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      # Clave solo para las pruebas: 32 bytes en base64, sin valor real.
+      JWT_SECRET_BASE64: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      APP_FIREBASE_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Compilar y correr las pruebas
+        run: ./mvnw -B verify
+
+  imagen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir la imagen
+        run: docker build -t agenda-backend:ci backend/api
