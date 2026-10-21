@@ -5,6 +5,7 @@ import 'package:agenda_medica/features/especialidades/providers/specialty_reposi
 import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_repository.dart';
 import 'package:agenda_medica/features/turnos/models/shift_filters.dart';
 import 'package:agenda_medica/features/turnos/models/shift_page.dart';
+import 'package:agenda_medica/features/turnos/models/shift_state.dart';
 import 'package:agenda_medica/features/turnos/providers/shift_repository_provider.dart';
 import 'package:agenda_medica/features/turnos/repositories/fake_shift_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/shift_repository.dart';
@@ -666,6 +667,218 @@ void main() {
 
       expect(find.byType(DataTable), findsNothing);
       expect(find.byType(Card), findsNWidgets(20));
+    });
+  });
+
+  group('Limpiar filtros', () {
+    Finder clearButton() => find.text('Limpiar filtros');
+
+    /// Lo que muestra el desplegable con esa clave (null = "Todos" o "Todas").
+    T? selected<T>(WidgetTester tester, String key) => tester
+        .widget<DropdownButton<T>>(
+          find.descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(DropdownButton<T>),
+          ),
+        )
+        .value;
+
+    Future<void> clear(WidgetTester tester) async {
+      await tester.tap(clearButton());
+      await tester.pumpAndSettle();
+    }
+
+    bool anyDateFieldFocused(WidgetTester tester) => tester
+        .widgetList<EditableText>(find.byType(EditableText))
+        .any((field) => field.focusNode.hasFocus);
+
+    testWidgets('está en la misma fila que "Buscar" y a su derecha', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      // `byType` compara el tipo exacto y los botones con ícono son una
+      // subclase privada: se busca por `is`.
+      Finder buttonWith(Finder label) => find.ancestor(
+        of: label,
+        matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+      );
+      final search = tester.getRect(buttonWith(find.text('Buscar')));
+      final clearRect = tester.getRect(buttonWith(clearButton()));
+
+      expect(clearRect.left, greaterThan(search.right));
+      expect((clearRect.center.dy - search.center.dy).abs(), lessThan(8));
+    });
+
+    testWidgets('vuelve los cuatro desplegables a Todos y Todas', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _choose(tester, const Key('filter-doctor'), 'Carla Méndez');
+      await _choose(tester, const Key('filter-specialty'), 'Medicina General');
+      await _choose(tester, const Key('filter-weekday'), 'Martes');
+      await _choose(tester, const Key('filter-state'), 'Suspendida');
+      await _apply(tester);
+      // Antes de limpiar, los cuatro están elegidos y la búsqueda los aplicó.
+      expect(selected<int?>(tester, 'filter-doctor'), isNotNull);
+      expect(selected<int?>(tester, 'filter-specialty'), isNotNull);
+      expect(selected<int?>(tester, 'filter-weekday'), isNotNull);
+      expect(selected<ShiftState?>(tester, 'filter-state'), isNotNull);
+      expect(_rows(tester), hasLength(1));
+
+      await clear(tester);
+
+      expect(selected<int?>(tester, 'filter-doctor'), isNull);
+      expect(selected<int?>(tester, 'filter-specialty'), isNull);
+      expect(selected<int?>(tester, 'filter-weekday'), isNull);
+      expect(selected<ShiftState?>(tester, 'filter-state'), isNull);
+    });
+
+    testWidgets('vacía las dos fechas', (tester) async {
+      await _pump(tester);
+      await _typeDate(tester, 'Desde', '20/10/2026');
+      await _typeDate(tester, 'Hasta', '22/10/2026');
+      await _apply(tester);
+      expect(_fieldText(tester, 'Desde'), '20/10/2026');
+      expect(_fieldText(tester, 'Hasta'), '22/10/2026');
+
+      await clear(tester);
+
+      expect(_fieldText(tester, 'Desde'), isEmpty);
+      expect(_fieldText(tester, 'Hasta'), isEmpty);
+    });
+
+    testWidgets('deja el orden y el sentido por defecto', (tester) async {
+      await _pump(tester);
+      await _choose(tester, const Key('filter-order'), 'Médico');
+      await tester.tap(find.text('Ascendente'));
+      await tester.pumpAndSettle();
+      // Antes de limpiar: por médico y descendente (Silva primero).
+      expect(selected<ShiftOrder>(tester, 'filter-order'), ShiftOrder.doctor);
+      expect(find.text('Descendente'), findsOneWidget);
+      expect(_rows(tester).first[_doctor], 'Esteban Silva');
+
+      await clear(tester);
+
+      expect(selected<ShiftOrder>(tester, 'filter-order'), ShiftOrder.date);
+      expect(find.text('Ascendente'), findsOneWidget);
+      expect(find.text('Descendente'), findsNothing);
+      expect(_rows(tester).first[_date], '19/10/2026');
+    });
+
+    testWidgets('vuelve a la página 1', (tester) async {
+      await _pump(tester);
+      await tester.tap(find.text('Siguiente'));
+      await tester.pumpAndSettle();
+      expect(find.text('Página 2 de 2 · 32 turnos'), findsOneWidget);
+
+      await clear(tester);
+
+      expect(find.text('Página 1 de 2 · 32 turnos'), findsOneWidget);
+    });
+
+    testWidgets('aplica la búsqueda al instante, sin apretar "Buscar"', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _choose(tester, const Key('filter-doctor'), 'Carla Méndez');
+      await _apply(tester);
+      expect(_rows(tester), hasLength(4));
+
+      await clear(tester);
+
+      expect(_rows(tester), hasLength(20));
+      expect(find.text('Página 1 de 2 · 32 turnos'), findsOneWidget);
+    });
+
+    testWidgets('descarta lo elegido que todavía no se había aplicado', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _choose(tester, const Key('filter-state'), 'Suspendida');
+      // Elegido pero sin "Buscar": la lista sigue completa.
+      expect(selected<ShiftState?>(tester, 'filter-state'), isNotNull);
+      expect(find.text('Página 1 de 2 · 32 turnos'), findsOneWidget);
+
+      await clear(tester);
+      expect(selected<ShiftState?>(tester, 'filter-state'), isNull);
+
+      // Y si se busca ahora, no queda nada de lo elegido antes.
+      await _apply(tester);
+      expect(find.text('Página 1 de 2 · 32 turnos'), findsOneWidget);
+    });
+
+    testWidgets('limpia el error de rango', (tester) async {
+      await _pump(tester);
+      await _typeDate(tester, 'Desde', '01/11/2026');
+      await _typeDate(tester, 'Hasta', '01/10/2026');
+      await _apply(tester);
+      const rangeMessage =
+          'La fecha "Desde" no puede ser posterior a la fecha "Hasta".';
+      expect(find.text(rangeMessage), findsOneWidget);
+
+      await clear(tester);
+
+      expect(find.text(rangeMessage), findsNothing);
+    });
+
+    testWidgets('limpia un error de formato que se estaba viendo', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _typeDate(tester, 'Desde', '31/02/2026');
+      // Primero: el error está a la vista.
+      expect(find.text(_nonexistentDate), findsOneWidget);
+
+      await clear(tester);
+
+      expect(find.text(_nonexistentDate), findsNothing);
+      expect(find.text(_badDateFormat), findsNothing);
+      expect(_fieldText(tester, 'Desde'), isEmpty);
+    });
+
+    testWidgets('suelta el foco del campo de fecha', (tester) async {
+      await _pump(tester);
+      await _typeDate(tester, 'Desde', '20/10');
+      expect(anyDateFieldFocused(tester), isTrue);
+
+      await clear(tester);
+
+      expect(anyDateFieldFocused(tester), isFalse);
+    });
+
+    testWidgets('desde una búsqueda sin resultados vuelve a mostrar todo', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _choose(tester, const Key('filter-doctor'), 'Carla Méndez');
+      await _choose(tester, const Key('filter-weekday'), 'Lunes');
+      await _apply(tester);
+      expect(
+        find.text(
+          'No se encontraron turnos con esos filtros. Cambiá los criterios y '
+          'volvé a buscar.',
+        ),
+        findsOneWidget,
+      );
+
+      await clear(tester);
+
+      expect(find.byType(DataTable), findsOneWidget);
+      expect(_rows(tester), hasLength(20));
+      expect(find.textContaining('No se encontraron turnos'), findsNothing);
+    });
+
+    testWidgets('con todo ya limpio no cambia nada ni falla', (tester) async {
+      await _pump(tester);
+
+      await clear(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(_rows(tester), hasLength(20));
+      expect(find.text('Página 1 de 2 · 32 turnos'), findsOneWidget);
+      expect(find.text(_badDateFormat), findsNothing);
+      expect(find.text(_nonexistentDate), findsNothing);
     });
   });
 

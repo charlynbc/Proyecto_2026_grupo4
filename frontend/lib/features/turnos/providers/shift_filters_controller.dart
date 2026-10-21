@@ -30,6 +30,12 @@ class ShiftFiltersController extends Notifier<ShiftFilters> {
     );
   }
 
+  /// "Limpiar filtros": vuelve a los valores iniciales (sin filtros, por fecha,
+  /// ascendente y en la primera página).
+  void clear() {
+    state = const ShiftFilters();
+  }
+
   void sortBy(ShiftOrder order, {required bool ascending}) {
     state = state.copyWith(order: order, ascending: ascending, page: 0);
   }

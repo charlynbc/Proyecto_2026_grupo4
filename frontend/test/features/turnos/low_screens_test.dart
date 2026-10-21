@@ -121,5 +121,21 @@ void main() {
       await _expectReachable(tester, find.text('Siguiente'));
       await unmountApp(tester);
     });
+
+    testWidgets('"Limpiar filtros" se alcanza y funciona, sin desbordes', (
+      tester,
+    ) async {
+      await _pumpLowFuncionario(tester);
+
+      final clear = find.text('Limpiar filtros');
+      await _expectReachable(tester, clear);
+
+      await tester.tap(clear);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(Card), findsWidgets);
+      await unmountApp(tester);
+    });
   });
 }

@@ -95,6 +95,24 @@ class _ShiftsFilterBarState extends ConsumerState<ShiftsFilterBar> {
         );
   }
 
+  void _clear() {
+    // Tocar "Limpiar filtros" no mueve el foco del campo de fecha: se lo suelta
+    // acá para que en Android no quede el teclado abierto sobre la lista.
+    FocusScope.of(context).unfocus();
+
+    _fromController.clear();
+    _toController.clear();
+    setState(() {
+      _doctorId = null;
+      _specialtyId = null;
+      _weekday = null;
+      _state = null;
+      _rangeError = null;
+    });
+
+    ref.read(shiftFiltersControllerProvider.notifier).clear();
+  }
+
   @override
   Widget build(BuildContext context) {
     final applied = ref.watch(shiftFiltersControllerProvider);
@@ -214,6 +232,14 @@ class _ShiftsFilterBarState extends ConsumerState<ShiftsFilterBar> {
             onPressed: _search,
             icon: const Icon(Icons.search),
             label: const Text('Buscar'),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: OutlinedButton.icon(
+            onPressed: _clear,
+            icon: const Icon(Icons.filter_alt_off_outlined),
+            label: const Text('Limpiar filtros'),
           ),
         ),
         SizedBox(
