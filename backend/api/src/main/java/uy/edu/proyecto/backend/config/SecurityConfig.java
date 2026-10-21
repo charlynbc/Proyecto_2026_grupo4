@@ -92,6 +92,14 @@ public class SecurityConfig {
                                         .permitAll()
 
                                         .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/consultorios"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
                                                 "/api/admin/**"
                                         )
                                         .hasRole(
