@@ -184,6 +184,14 @@ public class SecurityConfig {
                                         )
 
                                         .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/medico/consultas/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
                                                 "/api/admin/**"
                                         )
                                         .hasRole(
