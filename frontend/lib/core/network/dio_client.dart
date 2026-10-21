@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/app_config.dart';
 import 'auth_interceptor.dart';
 import 'http_client_adapter_stub.dart'
     if (dart.library.js_interop) 'http_client_adapter_web.dart'
@@ -9,8 +10,7 @@ import 'http_client_adapter_stub.dart'
 /// Cliente HTTP central de la app. Todas las features lo consumen a través
 /// de [dioProvider] en vez de instanciar su propio `Dio`.
 ///
-/// `baseUrl` se puede sobreescribir en build/run con
-/// `--dart-define=API_BASE_URL=...`; por defecto apunta al backend local.
+/// `baseUrl` viene de [AppConfig.apiBaseUrl] (`--dart-define=API_BASE_URL=...`).
 ///
 /// El refresh token viaja en una cookie `HttpOnly` que maneja el navegador
 /// (o, en Android, un `PersistCookieJar` propio, ver
@@ -21,10 +21,7 @@ import 'http_client_adapter_stub.dart'
 final dioProvider = FutureProvider<Dio>((ref) async {
   final dio = Dio(
     BaseOptions(
-      baseUrl: const String.fromEnvironment(
-        'API_BASE_URL',
-        defaultValue: 'http://localhost:8080',
-      ),
+      baseUrl: AppConfig.apiBaseUrl,
     ),
   );
   await platform_adapter.configureCredentials(dio);

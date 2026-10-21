@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/user_role.dart';
 import 'auth_repository_provider.dart';
 
 enum SessionStatus { checking, authenticated, unauthenticated }
@@ -20,12 +21,12 @@ class SessionState {
 
   final SessionStatus status;
   final String? accessToken;
-  final String? role;
+  final UserRole? role;
 
   /// True cuando se llegó a `unauthenticated` porque una sesión que estaba
-  /// activa dejó de serlo (el refresh del interceptor de auth devolvió 401
-  /// en medio del uso de la app), y no por un logout voluntario ni porque el
-  /// bootstrap inicial no encontró sesión previa. La consume `LoginScreen`
+  /// activa dejó de serlo (vencida, revocada o cuenta inactivada: el servidor
+  /// respondió 401 y no se pudo renovar), y no por un logout voluntario ni
+  /// porque el bootstrap inicial no encontró sesión previa. La consume `LoginScreen`
   /// vía [SessionNotifier.consumeExpired] para mostrar un aviso distinto.
   final bool expired;
 
@@ -63,7 +64,7 @@ class SessionNotifier extends Notifier<SessionState> {
     }
   }
 
-  void setAuthenticated({required String accessToken, required String role}) {
+  void setAuthenticated({required String accessToken, required UserRole role}) {
     state = SessionState(
       status: SessionStatus.authenticated,
       accessToken: accessToken,
@@ -71,11 +72,26 @@ class SessionNotifier extends Notifier<SessionState> {
     );
   }
 
+  /// Guarda la sesión que devuelven login y refresh (`{token, role, ...}`).
+  /// Lanza [FormatException] si falta el token o el rol no se conoce: sin rol
+  /// no se sabe qué mostrar, así que no se inicia la sesión.
+  void setAuthenticatedFromResponse(Map<String, dynamic> data) {
+    final token = data['token'];
+    final role = UserRole.tryParse(data['role'] as String?);
+    if (token is! String || token.isEmpty || role == null) {
+      throw const FormatException('Respuesta de sesión incompleta');
+    }
+    setAuthenticated(accessToken: token, role: role);
+  }
+
   /// Pasa el estado a `unauthenticated`. [expired] distingue una sesión que
   /// caducó en medio del uso de la app de un logout voluntario o del
   /// bootstrap inicial sin sesión previa (ninguno de esos dos es un error).
   void clear({bool expired = false}) {
-    state = SessionState(status: SessionStatus.unauthenticated, expired: expired);
+    state = SessionState(
+      status: SessionStatus.unauthenticated,
+      expired: expired,
+    );
   }
 
   /// Lee si la sesión terminó por expiración y resetea el flag a `false` en

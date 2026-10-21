@@ -1,21 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config.dart';
+import '../models/access_type.dart';
 import '../providers/session_provider.dart';
+import '../widgets/auth_scaffold.dart';
 import '../widgets/login_form.dart';
 
+/// Login con dos accesos, Socio y Empleado, según los mockups (diseño 6.1.1 y
+/// 6.2.1). El de empleados existe solo en la web (RNF-02): en Android la
+/// pantalla muestra únicamente el acceso de socios, sin selector.
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({
+    super.key,
+    this.access = AccessType.socio,
+    this.accountActivated = false,
+  });
+
+  /// Acceso pedido por la ruta (`?acceso=`).
+  final AccessType access;
+
+  /// Se llegó desde la activación de la cuenta: se muestra el aviso de éxito.
+  final bool accountActivated;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  static const _kMaxFormWidth = 440.0;
-
   // Se lee una sola vez, al mostrarse la pantalla: consumeExpired() resetea
   // el flag en el mismo momento en que lo lee, así que guardarlo en el
   // provider y volver a mirarlo en cada build() haría que el aviso
@@ -38,112 +51,80 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _kMaxFormWidth),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset('assets/images/logo.svg', height: 225),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Bienvenido al Portal del Socio',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Ingresá tu cédula de identidad completa, sin puntos ni '
-                    'guiones, incluyendo el dígito verificador.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  if (_sessionExpired) ...[
-                    const SizedBox(height: 16),
-                    const _SessionExpiredBanner(),
-                  ],
-                  const SizedBox(height: 24),
-                  const LoginForm(),
-                  const SizedBox(height: 24),
-                  TextButton(
-                    onPressed: () => context.push('/estadisticas'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.outline,
-                      textStyle: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    child: const Text('Ver demo de estadísticas'),
-                  ),
-                ],
-              ),
-            ),
+    final employeeAvailable = ref.watch(employeeAccessAvailableProvider);
+    final access = employeeAvailable ? widget.access : AccessType.socio;
+    final isMember = access == AccessType.socio;
+
+    return AuthScaffold(
+      subtitle: isMember ? 'Acceso para socios' : 'Acceso para empleados',
+      children: [
+        if (_sessionExpired) ...[
+          const SessionEndedNotice(),
+          const SizedBox(height: 16),
+        ],
+        if (widget.accountActivated) ...[
+          const AuthNotice(
+            title: 'Tu cuenta quedó activa',
+            messages: ['Ingresá con tu cédula y la contraseña que elegiste.'],
           ),
-        ),
-      ),
+          const SizedBox(height: 16),
+        ],
+        // La clave por acceso descarta lo escrito al cambiar de acceso.
+        LoginForm(key: ValueKey(access), access: access),
+        const Divider(height: 32),
+        if (!employeeAvailable)
+          Text(
+            'Si sos funcionario, médico o administrador, ingresá desde la '
+            'versión web: el acceso de empleados no está en la aplicación '
+            'Android.',
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          )
+        else
+          Column(
+            children: [
+              Text(
+                isMember
+                    ? '¿Es funcionario, médico o administrador?'
+                    : '¿Es socio?',
+                textAlign: TextAlign.center,
+              ),
+              TextButton(
+                onPressed: () => context.go(
+                  isMember
+                      ? '/login?acceso=${AccessType.empleado.queryValue}'
+                      : '/login',
+                ),
+                child: Text(
+                  isMember
+                      ? 'Ingresar por el acceso de empleados'
+                      : 'Ingresar por el acceso de socios',
+                ),
+              ),
+            ],
+          ),
+      ],
     );
   }
 }
 
-/// Aviso de que la sesión anterior expiró por seguridad. A diferencia del
-/// error de LoginForm (sobre el intento de login actual), este es sobre por
-/// qué se llegó a esta pantalla.
-class _SessionExpiredBanner extends StatelessWidget {
-  const _SessionExpiredBanner();
+/// Aviso de que la sesión anterior terminó. El servidor responde lo mismo si
+/// la sesión venció, se cerró desde otro lugar o la cuenta se inactivó, así
+/// que el texto cubre las tres sin afirmar ninguna.
+class SessionEndedNotice extends StatelessWidget {
+  const SessionEndedNotice({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.tertiaryContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.info_outline, color: colorScheme.onTertiaryContainer),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tu sesión se cerró',
-                  style: textTheme.titleSmall?.copyWith(
-                    color: colorScheme.onTertiaryContainer,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Por seguridad, la sesión se cierra sola después de un '
-                  'tiempo. Esto protege tus datos si dejás el portal '
-                  'abierto en una computadora o un celular que usan otras '
-                  'personas. De esta forma, nadie más puede ver ni cambiar '
-                  'tus turnos.',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onTertiaryContainer,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Ingresá de nuevo con tu cédula y tu contraseña. Si '
-                  'estabas reservando un turno, fijate en Mis reservas si '
-                  'quedó confirmado.',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: colorScheme.onTertiaryContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return const AuthNotice(
+      title: 'Tu sesión se cerró',
+      messages: [
+        'Por seguridad, la sesión se cierra sola después de un tiempo, o si '
+            'se cerró desde otro dispositivo, o si tu cuenta dejó de estar '
+            'habilitada. Así nadie más puede ver ni cambiar tus datos.',
+        'Ingresá de nuevo con tu cédula y tu contraseña. Si no podés '
+            'ingresar, comunicate con la institución.',
+      ],
     );
   }
 }

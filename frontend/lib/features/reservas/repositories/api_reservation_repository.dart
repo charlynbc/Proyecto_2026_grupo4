@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../../core/network/api_routes.dart';
 import '../models/reservation.dart';
 import 'reservation_repository.dart';
 
@@ -10,7 +11,9 @@ class ApiReservationRepository implements ReservationRepository {
   @override
   Future<List<Reservation>> listMine() async {
     try {
-      final response = await _dio.get<List<dynamic>>('/api/mis-reservas');
+      final response = await _dio.get<List<dynamic>>(
+        ApiRoutes.pocMyReservations,
+      );
       return response.data!
           .map((e) => Reservation.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -23,7 +26,7 @@ class ApiReservationRepository implements ReservationRepository {
   Future<void> cancel({required int reservationId}) async {
     try {
       await _dio.patch<Map<String, dynamic>>(
-        '/api/reservas/$reservationId/cancelacion',
+        ApiRoutes.pocReservationCancel(reservationId),
       );
     } on DioException catch (e) {
       _throwMapped(e);

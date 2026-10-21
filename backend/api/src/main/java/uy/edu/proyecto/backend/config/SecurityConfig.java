@@ -81,7 +81,9 @@ public class SecurityConfig {
                                                 "/api/auth/registro",
                                                 "/api/auth/login",
                                                 "/api/auth/refresh",
-                                                "/api/auth/logout"
+                                                "/api/auth/logout",
+                                                "/api/auth/primer-ingreso/solicitar",
+                                                "/api/auth/primer-ingreso/completar"
                                         )
                                         .permitAll()
 
@@ -90,6 +92,104 @@ public class SecurityConfig {
                                                 "/api/auth/confirmar-email"
                                         )
                                         .permitAll()
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/especialidades"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/consultorios"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/consultorios/importaciones/**"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/usuarios"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/turnos-semanales"
+                                        )
+                                        .hasRole(
+                                                "FUNCIONARIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/disponibilidad"
+                                        )
+                                        .hasRole(
+                                                "SOCIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/turnos",
+                                                "/api/turnos-semanales/**"
+                                        )
+                                        .hasRole(
+                                                "FUNCIONARIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/avisos-llegada/consultas-hoy"
+                                        )
+                                        .hasRole(
+                                                "FUNCIONARIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/avisos-llegada"
+                                        )
+                                        .hasRole(
+                                                "FUNCIONARIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/consultas"
+                                        )
+                                        .hasRole(
+                                                "SOCIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/medico/turnos",
+                                                "/api/medico/turnos/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/medico/consultas/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
 
                                         .requestMatchers(
                                                 "/api/admin/**"
@@ -101,8 +201,9 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 "/api/reservas/**"
                                         )
-                                        .hasRole(
-                                                "PACIENTE"
+                                        .hasAnyRole(
+                                                "PACIENTE",
+                                                "SOCIO"
                                         )
 
                                         .anyRequest()

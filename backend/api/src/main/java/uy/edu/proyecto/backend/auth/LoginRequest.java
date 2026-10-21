@@ -1,14 +1,11 @@
 package uy.edu.proyecto.backend.auth;
 
-import jakarta.validation.constraints.NotBlank;
-
 public record LoginRequest(
-
-        @NotBlank
+        String ci,
+        String password,
+        String acceso,
+        String plataforma,
         String cedula,
-
-        @NotBlank
         String clave
-
 ) {
 }
