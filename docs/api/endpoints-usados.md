@@ -39,8 +39,8 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 
 | # | Método y ruta | Roles | RF | Pantalla del front | Estado | Usada por el front | Campos y errores |
 |---|---|---|---|---|---|---|---|
-| 18 | `GET /api/consultas` | SOCIO | 11 | Mis consultas | PROPUESTA | - | [contrato #18](contrato-v1.md#e18) |
-| 19 | `GET /api/consultas/{id}` | SOCIO | 11 | Detalle de consulta | PROPUESTA | - | [contrato #19](contrato-v1.md#e19) |
+| 18 | `GET /api/consultas` | SOCIO | 11 | Mis consultas | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026 | [contrato #18](contrato-v1.md#e18) |
+| 19 | `GET /api/consultas/{id}` | SOCIO | 11 | Detalle de consulta | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026 | [contrato #19](contrato-v1.md#e19) |
 | 20 | `POST /api/consultas/{id}/cancelar` | SOCIO | 10 | Cancelar consulta | PROPUESTA | - | [contrato #20](contrato-v1.md#e20) |
 | 21 | `GET /api/historia-clinica` | SOCIO | 12 | Historia clínica | PROPUESTA | - | [contrato #21](contrato-v1.md#e21) |
 | 22 | `GET /api/historia-clinica/{idAtencion}` | SOCIO | 12 | Detalle de atención | PROPUESTA | - | [contrato #22](contrato-v1.md#e22) |
@@ -75,7 +75,7 @@ migran: se usa solo el modelo del Proyecto 2026.
 | GET /api/profesionales | #10 `GET /api/medicos` | **Pendiente de implementación** en el backend. La disponibilidad ofrece solo los médicos con números libres |
 | GET /api/profesionales/{id}/horarios | #16 `GET /api/disponibilidad` | migrado en Flutter |
 | POST /api/reservas | #17 `POST /api/consultas` | migrado en Flutter (reserva por `numeroId`) |
-| GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | **Pendiente de implementación**; la pantalla lo indica |
+| GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | migrado en backend y Flutter; usa filtros y paginación del contrato |
 | PATCH /api/reservas/{id}/cancelacion | #20 `POST /api/consultas/{id}/cancelar` | **Pendiente de implementación**; acción deshabilitada |
 | `POST /api/notificaciones/registro` | #33 | se mantiene (no usa el esquema `"POC"`) |
 

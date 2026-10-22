@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/agenda/screens/appointments_pending_screen.dart';
+import '../../features/agenda/screens/appointment_detail_screen.dart';
 import '../../features/agenda/screens/availability_screen.dart';
 import '../../features/auth/models/access_type.dart';
 import '../../features/auth/models/user_role.dart';
@@ -191,6 +192,15 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
         return GoRoute(
           path: path,
           builder: (context, state) => const AppointmentsPendingScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              redirect: (context, state) =>
+                  _appointmentId(state) == null ? kAppointmentsPath : null,
+              builder: (context, state) =>
+                  AppointmentDetailScreen(id: _appointmentId(state)!),
+            ),
+          ],
         );
     }
   }
@@ -205,6 +215,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
 int? _weeklyShiftId(GoRouterState state) {
   final text = state.pathParameters['id'] ?? '';
   return RegExp(r'^\d+$').hasMatch(text) ? int.tryParse(text) : null;
+}
+
+int? _appointmentId(GoRouterState state) {
+  final text = state.pathParameters['id'] ?? '';
+  final id = RegExp(r'^\d+$').hasMatch(text) ? int.tryParse(text) : null;
+  return id != null && id > 0 ? id : null;
 }
 
 /// Puente entre sessionProvider y GoRouter: cada cambio de sesión notifica a

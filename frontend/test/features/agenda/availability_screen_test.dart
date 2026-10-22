@@ -1,8 +1,12 @@
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/agenda/models/availability_query.dart';
 import 'package:agenda_medica/features/agenda/models/available_number.dart';
+import 'package:agenda_medica/features/agenda/models/appointment_history_page.dart';
+import 'package:agenda_medica/features/agenda/models/appointment_history_query.dart';
 import 'package:agenda_medica/features/agenda/providers/agenda_repository_provider.dart';
+import 'package:agenda_medica/features/agenda/providers/appointment_history_provider.dart';
 import 'package:agenda_medica/features/agenda/repositories/agenda_repository.dart';
+import 'package:agenda_medica/features/agenda/repositories/appointment_history_repository.dart';
 import 'package:agenda_medica/features/agenda/screens/appointments_pending_screen.dart';
 import 'package:agenda_medica/features/agenda/screens/availability_screen.dart';
 import 'package:agenda_medica/features/consultorios/models/clinic.dart';
@@ -11,6 +15,7 @@ import 'package:agenda_medica/features/especialidades/providers/specialties_prov
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 const _general = Specialty(
   id: 1,
@@ -85,6 +90,27 @@ class _FakeAgenda implements AgendaRepository {
   }
 }
 
+class _FakeHistory implements AppointmentHistoryRepository {
+  int listCalls = 0;
+
+  @override
+  Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
+    listCalls++;
+    return AppointmentHistoryPage(
+      items: const [],
+      page: query.page,
+      size: query.size,
+      total: 0,
+    );
+  }
+
+  @override
+  Future<Appointment> get(int id) async =>
+      throw const AppointmentHistoryException(
+        AppointmentHistoryFailure.notFound,
+      );
+}
+
 Future<_FakeAgenda> _pump(
   WidgetTester tester,
   Widget home, {
@@ -98,6 +124,9 @@ Future<_FakeAgenda> _pump(
     ProviderScope(
       overrides: [
         agendaRepositoryProvider.overrideWith((ref) async => repo),
+        appointmentHistoryRepositoryProvider.overrideWith(
+          (ref) async => _FakeHistory(),
+        ),
         specialtiesProvider.overrideWith((ref) async => [_general, _cardio]),
       ],
       child: MaterialApp(home: home),
@@ -269,18 +298,59 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets('Mis consultas dice que está pendiente y no muestra datos', (
+  testWidgets(
+    'Mis consultas muestra el estado real vacío sin datos ficticios',
+    (tester) async {
+      await _pump(tester, const AppointmentsPendingScreen());
+      expect(find.byKey(const Key('history-empty')), findsOneWidget);
+      expect(find.text('Pendiente de implementación'), findsNothing);
+      expect(find.byType(ListTile), findsNothing);
+    },
+  );
+
+  testWidgets('después de agendar permite abrir Mis consultas actualizado', (
     tester,
   ) async {
-    await _pump(tester, const AppointmentsPendingScreen());
-    expect(find.text('Pendiente de implementación'), findsOneWidget);
-    expect(find.textContaining('RF-11'), findsOneWidget);
-    expect(find.text('Cancelación de consultas'), findsOneWidget);
-    expect(find.text('Listado de médicos'), findsOneWidget);
-    final cancel = tester.widget<OutlinedButton>(
-      find.widgetWithText(OutlinedButton, 'Cancelar consulta'),
+    final agenda = _FakeAgenda();
+    final history = _FakeHistory();
+    final router = GoRouter(
+      initialLocation: kAvailabilityPath,
+      routes: [
+        GoRoute(
+          path: kAvailabilityPath,
+          builder: (context, state) => const AvailabilityScreen(),
+        ),
+        GoRoute(
+          path: kAppointmentsPath,
+          builder: (context, state) => const AppointmentsPendingScreen(),
+        ),
+      ],
     );
-    expect(cancel.onPressed, isNull);
-    expect(find.byType(ListTile), findsNothing);
+    addTearDown(router.dispose);
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          agendaRepositoryProvider.overrideWith((ref) async => agenda),
+          appointmentHistoryRepositoryProvider.overrideWith(
+            (ref) async => history,
+          ),
+          specialtiesProvider.overrideWith((ref) async => [_general, _cardio]),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _chooseSpecialty(tester, 'Medicina general');
+    await _confirm(tester, 11);
+
+    await tester.tap(find.byKey(const Key('booked-view-appointments')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mis consultas'), findsOneWidget);
+    expect(find.byKey(const Key('history-empty')), findsOneWidget);
+    expect(history.listCalls, 1);
   });
 }

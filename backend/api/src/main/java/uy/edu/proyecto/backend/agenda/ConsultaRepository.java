@@ -3,6 +3,8 @@ package uy.edu.proyecto.backend.agenda;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -13,6 +15,90 @@ import uy.edu.proyecto.backend.especialidad.Especialidad;
 
 @Repository
 public class ConsultaRepository {
+
+    private static final String HISTORIAL_CTE = """
+            WITH consulta_historial AS (
+                SELECT consulta.id_consulta,
+                       consulta.id_socio,
+                       CASE
+                           WHEN consulta.estado = 'AGENDADA'
+                                AND consulta.fecha_resultado IS NULL
+                                AND turno.fecha < ? THEN
+                               CASE
+                                   WHEN EXISTS (
+                                       SELECT 1
+                                       FROM public.aviso_llegada aviso
+                                       WHERE aviso.id_socio = consulta.id_socio
+                                         AND aviso.fecha = turno.fecha
+                                   ) THEN 'NO_ATENDIDA'
+                                   ELSE 'NO_ASISTIO'
+                               END
+                           ELSE consulta.estado
+                       END AS estado,
+                       turno.fecha,
+                       numero.numero,
+                       numero.hora_inicio,
+                       numero.hora_fin,
+                       semanal.id_medico,
+                       persona.nombre AS medico_nombre,
+                       persona.apellido AS medico_apellido,
+                       semanal.id_especialidad,
+                       especialidad.nombre AS especialidad_nombre,
+                       especialidad.requiere_pase,
+                       turno.id_consultorio,
+                       consultorio.nombre AS consultorio_nombre,
+                       consultorio.ubicacion AS consultorio_ubicacion,
+                       consulta.id_pase,
+                       consulta.agendada_en,
+                       consulta.cancelada_en,
+                       consulta.motivo_cancelacion
+                FROM public.consulta consulta
+                JOIN public.numero numero
+                  ON numero.id_numero = consulta.id_numero
+                JOIN public.turno turno
+                  ON turno.id_turno = numero.id_turno
+                JOIN public.turno_semanal semanal
+                  ON semanal.id_turno_semanal = turno.id_turno_semanal
+                JOIN public.cuenta medico
+                  ON medico.id_cuenta = semanal.id_medico
+                JOIN public.persona persona
+                  ON persona.ci = medico.ci
+                JOIN public.especialidad especialidad
+                  ON especialidad.id_especialidad = semanal.id_especialidad
+                JOIN public.consultorio consultorio
+                  ON consultorio.id_consultorio = turno.id_consultorio
+                WHERE consulta.id_socio = ?
+            )
+            """;
+
+    private static final org.springframework.jdbc.core.RowMapper<ConsultaDTO>
+            HISTORIAL_ROW_MAPPER = (rs, rowNum) -> new ConsultaDTO(
+                    rs.getLong("id_consulta"),
+                    rs.getString("estado"),
+                    rs.getObject("fecha", LocalDate.class),
+                    rs.getInt("numero"),
+                    rs.getObject("hora_inicio", LocalTime.class).toString(),
+                    rs.getObject("hora_fin", LocalTime.class).toString(),
+                    new ConsultaDTO.MedicoRef(
+                            rs.getLong("id_medico"),
+                            rs.getString("medico_nombre"),
+                            rs.getString("medico_apellido")
+                    ),
+                    new Especialidad(
+                            rs.getLong("id_especialidad"),
+                            rs.getString("especialidad_nombre"),
+                            rs.getBoolean("requiere_pase")
+                    ),
+                    new Consultorio(
+                            rs.getLong("id_consultorio"),
+                            rs.getString("consultorio_nombre"),
+                            rs.getString("consultorio_ubicacion")
+                    ),
+                    (Long) rs.getObject("id_pase"),
+                    rs.getObject("agendada_en", OffsetDateTime.class),
+                    rs.getObject("cancelada_en", OffsetDateTime.class),
+                    rs.getString("motivo_cancelacion")
+            );
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -277,6 +363,113 @@ public class ConsultaRepository {
                 """,
                 consultaId
         );
+    }
+
+    public ConsultaHistorialPageResponse listarHistorial(
+            Long socioId,
+            ConsultaHistorialFiltro filtro,
+            LocalDate hoyUruguay
+    ) {
+        List<Object> parametros = new ArrayList<>();
+        String where = filtrosHistorial(socioId, filtro, hoyUruguay, parametros);
+        long total = jdbcTemplate.queryForObject(
+                HISTORIAL_CTE
+                        + "SELECT COUNT(*) FROM consulta_historial"
+                        + where,
+                Long.class,
+                parametros.toArray()
+        );
+
+        String columnaOrden = switch (filtro.orden()) {
+            case "fecha" -> "fecha";
+            case "especialidad" -> "especialidad_nombre";
+            default -> throw new IllegalArgumentException(
+                    "El orden debe validarse antes de consultar el repositorio"
+            );
+        };
+        String sentidoOrden = switch (filtro.sentido()) {
+            case "asc" -> "ASC";
+            case "desc" -> "DESC";
+            default -> throw new IllegalArgumentException(
+                    "El sentido debe validarse antes de consultar el repositorio"
+            );
+        };
+
+        List<Object> paginaParametros = new ArrayList<>(parametros);
+        paginaParametros.add(filtro.size());
+        paginaParametros.add((long) filtro.page() * filtro.size());
+        List<ConsultaDTO> items = jdbcTemplate.query(
+                HISTORIAL_CTE
+                        + """
+                        SELECT *
+                        FROM consulta_historial
+                        """
+                        + where
+                        + " ORDER BY " + columnaOrden + " " + sentidoOrden
+                        + ", id_consulta " + sentidoOrden
+                        + " LIMIT ? OFFSET ?",
+                HISTORIAL_ROW_MAPPER,
+                paginaParametros.toArray()
+        );
+        return new ConsultaHistorialPageResponse(
+                items,
+                filtro.page(),
+                filtro.size(),
+                total
+        );
+    }
+
+    public Optional<ConsultaDTO> obtenerHistorialDelSocio(
+            Long socioId,
+            Long consultaId,
+            LocalDate hoyUruguay
+    ) {
+        return jdbcTemplate.query(
+                        HISTORIAL_CTE
+                                + """
+                                SELECT *
+                                FROM consulta_historial
+                                WHERE id_consulta = ?
+                                """,
+                        HISTORIAL_ROW_MAPPER,
+                        hoyUruguay,
+                        socioId,
+                        consultaId
+                )
+                .stream()
+                .findFirst();
+    }
+
+    private String filtrosHistorial(
+            Long socioId,
+            ConsultaHistorialFiltro filtro,
+            LocalDate hoyUruguay,
+            List<Object> parametros
+    ) {
+        parametros.add(hoyUruguay);
+        parametros.add(socioId);
+        StringBuilder where = new StringBuilder(" WHERE TRUE");
+        if (filtro.estado() != null) {
+            where.append(" AND estado = ?");
+            parametros.add(filtro.estado());
+        }
+        if (filtro.fechaDesde() != null) {
+            where.append(" AND fecha >= ?");
+            parametros.add(filtro.fechaDesde());
+        }
+        if (filtro.fechaHasta() != null) {
+            where.append(" AND fecha <= ?");
+            parametros.add(filtro.fechaHasta());
+        }
+        if (filtro.especialidadId() != null) {
+            where.append(" AND id_especialidad = ?");
+            parametros.add(filtro.especialidadId());
+        }
+        if (filtro.medicoId() != null) {
+            where.append(" AND id_medico = ?");
+            parametros.add(filtro.medicoId());
+        }
+        return where.toString();
     }
 
     public record NumeroParaAgendar(

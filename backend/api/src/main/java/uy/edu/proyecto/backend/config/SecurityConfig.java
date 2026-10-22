@@ -169,6 +169,15 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.GET,
+                                                "/api/consultas",
+                                                "/api/consultas/*"
+                                        )
+                                        .hasRole(
+                                                "SOCIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
                                                 "/api/medico/turnos",
                                                 "/api/medico/turnos/**"
                                         )

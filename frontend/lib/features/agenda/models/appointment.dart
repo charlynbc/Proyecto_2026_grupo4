@@ -43,7 +43,7 @@ class Appointment {
 
   final int id;
 
-  /// `AGENDADA` al crearla; el resto de los estados llegan con RF-11.
+  /// Los estados calculados de RF-11 no se persisten en PostgreSQL.
   final String status;
   final DateTime date;
   final int number;
@@ -62,6 +62,12 @@ class Appointment {
 
   String get statusLabel => switch (status) {
     'AGENDADA' => 'Agendada',
+    'ATENDIDA' => 'Atendida',
+    'CANCELADA_SOCIO' => 'Cancelada por el socio',
+    'CANCELADA_INSTITUCION' => 'Cancelada por la institución',
+    'NO_SE_PRESENTO' => 'No se presentó',
+    'NO_ASISTIO' => 'No asistió',
+    'NO_ATENDIDA' => 'No atendida',
     _ => status,
   };
 }

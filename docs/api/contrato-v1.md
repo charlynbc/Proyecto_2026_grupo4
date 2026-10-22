@@ -5,7 +5,7 @@ Estado del documento: **PROPUESTA del frontend**, 14/10/2026, rama `docs/contrat
 ## 0. Cómo leer este documento
 
 - **Fuentes.** Las operaciones y los DTO salen de `docs/analisis/diseno.md` secciones 2.1 a 2.7 (figuras 1 a 7) y de las secuencias S01 a S25. Las reglas salen de `requerimientos.md` (RF y RNF). Los flujos salen de `casos-de-uso.md`. Las reglas de la API (rutas bajo `/api`, recursos en plural, acciones explícitas de cambio de estado, error uniforme) salen de `arquitectura.md` 7.4, 8.3 y 8.5 y de `diseno.md` 4.5.
-- **PROPUESTA.** El Diseño no define ninguna ruta HTTP ni el nombre exacto de cada campo. Por eso **todas las rutas y todos los campos de este documento son PROPUESTA**, salvo los nombres de operación, de DTO y de parámetro que figuran en la tabla de la sección 2 (esos son del Diseño). Donde además se propone una regla o un mecanismo que ningún documento define, aparece la marca **PROPUESTA:** en el texto.
+- **PROPUESTA.** El Diseño no define ninguna ruta HTTP ni el nombre exacto de cada campo. Por eso **las rutas y campos de este documento son PROPUESTA**, salvo los nombres de operación, de DTO y de parámetro que figuran en la tabla de la sección 2 (esos son del Diseño), y las rutas #18 y #19, confirmadas por la implementación backend del 22/10/2026. Donde además se propone una regla o un mecanismo que ningún documento define, aparece la marca **PROPUESTA:** en el texto.
 - **Preguntas abiertas.** Lo que ningún documento resuelve está en la sección 9, sin decidir. En cada endpoint se la cita como `P-nn`. Mientras no se resuelvan, el cliente adopta el comportamiento más conservador.
 - **Mockups.** La sección 6 se hizo mirando las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), pantalla por pantalla. Las diferencias entre lo que muestra cada pantalla y lo que cubre el contrato están en esa sección y en las preguntas P-23 a P-33.
 - **Sin código.** No hay Java ni Dart. Los ejemplos JSON usan datos ficticios.
@@ -839,7 +839,7 @@ Preguntas relacionadas: P-07, P-08.
 #### #18 · `GET /api/consultas`
 
 - **Roles:** SOCIO (solo las propias).
-- **RF:** RF-11. **Diseño:** `consultarHistorial(socioId, filtros: FiltroHistorialDTO): Page<ConsultaHistorialDTO>` (S05). **Estado:** PROPUESTA.
+- **RF:** RF-11. **Diseño:** `consultarHistorial(socioId, filtros: FiltroHistorialDTO): Page<ConsultaHistorialDTO>` (S05). **Estado:** CONFIRMADA; implementada en backend y consumida por Flutter. La identidad del socio se obtiene del JWT y no se acepta como parámetro.
 
 Incluye las canceladas. Los estados calculados `NO_ASISTIO` y `NO_ATENDIDA` se resuelven al consultar, con el aviso de llegada del día (S05).
 
@@ -897,15 +897,24 @@ Incluye las canceladas. Los estados calculados `NO_ASISTIO` y `NO_ATENDIDA` se r
 
 Preguntas relacionadas: P-09.
 
+Implementado y confirmado por backend el 22/10/2026. La identidad del socio
+se obtiene del JWT. Los filtros, cálculo de estado y paginación se aplican
+antes de devolver la página; los errores de parámetros inválidos usan
+`400 VALIDACION`.
+
 <a id="e19"></a>
 #### #19 · `GET /api/consultas/{id}`
 
 - **Roles:** SOCIO (solo las propias).
-- **RF:** RF-11 ("con el detalle de cada una"). **Diseño:** S05. **Estado:** PROPUESTA.
+- **RF:** RF-11 ("con el detalle de cada una"). **Diseño:** S05. **Estado:** CONFIRMADA; implementada en backend y consumida por Flutter.
 
 Devuelve un `ConsultaHistorialDTO` (sección 1.9). Sin parámetros.
 
 **Errores:** `404 NO_ENCONTRADO` si no existe **o es de otro socio** (P-10).
+
+Implementado y confirmado por backend el 22/10/2026. El identificador debe ser
+positivo y los registros inexistentes o ajenos producen la misma respuesta
+404.
 
 <a id="e20"></a>
 #### #20 · `POST /api/consultas/{id}/cancelar`

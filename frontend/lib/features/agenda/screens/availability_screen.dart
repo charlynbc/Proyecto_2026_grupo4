@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -9,6 +10,8 @@ import '../../../core/utils/uruguay_time.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../../../core/widgets/ui_date_field.dart';
 import '../../auth/widgets/logout_button.dart';
+import '../providers/appointment_history_provider.dart';
+import 'appointments_pending_screen.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../models/appointment.dart';
@@ -119,9 +122,16 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       );
       if (!mounted) return;
       ref.invalidate(availabilityProvider);
+      ref.read(appointmentHistoryRefreshProvider.notifier).refresh();
       await showDialog<void>(
         context: context,
-        builder: (_) => _BookedDialog(appointment: appointment),
+        builder: (_) => _BookedDialog(
+          appointment: appointment,
+          onViewAppointments: () {
+            Navigator.of(context).pop();
+            context.go(kAppointmentsPath);
+          },
+        ),
       );
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -522,9 +532,13 @@ class _ConfirmBookingDialogState extends State<_ConfirmBookingDialog> {
 
 /// Los datos reales de la consulta que devolvió el servidor.
 class _BookedDialog extends StatelessWidget {
-  const _BookedDialog({required this.appointment});
+  const _BookedDialog({
+    required this.appointment,
+    required this.onViewAppointments,
+  });
 
   final Appointment appointment;
+  final VoidCallback onViewAppointments;
 
   @override
   Widget build(BuildContext context) {
@@ -566,6 +580,11 @@ class _BookedDialog extends StatelessWidget {
         ],
       ),
       actions: [
+        TextButton(
+          key: const Key('booked-view-appointments'),
+          onPressed: onViewAppointments,
+          child: const Text('Mis consultas'),
+        ),
         FilledButton(
           key: const Key('booked-ok'),
           onPressed: () => Navigator.pop(context),
