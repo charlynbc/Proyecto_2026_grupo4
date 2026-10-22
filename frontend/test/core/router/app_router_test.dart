@@ -110,7 +110,9 @@ void main() {
       // administrador ya es el padrón de usuarios y la del funcionario, la
       // consulta de turnos.
       final hasHomeScreen =
-          role == UserRole.administrador || role == UserRole.funcionario;
+          role == UserRole.administrador ||
+          role == UserRole.funcionario ||
+          role == UserRole.socio;
       expect(
         find.text('Próximamente'),
         hasHomeScreen ? findsNothing : findsOneWidget,

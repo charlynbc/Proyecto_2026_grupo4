@@ -1,48 +1,67 @@
-import '../models/professional.dart';
-import '../models/time_slot.dart';
+import '../../../core/network/api_exception.dart';
+import '../models/appointment.dart';
+import '../models/availability_query.dart';
+import '../models/available_number.dart';
 
+/// Disponibilidad (RF-08, contrato #16) y alta de consultas (RF-09,
+/// contrato #17). Listar las consultas del socio (RF-11) y cancelarlas no
+/// están en el backend todavía y por eso no figuran acá.
 abstract class AgendaRepository {
-  Future<List<Professional>> listProfessionals();
+  /// Los números libres de la especialidad de [query], en el orden pedido.
+  Future<List<AvailableNumber>> listAvailability(AvailabilityQuery query);
 
-  /// Los horarios libres de [professionalId] en [day] (hora de Uruguay,
-  /// ver `UruguayTime`). El backend ya filtra a horarios futuros y libres.
-  Future<List<TimeSlot>> listTimeSlots({
-    required int professionalId,
-    required DateTime day,
-  });
-
-  Future<void> reserve({required int timeSlotId});
+  /// Agenda el número [numberId] para el socio de la sesión. [referralId] es
+  /// el pase, que el servidor exige solo en las especialidades que lo piden.
+  /// Los rechazos del negocio llegan como [BookingException].
+  Future<Appointment> book({required int numberId, int? referralId});
 }
 
-class TimeSlotTakenException implements Exception {
-  const TimeSlotTakenException([
-    this.message = 'Otro socio tomó este horario recién. Elegí otro.',
-  ]);
+/// Por qué el servidor rechazó agendar, según el `code` del error uniforme.
+enum BookingFailure {
+  /// `NUMERO_NO_DISPONIBLE`: otro socio lo tomó, o el turno ya no está activo.
+  numberUnavailable,
 
-  final String message;
+  /// `ANTICIPACION_INVALIDA`: el número debe estar entre 2 horas y 30 días.
+  outsideWindow,
 
-  @override
-  String toString() => message;
+  /// `LIMITE_TOTAL`: ya hay tres consultas agendadas.
+  totalLimit,
+
+  /// `LIMITE_ESPECIALIDAD`: ya hay una consulta agendada en la especialidad.
+  specialtyLimit,
+
+  /// `CONSULTA_SUPERPUESTA`: se superpone con otra del socio.
+  overlap,
+
+  /// `PASE_NO_VALIDO`: falta el pase o no es propio, vigente y sin usar.
+  invalidReferral,
+
+  /// `VALIDACION` (400): los datos enviados no son válidos.
+  validation,
+
+  /// `NO_ENCONTRADO` (404): el número o la cuenta del socio no existen.
+  notFound,
+
+  /// `NO_AUTENTICADO` (401): la sesión no es válida.
+  unauthenticated,
+
+  /// `ACCESO_DENEGADO` (403): el rol no puede agendar.
+  forbidden,
+
+  /// Sin respuesta del servidor o un `code` que no se conoce.
+  other,
 }
 
-class TimeSlotStartedException implements Exception {
-  const TimeSlotStartedException([
-    this.message = 'Ese horario ya comenzó y no se puede reservar.',
-  ]);
+/// Un rechazo al agendar. El mensaje es el del servidor (seguro para mostrar)
+/// y la pantalla decide qué hacer por [failure], nunca por el texto.
+class BookingException extends ApiException {
+  const BookingException(this.failure, [super.message]);
 
-  final String message;
+  final BookingFailure failure;
 
-  @override
-  String toString() => message;
-}
-
-class AgendaException implements Exception {
-  const AgendaException([
-    this.message = 'No pudimos completar la operación. Intentá de nuevo.',
-  ]);
-
-  final String message;
-
-  @override
-  String toString() => message;
+  /// La disponibilidad mostrada quedó vieja: conviene volver a pedirla.
+  bool get availabilityIsStale =>
+      failure == BookingFailure.numberUnavailable ||
+      failure == BookingFailure.outsideWindow ||
+      failure == BookingFailure.notFound;
 }

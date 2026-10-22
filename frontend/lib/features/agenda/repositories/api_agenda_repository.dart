@@ -1,73 +1,75 @@
 import 'package:dio/dio.dart';
 
+import '../../../core/network/api_exception.dart';
 import '../../../core/network/api_routes.dart';
-import '../../../core/utils/uruguay_time.dart';
-import '../models/professional.dart';
-import '../models/time_slot.dart';
+import '../models/appointment.dart';
+import '../models/availability_query.dart';
+import '../models/available_number.dart';
 import 'agenda_repository.dart';
 
+/// Implementación real de [AgendaRepository] (contrato #16 y #17). Los
+/// rechazos se distinguen por `code`, nunca por el texto del mensaje. Una
+/// respuesta mal formada se vuelve el error genérico: no se rellena nada.
 class ApiAgendaRepository implements AgendaRepository {
   ApiAgendaRepository(this._dio);
 
   final Dio _dio;
 
   @override
-  Future<List<Professional>> listProfessionals() async {
+  Future<List<AvailableNumber>> listAvailability(
+    AvailabilityQuery query,
+  ) async {
     try {
-      final response = await _dio.get<List<dynamic>>(
-        ApiRoutes.pocProfessionals,
+      final response = await _dio.get<Map<String, dynamic>>(
+        ApiRoutes.availability,
+        queryParameters: query.toQueryParameters(),
       );
-      return response.data!
-          .map((e) => Professional.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return availableNumbersFromJson(
+        response.data ?? (throw const ApiException()),
+      );
     } on DioException catch (e) {
-      _throwMapped(e);
+      throw ApiException.fromDio(e);
+    } on FormatException {
+      throw const ApiException();
+    } on TypeError {
+      throw const ApiException();
     }
   }
 
   @override
-  Future<List<TimeSlot>> listTimeSlots({
-    required int professionalId,
-    required DateTime day,
-  }) async {
-    final from = UruguayTime.startOfDayIso(day);
-    final until = UruguayTime.startOfDayIso(day.add(const Duration(days: 1)));
+  Future<Appointment> book({required int numberId, int? referralId}) async {
     try {
-      final response = await _dio.get<List<dynamic>>(
-        ApiRoutes.pocProfessionalSlots(professionalId),
-        queryParameters: {'desde': from, 'hasta': until},
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiRoutes.appointments,
+        data: {'numeroId': numberId, 'paseId': referralId},
       );
-      return response.data!
-          .map((e) => TimeSlot.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return Appointment.fromJson(
+        response.data ?? (throw const ApiException()),
+      );
     } on DioException catch (e) {
-      _throwMapped(e);
+      throw _mapBookingError(e);
+    } on FormatException {
+      throw const ApiException();
+    } on TypeError {
+      throw const ApiException();
     }
   }
 
-  @override
-  Future<void> reserve({required int timeSlotId}) async {
-    try {
-      await _dio.post<Map<String, dynamic>>(
-        ApiRoutes.pocReservations,
-        data: {'horarioId': timeSlotId},
-      );
-    } on DioException catch (e) {
-      _throwMapped(e);
-    }
-  }
-
-  Never _throwMapped(DioException e) {
-    final data = e.response?.data;
-    final code = data is Map ? data['code'] as String? : null;
-    switch (code) {
-      case 'HORARIO_OCUPADO':
-        throw const TimeSlotTakenException();
-      case 'HORARIO_INICIADO':
-        throw const TimeSlotStartedException();
-    }
-    final message = data is Map ? data['message'] as String? : null;
-    if (message != null) throw AgendaException(message);
-    throw const AgendaException();
+  BookingException _mapBookingError(DioException e) {
+    final message = ApiException.fromDio(e).message;
+    final failure = switch (apiCodeOf(e)) {
+      'NUMERO_NO_DISPONIBLE' => BookingFailure.numberUnavailable,
+      'ANTICIPACION_INVALIDA' => BookingFailure.outsideWindow,
+      'LIMITE_TOTAL' => BookingFailure.totalLimit,
+      'LIMITE_ESPECIALIDAD' => BookingFailure.specialtyLimit,
+      'CONSULTA_SUPERPUESTA' => BookingFailure.overlap,
+      'PASE_NO_VALIDO' => BookingFailure.invalidReferral,
+      'VALIDACION' => BookingFailure.validation,
+      'NO_ENCONTRADO' => BookingFailure.notFound,
+      'NO_AUTENTICADO' => BookingFailure.unauthenticated,
+      'ACCESO_DENEGADO' => BookingFailure.forbidden,
+      _ => BookingFailure.other,
+    };
+    return BookingException(failure, message);
   }
 }

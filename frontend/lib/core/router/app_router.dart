@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/agenda/screens/appointments_pending_screen.dart';
+import '../../features/agenda/screens/availability_screen.dart';
 import '../../features/auth/models/access_type.dart';
 import '../../features/auth/models/user_role.dart';
 import '../../features/auth/providers/session_provider.dart';
@@ -175,6 +177,20 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
               builder: (context, state) => const NewClinicScreen(),
             ),
           ],
+        );
+    }
+  }
+  if (role == UserRole.socio) {
+    switch (path) {
+      case kAvailabilityPath:
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const AvailabilityScreen(),
+        );
+      case kAppointmentsPath:
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const AppointmentsPendingScreen(),
         );
     }
   }

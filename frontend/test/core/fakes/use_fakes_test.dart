@@ -4,7 +4,8 @@ import 'package:agenda_medica/core/fakes/fake_database.dart';
 import 'package:agenda_medica/core/network/dio_client.dart';
 import 'package:agenda_medica/core/utils/uruguay_time.dart';
 import 'package:agenda_medica/core/validators/uruguayan_ci_validator.dart';
-import 'package:agenda_medica/features/agenda/models/time_slot.dart';
+import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
+import 'package:agenda_medica/features/agenda/models/availability_query.dart';
 import 'package:agenda_medica/features/agenda/providers/agenda_repository_provider.dart';
 import 'package:agenda_medica/features/agenda/repositories/agenda_repository.dart';
 import 'package:agenda_medica/features/agenda/repositories/api_agenda_repository.dart';
@@ -16,10 +17,6 @@ import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/auth/repositories/api_auth_repository.dart';
 import 'package:agenda_medica/features/auth/repositories/auth_repository.dart';
 import 'package:agenda_medica/features/auth/repositories/fake_auth_repository.dart';
-import 'package:agenda_medica/features/reservas/providers/reservation_repository_provider.dart';
-import 'package:agenda_medica/features/reservas/repositories/api_reservation_repository.dart';
-import 'package:agenda_medica/features/reservas/repositories/fake_reservation_repository.dart';
-import 'package:agenda_medica/features/reservas/repositories/reservation_repository.dart';
 import 'package:agenda_medica/features/turnos/providers/shift_repository_provider.dart';
 import 'package:agenda_medica/features/turnos/repositories/api_shift_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/fake_shift_repository.dart';
@@ -56,12 +53,6 @@ void main() {
         expect(repo, isA<FakeAgendaRepository>());
       });
 
-      test('reservas', () async {
-        final repo = await _container(useFakes: true)
-            .read(reservationRepositoryProvider.future);
-        expect(repo, isA<FakeReservationRepository>());
-      });
-
       test('turnos', () async {
         final repo = await _container(useFakes: true)
             .read(shiftRepositoryProvider.future);
@@ -81,12 +72,6 @@ void main() {
       final repo = await _container(useFakes: false)
           .read(agendaRepositoryProvider.future);
       expect(repo, isA<ApiAgendaRepository>());
-    });
-
-    test('reservas', () async {
-      final repo = await _container(useFakes: false)
-          .read(reservationRepositoryProvider.future);
-      expect(repo, isA<ApiReservationRepository>());
     });
 
     test('turnos', () async {
@@ -197,48 +182,38 @@ void main() {
     });
   });
 
-  group('agenda y reservas falsas', () {
-    test(
-      'reservar quita el horario y aparece en mis reservas; cancelar lo libera',
-      () async {
-        final db = FakeDatabase(today: UruguayTime.today());
-        final agenda = FakeAgendaRepository(db, latency: Duration.zero);
-        final reservations = FakeReservationRepository(
-          db,
-          latency: Duration.zero,
-        );
+  group('agenda falsa', () {
+    test('reservar quita el número de la disponibilidad y no se repite', () async {
+      final db = FakeDatabase(today: UruguayTime.today());
+      final admin = FakeAdminDatabase();
+      final agenda = FakeAgendaRepository(
+        db,
+        admin,
+        latency: Duration.zero,
+      );
+      final specialty = admin.specialties.firstWhere(
+        (s) => !s.requiresReferral,
+      );
+      final query = AvailabilityQuery(specialtyId: specialty.id);
+      final items = await agenda.listAvailability(query);
+      expect(items, isNotEmpty);
 
-        // Un horario libre, que no sea de los que fallan a propósito.
-        TimeSlot? free;
-        for (final doctor in await agenda.listProfessionals()) {
-          for (final day in UruguayTime.nextDays(21)) {
-            final slots = await agenda.listTimeSlots(
-              professionalId: doctor.id,
-              day: day,
-            );
-            for (final slot in slots) {
-              if (slot.id % 100 == 0) free ??= slot;
-            }
-          }
-        }
-        expect(free, isNotNull);
+      final appointment = await agenda.book(numberId: items.last.numberId);
+      expect(appointment.status, 'AGENDADA');
+      expect(appointment.specialty.id, specialty.id);
 
-        final before = (await reservations.listMine()).length;
-        await agenda.reserve(timeSlotId: free!.id);
-        final after = await reservations.listMine();
-        expect(after, hasLength(before + 1));
-
-        await expectLater(
-          agenda.reserve(timeSlotId: free.id),
-          throwsA(isA<TimeSlotTakenException>()),
-        );
-
-        await reservations.cancel(reservationId: after.last.id);
-        await expectLater(
-          reservations.cancel(reservationId: after.last.id),
-          throwsA(isA<ReservationNotFoundException>()),
-        );
-      },
-    );
+      await expectLater(
+        agenda.book(numberId: items.last.numberId),
+        throwsA(
+          isA<BookingException>().having(
+            (e) => e.failure,
+            'failure',
+            BookingFailure.numberUnavailable,
+          ),
+        ),
+      );
+      final after = await agenda.listAvailability(query);
+      expect(after.any((n) => n.numberId == items.last.numberId), isFalse);
+    });
   });
 }

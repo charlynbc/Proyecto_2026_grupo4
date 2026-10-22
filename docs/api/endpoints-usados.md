@@ -32,8 +32,8 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 | 13 | `POST /api/turnos-semanales` | FUNCIONARIO | 13 | Alta de turno semanal | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #13](contrato-v1.md#e13) |
 | 14 | `GET /api/turnos-semanales/{id}` | FUNCIONARIO | 17 | Detalle de configuración | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #14](contrato-v1.md#e14) |
 | 15 | `GET /api/turnos` | FUNCIONARIO | 17 | Consulta de turnos | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #15](contrato-v1.md#e15) |
-| 16 | `GET /api/disponibilidad` | SOCIO | 08 | Disponibilidad | CONFIRMADA | - | [contrato #16](contrato-v1.md#e16) |
-| 17 | `POST /api/consultas` | SOCIO | 09 | Confirmar agenda | CONFIRMADA | - | [contrato #17](contrato-v1.md#e17) |
+| 16 | `GET /api/disponibilidad` | SOCIO | 08 | Disponibilidad | CONFIRMADA | Sin POC: agenda Flutter | [contrato #16](contrato-v1.md#e16) |
+| 17 | `POST /api/consultas` | SOCIO | 09 | Confirmar agenda | CONFIRMADA | Sin POC: agenda Flutter | [contrato #17](contrato-v1.md#e17) |
 
 ## Semana 2 y adelantos
 
@@ -61,20 +61,22 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 
 ## Rutas de la prueba de concepto
 
-El backend **ya no las expone** (commit "Sin POC"). El frontend todavía las
-referencia en `api_routes.dart` (`poc*`); cada pantalla que las usa debe migrar.
-Las tablas del esquema `"POC"` no se migran: se usa solo el modelo del Proyecto 2026.
+El backend **ya no las expone** (commit "Sin POC") y el frontend dejó de
+llamarlas: la agenda del socio usa `GET /api/especialidades`,
+`GET /api/disponibilidad` y `POST /api/consultas` (el alta se hace por
+`numeroId`, con `paseId` opcional). Las tablas del esquema `"POC"` no se
+migran: se usa solo el modelo del Proyecto 2026.
 
 | Ruta eliminada del backend | La reemplaza | Estado |
 |---|---|---|
 | `POST /api/auth/login` con `{cedula, clave}` | #1, con `{ci, password, acceso}` (+ `plataforma: WEB` para `EMPLEADO`) | eliminada; el login solo acepta el contrato nuevo |
 | POST /api/auth/registro | #11 `POST /api/usuarios` (RF-31, solo ADMINISTRADOR) | eliminada; no hay alta pública |
 | GET /api/auth/confirmar-email | #4 y #5 (`primer-ingreso`, RF-02) | eliminada |
-| `GET /api/profesionales` | #10 `GET /api/medicos` | **sin implementar** en el backend: pendiente |
-| `GET /api/profesionales/{id}/horarios` | #16 `GET /api/disponibilidad` | implementado en `DisponibilidadController`; el cliente debe migrar |
-| `POST /api/reservas` | #17 `POST /api/consultas` | implementado; cambia el cuerpo (el cliente debe migrar) |
-| `GET /api/mis-reservas` | #18 `GET /api/consultas` (RF-11) | **pendiente**, sin reemplazo |
-| `PATCH /api/reservas/{id}/cancelacion` | #20 `POST /api/consultas/{id}/cancelar` | **pendiente**, sin reemplazo |
+| GET /api/profesionales | #10 `GET /api/medicos` | **Pendiente de implementación** en el backend. La disponibilidad ofrece solo los médicos con números libres |
+| GET /api/profesionales/{id}/horarios | #16 `GET /api/disponibilidad` | migrado en Flutter |
+| POST /api/reservas | #17 `POST /api/consultas` | migrado en Flutter (reserva por `numeroId`) |
+| GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | **Pendiente de implementación**; la pantalla lo indica |
+| PATCH /api/reservas/{id}/cancelacion | #20 `POST /api/consultas/{id}/cancelar` | **Pendiente de implementación**; acción deshabilitada |
 | `POST /api/notificaciones/registro` | #33 | se mantiene (no usa el esquema `"POC"`) |
 
 La ruta de registro de notificaciones que existe en el backend es

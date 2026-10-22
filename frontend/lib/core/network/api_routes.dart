@@ -52,16 +52,6 @@ class ApiRoutes {
   static const String statsShifts = '/api/estadisticas/turnos';
   static const String statsAppointments = '/api/estadisticas/consultas';
 
-  // --- Rutas de la prueba de concepto que el frontend llama hoy --------
-  // Dejan de usarse cuando se migra cada pantalla.
-
-  static const String pocProfessionals = '/api/profesionales';
-  static String pocProfessionalSlots(int professionalId) =>
-      '/api/profesionales/$professionalId/horarios';
-  static const String pocReservations = '/api/reservas';
-  static const String pocMyReservations = '/api/mis-reservas';
-  static String pocReservationCancel(int reservationId) =>
-      '/api/reservas/$reservationId/cancelacion';
   static const String pocPushRegistration = '/api/notificaciones/registro';
 
   /// Todas las rutas, con un id de ejemplo (`1`) donde la ruta lo lleva.
@@ -99,11 +89,6 @@ class ApiRoutes {
     statsSpecialties,
     statsShifts,
     statsAppointments,
-    pocProfessionals,
-    pocProfessionalSlots(1),
-    pocReservations,
-    pocMyReservations,
-    pocReservationCancel(1),
     pocPushRegistration,
   ];
 }

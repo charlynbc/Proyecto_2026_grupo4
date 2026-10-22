@@ -1,24 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/reservas/models/reservation.dart';
+import '../../features/agenda/models/appointment.dart';
 import '../utils/uruguay_time.dart';
 import 'datos_prueba.dart';
 
-/// Estado en memoria compartido por los repositories falsos: lo que se
-/// reserva en la agenda aparece en "mis reservas", y lo que se cancela vuelve
-/// a quedar libre. Se pierde al recargar la app.
+/// Estado en memoria del repository falso de agenda (`USE_FAKES=true`): qué
+/// números ya se tomaron y qué consultas se agendaron. Se pierde al recargar
+/// la app.
 class FakeDatabase {
-  FakeDatabase({required DateTime today, DateTime Function()? clock})
-    : _clock = clock ?? DateTime.now,
-      shifts = TestData.shiftsFrom(today) {
-    _seedReservations();
-  }
+  FakeDatabase({required DateTime today})
+    : shifts = TestData.shiftsFrom(today);
 
-  final DateTime Function() _clock;
   final List<TestShift> shifts;
-  final List<Reservation> reservations = [];
+  final List<Appointment> appointments = [];
   final Set<int> _takenNumberIds = {};
-  int _nextReservationId = 1;
+  int _nextAppointmentId = 1;
 
   Iterable<TestNumber> get numbers => shifts.expand((s) => s.numbers);
 
@@ -33,64 +29,17 @@ class FakeDatabase {
 
   void markTaken(int numberId) => _takenNumberIds.add(numberId);
 
+  int newAppointmentId() => _nextAppointmentId++;
+
   /// Un número "disputado": figura libre, pero otro socio lo toma justo antes
-  /// de que se confirme la reserva (error 409 al reservar).
+  /// de que se confirme la consulta (409 `NUMERO_NO_DISPONIBLE`).
   bool isContested(TestNumber number) =>
       number.index == 1 && number.shiftId % 5 == 0;
 
-  /// Un número "iniciado": figura libre, pero para cuando se confirma la
-  /// reserva el turno ya empezó (error 400 al reservar).
+  /// Un número "iniciado": figura libre, pero para cuando se confirma ya
+  /// quedó fuera de la anticipación mínima (409 `ANTICIPACION_INVALIDA`).
   bool isStarted(TestNumber number) =>
       number.index == 2 && number.shiftId % 7 == 0;
-
-  Reservation addReservation(TestNumber number) {
-    final doctor = TestData.doctors.firstWhere((d) => d.id == number.doctorId);
-    final reservation = Reservation(
-      id: _nextReservationId++,
-      status: ReservationStatus.active,
-      createdAt: _clock().toUtc(),
-      timeSlotId: number.id,
-      start: number.start,
-      end: number.end,
-      professionalId: doctor.id,
-      professionalName: doctor.name,
-    );
-    markTaken(number.id);
-    reservations.add(reservation);
-    return reservation;
-  }
-
-  /// Cancela la reserva y libera su número. Devuelve `false` si no existe o
-  /// ya estaba cancelada.
-  bool cancelReservation(int reservationId) {
-    final index = reservations.indexWhere((r) => r.id == reservationId);
-    if (index == -1) return false;
-    final current = reservations[index];
-    if (current.status == ReservationStatus.cancelled) return false;
-    reservations[index] = Reservation(
-      id: current.id,
-      status: ReservationStatus.cancelled,
-      createdAt: current.createdAt,
-      cancelledAt: _clock().toUtc(),
-      timeSlotId: current.timeSlotId,
-      start: current.start,
-      end: current.end,
-      professionalId: current.professionalId,
-      professionalName: current.professionalName,
-    );
-    _takenNumberIds.remove(current.timeSlotId);
-    return true;
-  }
-
-  /// Una reserva activa y una cancelada, para que "mis reservas" no arranque
-  /// vacía.
-  void _seedReservations() {
-    final all = numbers.toList();
-    if (all.length < 10) return;
-    addReservation(all[4]);
-    addReservation(all[9]);
-    cancelReservation(2);
-  }
 }
 
 /// Un único estado en memoria por ejecución de la app.

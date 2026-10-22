@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/fakes/fake_admin_database.dart';
 import '../../../core/fakes/fake_database.dart';
 import '../../../core/network/dio_client.dart';
 import '../repositories/agenda_repository.dart';
@@ -13,7 +14,10 @@ import '../repositories/fake_agenda_repository.dart';
 /// configuración de cookies según plataforma antes de devolver el `Dio`).
 final agendaRepositoryProvider = FutureProvider<AgendaRepository>((ref) async {
   if (ref.watch(useFakesProvider)) {
-    return FakeAgendaRepository(ref.watch(fakeDatabaseProvider));
+    return FakeAgendaRepository(
+      ref.watch(fakeDatabaseProvider),
+      ref.watch(fakeAdminDatabaseProvider),
+    );
   }
   final dio = await ref.watch(dioProvider.future);
   return ApiAgendaRepository(dio);
