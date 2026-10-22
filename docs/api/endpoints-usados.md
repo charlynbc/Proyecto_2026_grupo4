@@ -68,8 +68,8 @@ Las tablas del esquema `"POC"` no se migran: se usa solo el modelo del Proyecto 
 | Ruta eliminada del backend | La reemplaza | Estado |
 |---|---|---|
 | `POST /api/auth/login` con `{cedula, clave}` | #1, con `{ci, password, acceso}` (+ `plataforma: WEB` para `EMPLEADO`) | eliminada; el login solo acepta el contrato nuevo |
-| `POST /api/auth/registro` | #11 `POST /api/usuarios` (RF-31, solo ADMINISTRADOR) | eliminada; no hay alta pública |
-| `GET /api/auth/confirmar-email` | #4 y #5 (`primer-ingreso`, RF-02) | eliminada |
+| POST /api/auth/registro | #11 `POST /api/usuarios` (RF-31, solo ADMINISTRADOR) | eliminada; no hay alta pública |
+| GET /api/auth/confirmar-email | #4 y #5 (`primer-ingreso`, RF-02) | eliminada |
 | `GET /api/profesionales` | #10 `GET /api/medicos` | **sin implementar** en el backend: pendiente |
 | `GET /api/profesionales/{id}/horarios` | #16 `GET /api/disponibilidad` | implementado en `DisponibilidadController`; el cliente debe migrar |
 | `POST /api/reservas` | #17 `POST /api/consultas` | implementado; cambia el cuerpo (el cliente debe migrar) |

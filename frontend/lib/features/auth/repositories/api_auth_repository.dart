@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../../core/network/api_routes.dart';
 import '../models/access_type.dart';
@@ -24,7 +25,13 @@ class ApiAuthRepository implements AuthRepository {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         ApiRoutes.authLogin,
-        data: {'ci': ci, 'password': password, 'acceso': access.apiValue},
+        data: {
+          'ci': ci,
+          'password': password,
+          'acceso': access.apiValue,
+          // Los empleados solo pueden ingresar por la web (RNF-02).
+          'plataforma': kIsWeb ? 'WEB' : 'ANDROID',
+        },
       );
       _applySession(response.data);
     } on DioException catch (e) {
