@@ -206,6 +206,22 @@ public class SecurityConfig {
                                                 "SOCIO"
                                         )
 
+                                        // Toda la API pide sesión salvo lo
+                                        // habilitado arriba.
+                                        .requestMatchers(
+                                                "/api/**"
+                                        )
+                                        .authenticated()
+
+                                        // Lo que no es /api son los archivos
+                                        // de la app Flutter web, que se sirven
+                                        // desde el mismo origen (DA-11).
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/**"
+                                        )
+                                        .permitAll()
+
                                         .anyRequest()
                                         .authenticated()
                 )
