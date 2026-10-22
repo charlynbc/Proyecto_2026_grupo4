@@ -6,4 +6,10 @@ public record PrimerIngresoLinkSolicitado(
         String nombre,
         String token
 ) {
+
+    // El token es un secreto de un solo uso: no debe salir en ningun log.
+    @Override
+    public String toString() {
+        return "PrimerIngresoLinkSolicitado[idCuenta=" + idCuenta + "]";
+    }
 }

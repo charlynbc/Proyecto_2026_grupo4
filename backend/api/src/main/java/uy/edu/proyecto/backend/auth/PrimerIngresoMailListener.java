@@ -3,12 +3,12 @@ package uy.edu.proyecto.backend.auth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
+
+import uy.edu.proyecto.backend.correo.CorreoMensaje;
+import uy.edu.proyecto.backend.correo.CorreoSender;
 
 @Component
 public class PrimerIngresoMailListener {
@@ -16,44 +16,38 @@ public class PrimerIngresoMailListener {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(PrimerIngresoMailListener.class);
 
-    private final JavaMailSender mailSender;
-    private final String from;
+    private final CorreoSender correoSender;
     private final String activationUrl;
 
     public PrimerIngresoMailListener(
-            JavaMailSender mailSender,
-            @Value("${app.email.from:}") String from,
-            @Value("${app.email.first-login-url:http://localhost:5173/primer-ingreso}")
+            CorreoSender correoSender,
+            @Value("${app.email.first-login-url:http://localhost:5173/#/primer-ingreso}")
             String activationUrl
     ) {
-        this.mailSender = mailSender;
-        this.from = from;
+        this.correoSender = correoSender;
         this.activationUrl = activationUrl;
     }
 
     @Async
     @TransactionalEventListener
     public void enviarEnlace(PrimerIngresoLinkSolicitado event) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(event.correo());
-        if (!from.isBlank()) {
-            message.setFrom(from);
-        }
-        message.setSubject("Activacion de cuenta");
-        message.setText(
+        CorreoMensaje mensaje = new CorreoMensaje(
+                event.correo(),
+                "Activacion de cuenta",
                 "Hola " + event.nombre() + ":\n\n"
                         + "Para completar tu primer ingreso, abre este enlace:\n\n"
                         + activationUrl + "?token=" + event.token()
-                        + "\n\nEl enlace vence en 24 horas."
+                        + "\n\nEl enlace vence en 24 horas y solo puede usarse una vez."
         );
 
         try {
-            mailSender.send(message);
-        } catch (MailException exception) {
+            correoSender.enviar(mensaje);
+        } catch (RuntimeException exception) {
+            // Nunca se registra el token ni el correo: solo la cuenta y el tipo de fallo.
             LOGGER.error(
-                    "No se pudo enviar el enlace de primer ingreso para la cuenta {}",
+                    "No se pudo enviar el enlace de primer ingreso para la cuenta {}: {}",
                     event.idCuenta(),
-                    exception
+                    exception.getClass().getSimpleName()
             );
         }
     }

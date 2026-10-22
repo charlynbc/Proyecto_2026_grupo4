@@ -59,20 +59,23 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 | 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | PROPUESTA | - | [contrato #35](contrato-v1.md#e35) |
 | 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | PROPUESTA | - | [contrato #36](contrato-v1.md#e36) |
 
-## Rutas de la prueba de concepto que el frontend llama hoy
+## Rutas de la prueba de concepto
 
-Dejan de usarse cuando se migra cada pantalla. Cuando una deje de usarse se tacha acá y se anota la rama.
+El backend **ya no las expone** (commit "Sin POC"). El frontend todavía las
+referencia en `api_routes.dart` (`poc*`); cada pantalla que las usa debe migrar.
+Las tablas del esquema `"POC"` no se migran: se usa solo el modelo del Proyecto 2026.
 
-| Ruta actual | La reemplaza | Estado |
+| Ruta eliminada del backend | La reemplaza | Estado |
 |---|---|---|
-| `POST /api/auth/login` con `{cedula, clave}` | #1, con `{ci, password, acceso}` | migrada en feat/front-acceso-roles (14/10/2026) |
-| `POST /api/auth/refresh`, `POST /api/auth/logout` | #2 y #3 | sin cambios; el cliente lee `role` como `UserRole` (feat/front-acceso-roles, 14/10/2026) |
-| `GET /api/profesionales` | #10 | pendiente |
-| `GET /api/profesionales/{id}/horarios` | #16 | pendiente |
-| `POST /api/reservas` | #17, con `{numeroId, paseId?}` | pendiente |
-| `GET /api/mis-reservas` | #18 | pendiente |
-| `PATCH /api/reservas/{id}/cancelacion` | #20 | pendiente |
-| `POST /api/notificaciones/registro` | #33, con `{token}` | pendiente |
+| `POST /api/auth/login` con `{cedula, clave}` | #1, con `{ci, password, acceso}` (+ `plataforma: WEB` para `EMPLEADO`) | eliminada; el login solo acepta el contrato nuevo |
+| `POST /api/auth/registro` | #11 `POST /api/usuarios` (RF-31, solo ADMINISTRADOR) | eliminada; no hay alta pública |
+| `GET /api/auth/confirmar-email` | #4 y #5 (`primer-ingreso`, RF-02) | eliminada |
+| `GET /api/profesionales` | #10 `GET /api/medicos` | **sin implementar** en el backend: pendiente |
+| `GET /api/profesionales/{id}/horarios` | #16 `GET /api/disponibilidad` | implementado en `DisponibilidadController`; el cliente debe migrar |
+| `POST /api/reservas` | #17 `POST /api/consultas` | implementado; cambia el cuerpo (el cliente debe migrar) |
+| `GET /api/mis-reservas` | #18 `GET /api/consultas` (RF-11) | **pendiente**, sin reemplazo |
+| `PATCH /api/reservas/{id}/cancelacion` | #20 `POST /api/consultas/{id}/cancelar` | **pendiente**, sin reemplazo |
+| `POST /api/notificaciones/registro` | #33 | se mantiene (no usa el esquema `"POC"`) |
 
 La ruta de registro de notificaciones que existe en el backend es
 `POST /api/notificaciones/registro`; no se implementó la ruta contractual

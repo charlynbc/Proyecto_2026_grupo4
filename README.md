@@ -113,16 +113,25 @@ El backend expone estos endpoints bajo `/api`:
 
 | Método | Ruta | Qué hace |
 |---|---|---|
-| `POST` | `/api/auth/registro` | Alta de usuario |
-| `POST` | `/api/auth/login` | Login, devuelve el JWT |
+| `POST` | `/api/auth/login` | Login con `{ci, password, acceso, plataforma}`, devuelve el JWT |
 | `POST` | `/api/auth/refresh` | Renueva el JWT con la cookie |
 | `POST` | `/api/auth/logout` | Cierra la sesión |
-| `GET` | `/api/profesionales` | Lista de profesionales |
-| `GET` | `/api/profesionales/{id}/horarios` | Horarios libres, con `desde` y `hasta` |
-| `POST` | `/api/reservas` | Crea una reserva |
-| `GET` | `/api/mis-reservas` | Historial de reservas del usuario |
-| `PATCH` | `/api/reservas/{id}/cancelacion` | Cancela una reserva |
+| `POST` | `/api/auth/primer-ingreso/solicitar` | Envía el enlace de activación al correo de la cuenta |
+| `POST` | `/api/auth/primer-ingreso/completar` | Activa la cuenta con el enlace de un solo uso |
+| `POST` | `/api/consultas` | Reserva una consulta (SOCIO) |
 | `POST` | `/api/notificaciones/registro` | Registra el token de push |
+
+El login exige `plataforma` (`WEB` o `ANDROID`) para `acceso: EMPLEADO`, y los
+empleados solo pueden ingresar con `WEB`. Para `SOCIO` es opcional.
+
+El resto de los endpoints vigentes está en
+[docs/api/endpoints-usados.md](docs/api/endpoints-usados.md). Se eliminaron los
+endpoints de la prueba de concepto (`/api/auth/registro`,
+`/api/auth/confirmar-email`, `/api/profesionales`, `/api/reservas`,
+`/api/mis-reservas`, `/api/reservas/{id}/cancelacion`) y el login
+`{cedula, clave}`. Qué los reemplaza y qué queda pendiente:
+[docs/api/endpoints-usados.md](docs/api/endpoints-usados.md). Configuración de
+correo y Railway: [docs/api/railway-correo.md](docs/api/railway-correo.md).
 
 Los errores vuelven siempre con la misma forma, y el `code` es el contrato
 con el frontend:

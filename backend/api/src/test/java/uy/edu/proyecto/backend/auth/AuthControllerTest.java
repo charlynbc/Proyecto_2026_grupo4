@@ -1,8 +1,10 @@
 package uy.edu.proyecto.backend.auth;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,6 +17,9 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.exception.ApiExceptionHandler;
+
 class AuthControllerTest {
 
     private final AuthService service = mock(AuthService.class);
@@ -26,12 +31,13 @@ class AuthControllerTest {
     void configurar() {
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AuthController(service, cookieService))
+                .setControllerAdvice(new ApiExceptionHandler())
                 .build();
     }
 
     @Test
-    void loginNuevoDevuelveSesionYCookieHttpOnly() throws Exception {
-        when(service.login(org.mockito.ArgumentMatchers.any()))
+    void loginDevuelveSesionYCookieHttpOnly() throws Exception {
+        when(service.login(any()))
                 .thenReturn(new AuthResult(
                         new LoginResponse(
                                 "jwt",
@@ -71,24 +77,18 @@ class AuthControllerTest {
                 "67890127",
                 "clave",
                 "SOCIO",
-                "WEB",
-                null,
-                null
+                "WEB"
         ));
     }
 
     @Test
-    void loginLegadoSigueAceptandoCedulaYClave() throws Exception {
-        when(service.login(org.mockito.ArgumentMatchers.any()))
-                .thenReturn(new AuthResult(
-                        new LoginResponse("jwt", "Bearer", 900, "PACIENTE", null, null),
-                        "refresh"
+    void cuerpoAntiguoCedulaClaveSeTrataSinCamposDelContrato() throws Exception {
+        when(service.login(new LoginRequest(null, null, null, null)))
+                .thenThrow(new ApiException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                        "VALIDACION",
+                        "Falta un campo obligatorio"
                 ));
-        when(cookieService.crear("refresh"))
-                .thenReturn(ResponseCookie.from("refresh_token", "refresh")
-                        .httpOnly(true)
-                        .path("/api/auth")
-                        .build());
 
         mockMvc.perform(
                         post("/api/auth/login")
@@ -97,17 +97,19 @@ class AuthControllerTest {
                                         {"cedula":"1234567","clave":"clave"}
                                         """)
                 )
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.role").value("PACIENTE"))
-                .andExpect(jsonPath("$.nombre").doesNotExist());
+                .andExpect(status().isBadRequest())
+                .andExpect(header().doesNotExist("Set-Cookie"));
+    }
 
-        verify(service).login(new LoginRequest(
-                null,
-                null,
-                null,
-                null,
-                "1234567",
-                "clave"
-        ));
+    @Test
+    void registroPublicoYConfirmacionAntiguaNoExisten() throws Exception {
+        mockMvc.perform(
+                        post("/api/auth/registro")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{}")
+                )
+                .andExpect(status().is4xxClientError());
+        mockMvc.perform(get("/api/auth/confirmar-email").param("token", "x"))
+                .andExpect(status().isNotFound());
     }
 }

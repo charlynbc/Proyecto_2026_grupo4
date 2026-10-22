@@ -78,18 +78,11 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
-                                                "/api/auth/registro",
                                                 "/api/auth/login",
                                                 "/api/auth/refresh",
                                                 "/api/auth/logout",
                                                 "/api/auth/primer-ingreso/solicitar",
                                                 "/api/auth/primer-ingreso/completar"
-                                        )
-                                        .permitAll()
-
-                                        .requestMatchers(
-                                                HttpMethod.GET,
-                                                "/api/auth/confirmar-email"
                                         )
                                         .permitAll()
 
@@ -196,14 +189,6 @@ public class SecurityConfig {
                                         )
                                         .hasRole(
                                                 "ADMINISTRADOR"
-                                        )
-
-                                        .requestMatchers(
-                                                "/api/reservas/**"
-                                        )
-                                        .hasAnyRole(
-                                                "PACIENTE",
-                                                "SOCIO"
                                         )
 
                                         .anyRequest()
