@@ -1,0 +1,75 @@
+# Pruebas de integración reales del backend por HTTP contra un PostgreSQL 17
+# efímero (servicio del job, se destruye al terminar). Nunca usa bases
+# compartidas: las pruebas rechazan cualquier URL que no sea local y de nombre
+# *_e2e o *_test. Ver docs/pruebas-integracion.md.
+name: E2E PostgreSQL
+
+on:
+  pull_request:
+    branches: [integracion/proyecto-2026-avances]
+  push:
+    branches: [integracion/proyecto-2026-avances]
+
+jobs:
+  integracion-postgresql:
+    name: Integración PostgreSQL
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend/api
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: proyecto_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      E2E_DB_URL: jdbc:postgresql://localhost:5432/proyecto_e2e
+      E2E_DB_USER: postgres
+      E2E_DB_PASSWORD: postgres
+      DB_URL: jdbc:postgresql://localhost:5432/proyecto_e2e
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      # Clave solo para las pruebas: 32 bytes en base64, sin valor real.
+      JWT_SECRET_BASE64: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      APP_FIREBASE_ENABLED: "false"
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: proyecto_e2e
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Cargar el esquema y verificar sus restricciones
+        working-directory: .
+        run: |
+          psql -v ON_ERROR_STOP=1 -f database/schema.sql
+          psql -v ON_ERROR_STOP=1 -f database/pruebas/verificar_esquema.sql
+
+      - name: Pruebas HTTP reales (auth, circuito, roles, concurrencia)
+        run: ./mvnw -B test -Dtest='*IT' -Dsurefire.failIfNoSpecifiedTests=false
+
+      - name: Pruebas de contexto completo contra el esquema real
+        run: >-
+          ./mvnw -B test
+          -Dtest=ApiApplicationTests,ConsultorioControllerTest,ConsultorioSeguridadTest,EspecialidadControllerTest,EspecialidadSeguridadTest
+
+      - name: Publicar reportes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reportes-integracion-postgresql
+          path: backend/api/target/surefire-reports/

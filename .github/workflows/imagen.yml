@@ -12,7 +12,7 @@ on:
       - ".dockerignore"
       - ".github/workflows/imagen.yml"
   push:
-    branches: [main]
+    branches: [main, integracion/proyecto-2026-avances]
     paths:
       - "backend/api/**"
       - "frontend/**"

@@ -1,5 +1,6 @@
 package uy.edu.proyecto.backend.agenda;
 
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,11 +76,19 @@ public class ConsultaService {
 
         Long paseId = validarPase(socioId, request.paseId(), numero);
 
-        ConsultaDTO consulta = repository.crear(socioId, numero, paseId)
-                .orElseThrow(() -> conflicto(
-                        "NUMERO_NO_DISPONIBLE",
-                        "El número ya no está disponible para agendar"
-                ));
+        ConsultaDTO consulta;
+        try {
+            consulta = repository.crear(socioId, numero, paseId)
+                    .orElseThrow(() -> conflicto(
+                            "NUMERO_NO_DISPONIBLE",
+                            "El número ya no está disponible para agendar"
+                    ));
+        } catch (DuplicateKeyException exception) {
+            throw conflicto(
+                    "NUMERO_NO_DISPONIBLE",
+                    "El número ya no está disponible para agendar"
+            );
+        }
         repository.crearNotificacionAgenda(consulta.id());
         return consulta;
     }
