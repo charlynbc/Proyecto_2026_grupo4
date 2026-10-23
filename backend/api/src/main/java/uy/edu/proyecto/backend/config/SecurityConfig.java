@@ -127,6 +127,16 @@ public class SecurityConfig {
                                         )
 
                                         .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/turnos/suspensiones/previsualizar",
+                                                "/api/turnos/suspensiones",
+                                                "/api/turnos/rehabilitaciones"
+                                        )
+                                        .hasRole(
+                                                "FUNCIONARIO"
+                                        )
+
+                                        .requestMatchers(
                                                 HttpMethod.GET,
                                                 "/api/disponibilidad"
                                         )

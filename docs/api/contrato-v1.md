@@ -1034,7 +1034,7 @@ RF-14 y RF-15 identifican los turnos "por médico, especialidad y rango de fecha
 #### #23 · `POST /api/turnos/suspensiones/previsualizar`
 
 - **Roles:** FUNCIONARIO.
-- **RF:** RF-14 (confirmación previa). **Diseño:** `TurnoService.previsualizarSuspension(ids: List<Long>): VistaPreviaSuspensionDTO` (figura 3, S08: "antes de confirmar, se muestran las fechas y la cantidad de consultas Agendadas que se cancelarán"). **Estado:** PROPUESTA (la operación figura en el Diseño; la ruta es propuesta).
+- **RF:** RF-14 (confirmación previa). **Diseño:** `TurnoService.previsualizarSuspension(ids: List<Long>): VistaPreviaSuspensionDTO` (figura 3, S08: "antes de confirmar, se muestran las fechas y la cantidad de consultas Agendadas que se cancelarán"). **Estado:** CONFIRMADA en backend.
 
 Es de solo lectura: no cambia nada. Se usa `POST` porque lleva una lista de ids.
 
@@ -1065,13 +1065,13 @@ Es de solo lectura: no cambia nada. Se usa `POST` porque lleva una lista de ids.
 
 `cantidadConsultasACancelar` es el total de consultas en `AGENDADA` de esos turnos.
 
-**Errores:** `404 NO_ENCONTRADO` (algún id no existe), `409 TURNO_NO_SUSPENDIBLE` (algún turno no está activo o su fecha ya pasó).
+**Errores:** `400 VALIDACION` (lista vacía, IDs inválidos o duplicados), `404 NO_ENCONTRADO` (algún id no existe), `409 TURNO_NO_SUSPENDIBLE` (algún turno no está activo o su fecha ya pasó).
 
 <a id="e24"></a>
 #### #24 · `POST /api/turnos/suspensiones`
 
 - **Roles:** FUNCIONARIO.
-- **RF:** RF-14. **Diseño:** `suspenderFechas(filtro, ids, cantidadConfirmada: int): ResultadoFechasDTO` (S08). **Estado:** PROPUESTA.
+- **RF:** RF-14. **Diseño:** `suspenderFechas(filtro, ids, cantidadConfirmada: int): ResultadoFechasDTO` (S08). **Estado:** CONFIRMADA en backend.
 
 Suspende de inmediato, cancela por la institución las consultas `AGENDADA`, devuelve los pases y registra los avisos a los socios con la observación, todo en una transacción y todo o nada (S08, diseño 5.2). No borra nada ni toca el patrón semanal.
 
@@ -1081,7 +1081,7 @@ Suspende de inmediato, cancela por la institución las consultas `AGENDADA`, dev
 |---|---|---|---|
 | `filtro` | `FiltroFechasDTO` | sí | |
 | `ids` | lista de enteros | sí | Al menos uno. |
-| `observacion` | texto | no | Se incluye en la notificación a cada socio. |
+| `observacion` | texto | no | Se incluye en la notificación a cada socio; máximo 1000 caracteres. |
 | `cantidadConfirmada` | entero ≥ 0 | sí | El `cantidadConsultasACancelar` que el funcionario vio en #23. Implementa S08: "si esta cambió, se solicita una nueva confirmación antes de aplicar cambios". |
 
 ```json
@@ -1106,12 +1106,25 @@ Suspende de inmediato, cancela por la institución las consultas `AGENDADA`, dev
 }
 ```
 
-Longitud máxima de `observacion`: P-18.
+El backend admite hasta 1000 caracteres en `observacion` (resolución de P-18
+para esta implementación); los espacios exteriores se eliminan y una cadena
+vacía se trata como ausencia de observación.
+
+La cancelación, los eventos y los registros de notificación/envío se escriben
+en la misma transacción. Luego del commit se intenta despachar cada envío por
+el proveedor de correo configurado o por Firebase para los dispositivos
+persistidos. `envio_notificacion.estado` queda `ENVIADO` únicamente si el
+proveedor acepta el envío; ante error queda `FALLIDO`. La operación no presenta
+un registro pendiente como una notificación enviada. La entrega externa ocurre
+después del commit y no puede revertir una suspensión ya confirmada. Un
+procesador recupera registros `PENDIENTE` cada 30 segundos; los envíos marcados
+`FALLIDO` requieren revisión y no se reintentan automáticamente.
 
 **Errores**
 
 | Status | `code` | Cuándo |
 |---|---|---|
+| 400 | `VALIDACION` | Filtro/rango, lista, ID, observación o cantidad confirmada inválidos. |
 | 404 | `NO_ENCONTRADO` | Algún id no existe. |
 | 409 | `TURNO_NO_SUSPENDIBLE` | Algún turno ya no está activo o su fecha pasó. No se suspende ninguno. |
 | 409 | `CONFIRMACION_DESACTUALIZADA` | La cantidad de consultas afectadas cambió desde la previsualización. No se aplica nada; el cliente vuelve a llamar #23 y pide una nueva confirmación. |
@@ -1120,7 +1133,7 @@ Longitud máxima de `observacion`: P-18.
 #### #25 · `POST /api/turnos/rehabilitaciones`
 
 - **Roles:** FUNCIONARIO.
-- **RF:** RF-15. **Diseño:** `rehabilitarFechas(filtro, ids): ResultadoFechasDTO` (S09). **Estado:** PROPUESTA.
+- **RF:** RF-15. **Diseño:** `rehabilitarFechas(filtro, ids): ResultadoFechasDTO` (S09). **Estado:** CONFIRMADA en backend.
 
 Reactiva turnos suspendidos sin modificar médico, especialidad, fecha, consultorio ni números. **No restaura** las consultas canceladas (RF-15).
 
@@ -1154,6 +1167,7 @@ Reactiva turnos suspendidos sin modificar médico, especialidad, fecha, consulto
 
 | Status | `code` | Cuándo |
 |---|---|---|
+| 400 | `VALIDACION` | Filtro/rango, lista o ID inválidos. |
 | 404 | `NO_ENCONTRADO` | Algún id no existe. |
 | 409 | `TURNO_NO_REHABILITABLE` | Algún turno no está suspendido o su fecha pasó. |
 | 409 | `MEDICO_INACTIVO` | El médico no está activo. |
