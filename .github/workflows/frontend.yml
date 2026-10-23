@@ -8,7 +8,7 @@ on:
       - "frontend/**"
       - ".github/workflows/frontend.yml"
   push:
-    branches: [main]
+    branches: [main, integracion/proyecto-2026-avances]
     paths:
       - "frontend/**"
       - ".github/workflows/frontend.yml"
@@ -38,3 +38,6 @@ jobs:
 
       - name: Correr los tests
         run: flutter test
+
+      - name: Compilar Flutter web
+        run: flutter build web --release

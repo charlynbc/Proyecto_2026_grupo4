@@ -8,7 +8,7 @@ on:
       - "database/**"
       - ".github/workflows/esquema.yml"
   push:
-    branches: [main]
+    branches: [main, integracion/proyecto-2026-avances]
     paths:
       - "database/**"
       - ".github/workflows/esquema.yml"
