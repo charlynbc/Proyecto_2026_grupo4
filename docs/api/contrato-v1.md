@@ -1264,7 +1264,7 @@ El cliente distingue "registrado ahora" de "ya estaba registrado" por el status 
 #### #28 · `GET /api/agendas`
 
 - **Roles:** FUNCIONARIO.
-- **RF:** RF-18. **Diseño:** `consultarAgendas(filtros: FiltroAgendaDTO): Page<AgendaOperativaDTO>` (S12). **Estado:** PROPUESTA.
+- **RF:** RF-18. **Diseño:** `consultarAgendas(filtros: FiltroAgendaDTO): Page<AgendaOperativaDTO>` (S12). **Estado:** IMPLEMENTADO en backend; Flutter pendiente.
 
 Detalle operativo, **sin datos clínicos**. Filtrando por hoy y por llegada se obtiene la lista de socios presentes; el cliente repite el pedido cada 15 segundos mientras la pantalla está visible (arquitectura 8.5).
 
@@ -1279,6 +1279,13 @@ Detalle operativo, **sin datos clínicos**. Filtrando por hoy y por llegada se o
 | `orden` | `fechaHora` o `horaLlegada` | Por defecto `fechaHora`. |
 | `sentido` | `asc` o `desc` | Por defecto `asc`. |
 | `page`, `size` | | Sección 1.3. |
+
+Los identificadores deben ser enteros positivos; `ci` debe ser una cédula válida;
+`fecha` debe tener formato `YYYY-MM-DD`; `estado` debe ser un estado de consulta
+reconocido. `page` debe ser mayor o igual a cero y `size` estar entre 1 y 100
+(por defecto 0 y 20). Los valores no válidos devuelven `400 VALIDACION`.
+El orden usa `consultaId` como desempate estable; al ordenar por `horaLlegada`,
+las llegadas nulas quedan al final.
 
 **Respuesta 200** (`AgendaOperativaDTO`)
 
@@ -1305,6 +1312,10 @@ Detalle operativo, **sin datos clínicos**. Filtrando por hoy y por llegada se o
 ```
 
 `llegadaEn` es `null` si el socio no registró llegada ese día.
+Las consultas `AGENDADA` de fechas pasadas sin resultado se presentan como
+`NO_ATENDIDA` si existe aviso de llegada y `NO_ASISTIO` si no existe, en
+coherencia con RF-11; no se modifican los estados almacenados. Los estados
+registrados, incluidas las cancelaciones por institución, se conservan.
 
 ### 3.7 Médico
 
