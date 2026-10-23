@@ -80,11 +80,16 @@ public class SecurityConfig {
                                                 HttpMethod.POST,
                                                 "/api/auth/login",
                                                 "/api/auth/refresh",
-                                                "/api/auth/logout",
                                                 "/api/auth/primer-ingreso/solicitar",
                                                 "/api/auth/primer-ingreso/completar"
                                         )
                                         .permitAll()
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/auth/logout"
+                                        )
+                                        .authenticated()
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
@@ -217,6 +222,30 @@ public class SecurityConfig {
                                         .hasRole(
                                                 "ADMINISTRADOR"
                                         )
+
+                                        .requestMatchers(
+                                                "/api",
+                                                "/api/**"
+                                        )
+                                        .authenticated()
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/",
+                                                "/index.html",
+                                                "/favicon.png",
+                                                "/firebase-messaging-sw.js",
+                                                "/flutter.js",
+                                                "/flutter_bootstrap.js",
+                                                "/flutter_service_worker.js",
+                                                "/main.dart.js",
+                                                "/manifest.json",
+                                                "/version.json",
+                                                "/assets/**",
+                                                "/canvaskit/**",
+                                                "/icons/**"
+                                        )
+                                        .permitAll()
 
                                         .anyRequest()
                                         .authenticated()

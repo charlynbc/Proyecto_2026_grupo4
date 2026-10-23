@@ -1,0 +1,40 @@
+# Analiza y prueba la app Flutter en cada Pull Request que toque frontend/.
+# Si el análisis encuentra problemas o un test falla, el PR queda en rojo.
+name: Frontend
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yml"
+
+jobs:
+  analisis-y-pruebas:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      # Versión fija para que el CI no cambie solo cuando sale una nueva.
+      # La 3.47 trae Dart 3.13, que es lo que pide pubspec.yaml (sdk ^3.13.3).
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Descargar dependencias
+        run: flutter pub get
+
+      - name: Analizar el código
+        run: flutter analyze
+
+      - name: Correr los tests
+        run: flutter test

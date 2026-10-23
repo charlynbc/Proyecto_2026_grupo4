@@ -31,7 +31,6 @@ class AuthInterceptor extends Interceptor {
   AuthInterceptor(this._dio, this._ref);
 
   static const _refreshPath = ApiRoutes.authRefresh;
-  static const _logoutPath = ApiRoutes.authLogout;
   static const _retriedKey = 'authRetried';
 
   final Dio _dio;
@@ -43,6 +42,13 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.path == _refreshPath) {
+      // El refresh se autentica solo con la cookie; un access token vencido
+      // en el bearer haría que el backend lo rechace antes de leer la cookie.
+      options.headers.remove('Authorization');
+      handler.next(options);
+      return;
+    }
     final token = _ref.read(sessionProvider).accessToken;
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
@@ -55,8 +61,7 @@ class AuthInterceptor extends Interceptor {
     final options = err.requestOptions;
     final isSessionRequest =
         options.headers.containsKey('Authorization') &&
-        options.path != _refreshPath &&
-        options.path != _logoutPath;
+        options.path != _refreshPath;
     if (err.response?.statusCode != 401 || !isSessionRequest) {
       handler.next(err);
       return;

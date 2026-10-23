@@ -1,0 +1,21 @@
+# Lo que no tiene que entrar al contexto de la imagen. La imagen solo usa
+# backend/api y frontend; lo demás se deja afuera para que el contexto sea
+# chico y no se cuele ningún secreto.
+.git
+.github
+.idea
+.vscode
+.claude
+**/.env
+**/.env.*
+**/*.iml
+docs/
+database/
+scripts/
+backend/poc-*/
+backend/api/target/
+backend/api/HELP.md
+frontend/build/
+frontend/.dart_tool/
+frontend/android/
+frontend/test/
