@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Duration;
@@ -20,8 +21,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,8 +59,6 @@ abstract class BaseIntegracionIT {
     static final ZoneId ZONA = ZoneId.of("America/Montevideo");
     static final ObjectMapper JSON = JsonMapper.builder().build();
 
-    private static final Pattern URL_BASE = Pattern.compile(
-            "^jdbc:postgresql://(localhost|127\\.0\\.0\\.1)(:\\d+)?/([A-Za-z0-9_]+_(?:e2e|test))$");
     private static final int[] PESOS = {2, 9, 8, 7, 6, 3, 4};
     private static boolean baseLista;
     private static String hashClave;
@@ -152,24 +149,30 @@ abstract class BaseIntegracionIT {
         if (baseLista) {
             return;
         }
-        Matcher coincidencia = URL_BASE.matcher(DB_URL);
-        assertTrue(coincidencia.matches(),
-                "Las pruebas de integracion solo admiten una base local cuyo nombre termine en _e2e o _test");
-        String nombre = coincidencia.group(3);
+        // Todas las condiciones se validan antes de abrir una conexion destructiva.
+        String nombre = GuardaBaseE2E.validar(DB_URL, System.getenv(GuardaBaseE2E.VARIABLE_HABILITACION));
         String urlAdmin = DB_URL.substring(0, DB_URL.lastIndexOf('/') + 1) + "postgres";
 
-        try (Connection admin = DriverManager.getConnection(urlAdmin, DB_USER, DB_PASSWORD);
-                Statement sentencia = admin.createStatement();
-                ResultSet existe = sentencia.executeQuery(
-                        "SELECT 1 FROM pg_database WHERE datname = '" + nombre + "'")) {
-            if (!existe.next()) {
+        try (Connection admin = DriverManager.getConnection(urlAdmin, DB_USER, DB_PASSWORD)) {
+            boolean existe;
+            try (PreparedStatement consulta = admin.prepareStatement(
+                    "SELECT 1 FROM pg_database WHERE datname = ?")) {
+                consulta.setString(1, nombre);
+                try (ResultSet resultado = consulta.executeQuery()) {
+                    existe = resultado.next();
+                }
+            }
+            if (!existe) {
                 try (Statement crear = admin.createStatement()) {
-                    crear.execute("CREATE DATABASE " + nombre);
+                    crear.execute("CREATE DATABASE " + GuardaBaseE2E.identificador(nombre));
+                    crear.execute("COMMENT ON DATABASE " + GuardaBaseE2E.identificador(nombre)
+                            + " IS '" + GuardaBaseE2E.MARCA + "'");
                 }
             }
         }
 
         try (Connection conexion = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+            exigirBaseDescartable(conexion, nombre);
             try (Statement sentencia = conexion.createStatement()) {
                 sentencia.execute("DROP SCHEMA IF EXISTS public CASCADE");
                 sentencia.execute("CREATE SCHEMA public");
@@ -180,6 +183,35 @@ abstract class BaseIntegracionIT {
             ScriptUtils.executeSqlScript(conexion, new FileSystemResource(esquema));
         }
         baseLista = true;
+    }
+
+    /** Una base con tablas solo se reinicializa si fue marcada como descartable. */
+    private static void exigirBaseDescartable(Connection conexion, String nombre) throws Exception {
+        String marca = null;
+        int tablas;
+        try (PreparedStatement consulta = conexion.prepareStatement(
+                "SELECT shobj_description(oid, 'pg_database') FROM pg_database WHERE datname = ?")) {
+            consulta.setString(1, nombre);
+            try (ResultSet resultado = consulta.executeQuery()) {
+                if (resultado.next()) {
+                    marca = resultado.getString(1);
+                }
+            }
+        }
+        try (Statement sentencia = conexion.createStatement();
+                ResultSet resultado = sentencia.executeQuery(
+                        "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'")) {
+            resultado.next();
+            tablas = resultado.getInt(1);
+        }
+        if (tablas > 0 && !GuardaBaseE2E.MARCA.equals(marca)) {
+            throw new IllegalStateException("La base " + nombre + " tiene tablas y no esta marcada como "
+                    + "descartable (COMMENT ON DATABASE ... IS '" + GuardaBaseE2E.MARCA + "'). No se modifica.");
+        }
+        try (Statement sentencia = conexion.createStatement()) {
+            sentencia.execute("COMMENT ON DATABASE " + GuardaBaseE2E.identificador(nombre)
+                    + " IS '" + GuardaBaseE2E.MARCA + "'");
+        }
     }
 
     @BeforeEach

@@ -70,6 +70,25 @@ class ConsultaServiceTest {
     }
 
     @Test
+    void traduceElIndiceUnicoDeNumeroOcupadoAConflicto409SinNotificarNiTocarOtrasConsultas() {
+        when(repository.crear(SOCIO_ID, numero(false), null))
+                .thenThrow(new org.springframework.dao.DuplicateKeyException(
+                        "uq_consulta_numero_no_cancelada"));
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> service.agendar(SOCIO_ID, SOLICITUD)
+        );
+
+        assertAll(
+                () -> assertEquals(org.springframework.http.HttpStatus.CONFLICT, exception.getStatus()),
+                () -> assertEquals("NUMERO_NO_DISPONIBLE", exception.getCode()),
+                () -> verify(repository, never()).crearNotificacionAgenda(org.mockito.ArgumentMatchers.anyLong()),
+                () -> verify(repository, org.mockito.Mockito.times(1)).crear(SOCIO_ID, numero(false), null)
+        );
+    }
+
+    @Test
     void rechazaSocioInexistenteOInhabilitado() {
         when(repository.bloquearSocioHabilitado(SOCIO_ID)).thenReturn(false);
 

@@ -7,7 +7,9 @@ Pruebas HTTP reales del backend (Spring Boot en puerto aleatorio, cliente
 
 ## Aislamiento
 
-- `BaseIntegracionIT` solo acepta URLs `jdbc:postgresql://localhost|127.0.0.1[:puerto]/<nombre>_e2e|_test`. Cualquier otra (Supabase, Railway, etc.) aborta la prueba antes de conectar.
+- `GuardaBaseE2E` valida todo **antes** de conectar: host `localhost`/`127.0.0.1`, nombre en minúsculas `[a-z][a-z0-9_]*` terminado en `_e2e` o `_test` (sin mayúsculas, dígito inicial, guiones, parámetros ni `;`) y la variable `E2E_ALLOW_DESTRUCTIVE=true`. Cualquier otra combinación aborta sin tocar nada.
+- El nombre se entrecomilla como identificador SQL y las consultas usan parámetros.
+- Si la base ya tiene tablas, solo se reinicializa si tiene el comentario `proyecto-e2e-descartable` (`COMMENT ON DATABASE`). Las bases creadas por las pruebas se marcan solas; una base ajena con tablas se rechaza sin modificarse. En Actions el workflow marca la base efímera.
 - Antes de cada clase recrea el esquema `public` y carga `database/schema.sql`.
 - Antes de cada prueba vacía todas las tablas y siembra datos ficticios (admin, 2 funcionarios, médico, socios, especialidades, consultorio). Contraseña ficticia común: `Clave-Segura-1`.
 - Firebase y correo externo están desactivados; el enlace de primer ingreso se captura con un listener del evento `PrimerIngresoLinkSolicitado`.
@@ -18,7 +20,7 @@ Pruebas HTTP reales del backend (Spring Boot en puerto aleatorio, cliente
 # PostgreSQL 17 local descartable (ejemplo: puerto 55432)
 cd backend\api
 $env:E2E_DB_URL = "jdbc:postgresql://localhost:55432/proyecto_e2e"
-$env:E2E_DB_USER = "postgres"; $env:E2E_DB_PASSWORD = "postgres"
+$env:E2E_DB_USER = "postgres"; $env:E2E_DB_PASSWORD = "postgres"; $env:E2E_ALLOW_DESTRUCTIVE = "true"
 .\mvnw.cmd test "-Dtest=*IT" "-Dsurefire.failIfNoSpecifiedTests=false"
 
 # Clases de contexto completo (exigen base con esquema y Firebase apagado)
