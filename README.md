@@ -45,10 +45,10 @@ corrieron contra ellas.
 cp .env.example .env
 ```
 
-Después abrí el `.env` y completá:
-
-- `DB_PASSWORD` — la contraseña de la base, se pide por el chat del grupo
-- `JWT_SECRET_BASE64` — generá la tuya con `openssl rand -base64 32`
+Después abrí el `.env` y completá `JWT_SECRET_BASE64` con una clave propia,
+generada con `openssl rand -base64 32`. El ejemplo configura una base
+PostgreSQL local aislada; cargá su esquema con `database/schema.sql` antes de
+iniciar el backend.
 
 El `.env` está en el `.gitignore`. **Nunca lo subas.**
 
@@ -144,9 +144,27 @@ con el frontend:
 
 ## Base de datos
 
-PostgreSQL 17 alojado en Supabase, en el esquema `"POC"` (mayúsculas, se
-escribe siempre entre comillas dobles).
+El backend utiliza PostgreSQL 17 y el esquema `public`. La estructura completa
+está versionada y puede recrearse a partir de
+[`database/schema.sql`](database/schema.sql). Para desarrollo local se
+recomienda una base aislada; no apuntes las pruebas a una base compartida o de
+producción.
 
-> **Pendiente:** el esquema todavía no está versionado en el repositorio. Las
-> tablas se crearon a mano y el `CREATE TABLE` vive fuera de git. Se está
-> migrando a Flyway.
+El esquema completo está versionado en
+[`database/schema.sql`](database/schema.sql), y el CI lo prueba en cada Pull
+Request que toque `database/`. Cómo se cambia el esquema está en
+[`database/README.md`](database/README.md).
+
+Los módulos POC archivados se conservan como evidencia académica y no forman
+parte del backend activo. Sus endpoints y el login antiguo con
+`{cedula, clave}` fueron retirados. La configuración de Railway y del correo
+de primer ingreso se documenta en
+[`docs/api/railway-correo.md`](docs/api/railway-correo.md).
+
+## Imagen de despliegue
+
+Desde la raíz del repositorio, `docker build -t proyecto-2026 .` construye
+Flutter web y el backend en una única imagen. La web llama a la API mediante
+rutas relativas `/api/...` y ambos servicios se publican bajo el mismo origen.
+Las variables de producción se configuran en Railway; no se incluyen secretos
+en la imagen ni en el repositorio.

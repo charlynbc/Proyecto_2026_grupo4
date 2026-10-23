@@ -16,9 +16,9 @@ Future<void> loadRoboto() async {
   }
   final loader = FontLoader('Roboto');
   for (final name in const [
-    'roboto-regular.ttf',
-    'roboto-medium.ttf',
-    'roboto-bold.ttf',
+    'Roboto-Regular.ttf',
+    'Roboto-Medium.ttf',
+    'Roboto-Bold.ttf',
   ]) {
     final file = File('$root/bin/cache/artifacts/material_fonts/$name');
     if (!file.existsSync()) {

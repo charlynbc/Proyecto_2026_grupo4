@@ -1,7 +1,10 @@
 package uy.edu.proyecto.backend.auth;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,7 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -57,6 +62,53 @@ class AuthSeguridadTest {
                                         """)
                 )
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void refreshSiguePublicoConCookieDeRenovacion() throws Exception {
+        when(authService.refresh("v2.refresh")).thenReturn(
+                new AuthResult(
+                        new LoginResponse("jwt", "Bearer", 900, "SOCIO", "Ana", "Perez"),
+                        "v3.refresh"
+                )
+        );
+        when(refreshCookieService.crear("v3.refresh")).thenReturn(
+                ResponseCookie.from("refresh_token", "v3.refresh").build()
+        );
+
+        mockMvc.perform(post("/api/auth/refresh")
+                        .cookie(new jakarta.servlet.http.Cookie(
+                                "refresh_token", "v2.refresh"
+                        )))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void logoutRequiereAutenticacion() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutAceptaCualquierRolAutenticado() throws Exception {
+        when(refreshCookieService.borrar()).thenReturn(
+                ResponseCookie.from("refresh_token", "").maxAge(0).build()
+        );
+
+        for (String rol : new String[]{
+                "SOCIO", "FUNCIONARIO", "MEDICO", "ADMINISTRADOR"
+        }) {
+            mockMvc.perform(post("/api/auth/logout")
+                            .with(jwt().authorities(
+                                    new SimpleGrantedAuthority("ROLE_" + rol)
+                            ))
+                            .cookie(new jakarta.servlet.http.Cookie(
+                                    "refresh_token", "v2.refresh"
+                            )))
+                    .andExpect(status().isNoContent());
+        }
+
+        verify(authService, times(4)).logout("v2.refresh");
     }
 
     @Test

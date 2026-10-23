@@ -149,6 +149,37 @@ void main() {
     expect(container.read(sessionProvider).expired, isFalse);
   });
 
+  test('logout renueva el access token vencido y reintenta', () async {
+    var logoutCalls = 0;
+    final logoutAuthorizationHeaders = <String?>[];
+    setUpWith((o) {
+      if (o.path == ApiRoutes.authRefresh) {
+        return _json(200, sessionBody('nuevo'));
+      }
+      if (o.path == ApiRoutes.authLogout) {
+        logoutAuthorizationHeaders.add(
+          o.headers['Authorization'] as String?,
+        );
+        logoutCalls++;
+        if (logoutCalls == 2) {
+          return ResponseBody.fromString('', 204);
+        }
+      }
+      return _json(401, {'code': 'NO_AUTENTICADO'});
+    });
+    startSession();
+
+    final response = await dio.post<void>(ApiRoutes.authLogout);
+
+    expect(response.statusCode, 204);
+    expect(logoutAuthorizationHeaders, hasLength(2));
+    expect(logoutAuthorizationHeaders, everyElement(isNotNull));
+    expect(
+      adapter.paths,
+      [ApiRoutes.authLogout, ApiRoutes.authRefresh, ApiRoutes.authLogout],
+    );
+  });
+
   test(
     'si tras renovar el servidor sigue dando 401, la sesión se cierra',
     () async {

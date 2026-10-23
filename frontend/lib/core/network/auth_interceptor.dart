@@ -31,7 +31,6 @@ class AuthInterceptor extends Interceptor {
   AuthInterceptor(this._dio, this._ref);
 
   static const _refreshPath = ApiRoutes.authRefresh;
-  static const _logoutPath = ApiRoutes.authLogout;
   static const _retriedKey = 'authRetried';
 
   final Dio _dio;
@@ -55,8 +54,7 @@ class AuthInterceptor extends Interceptor {
     final options = err.requestOptions;
     final isSessionRequest =
         options.headers.containsKey('Authorization') &&
-        options.path != _refreshPath &&
-        options.path != _logoutPath;
+        options.path != _refreshPath;
     if (err.response?.statusCode != 401 || !isSessionRequest) {
       handler.next(err);
       return;
