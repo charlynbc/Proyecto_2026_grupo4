@@ -8,6 +8,7 @@ import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
+import 'package:agenda_medica/features/auth/repositories/api_auth_repository.dart';
 import 'package:agenda_medica/features/auth/repositories/auth_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -74,6 +75,20 @@ void main() {
       final dio = Dio(BaseOptions(baseUrl: 'http://prueba'));
       dio.httpClientAdapter = adapter;
       dio.interceptors.add(AuthInterceptor(dio, ref));
+      // Simula el cookie jar del navegador/Android: va después del
+      // AuthInterceptor, como el adapter real, y solo manda la cookie al
+      // refresh y al logout.
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (o, h) {
+            if (o.path == ApiRoutes.authRefresh ||
+                o.path == ApiRoutes.authLogout) {
+              o.headers['Cookie'] = 'refresh_token=rt1';
+            }
+            h.next(o);
+          },
+        ),
+      );
       return dio;
     });
     container = ProviderContainer(
@@ -205,6 +220,216 @@ void main() {
       expect(session.expired, isTrue);
     },
   );
+
+  group('refresh y logout con access token vencido', () {
+    String bearer(String token) => 'Bearer $token';
+    final logoutTokens = <String?>[];
+    setUp(logoutTokens.clear);
+
+    // Backend simulado: el refresh exige la cookie y rechaza cualquier
+    // Authorization; el logout exige el access token vigente.
+    FutureOr<ResponseBody> backend(
+      RequestOptions o, {
+      List<RequestOptions>? refreshes,
+      List<RequestOptions>? logouts,
+    }) {
+      if (o.path == ApiRoutes.authRefresh) {
+        refreshes?.add(o);
+        if (o.headers.containsKey('Authorization')) {
+          return _json(401, {'code': 'TOKEN_VENCIDO'});
+        }
+        if (o.headers['Cookie'] != 'refresh_token=rt1') {
+          return _json(401, {'code': 'SESION_INVALIDA'});
+        }
+        return _json(200, sessionBody('nuevo'));
+      }
+      if (o.path == ApiRoutes.authLogout) {
+        logouts?.add(o);
+        logoutTokens.add(o.headers['Authorization'] as String?);
+        if (o.headers['Authorization'] == bearer('nuevo')) {
+          return ResponseBody.fromString(
+            '',
+            204,
+            headers: {
+              'set-cookie': ['refresh_token=; Max-Age=0; HttpOnly'],
+            },
+          );
+        }
+      }
+      return _json(401, {'code': 'NO_AUTENTICADO'});
+    }
+
+    test('el refresh nunca lleva Authorization y sí la cookie', () async {
+      final refreshes = <RequestOptions>[];
+      setUpWith((o) => backend(o, refreshes: refreshes));
+      startSession();
+
+      await dio.get<void>(_protected).then((_) {}, onError: (_) {});
+
+      expect(refreshes, hasLength(1));
+      expect(refreshes.single.headers.containsKey('Authorization'), isFalse);
+      expect(refreshes.single.headers['Cookie'], 'refresh_token=rt1');
+    });
+
+    test('un Authorization puesto a mano en el refresh se descarta', () async {
+      final refreshes = <RequestOptions>[];
+      setUpWith((o) => backend(o, refreshes: refreshes));
+      startSession();
+
+      final response = await dio.post<Map<String, dynamic>>(
+        ApiRoutes.authRefresh,
+        options: Options(headers: {'Authorization': bearer('viejo')}),
+      );
+
+      expect(response.statusCode, 200);
+      expect(refreshes.single.headers.containsKey('Authorization'), isFalse);
+    });
+
+    test('las demás requests autenticadas siguen llevando el bearer', () async {
+      String? header;
+      setUpWith((o) {
+        header = o.headers['Authorization'] as String?;
+        return _json(200, {'ok': true});
+      });
+      startSession();
+
+      await dio.get<void>(_protected);
+
+      expect(header, bearer('viejo'));
+    });
+
+    test('logout con token válido no pide refresh', () async {
+      final logouts = <RequestOptions>[];
+      setUpWith((o) => backend(o, logouts: logouts));
+      container
+          .read(sessionProvider.notifier)
+          .setAuthenticated(accessToken: 'nuevo', role: UserRole.socio);
+
+      final response = await dio.post<void>(ApiRoutes.authLogout);
+
+      expect(response.statusCode, 204);
+      expect(response.headers['set-cookie'], isNotEmpty);
+      expect(adapter.paths, [ApiRoutes.authLogout]);
+      expect(logouts.single.headers['Cookie'], 'refresh_token=rt1');
+    });
+
+    test('logout con token vencido: refresh sin bearer y reintento', () async {
+      final logouts = <RequestOptions>[];
+      final refreshes = <RequestOptions>[];
+      setUpWith((o) => backend(o, logouts: logouts, refreshes: refreshes));
+      startSession();
+
+      final response = await dio.post<void>(ApiRoutes.authLogout);
+
+      expect(response.statusCode, 204);
+      expect(response.headers['set-cookie']!.single, contains('Max-Age=0'));
+      expect(adapter.paths, [
+        ApiRoutes.authLogout,
+        ApiRoutes.authRefresh,
+        ApiRoutes.authLogout,
+      ]);
+      expect(logoutTokens, [bearer('viejo'), bearer('nuevo')]);
+      expect(refreshes.single.headers.containsKey('Authorization'), isFalse);
+    });
+
+    test('el repository limpia la sesión local tras el logout', () async {
+      setUpWith((o) => backend(o));
+      startSession();
+      final repository = ApiAuthRepository(
+        dio,
+        container.read(sessionProvider.notifier),
+      );
+
+      await repository.logout();
+
+      final session = container.read(sessionProvider);
+      expect(session.status, SessionStatus.unauthenticated);
+      expect(session.expired, isFalse);
+    });
+
+    test('logout con refresh rechazado: sin bucle y sesión cerrada', () async {
+      setUpWith((o) {
+        if (o.path == ApiRoutes.authRefresh) {
+          return _json(401, {'code': 'SESION_INVALIDA'});
+        }
+        return _json(401, {'code': 'NO_AUTENTICADO'});
+      });
+      startSession();
+
+      await expectLater(
+        dio.post<void>(ApiRoutes.authLogout),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(adapter.paths, [ApiRoutes.authLogout, ApiRoutes.authRefresh]);
+      expect(container.read(sessionProvider).expired, isTrue);
+    });
+
+    test('logout con error de red en el refresh: no reintenta', () async {
+      setUpWith((o) {
+        if (o.path == ApiRoutes.authRefresh) {
+          throw DioException.connectionError(
+            requestOptions: o,
+            reason: 'sin conexión',
+          );
+        }
+        return _json(401, {'code': 'NO_AUTENTICADO'});
+      });
+      startSession();
+
+      await expectLater(
+        dio.post<void>(ApiRoutes.authLogout),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(adapter.paths, [ApiRoutes.authLogout, ApiRoutes.authRefresh]);
+      expect(container.read(sessionProvider).isAuthenticated, isTrue);
+    });
+
+    test('si el logout reintentado sigue en 401 no hay segundo refresh', () async {
+      setUpWith((o) {
+        if (o.path == ApiRoutes.authRefresh) {
+          return _json(200, sessionBody('nuevo'));
+        }
+        return _json(401, {'code': 'NO_AUTENTICADO'});
+      });
+      startSession();
+
+      await expectLater(
+        dio.post<void>(ApiRoutes.authLogout),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(adapter.paths, [
+        ApiRoutes.authLogout,
+        ApiRoutes.authRefresh,
+        ApiRoutes.authLogout,
+      ]);
+      expect(container.read(sessionProvider).expired, isTrue);
+    });
+
+    test('401 concurrentes comparten un solo refresh', () async {
+      final refreshes = <RequestOptions>[];
+      setUpWith((o) {
+        if (o.path == ApiRoutes.authRefresh || o.path == ApiRoutes.authLogout) {
+          return backend(o, refreshes: refreshes);
+        }
+        return o.headers['Authorization'] == bearer('nuevo')
+            ? _json(200, {'ok': true})
+            : _json(401, {'code': 'NO_AUTENTICADO'});
+      });
+      startSession();
+
+      final results = await Future.wait([
+        dio.get<void>(_protected),
+        dio.get<void>(_protected),
+        dio.get<void>(_protected),
+      ]);
+
+      expect(results.map((r) => r.statusCode), everyElement(200));
+      expect(refreshes, hasLength(1));
+    });
+  });
 
   test('un corte de red durante el refresh no cierra la sesión', () async {
     setUpWith((o) {

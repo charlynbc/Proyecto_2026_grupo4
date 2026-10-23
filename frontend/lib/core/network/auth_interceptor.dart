@@ -42,6 +42,13 @@ class AuthInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.path == _refreshPath) {
+      // El refresh se autentica solo con la cookie; un access token vencido
+      // en el bearer haría que el backend lo rechace antes de leer la cookie.
+      options.headers.remove('Authorization');
+      handler.next(options);
+      return;
+    }
     final token = _ref.read(sessionProvider).accessToken;
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
