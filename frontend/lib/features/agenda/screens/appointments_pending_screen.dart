@@ -9,11 +9,11 @@ import '../../../core/widgets/centered_content.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialties_provider.dart';
-import '../models/appointment.dart';
 import '../models/appointment_history_page.dart';
 import '../models/appointment_history_query.dart';
 import '../providers/appointment_history_provider.dart';
 import '../repositories/appointment_history_repository.dart';
+import '../widgets/appointment_card.dart';
 
 const String kAvailabilityPath = '/socio/disponibilidad';
 const String kAppointmentsPath = '/socio/consultas';
@@ -364,7 +364,10 @@ class _AppointmentsPendingScreenState
         ),
         const SizedBox(height: 8),
         for (final appointment in result.items)
-          _AppointmentCard(appointment: appointment),
+          AppointmentCard(
+            appointment: appointment,
+            onTap: () => context.push('$kAppointmentsPath/${appointment.id}'),
+          ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -386,30 +389,6 @@ class _AppointmentsPendingScreenState
           ],
         ),
       ],
-    );
-  }
-}
-
-class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({required this.appointment});
-
-  final Appointment appointment;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = appointment;
-    return Card(
-      child: ListTile(
-        key: Key('appointment-${value.id}'),
-        title: Text('${value.specialty.name} · ${value.statusLabel}'),
-        subtitle: Text(
-          '${formatUiDate(value.date)} · ${value.timeRange}\n'
-          '${value.doctor.fullName} · ${value.clinic.name}',
-        ),
-        isThreeLine: true,
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.push('$kAppointmentsPath/${value.id}'),
-      ),
     );
   }
 }
