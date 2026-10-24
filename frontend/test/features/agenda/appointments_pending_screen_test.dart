@@ -1,3 +1,4 @@
+import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_page.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_query.dart';
@@ -74,16 +75,52 @@ class _PagedHistoryRepository extends _HistoryRepository {
   }
 }
 
+const _loadFailure = 'No pudimos cargar tus consultas de prueba.';
+
+/// Falla la primera vez que se pide la [failingPage] y después responde bien.
+/// Anota las páginas pedidas, en orden.
+class _FlakyHistoryRepository extends _HistoryRepository {
+  _FlakyHistoryRepository({
+    required this.failingPage,
+    super.items,
+    super.total,
+  });
+
+  final int failingPage;
+  bool _failed = false;
+  final requestedPages = <int>[];
+
+  @override
+  Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
+    requestedPages.add(query.page);
+    if (query.page == failingPage && !_failed) {
+      _failed = true;
+      throw const ApiException(_loadFailure);
+    }
+    return AppointmentHistoryPage(
+      items: items,
+      page: query.page,
+      size: query.size,
+      total: total,
+    );
+  }
+}
+
+/// Riverpod 3 reintenta solo los providers que fallan, y mientras tanto el
+/// estado es "cargando": el error no se vería. Con [autoRetry] en `false` la
+/// primera falla se muestra enseguida, como en las pruebas de los errores.
 Future<void> _pump(
   WidgetTester tester,
   Widget screen,
-  _HistoryRepository repository,
-) async {
+  _HistoryRepository repository, {
+  bool autoRetry = true,
+}) async {
   tester.view.physicalSize = const Size(900, 1800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ProviderScope(
+      retry: autoRetry ? null : (_, _) => null,
       overrides: [
         appointmentHistoryRepositoryProvider.overrideWith(
           (ref) async => repository,
@@ -117,7 +154,7 @@ void main() {
     expect(find.byKey(const Key('history-next')), findsOneWidget);
   });
 
-  testWidgets('muestra estado vacío y permite reintentar error de conexión', (
+  testWidgets('muestra el estado vacío cuando no hay consultas', (
     tester,
   ) async {
     await _pump(
@@ -254,6 +291,103 @@ void main() {
 
       expect(find.byKey(const Key('history-empty')), findsOneWidget);
       expect(find.byKey(const Key('history-empty-page')), findsNothing);
+      expect(find.byKey(const Key('history-previous')), findsNothing);
+      expect(find.byKey(const Key('history-next')), findsNothing);
+      expect(find.textContaining('Página'), findsNothing);
+    });
+  });
+
+  group('error de carga del historial', () {
+    final retry = find.text('Reintentar');
+
+    testWidgets('el mensaje va en el color de error del tema', (tester) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _FlakyHistoryRepository(failingPage: 0),
+        autoRetry: false,
+      );
+      final message = find.text(_loadFailure);
+      expect(message, findsOneWidget);
+
+      final element = tester.element(message);
+      final scheme = Theme.of(element).colorScheme;
+      final drawn = DefaultTextStyle.of(element).style
+          .merge(tester.widget<Text>(message).style)
+          .color;
+
+      expect(scheme.error, isNot(scheme.onSurface));
+      expect(drawn, scheme.error);
+    });
+
+    testWidgets('"Reintentar" vuelve a pedir y muestra la lista', (
+      tester,
+    ) async {
+      final repository = _FlakyHistoryRepository(
+        failingPage: 0,
+        items: [_appointment],
+        total: 1,
+      );
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        repository,
+        autoRetry: false,
+      );
+      expect(find.text(_loadFailure), findsOneWidget);
+      expect(find.byKey(const Key('appointment-9001')), findsNothing);
+
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('appointment-9001')), findsOneWidget);
+      expect(find.text(_loadFailure), findsNothing);
+      expect(repository.requestedPages, [0, 0]);
+    });
+
+    testWidgets('"Reintentar" pide la página en la que estaba el socio', (
+      tester,
+    ) async {
+      final repository = _FlakyHistoryRepository(
+        failingPage: 1,
+        items: [_appointment],
+        total: 25,
+      );
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        repository,
+        autoRetry: false,
+      );
+      await tester.tap(find.byKey(const Key('history-next')));
+      await tester.pumpAndSettle();
+      expect(find.text(_loadFailure), findsOneWidget);
+
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedPages, [0, 1, 1]);
+      expect(find.text('Página 2'), findsOneWidget);
+      expect(find.byKey(const Key('appointment-9001')), findsOneWidget);
+      expect(find.text(_loadFailure), findsNothing);
+    });
+
+    testWidgets('con el error no hay tarjetas ni fila de paginación', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _FlakyHistoryRepository(
+          failingPage: 0,
+          items: [_appointment],
+          total: 1,
+        ),
+        autoRetry: false,
+      );
+
+      expect(find.byKey(const Key('history-error')), findsOneWidget);
+      expect(find.byKey(const Key('appointment-9001')), findsNothing);
       expect(find.byKey(const Key('history-previous')), findsNothing);
       expect(find.byKey(const Key('history-next')), findsNothing);
       expect(find.textContaining('Página'), findsNothing);

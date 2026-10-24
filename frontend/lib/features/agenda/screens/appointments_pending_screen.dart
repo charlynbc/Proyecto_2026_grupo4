@@ -333,7 +333,11 @@ class _AppointmentsPendingScreenState
     };
     return Column(
       children: [
-        Text(message, key: const Key('history-error')),
+        Text(
+          message,
+          key: const Key('history-error'),
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
         const SizedBox(height: 8),
         OutlinedButton(
           onPressed: () => ref.invalidate(appointmentHistoryProvider(query)),
