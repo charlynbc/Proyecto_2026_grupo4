@@ -214,6 +214,23 @@ void main() {
       final (repo, _) = _repo(201, {'id': 'x'});
       await expectLater(repo.book(numberId: 11), throwsA(isA<ApiException>()));
     });
+
+    test(
+      'un estado desconocido en la consulta creada es un error genérico',
+      () async {
+        final (repo, _) = _repo(201, _consulta()..['estado'] = 'REPROGRAMADA');
+        await expectLater(
+          repo.book(numberId: 11),
+          throwsA(
+            isA<ApiException>().having(
+              (e) => e.message,
+              'message',
+              kApiGenericMessage,
+            ),
+          ),
+        );
+      },
+    );
   });
 
   test('AvailabilityQuery compara por valor', () {
