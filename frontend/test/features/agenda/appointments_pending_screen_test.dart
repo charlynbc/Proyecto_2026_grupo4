@@ -56,6 +56,24 @@ class _HistoryRepository implements AppointmentHistoryRepository {
   }
 }
 
+/// Responde distinto por página: las que no figuran vienen vacías con total 0.
+class _PagedHistoryRepository extends _HistoryRepository {
+  _PagedHistoryRepository(this.pages);
+
+  final Map<int, ({List<Appointment> items, int total})> pages;
+
+  @override
+  Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
+    final page = pages[query.page] ?? (items: const <Appointment>[], total: 0);
+    return AppointmentHistoryPage(
+      items: page.items,
+      page: query.page,
+      size: query.size,
+      total: page.total,
+    );
+  }
+}
+
 Future<void> _pump(
   WidgetTester tester,
   Widget screen,
@@ -161,5 +179,84 @@ void main() {
     );
 
     expect(find.text('No se encontró esta consulta.'), findsOneWidget);
+  });
+
+  group('página vacía después de la primera', () {
+    const emptyPageText = 'Esta página ya no tiene consultas.';
+
+    Future<void> goToNextPage(WidgetTester tester) async {
+      await tester.tap(find.byKey(const Key('history-next')));
+      await tester.pumpAndSettle();
+    }
+
+    bool isEnabled(WidgetTester tester, String key) =>
+        tester.widget<TextButton>(find.byKey(Key(key))).onPressed != null;
+
+    testWidgets('con el total real avisa y deja volver a la anterior', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _PagedHistoryRepository({
+          0: (items: [_appointment], total: 25),
+          1: (items: const [], total: 25),
+        }),
+      );
+      expect(find.byKey(const Key('appointment-9001')), findsOneWidget);
+
+      await goToNextPage(tester);
+
+      expect(find.byKey(const Key('history-empty-page')), findsOneWidget);
+      expect(find.text(emptyPageText), findsOneWidget);
+      expect(find.byKey(const Key('history-empty')), findsNothing);
+      expect(find.text('Página 2'), findsOneWidget);
+      expect(isEnabled(tester, 'history-previous'), isTrue);
+      expect(isEnabled(tester, 'history-next'), isFalse);
+
+      await tester.tap(find.byKey(const Key('history-previous')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('history-empty-page')), findsNothing);
+      expect(find.byKey(const Key('appointment-9001')), findsOneWidget);
+      expect(find.text('Página 1'), findsOneWidget);
+    });
+
+    testWidgets('con total 0 muestra el mismo aviso y el mismo botón', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _PagedHistoryRepository({
+          0: (items: [_appointment], total: 25),
+          1: (items: const [], total: 0),
+        }),
+      );
+
+      await goToNextPage(tester);
+
+      expect(find.text(emptyPageText), findsOneWidget);
+      expect(find.byKey(const Key('history-empty-page')), findsOneWidget);
+      expect(find.byKey(const Key('history-empty')), findsNothing);
+      expect(isEnabled(tester, 'history-previous'), isTrue);
+      expect(isEnabled(tester, 'history-next'), isFalse);
+    });
+
+    testWidgets('la primera página vacía no muestra la fila de paginación', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _HistoryRepository(),
+      );
+
+      expect(find.byKey(const Key('history-empty')), findsOneWidget);
+      expect(find.byKey(const Key('history-empty-page')), findsNothing);
+      expect(find.byKey(const Key('history-previous')), findsNothing);
+      expect(find.byKey(const Key('history-next')), findsNothing);
+      expect(find.textContaining('Página'), findsNothing);
+    });
   });
 }

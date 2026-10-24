@@ -345,6 +345,25 @@ class _AppointmentsPendingScreenState
 
   Widget _results(AppointmentHistoryPage result) {
     if (result.items.isEmpty) {
+      // Una página que ya no existe (por ejemplo, si se achicó la lista) deja
+      // la fila de paginación para volver a la anterior.
+      if (result.hasPrevious) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  'Esta página ya no tiene consultas.',
+                  key: Key('history-empty-page'),
+                ),
+              ),
+            ),
+            _pagination(result),
+          ],
+        );
+      }
       return const Padding(
         padding: EdgeInsets.all(24),
         child: Center(
@@ -368,25 +387,27 @@ class _AppointmentsPendingScreenState
             appointment: appointment,
             onTap: () => context.push('$kAppointmentsPath/${appointment.id}'),
           ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton(
-              key: const Key('history-previous'),
-              onPressed: result.hasPrevious
-                  ? () => setState(() => _page -= 1)
-                  : null,
-              child: const Text('Anterior'),
-            ),
-            Text('Página ${result.page + 1}'),
-            TextButton(
-              key: const Key('history-next'),
-              onPressed: result.hasNext
-                  ? () => setState(() => _page += 1)
-                  : null,
-              child: const Text('Siguiente'),
-            ),
-          ],
+        _pagination(result),
+      ],
+    );
+  }
+
+  Widget _pagination(AppointmentHistoryPage result) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        TextButton(
+          key: const Key('history-previous'),
+          onPressed: result.hasPrevious
+              ? () => setState(() => _page -= 1)
+              : null,
+          child: const Text('Anterior'),
+        ),
+        Text('Página ${result.page + 1}'),
+        TextButton(
+          key: const Key('history-next'),
+          onPressed: result.hasNext ? () => setState(() => _page += 1) : null,
+          child: const Text('Siguiente'),
         ),
       ],
     );
