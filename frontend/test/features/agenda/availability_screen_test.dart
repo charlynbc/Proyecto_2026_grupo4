@@ -11,6 +11,7 @@ import 'package:agenda_medica/features/agenda/screens/appointments_pending_scree
 import 'package:agenda_medica/features/agenda/screens/availability_screen.dart';
 import 'package:agenda_medica/features/consultorios/models/clinic.dart';
 import 'package:agenda_medica/features/especialidades/models/specialty.dart';
+import 'package:agenda_medica/core/utils/uruguay_time.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialties_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -352,5 +353,61 @@ void main() {
     expect(find.text('Mis consultas'), findsOneWidget);
     expect(find.byKey(const Key('history-empty')), findsOneWidget);
     expect(history.listCalls, 1);
+  });
+
+  // RF-09: la fecha puede estar a no más de 30 días. El calendario de los dos
+  // campos empieza hoy (Uruguay) y termina 30 días después.
+  for (final (label, tooltip) in [
+    ('Desde', 'Elegir la fecha desde'),
+    ('Hasta', 'Elegir la fecha hasta'),
+  ]) {
+    testWidgets('el calendario de "$label" termina a los 30 días', (
+      tester,
+    ) async {
+      await _pump(tester, const AvailabilityScreen());
+      final today = UruguayTime.today();
+
+      await tester.tap(find.byTooltip(tooltip));
+      await tester.pumpAndSettle();
+
+      final calendar = tester.widget<CalendarDatePicker>(
+        find.byType(CalendarDatePicker),
+      );
+      expect(calendar.firstDate, DateTime(today.year, today.month, today.day));
+      expect(
+        calendar.lastDate,
+        DateTime(today.year, today.month, today.day + 30),
+      );
+
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      await _unmount(tester);
+    });
+  }
+
+  testWidgets('"Requiere pase" aparece en el número de una especialidad con '
+      'pase', (tester) async {
+    await _pump(tester, const AvailabilityScreen());
+    await _chooseSpecialty(tester, 'Cardiología');
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('number-21')),
+        matching: find.text('Requiere pase'),
+      ),
+      findsOneWidget,
+    );
+    await _unmount(tester);
+  });
+
+  testWidgets('"Requiere pase" no aparece en una especialidad sin pase', (
+    tester,
+  ) async {
+    await _pump(tester, const AvailabilityScreen());
+    await _chooseSpecialty(tester, 'Medicina general');
+
+    expect(find.byKey(const Key('number-11')), findsOneWidget);
+    expect(find.text('Requiere pase'), findsNothing);
+    await _unmount(tester);
   });
 }

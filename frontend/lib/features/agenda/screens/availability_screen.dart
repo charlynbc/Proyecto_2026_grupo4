@@ -14,6 +14,7 @@ import '../providers/appointment_history_provider.dart';
 import 'appointments_pending_screen.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialties_provider.dart';
+import '../models/agenda_time.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
@@ -270,7 +271,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
             pickerHelpText: 'Fecha desde',
             pickerTooltip: 'Elegir la fecha desde',
             firstDate: today,
-            lastDate: today.add(const Duration(days: 365)),
+            lastDate: today.add(const Duration(days: kMaxAdvanceDays)),
             textInputAction: TextInputAction.search,
             onChanged: (_) {
               if (_rangeError != null) setState(() => _rangeError = null);
@@ -286,7 +287,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
             pickerHelpText: 'Fecha hasta',
             pickerTooltip: 'Elegir la fecha hasta',
             firstDate: today,
-            lastDate: today.add(const Duration(days: 365)),
+            lastDate: today.add(const Duration(days: kMaxAdvanceDays)),
             initialPickerDate: () => parseUiDate(_fromController.text),
             errorText: _rangeError,
             textInputAction: TextInputAction.search,
@@ -412,10 +413,20 @@ class _Results extends ConsumerWidget {
                   title: Text(
                     '${formatUiDate(number.date)} · ${number.timeRange}',
                   ),
-                  subtitle: Text(
-                    '${number.doctor.fullName} · ${number.specialty.name}\n'
-                    '${number.clinic.name} (${number.clinic.location}) · '
-                    'Número ${number.number}',
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${number.doctor.fullName} · ${number.specialty.name}\n'
+                        '${number.clinic.name} (${number.clinic.location}) · '
+                        'Número ${number.number}',
+                      ),
+                      if (number.specialty.requiresReferral)
+                        const Text(
+                          'Requiere pase',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                    ],
                   ),
                   isThreeLine: true,
                   trailing: bookingNumberId == number.numberId
