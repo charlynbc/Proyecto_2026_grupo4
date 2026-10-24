@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config.dart';
+import '../../../core/fakes/fake_database.dart';
 import '../../../core/network/dio_client.dart';
 import '../models/appointment.dart';
 import '../models/appointment_history_page.dart';
 import '../models/appointment_history_query.dart';
 import '../repositories/api_appointment_history_repository.dart';
 import '../repositories/appointment_history_repository.dart';
+import '../repositories/fake_appointment_history_repository.dart';
 
 class AppointmentHistoryRefresh extends Notifier<int> {
   @override
@@ -21,6 +24,11 @@ final appointmentHistoryRefreshProvider =
 
 final appointmentHistoryRepositoryProvider =
     FutureProvider<AppointmentHistoryRepository>((ref) async {
+      if (ref.watch(useFakesProvider)) {
+        return FakeAppointmentHistoryRepository(
+          ref.watch(fakeDatabaseProvider),
+        );
+      }
       final dio = await ref.watch(dioProvider.future);
       return ApiAppointmentHistoryRepository(dio);
     });
