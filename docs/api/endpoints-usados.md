@@ -58,6 +58,7 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 | 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | PROPUESTA | - | [contrato #34](contrato-v1.md#e34) |
 | 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | PROPUESTA | - | [contrato #35](contrato-v1.md#e35) |
 | 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | PROPUESTA | - | [contrato #36](contrato-v1.md#e36) |
+| 37 | `GET /api/socios/me/pases/disponibles` | SOCIO | 09 | Confirmar agenda (pase que se usará) | CONFIRMADA | feat/front-socio-sobre-integracion 25/10/2026 | Sin sección en el contrato (P-08 sigue diciendo que no hay endpoint). Ver "Cambios de campos acordados". |
 
 ## Rutas de la prueba de concepto
 
@@ -86,3 +87,5 @@ La ruta de registro de notificaciones que existe en el backend es
 ## Cambios de campos acordados con el backend
 
 (Vacío. Cada vez que Carlos confirme o cambie algo, una línea: fecha, # de ruta, qué cambió.)
+
+- 25/10/2026, #37: la ruta no está en el contrato. El backend (`PaseController`, rama de integración) responde una lista de `PaseDTO` con `{id, especialidadDestino: {id, nombre, requierePase}, emitidoEn, venceEl}`; `emitidoEn` es fecha y hora con offset y `venceEl` es una fecha `aaaa-mm-dd`. Responde 401 `TOKEN_INVALIDO` si el identificador del token no es válido.
