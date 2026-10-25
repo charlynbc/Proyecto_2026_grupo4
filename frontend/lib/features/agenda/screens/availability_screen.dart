@@ -494,6 +494,7 @@ class _ConfirmBookingDialogState extends State<_ConfirmBookingDialog> {
     final number = widget.number;
     final needsReferral = number.specialty.requiresReferral;
     return AlertDialog(
+      scrollable: true,
       title: const Text('Confirmar consulta'),
       content: Form(
         key: _formKey,
@@ -569,6 +570,7 @@ class _BookedDialog extends StatelessWidget {
       ('Agendada el', bookedAt),
     ];
     return AlertDialog(
+      scrollable: true,
       title: const Text('Consulta agendada'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

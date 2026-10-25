@@ -18,6 +18,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/load_roboto.dart';
+
 const _general = Specialty(
   id: 1,
   name: 'Medicina general',
@@ -438,5 +440,77 @@ void main() {
     expect(find.byKey(const Key('number-11')), findsOneWidget);
     expect(find.text('Requiere pase'), findsNothing);
     await _unmount(tester);
+  });
+
+  // Van al final: Roboto se carga una sola vez por archivo y dejaría de ser
+  // Ahem para los tests que vengan después. Con Roboto el texto mide como en
+  // un celular; Ahem ensancha todo y daría desbordes que no existen.
+  group('diálogos de agendar en pantallas chicas (con Roboto)', () {
+    setUpAll(loadRoboto);
+
+    testWidgets('"Confirmar consulta" con pase y el teclado abierto, a '
+        '360x640', (tester) async {
+      await _pump(tester, const AvailabilityScreen());
+      tester.view.physicalSize = const Size(360, 640);
+      await _chooseSpecialty(tester, 'Cardiología');
+      final book = find.byKey(const Key('book-21'));
+      await tester.ensureVisible(book);
+      await tester.pumpAndSettle();
+      await tester.tap(book);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('referral-id')));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final confirm = find.byKey(const Key('confirm-booking'));
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(find.text('Ingresá el número de tu pase.'), findsOneWidget);
+      await _unmount(tester);
+    });
+
+    testWidgets('"Confirmar consulta" con pase, a 360x360', (tester) async {
+      await _pump(tester, const AvailabilityScreen());
+      tester.view.physicalSize = const Size(360, 360);
+      await _chooseSpecialty(tester, 'Cardiología');
+      final book = find.byKey(const Key('book-21'));
+      await tester.ensureVisible(book);
+      await tester.pumpAndSettle();
+      await tester.tap(book);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final confirm = find.byKey(const Key('confirm-booking'));
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(find.text('Ingresá el número de tu pase.'), findsOneWidget);
+      await _unmount(tester);
+    });
+
+    testWidgets('"Consulta agendada", a 360x360', (tester) async {
+      await _pump(tester, const AvailabilityScreen());
+      tester.view.physicalSize = const Size(360, 360);
+      await _chooseSpecialty(tester, 'Medicina general');
+      final book = find.byKey(const Key('book-11'));
+      await tester.ensureVisible(book);
+      await tester.pumpAndSettle();
+      await tester.tap(book);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirm-booking')));
+      await tester.pumpAndSettle();
+      expect(find.text('Consulta agendada'), findsOneWidget);
+
+      expect(tester.takeException(), isNull);
+      final ok = find.byKey(const Key('booked-ok'));
+      await tester.ensureVisible(ok);
+      await tester.tap(ok);
+      await tester.pumpAndSettle();
+      expect(find.text('Consulta agendada'), findsNothing);
+      await _unmount(tester);
+    });
   });
 }
