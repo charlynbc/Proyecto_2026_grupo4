@@ -14,6 +14,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/load_roboto.dart';
+
 final _appointment = Appointment(
   id: 9001,
   status: 'NO_ATENDIDA',
@@ -374,6 +376,34 @@ void main() {
       expect(find.byKey(const Key('history-previous')), findsNothing);
       expect(find.byKey(const Key('history-next')), findsNothing);
       expect(find.textContaining('Página'), findsNothing);
+    });
+  });
+
+  // Va al final: Roboto se carga una sola vez por archivo y los tests que
+  // vinieran después dejarían de usar la fuente de prueba. Con Roboto el texto
+  // mide como en un celular; Ahem ensancha todo y daría desbordes que no
+  // existen.
+  group('filtros a 320 px de ancho (con Roboto)', () {
+    setUpAll(loadRoboto);
+
+    testWidgets('los desplegables de filtros no desbordan', (tester) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _HistoryRepository(items: [_appointment], total: 1),
+      );
+      tester.view.physicalSize = const Size(320, 640);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      for (final key in [
+        'history-filter-status',
+        'history-filter-specialty',
+        'history-filter-order',
+        'history-filter-direction',
+      ]) {
+        expect(find.byKey(Key(key)), findsOneWidget, reason: key);
+      }
     });
   });
 }

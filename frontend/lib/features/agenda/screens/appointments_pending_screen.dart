@@ -161,6 +161,7 @@ class _AppointmentsPendingScreenState
       children: [
         DropdownButtonFormField<String?>(
           key: const Key('history-filter-status'),
+          isExpanded: true,
           initialValue: _status,
           decoration: const InputDecoration(labelText: 'Estado'),
           items: const [
@@ -195,6 +196,7 @@ class _AppointmentsPendingScreenState
           ),
           data: (items) => DropdownButtonFormField<int?>(
             key: const Key('history-filter-specialty'),
+            isExpanded: true,
             initialValue: _specialtyId,
             decoration: const InputDecoration(labelText: 'Especialidad'),
             items: [
@@ -253,6 +255,7 @@ class _AppointmentsPendingScreenState
             Expanded(
               child: DropdownButtonFormField<AppointmentHistoryOrder>(
                 key: const Key('history-filter-order'),
+                isExpanded: true,
                 initialValue: _order,
                 decoration: const InputDecoration(labelText: 'Ordenar por'),
                 items: const [
@@ -275,6 +278,7 @@ class _AppointmentsPendingScreenState
             Expanded(
               child: DropdownButtonFormField<AppointmentHistoryDirection>(
                 key: const Key('history-filter-direction'),
+                isExpanded: true,
                 initialValue: _direction,
                 decoration: const InputDecoration(labelText: 'Sentido'),
                 items: const [
