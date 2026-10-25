@@ -5,6 +5,7 @@ import '../../../core/network/api_routes.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
+import '../models/referral.dart';
 import 'agenda_repository.dart';
 
 /// Implementación real de [AgendaRepository] (contrato #16 y #17). Los
@@ -27,6 +28,27 @@ class ApiAgendaRepository implements AgendaRepository {
       return availableNumbersFromJson(
         response.data ?? (throw const ApiException()),
       );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    } on FormatException {
+      throw const ApiException();
+    } on TypeError {
+      throw const ApiException();
+    }
+  }
+
+  @override
+  Future<List<Referral>> listReferrals() async {
+    try {
+      // Como `Object?` y no `List`: si el cuerpo no es una lista, dio tira el
+      // cast como una falla de conexión, y el servidor sí respondió.
+      final response = await _dio.get<Object?>(ApiRoutes.availableReferrals);
+      final data = response.data;
+      if (data is! List) throw const ApiException();
+      return [
+        for (final item in data)
+          Referral.fromJson(item as Map<String, dynamic>),
+      ];
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     } on FormatException {

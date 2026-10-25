@@ -7,6 +7,7 @@ import '../../especialidades/models/specialty.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
+import '../models/referral.dart';
 import 'agenda_repository.dart';
 
 /// Implementación en memoria de [AgendaRepository] para `USE_FAKES=true`
@@ -71,6 +72,11 @@ class FakeAgendaRepository implements AgendaRepository {
         ? items
         : items.reversed.toList();
   }
+
+  /// Todavía sin pases: la semilla y las reglas del servidor (vigencia y uso)
+  /// llegan en el commit de la semilla de pases.
+  @override
+  Future<List<Referral>> listReferrals() async => const [];
 
   @override
   Future<Appointment> book({required int numberId, int? referralId}) async {

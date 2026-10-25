@@ -1,6 +1,7 @@
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/agenda/models/availability_query.dart';
 import 'package:agenda_medica/features/agenda/models/available_number.dart';
+import 'package:agenda_medica/features/agenda/models/referral.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_page.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_query.dart';
 import 'package:agenda_medica/features/agenda/providers/agenda_repository_provider.dart';
@@ -50,6 +51,12 @@ class _FakeAgenda implements AgendaRepository {
   final booked = <({int numberId, int? referralId})>[];
   Object? bookError;
   final taken = <int>{};
+
+  /// Los pases que devuelve `listReferrals`; vacía por defecto.
+  final referrals = <Referral>[];
+
+  @override
+  Future<List<Referral>> listReferrals() async => List.of(referrals);
 
   @override
   Future<List<AvailableNumber>> listAvailability(AvailabilityQuery q) async {

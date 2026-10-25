@@ -25,6 +25,7 @@ class ApiRoutes {
   static const String shifts = '/api/turnos';
   static const String availability = '/api/disponibilidad';
   static const String appointments = '/api/consultas';
+  static const String availableReferrals = '/api/socios/me/pases/disponibles';
 
   // --- Semana 2 y adelantos (#18 a #36) --------------------------------
 
@@ -71,6 +72,7 @@ class ApiRoutes {
     shifts,
     availability,
     appointments,
+    availableReferrals,
     appointment(1),
     appointmentCancel(1),
     medicalHistory,
