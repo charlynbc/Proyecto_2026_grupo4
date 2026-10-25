@@ -566,7 +566,6 @@ class _BookedDialog extends StatelessWidget {
       ('Horario', a.timeRange),
       ('Consultorio', '${a.clinic.name} (${a.clinic.location})'),
       ('Número', '${a.number}'),
-      if (a.referralId != null) ('Pase', '${a.referralId}'),
       ('Agendada el', bookedAt),
     ];
     return AlertDialog(

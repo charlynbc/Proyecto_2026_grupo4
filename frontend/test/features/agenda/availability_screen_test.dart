@@ -242,6 +242,35 @@ void main() {
     await _unmount(tester);
   });
 
+  testWidgets('la confirmación de una consulta con pase no muestra el pase', (
+    tester,
+  ) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _chooseSpecialty(tester, 'Cardiología');
+
+    await tester.tap(find.byKey(const Key('book-21')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('referral-id')), '5');
+    await tester.tap(find.byKey(const Key('confirm-booking')));
+    await tester.pumpAndSettle();
+
+    // Se agendó con el pase 5: el aviso lo usa pero no se lo muestra al socio.
+    expect(agenda.booked, [(numberId: 21, referralId: 5)]);
+    expect(find.text('Consulta agendada'), findsOneWidget);
+    final dialog = find.byType(AlertDialog);
+    Finder inDialog(String text) =>
+        find.descendant(of: dialog, matching: find.textContaining(text));
+    expect(inDialog('Estado: Agendada'), findsOneWidget);
+    expect(inDialog('Especialidad: Cardiología'), findsOneWidget);
+    expect(inDialog('Médico: Ana Pérez'), findsOneWidget);
+    expect(inDialog('Horario: 09:30 - 09:45'), findsOneWidget);
+    expect(inDialog('Pase'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('booked-ok')));
+    await tester.pumpAndSettle();
+    await _unmount(tester);
+  });
+
   testWidgets('un número tomado muestra el mensaje y refresca', (tester) async {
     final agenda = _FakeAgenda()
       ..bookError = const BookingException(
