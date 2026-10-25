@@ -1,5 +1,6 @@
 import '../../features/agenda/models/appointment.dart';
 import '../../features/agenda/models/available_number.dart';
+import '../../features/agenda/models/referral.dart';
 import 'datos_prueba.dart';
 import 'fake_admin_database.dart';
 
@@ -83,6 +84,43 @@ List<Appointment> seedMemberAppointments({
       bookedAt: noon(-40),
       cancelledAt: null,
       cancellationReason: null,
+    ),
+  ];
+}
+
+/// Los pases de Cardiología de la socia de prueba, con fechas relativas a
+/// [today] (la clave de día de Uruguay) como las consultas sembradas:
+///
+/// - el pase 1, emitido hace 5 días y vigente hasta dentro de 25: cubre todos
+///   los números de Cardiología que genera `TestData` (hoy más 20 días);
+/// - el pase 2, emitido hace 40 días y vencido hace 2.
+///
+/// Ninguno está usado por las consultas sembradas.
+List<Referral> seedMemberReferrals({
+  required DateTime today,
+  required FakeAdminDatabase admin,
+}) {
+  final cardiology = admin.specialties.firstWhere(
+    (s) =>
+        FakeAdminDatabase.normalize(s.name) ==
+        FakeAdminDatabase.normalize('Cardiología'),
+  );
+
+  DateTime day(int offset) => today.add(Duration(days: offset));
+  DateTime noon(int offset) => day(offset).add(const Duration(hours: 12));
+
+  return [
+    Referral(
+      id: 1,
+      specialty: cardiology,
+      issuedAt: noon(-5),
+      expiresOn: day(25),
+    ),
+    Referral(
+      id: 2,
+      specialty: cardiology,
+      issuedAt: noon(-40),
+      expiresOn: day(-2),
     ),
   ];
 }

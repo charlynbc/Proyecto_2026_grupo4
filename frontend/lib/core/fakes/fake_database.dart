@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/agenda/models/appointment.dart';
+import '../../features/agenda/models/referral.dart';
 import '../utils/uruguay_time.dart';
 import 'datos_prueba.dart';
 import 'fake_admin_database.dart';
@@ -22,11 +23,16 @@ class FakeDatabase {
           newId: newAppointmentId,
         ),
       );
+      referrals.addAll(seedMemberReferrals(today: today, admin: admin));
     }
   }
 
   final List<TestShift> shifts;
   final List<Appointment> appointments = [];
+
+  /// Los pases de la socia. Si un pase está usado o disponible no se guarda
+  /// acá: se deriva de [appointments], como hace el servidor.
+  final List<Referral> referrals = [];
   final Set<int> _takenNumberIds = {};
   int _nextAppointmentId = 1;
 
