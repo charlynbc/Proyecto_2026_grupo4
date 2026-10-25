@@ -33,6 +33,11 @@ final appointmentHistoryRepositoryProvider =
       return ApiAppointmentHistoryRepository(dio);
     });
 
+/// La página de consultas que corresponde a [AppointmentHistoryQuery].
+///
+/// Sin reintento automático (`retry` en `null`): Riverpod 3 reintenta solo
+/// hasta 10 veces, con esperas de 0,2 a 6,4 s, y durante ese tiempo la
+/// pantalla seguiría mostrando el cargando en vez del aviso con "Reintentar".
 final appointmentHistoryProvider =
     FutureProvider.family<AppointmentHistoryPage, AppointmentHistoryQuery>((
       ref,
@@ -43,7 +48,7 @@ final appointmentHistoryProvider =
         appointmentHistoryRepositoryProvider.future,
       );
       return repository.list(query);
-    });
+    }, retry: (_, _) => null);
 
 final appointmentDetailProvider = FutureProvider.family<Appointment, int>((
   ref,

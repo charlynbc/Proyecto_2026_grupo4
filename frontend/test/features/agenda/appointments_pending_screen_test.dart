@@ -106,21 +106,16 @@ class _FlakyHistoryRepository extends _HistoryRepository {
   }
 }
 
-/// Riverpod 3 reintenta solo los providers que fallan, y mientras tanto el
-/// estado es "cargando": el error no se vería. Con [autoRetry] en `false` la
-/// primera falla se muestra enseguida, como en las pruebas de los errores.
 Future<void> _pump(
   WidgetTester tester,
   Widget screen,
-  _HistoryRepository repository, {
-  bool autoRetry = true,
-}) async {
+  _HistoryRepository repository,
+) async {
   tester.view.physicalSize = const Size(900, 1800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ProviderScope(
-      retry: autoRetry ? null : (_, _) => null,
       overrides: [
         appointmentHistoryRepositoryProvider.overrideWith(
           (ref) async => repository,
@@ -305,7 +300,6 @@ void main() {
         tester,
         const AppointmentsPendingScreen(),
         _FlakyHistoryRepository(failingPage: 0),
-        autoRetry: false,
       );
       final message = find.text(_loadFailure);
       expect(message, findsOneWidget);
@@ -328,12 +322,7 @@ void main() {
         items: [_appointment],
         total: 1,
       );
-      await _pump(
-        tester,
-        const AppointmentsPendingScreen(),
-        repository,
-        autoRetry: false,
-      );
+      await _pump(tester, const AppointmentsPendingScreen(), repository);
       expect(find.text(_loadFailure), findsOneWidget);
       expect(find.byKey(const Key('appointment-9001')), findsNothing);
 
@@ -353,12 +342,7 @@ void main() {
         items: [_appointment],
         total: 25,
       );
-      await _pump(
-        tester,
-        const AppointmentsPendingScreen(),
-        repository,
-        autoRetry: false,
-      );
+      await _pump(tester, const AppointmentsPendingScreen(), repository);
       await tester.tap(find.byKey(const Key('history-next')));
       await tester.pumpAndSettle();
       expect(find.text(_loadFailure), findsOneWidget);
@@ -383,7 +367,6 @@ void main() {
           items: [_appointment],
           total: 1,
         ),
-        autoRetry: false,
       );
 
       expect(find.byKey(const Key('history-error')), findsOneWidget);
