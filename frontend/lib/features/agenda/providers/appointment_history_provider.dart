@@ -50,6 +50,10 @@ final appointmentHistoryProvider =
       return repository.list(query);
     }, retry: (_, _) => null);
 
+/// El detalle de la consulta [id].
+///
+/// Sin reintento automático (`retry` en `null`), por lo mismo que el
+/// historial: el aviso con "Reintentar" tiene que verse apenas falla.
 final appointmentDetailProvider = FutureProvider.family<Appointment, int>((
   ref,
   id,
@@ -59,4 +63,4 @@ final appointmentDetailProvider = FutureProvider.family<Appointment, int>((
     appointmentHistoryRepositoryProvider.future,
   );
   return repository.get(id);
-});
+}, retry: (_, _) => null);

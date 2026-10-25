@@ -7,9 +7,10 @@ import 'package:agenda_medica/features/agenda/repositories/appointment_history_r
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Falla siempre y cuenta cuántas veces se le pidió el listado.
+/// Falla siempre y cuenta cuántas veces se le pidió el listado y el detalle.
 class _FailingHistoryRepository implements AppointmentHistoryRepository {
   int listCalls = 0;
+  int getCalls = 0;
 
   @override
   Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
@@ -18,7 +19,10 @@ class _FailingHistoryRepository implements AppointmentHistoryRepository {
   }
 
   @override
-  Future<Appointment> get(int id) async => throw UnimplementedError();
+  Future<Appointment> get(int id) async {
+    getCalls++;
+    throw const ApiException('No se pudo cargar el detalle de prueba.');
+  }
 }
 
 void main() {
@@ -59,5 +63,37 @@ void main() {
       isA<AsyncError>(),
     );
     expect(repository.listCalls, 1);
+  });
+
+  testWidgets('una falla al pedir el detalle es un AsyncError enseguida y se '
+      'pide una sola vez', (tester) async {
+    final repository = _FailingHistoryRepository();
+    final container = ProviderContainer(
+      overrides: [
+        appointmentHistoryRepositoryProvider.overrideWith(
+          (ref) async => repository,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(
+      appointmentDetailProvider(9001),
+      (_, _) {},
+      onError: (_, _) {},
+    );
+
+    await tester.pump(const Duration(milliseconds: 1));
+    final state = container.read(appointmentDetailProvider(9001));
+
+    expect(state, isA<AsyncError<Appointment>>());
+    expect(state.isLoading, isFalse);
+    expect(state.retrying, isFalse);
+    expect(repository.getCalls, 1);
+
+    // Más tiempo que el primer reintento de Riverpod: no vuelve a pedir.
+    await tester.pump(const Duration(seconds: 2));
+
+    expect(container.read(appointmentDetailProvider(9001)), isA<AsyncError>());
+    expect(repository.getCalls, 1);
   });
 }
