@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -18,8 +17,10 @@ import '../models/agenda_time.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
+import '../models/referral.dart';
 import '../providers/agenda_repository_provider.dart';
 import '../providers/availability_provider.dart';
+import '../providers/available_referrals_provider.dart';
 import '../repositories/agenda_repository.dart';
 
 const String _invalidRangeMessage =
@@ -458,76 +459,71 @@ class _Confirmation {
   final int? referralId;
 }
 
-/// Pide confirmar el número elegido. Si la especialidad exige pase, pide
-/// también su identificador: el servidor no ofrece todavía un listado de
-/// pases para elegir uno, y valida que sea propio, vigente y sin usar.
-class _ConfirmBookingDialog extends StatefulWidget {
+/// Pide confirmar el número elegido. Si la especialidad exige pase, pide al
+/// servidor los pases del socio y muestra el que se va a usar: el primero que
+/// sea de la especialidad y no venza antes de la consulta (el servidor los
+/// ordena por vencimiento). Mientras carga o si falla no deja confirmar; si
+/// no hay un pase utilizable deja confirmar igual, porque la regla es del
+/// servidor y su rechazo (`PASE_NO_VALIDO`) llega como mensaje.
+class _ConfirmBookingDialog extends ConsumerWidget {
   const _ConfirmBookingDialog({required this.number});
 
   final AvailableNumber number;
 
-  @override
-  State<_ConfirmBookingDialog> createState() => _ConfirmBookingDialogState();
-}
-
-class _ConfirmBookingDialogState extends State<_ConfirmBookingDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _referralController = TextEditingController();
-
-  @override
-  void dispose() {
-    _referralController.dispose();
-    super.dispose();
-  }
-
-  void _confirm() {
-    if (!_formKey.currentState!.validate()) return;
-    final text = _referralController.text.trim();
-    Navigator.pop(
-      context,
-      _Confirmation(referralId: text.isEmpty ? null : int.parse(text)),
-    );
+  Referral? _usableReferral(List<Referral> referrals) {
+    for (final referral in referrals) {
+      if (referral.specialty.id == number.specialty.id &&
+          !referral.expiresOn.isBefore(number.date)) {
+        return referral;
+      }
+    }
+    return null;
   }
 
   @override
-  Widget build(BuildContext context) {
-    final number = widget.number;
-    final needsReferral = number.specialty.requiresReferral;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final referrals = number.specialty.requiresReferral
+        ? ref.watch(availableReferralsProvider)
+        : null;
+    final referral = referrals?.hasValue == true && !referrals!.isLoading
+        ? _usableReferral(referrals.requireValue)
+        : null;
+    final canConfirm =
+        referrals == null || (referrals.hasValue && !referrals.isLoading);
     return AlertDialog(
       scrollable: true,
       title: const Text('Confirmar consulta'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '¿Agendás la consulta de ${number.specialty.name} con '
-              '${number.doctor.fullName} el ${formatUiDate(number.date)}, de '
-              '${number.timeRange}?',
-            ),
-            if (needsReferral) ...[
-              const SizedBox(height: 16),
-              const Text('Esta especialidad requiere un pase vigente.'),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('referral-id'),
-                controller: _referralController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(labelText: 'Número de pase'),
-                validator: (value) {
-                  final id = int.tryParse((value ?? '').trim());
-                  return id == null || id <= 0
-                      ? 'Ingresá el número de tu pase.'
-                      : null;
-                },
-                onFieldSubmitted: (_) => _confirm(),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '¿Agendás la consulta de ${number.specialty.name} con '
+            '${number.doctor.fullName} el ${formatUiDate(number.date)}, de '
+            '${number.timeRange}?',
+          ),
+          if (referrals != null) ...[
+            const SizedBox(height: 16),
+            referrals.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => _ReferralsError(
+                message: error is ApiException
+                    ? error.message
+                    : 'No pudimos cargar tus pases.',
+                onRetry: () => ref.invalidate(availableReferralsProvider),
               ),
-            ],
+              data: (_) => Text(
+                referral == null
+                    ? 'No encontramos un pase a ${number.specialty.name} '
+                          'vigente para el ${formatUiDate(number.date)}.'
+                    : 'Esta especialidad requiere pase. Se usará el pase a '
+                          '${referral.specialty.name}, vigente hasta '
+                          '${formatUiDate(referral.expiresOn)}. Se consume al '
+                          'confirmar.',
+              ),
+            ),
           ],
-        ),
+        ],
       ),
       actions: [
         TextButton(
@@ -536,9 +532,36 @@ class _ConfirmBookingDialogState extends State<_ConfirmBookingDialog> {
         ),
         FilledButton(
           key: const Key('confirm-booking'),
-          onPressed: _confirm,
+          onPressed: canConfirm
+              ? () => Navigator.pop(
+                  context,
+                  _Confirmation(referralId: referral?.id),
+                )
+              : null,
           child: const Text('Confirmar'),
         ),
+      ],
+    );
+  }
+}
+
+/// El error de carga de los pases, con su "Reintentar".
+class _ReferralsError extends StatelessWidget {
+  const _ReferralsError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          message,
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
+        TextButton(onPressed: onRetry, child: const Text('Reintentar')),
       ],
     );
   }
