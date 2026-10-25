@@ -365,9 +365,7 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets('sin pase utilizable avisa y deja confirmar sin pase', (
-    tester,
-  ) async {
+  testWidgets('sin pase utilizable avisa y no deja confirmar', (tester) async {
     final agenda = _FakeAgenda();
     await _pump(tester, const AvailabilityScreen(), agenda: agenda);
     await _openCardioBooking(tester);
@@ -375,24 +373,29 @@ void main() {
     expect(
       find.text(
         'No encontramos un pase a Cardiología vigente para el '
-        '05/11/2026.',
+        '05/11/2026. El médico que te atienda puede emitirte uno.',
       ),
       findsOneWidget,
     );
-    expect(_confirmEnabled(tester), isTrue);
+    expect(_confirmEnabled(tester), isFalse);
 
-    await tester.tap(find.byKey(const Key('confirm-booking')));
+    await tester.tap(
+      find.byKey(const Key('confirm-booking')),
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
-    expect(agenda.booked, [(numberId: 21, referralId: null)]);
-    await tester.tap(find.byKey(const Key('booked-ok')));
-    await tester.pumpAndSettle();
+    expect(agenda.booked, isEmpty);
+    expect(find.text('Confirmar consulta'), findsOneWidget);
     await _unmount(tester);
   });
 
+  // La lista dice que hay un pase y el servidor lo rechaza (por ejemplo, lo
+  // usó otra pestaña entre que se abrió el diálogo y se confirmó).
   testWidgets('si el servidor rechaza el pase, el mensaje se ve', (
     tester,
   ) async {
     final agenda = _FakeAgenda()
+      ..referrals.add(_referral(5, _cardio, DateTime.utc(2026, 12, 12)))
       ..bookError = const BookingException(
         BookingFailure.invalidReferral,
         'No existe un pase propio, vigente y sin utilizar para esta '
@@ -410,7 +413,40 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(agenda.booked, [(numberId: 21, referralId: null)]);
+    expect(agenda.booked, [(numberId: 21, referralId: 5)]);
+    await _unmount(tester);
+  });
+
+  testWidgets('tras el rechazo del pase, al reabrir se vuelve a pedir la '
+      'lista', (tester) async {
+    final agenda = _FakeAgenda()
+      ..referrals.add(_referral(5, _cardio, DateTime.utc(2026, 12, 12)))
+      ..bookError = const BookingException(
+        BookingFailure.invalidReferral,
+        'No existe un pase propio, vigente y sin utilizar para esta '
+        'especialidad',
+      );
+    await _pump(tester, const AvailabilityScreen(), agenda: agenda);
+    await _openCardioBooking(tester);
+    expect(agenda.listReferralsCalls, 1);
+    await tester.tap(find.byKey(const Key('confirm-booking')));
+    await tester.pumpAndSettle();
+    expect(agenda.booked, [(numberId: 21, referralId: 5)]);
+
+    // Otra pestaña usó el pase: el servidor ya no lo lista.
+    agenda.referrals.clear();
+    final book = find.byKey(const Key('book-21'));
+    await tester.ensureVisible(book);
+    await tester.pumpAndSettle();
+    await tester.tap(book);
+    await tester.pumpAndSettle();
+
+    expect(agenda.listReferralsCalls, 2);
+    expect(
+      find.textContaining('No encontramos un pase a Cardiología'),
+      findsOne,
+    );
+    expect(_confirmEnabled(tester), isFalse);
     await _unmount(tester);
   });
 
@@ -454,7 +490,7 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets('si el único pase es de otra especialidad no lo usa', (
+  testWidgets('si el único pase es de otra especialidad no deja confirmar', (
     tester,
   ) async {
     final agenda = _FakeAgenda()
@@ -466,20 +502,15 @@ void main() {
       find.textContaining('No encontramos un pase a Cardiología'),
       findsOne,
     );
-    await tester.tap(find.byKey(const Key('confirm-booking')));
-    await tester.pumpAndSettle();
-
-    expect(agenda.booked, [(numberId: 21, referralId: null)]);
-    await tester.tap(find.byKey(const Key('booked-ok')));
-    await tester.pumpAndSettle();
+    expect(_confirmEnabled(tester), isFalse);
+    expect(agenda.booked, isEmpty);
     await _unmount(tester);
   });
 
   // El número 21 es del 05/11/2026: un pase que vence el 04/11 ya no sirve y
   // uno que vence el 05/11 sí.
-  testWidgets('un pase que vence el día anterior a la consulta no se usa', (
-    tester,
-  ) async {
+  testWidgets('un pase que vence el día anterior a la consulta no deja '
+      'confirmar', (tester) async {
     final agenda = _FakeAgenda()
       ..referrals.add(_referral(4, _cardio, DateTime.utc(2026, 11, 4)));
     await _pump(tester, const AvailabilityScreen(), agenda: agenda);
@@ -489,12 +520,8 @@ void main() {
       find.textContaining('No encontramos un pase a Cardiología'),
       findsOne,
     );
-    await tester.tap(find.byKey(const Key('confirm-booking')));
-    await tester.pumpAndSettle();
-
-    expect(agenda.booked, [(numberId: 21, referralId: null)]);
-    await tester.tap(find.byKey(const Key('booked-ok')));
-    await tester.pumpAndSettle();
+    expect(_confirmEnabled(tester), isFalse);
+    expect(agenda.booked, isEmpty);
     await _unmount(tester);
   });
 

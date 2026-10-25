@@ -462,9 +462,10 @@ class _Confirmation {
 /// Pide confirmar el número elegido. Si la especialidad exige pase, pide al
 /// servidor los pases del socio y muestra el que se va a usar: el primero que
 /// sea de la especialidad y no venza antes de la consulta (el servidor los
-/// ordena por vencimiento). Mientras carga o si falla no deja confirmar; si
-/// no hay un pase utilizable deja confirmar igual, porque la regla es del
-/// servidor y su rechazo (`PASE_NO_VALIDO`) llega como mensaje.
+/// ordena por vencimiento). Mientras carga, si falla o si no hay un pase
+/// utilizable no deja confirmar: el servidor rechazaría el pedido con
+/// `PASE_NO_VALIDO`. Si la lista estaba vieja y lo rechaza igual, el mensaje
+/// llega por el SnackBar y al reabrir se vuelve a pedir la lista.
 class _ConfirmBookingDialog extends ConsumerWidget {
   const _ConfirmBookingDialog({required this.number});
 
@@ -489,7 +490,8 @@ class _ConfirmBookingDialog extends ConsumerWidget {
         ? _usableReferral(referrals.requireValue)
         : null;
     final canConfirm =
-        referrals == null || (referrals.hasValue && !referrals.isLoading);
+        referrals == null ||
+        (referrals.hasValue && !referrals.isLoading && referral != null);
     return AlertDialog(
       scrollable: true,
       title: const Text('Confirmar consulta'),
@@ -515,7 +517,8 @@ class _ConfirmBookingDialog extends ConsumerWidget {
               data: (_) => Text(
                 referral == null
                     ? 'No encontramos un pase a ${number.specialty.name} '
-                          'vigente para el ${formatUiDate(number.date)}.'
+                          'vigente para el ${formatUiDate(number.date)}. El '
+                          'médico que te atienda puede emitirte uno.'
                     : 'Esta especialidad requiere pase. Se usará el pase a '
                           '${referral.specialty.name}, vigente hasta '
                           '${formatUiDate(referral.expiresOn)}. Se consume al '
