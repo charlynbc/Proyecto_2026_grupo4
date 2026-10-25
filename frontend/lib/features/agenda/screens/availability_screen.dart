@@ -126,10 +126,12 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       ref.read(appointmentHistoryRefreshProvider.notifier).refresh();
       await showDialog<void>(
         context: context,
-        builder: (_) => _BookedDialog(
+        builder: (dialogContext) => _BookedDialog(
           appointment: appointment,
           onViewAppointments: () {
-            Navigator.of(context).pop();
+            // El diálogo está en el navegador raíz; el de la pantalla es el
+            // de su rama del shell, y un pop ahí sacaría la pantalla misma.
+            Navigator.of(dialogContext).pop();
             context.go(kAppointmentsPath);
           },
         ),
