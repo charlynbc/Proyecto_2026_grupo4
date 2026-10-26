@@ -297,14 +297,24 @@ implementa en este cambio de RF-02.
 
 - Pruebas unitarias focalizadas: 15 aprobadas, 0 fallidas, 0 errores y 0
   omitidas (`PrimerIngresoServiceTest` y `PrimerIngresoMailListenerTest`).
-- Suite normal Maven: 343 aprobadas, 0 fallidas, 0 errores y 0 omitidas con
-  `.\mvnw.cmd -B verify`. Para impedir conexiones a bases locales
-  desconocidas, `DB_URL` apuntó a `127.0.0.1:1`; esta ejecución no valida
-  PostgreSQL.
-- Las pruebas HTTP reales `AutenticacionIT` incluyen activación, expiración,
-  inactivación posterior al enlace, separación de accesos y consumo
-  concurrente. No se ejecutaron porque el daemon de Docker Desktop no estaba
-  disponible; la validación con PostgreSQL descartable queda pendiente.
+- Suite Maven (`./mvnw -B verify`, workflow Backend): 343 aprobadas, 0
+  fallidas, 0 errores y 0 omitidas. Son pruebas unitarias, de mocks,
+  HTTP/seguridad y de contexto; no incluyen las clases `*IT`, que Maven no
+  ejecuta en `verify` (el POM no configura Failsafe).
+- Pruebas de integración con PostgreSQL real (workflow `E2E PostgreSQL` de
+  GitHub Actions, commit `bc6473d`): 39 IT ejecutadas, 39 aprobadas, 0
+  fallidas, 0 errores y 0 omitidas, contra PostgreSQL 17.11. De ellas, 19
+  corresponden a `AutenticacionIT` (activación, expiración, reutilización,
+  inactivación posterior al enlace, separación SOCIO/EMPLEADO y consumo
+  concurrente del mismo enlace). Además se ejecutaron 18 pruebas de contexto
+  contra el esquema real.
+- La base se ejecutó como servicio efímero del job de GitHub Actions: exclusiva
+  del job, descartable, con credenciales ficticias, inicializada con
+  `database/schema.sql` y destruida al terminar. No intervienen Railway,
+  producción ni una base local.
+- Pendiente: E2E con frontend. Tampoco hay una IT que capture el correo
+  enviado a una cuenta activa; el contenido del correo se valida con pruebas
+  unitarias del listener y la publicación del evento con HTTP.
 
 #### Refresh
 
@@ -810,13 +820,20 @@ El backend real del repositorio tiene una estructura sólida y un conjunto de en
 
 ## 11. Estado de validación de endpoints críticos
 
-En la revisión del 26/10/2026, `.\mvnw.cmd -B verify` terminó con **338
-tests aprobados, 0 fallidos, 0 errores y 0 omitidos**. Para evitar conectarse
-al listener local no identificado en el puerto 5432, la suite se ejecutó con
-una URL deliberadamente inalcanzable (`127.0.0.1:1`). Por lo tanto, el resultado
-corresponde a las pruebas unitarias, de mocks, HTTP/seguridad y de contexto que
-ejecuta Maven; no demuestra integración con PostgreSQL ni E2E.
+En la revisión del 26/10/2026, antes de RF-02, `.\mvnw.cmd -B verify` terminó
+con 338 tests aprobados, 0 fallidos, 0 errores y 0 omitidos, ejecutado con una
+URL deliberadamente inalcanzable (`127.0.0.1:1`) para no tocar el listener
+local no identificado del puerto 5432. Con RF-02, la suite Maven pasó a 343
+aprobadas (0 fallidas, 0 errores, 0 omitidas). Estos resultados corresponden a
+pruebas unitarias, de mocks, HTTP/seguridad y de contexto.
 
-Queda pendiente, en una base de pruebas PostgreSQL aislada, validar las
-consultas reales, paginación/filtros sobre datos de prueba, propiedad de
-historias clínicas y vigencia/uso de pases. No se usaron datos clínicos reales.
+Las 39 pruebas de integración `*IT` se ejecutaron en GitHub Actions contra
+PostgreSQL 17.11 efímero y aprobaron (ver sección de RF-02). Esa validación cubre
+los escenarios implementados en esas clases, entre ellos primer ingreso,
+circuito de consultas, roles y concurrencia.
+
+Siguen pendientes en una base PostgreSQL aislada las consultas reales,
+paginación/filtros sobre datos de prueba, propiedad de historias clínicas y
+vigencia/uso de pases de los endpoints agregados antes de RF-02, salvo que una
+`*IT` los cubra expresamente. Sigue pendiente el E2E con frontend. No se usaron
+datos clínicos reales.
