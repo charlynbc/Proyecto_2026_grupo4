@@ -112,6 +112,8 @@ El backend usa `JwtService` para emitir tokens con:
 - claim `role`
 - expiración configurable por `app.jwt.expiration-seconds`
 
+**Incidencia conocida (transversal, abierta):** el backend valida solo firma, emisor y expiración del JWT (`JwtConfig`) y toma el rol del claim `role`. No vuelve a consultar si la cuenta sigue habilitada, por lo que un JWT emitido antes de inactivar una cuenta sigue siendo aceptado hasta expirar (900 s por defecto). Afecta a todos los endpoints protegidos, no solo a RF-40. Se corregirá en una rama y PR independientes (`fix/seguridad-jwt-cuentas-inactivas`); no está corregida en `avances` ni en el PR #25.
+
 La configuración de seguridad está en `SecurityConfig`. La aplicación exige autenticación para rutas protegidas y habilita CORS con `STATELESS` session management.
 
 ### 4.2. Login real
@@ -989,6 +991,7 @@ patrones sin fechas activas para poder informar `Sin datos`. Los cuatro `?` son 
 - «Activa» se determina por el estado actual de la fecha (`turno.estado`). `turno_evento` guarda el
   historial de suspensiones y rehabilitaciones, pero no se usa: no hay una regla que haga
   depender el cálculo del momento exacto en que se suspendió una fecha, y no se inventó una.
+- **Brecha funcional registrada:** el requerimiento oficial dice «en que la fecha del turno estuvo activa». Si se interpreta como actividad histórica (fecha suspendida y luego rehabilitada), el cálculo actual no la reconstruye desde `turno_evento`. No se cambió el significado del indicador sin una decisión del grupo; queda como pendiente funcional.
 - Las consultas con `agendada_en` posterior al período también ocupan el número: el RF mide la
   ocupación actual de las fechas del período, no la ocupación en una fecha pasada.
 - No se informa un total global ni por especialidad; solo el detalle por turno.
