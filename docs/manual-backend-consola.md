@@ -1017,7 +1017,7 @@ Para contrastar con SQL: `SELECT count(DISTINCT c.id_numero) FROM consulta c JOI
 | HTTP/seguridad | `EstadisticaSeguridadTest` (+4 de RF-40) | 200 administrador, 403, 401, 400 |
 | PostgreSQL real | `EstadisticaTurnoIT` (9) | escenario mixto, estados derivados, reserva repetida, fecha suspendida, rehabilitada, límites, período vacío, roles, SQL injection, sin datos de pacientes, lecturas concurrentes |
 
-`EstadisticaTurnoIT` solo corre en `e2e.yml` (PostgreSQL 17 efímero en GitHub Actions).
+`EstadisticaTurnoIT` solo corre en `e2e.yml` (PostgreSQL 17 efímero en GitHub Actions). Resultado confirmado en el PR #25 (commit `ca1af34`, PostgreSQL 17.11): `EstadisticaTurnoIT` 9/9; total IT 54 ejecutadas, 54 aprobadas, 0 fallidas, 0 omitidas; Maven 370 aprobadas.
 
 ## 6. Flujo completo hasta PostgreSQL
 
