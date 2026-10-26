@@ -4,7 +4,8 @@ public record PrimerIngresoLinkSolicitado(
         Long idCuenta,
         String correo,
         String nombre,
-        String token
+        String token,
+        int validezHoras
 ) {
 
     // El token es un secreto de un solo uso: no debe salir en ningun log.
