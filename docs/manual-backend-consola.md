@@ -241,12 +241,17 @@ function Invoke-CurlJson {
   }
 }
 
-Invoke-RestMethod -Method Post `
-  -Uri "$base/api/auth/primer-ingreso/solicitar" `
-  -ContentType "application/json" `
-  -Body $solicitud
-
-Invoke-CurlJson "$base/api/auth/primer-ingreso/solicitar" $solicitud
+# Elegí un solo cliente por solicitud: cada solicitud pendiente invalida
+# cualquier enlace de primer ingreso anterior.
+$cliente = "powershell"
+if ($cliente -eq "powershell") {
+  Invoke-RestMethod -Method Post `
+    -Uri "$base/api/auth/primer-ingreso/solicitar" `
+    -ContentType "application/json" `
+    -Body $solicitud
+} else {
+  Invoke-CurlJson "$base/api/auth/primer-ingreso/solicitar" $solicitud
+}
 ```
 
 La respuesta pública de ambos comandos es genérica. Para completar, obtené el
@@ -266,12 +271,16 @@ try {
     password = "Clave-Ficticia-2026"
   } | ConvertTo-Json
 
-  Invoke-RestMethod -Method Post `
-    -Uri "$base/api/auth/primer-ingreso/completar" `
-    -ContentType "application/json" `
-    -Body $activacion
-
-  Invoke-CurlJson "$base/api/auth/primer-ingreso/completar" $activacion
+  # El enlace es de un solo uso: elegí un solo cliente para esta activación.
+  $cliente = "powershell"
+  if ($cliente -eq "powershell") {
+    Invoke-RestMethod -Method Post `
+      -Uri "$base/api/auth/primer-ingreso/completar" `
+      -ContentType "application/json" `
+      -Body $activacion
+  } else {
+    Invoke-CurlJson "$base/api/auth/primer-ingreso/completar" $activacion
+  }
 } finally {
   [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($tokenPointer)
   Remove-Variable token, activacion, secureToken -ErrorAction SilentlyContinue
