@@ -13,6 +13,12 @@ Lugar en el repo: `docs/api/endpoints-usados.md`. Se mantiene a medida que avanz
 
 Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar una ruta es cambiar una línea ahí, más la fila de acá.
 
+Para los contratos verificados contra la implementación Java actual, incluidos
+sus filtros, JSON y ejemplos ejecutables de consola, consultar
+[`docs/manual-backend-consola.md`](../manual-backend-consola.md). CONFIRMADA
+indica que existe la ruta en el backend; no acredita una prueba E2E con
+PostgreSQL.
+
 ## Semana 1
 
 | # | Método y ruta | Roles | RF | Pantalla del front | Estado | Usada por el front | Campos y errores |
@@ -26,9 +32,9 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 | 7 | `POST /api/especialidades` | ADMINISTRADOR | 29 | Alta de especialidad | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #7](contrato-v1.md#e07) |
 | 8 | `GET /api/consultorios` | autenticado | 33 | Formularios y listado | CONFIRMADA | feat/front-admin 19/10/2026; feat/front-funcionario 20/10/2026 | [contrato #8](contrato-v1.md#e08) |
 | 9 | `POST /api/consultorios` | ADMINISTRADOR | 33 | Alta de consultorio | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #9](contrato-v1.md#e09) |
-| 10 | `GET /api/medicos?especialidadId=` | autenticado | 13, 08 | Selector de médico | PROPUESTA | feat/front-funcionario 20/10/2026 | [contrato #10](contrato-v1.md#e10) |
+| 10 | `GET /api/medicos?especialidadId=` | FUNCIONARIO | 13, 08 | Selector de médico | CONFIRMADA | - | [contrato #10](contrato-v1.md#e10) |
 | 11 | `POST /api/usuarios` | ADMINISTRADOR | 31 | Alta de usuario | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #11](contrato-v1.md#e11) |
-| 12 | `GET /api/usuarios` | ADMINISTRADOR | 35 | Consulta de usuarios | PROPUESTA | feat/front-admin 19/10/2026 | [contrato #12](contrato-v1.md#e12) |
+| 12 | `GET /api/usuarios` | ADMINISTRADOR | 35 | Consulta de usuarios | CONFIRMADA | - | [contrato #12](contrato-v1.md#e12) |
 | 13 | `POST /api/turnos-semanales` | FUNCIONARIO | 13 | Alta de turno semanal | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #13](contrato-v1.md#e13) |
 | 14 | `GET /api/turnos-semanales/{id}` | FUNCIONARIO | 17 | Detalle de configuración | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #14](contrato-v1.md#e14) |
 | 15 | `GET /api/turnos` | FUNCIONARIO | 17 | Consulta de turnos | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #15](contrato-v1.md#e15) |
@@ -42,8 +48,8 @@ Las rutas viven todas en `frontend/lib/core/network/api_routes.dart`. Cambiar un
 | 18 | `GET /api/consultas` | SOCIO | 11 | Mis consultas | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026 | [contrato #18](contrato-v1.md#e18) |
 | 19 | `GET /api/consultas/{id}` | SOCIO | 11 | Detalle de consulta | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026 | [contrato #19](contrato-v1.md#e19) |
 | 20 | `POST /api/consultas/{id}/cancelar` | SOCIO | 10 | Cancelar consulta | PROPUESTA | - | [contrato #20](contrato-v1.md#e20) |
-| 21 | `GET /api/historia-clinica` | SOCIO | 12 | Historia clínica | PROPUESTA | - | [contrato #21](contrato-v1.md#e21) |
-| 22 | `GET /api/historia-clinica/{idAtencion}` | SOCIO | 12 | Detalle de atención | PROPUESTA | - | [contrato #22](contrato-v1.md#e22) |
+| 21 | `GET /api/historia-clinica` | SOCIO (solo propias) | 12 | Historia clínica | CONFIRMADA | - | [contrato #21](contrato-v1.md#e21) |
+| 22 | `GET /api/historia-clinica/{idAtencion}` | SOCIO (solo propias) | 12 | Detalle de atención | CONFIRMADA | - | [contrato #22](contrato-v1.md#e22) |
 | 23 | `POST /api/turnos/suspensiones/previsualizar` | FUNCIONARIO | 14 | Confirmación previa | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #23](contrato-v1.md#e23) |
 | 24 | `POST /api/turnos/suspensiones` | FUNCIONARIO | 14 | Suspender fechas | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #24](contrato-v1.md#e24) |
 | 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #25](contrato-v1.md#e25) |
@@ -72,7 +78,7 @@ migran: se usa solo el modelo del Proyecto 2026.
 | `POST /api/auth/login` con `{cedula, clave}` | #1, con `{ci, password, acceso}` (+ `plataforma: WEB` para `EMPLEADO`) | eliminada; el login solo acepta el contrato nuevo |
 | POST /api/auth/registro | #11 `POST /api/usuarios` (RF-31, solo ADMINISTRADOR) | eliminada; no hay alta pública |
 | GET /api/auth/confirmar-email | #4 y #5 (`primer-ingreso`, RF-02) | eliminada |
-| GET /api/profesionales | #10 `GET /api/medicos` | **Pendiente de implementación** en el backend. La disponibilidad ofrece solo los médicos con números libres |
+| GET /api/profesionales | #10 `GET /api/medicos` | Implementado; requiere rol FUNCIONARIO. La disponibilidad ofrece solo los médicos con números libres |
 | GET /api/profesionales/{id}/horarios | #16 `GET /api/disponibilidad` | migrado en Flutter |
 | POST /api/reservas | #17 `POST /api/consultas` | migrado en Flutter (reserva por `numeroId`) |
 | GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | migrado en backend y Flutter; usa filtros y paginación del contrato |
@@ -82,6 +88,23 @@ migran: se usa solo el modelo del Proyecto 2026.
 La ruta de registro de notificaciones que existe en el backend es
 `POST /api/notificaciones/registro`; no se implementó la ruta contractual
 `POST /api/dispositivos`.
+
+## Endpoint adicional verificado
+
+`GET /api/socios/me/pases/disponibles` está implementado para el rol `SOCIO`.
+Obtiene la identidad del `sub` del JWT y devuelve solo pases disponibles del
+titular. Su contrato y ejemplos de consola están en
+[`docs/manual-backend-consola.md`](../manual-backend-consola.md).
+
+## Contratos verificados en backend
+
+Al 26/10/2026, el backend implementa las rutas #10, #12, #18, #21, #22, #28 y
+`GET /api/socios/me/pases/disponibles`. La implementación actual es la fuente
+de verdad para las consultas de consola y puede diferir de propuestas previas
+en `contrato-v1.md`: por ejemplo, `GET /api/usuarios` usa `texto` (no `q`), y
+`GET /api/historia-clinica` devuelve una lista sin paginar con los campos
+clínicos permitidos (no el resumen paginado propuesto). Ver el manual enlazado
+arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
 

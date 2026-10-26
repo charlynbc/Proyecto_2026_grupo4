@@ -1,6 +1,9 @@
 package uy.edu.proyecto.backend.usuario;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,6 +18,9 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.time.OffsetDateTime;
+import java.util.List;
 
 import uy.edu.proyecto.backend.config.SecurityConfig;
 import uy.edu.proyecto.backend.config.SecurityErrorHandler;
@@ -31,6 +37,9 @@ class AltaUsuarioSeguridadTest {
     private AltaUsuarioService service;
 
     @MockitoBean
+    private UsuarioService usuarioService;
+
+    @MockitoBean
     private JwtDecoder jwtDecoder;
 
     @Test
@@ -41,6 +50,66 @@ class AltaUsuarioSeguridadTest {
                                 .content("{}")
                 )
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void listadoSinAutenticacionDevuelve401() throws Exception {
+        mockMvc.perform(get("/api/usuarios"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "SOCIO")
+    void socioNoPuedeConsultarElPadron() throws Exception {
+        mockMvc.perform(get("/api/usuarios"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(usuarioService);
+    }
+
+    @Test
+    @WithMockUser(roles = "FUNCIONARIO")
+    void funcionarioNoPuedeConsultarElPadron() throws Exception {
+        mockMvc.perform(get("/api/usuarios"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(usuarioService);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRADOR")
+    void administradorPuedeConsultarElPadronConFiltrosYSinCamposSecretos() throws Exception {
+        when(usuarioService.listar("SOCIO", "INACTIVA", "45678911", 0, 20))
+                .thenReturn(new UsuarioCuentaPageResponse(
+                        List.of(new UsuarioCuentaDTO(
+                                42L,
+                                "45678911",
+                                "Lucia",
+                                "Fernandez",
+                                "SOCIO",
+                                "lucia@example.org",
+                                "INACTIVA",
+                                false,
+                                OffsetDateTime.parse("2026-09-01T09:00:00-03:00")
+                        )),
+                        0,
+                        20,
+                        1
+                ));
+
+        mockMvc.perform(get("/api/usuarios")
+                        .param("rol", "SOCIO")
+                        .param("estado", "INACTIVA")
+                        .param("texto", "45678911"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].ci").value("45678911"))
+                .andExpect(jsonPath("$.items[0].rol").value("SOCIO"))
+                .andExpect(jsonPath("$.items[0].estado").value("INACTIVA"))
+                .andExpect(jsonPath("$.items[0].activada").value(false))
+                .andExpect(jsonPath("$.items[0].password").doesNotExist())
+                .andExpect(jsonPath("$.items[0].token").doesNotExist());
+
+        verify(usuarioService).listar("SOCIO", "INACTIVA", "45678911", 0, 20);
     }
 
     @Test

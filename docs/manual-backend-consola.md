@@ -1,0 +1,702 @@
+# Manual de ejecución del backend en consola (sin frontend)
+
+## 1. Propósito del manual
+
+Este documento explica cómo se construye y se usa el backend real del proyecto sin frontend, desde PowerShell y `curl.exe`, con base en el código y la infraestructura actuales del repositorio.
+
+Se trabaja con la rama `integracion/proyecto-2026-avances` y sin tocar `main`.
+
+## 2. Qué está realmente implementado
+
+### Stack real verificado
+
+- Java 25
+- Spring Boot 4.1.1
+- Spring Web MVC
+- Spring Security
+- Spring OAuth2 Resource Server
+- PostgreSQL 17 como base de datos objetivo
+- JDBC
+- JWT (HS256)
+- BCrypt para contraseñas
+- Firebase Admin para notificaciones push
+
+Evidencia real:
+
+- `backend/api/pom.xml`
+- `backend/api/src/main/resources/application.properties`
+- `backend/api/src/main/java/uy/edu/proyecto/backend/config/SecurityConfig.java`
+- `backend/api/src/main/java/uy/edu/proyecto/backend/config/PasswordConfig.java`
+- `database/schema.sql`
+
+### Arquitectura real
+
+La aplicación es un monolito modular con capas bien separadas:
+
+- `auth` → autenticación, refresh, primer ingreso, logout
+- `agenda` → disponibilidad y consultas del socio
+- `turno` → turnos semanales, fechas, suspensión y rehabilitación
+- `aviso` → registro y consulta del aviso de llegada
+- `atencion` → registro de resultado de consulta y atención
+- `pase` → listado de pases disponibles
+- `especialidad` / `consultorio` / `usuario` → catálogo y padrón
+- `security` → firma y validación JWT
+- `config` → seguridad, password, correo y CORS
+
+No es un backend “vacío” ni un prototipo sin estructura: existe una base y servicios reales para los flujos principales del negocio.
+
+## 3. Cómo se inicia el backend
+
+### 3.1. Preparar variables de entorno
+
+En la raíz del repositorio, copiar el ejemplo:
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+Valores mínimos recomendados:
+
+```powershell
+DB_URL=jdbc:postgresql://localhost:55432/proyecto_local
+DB_USER=proyecto_local
+DB_PASSWORD=<contraseña-local-no-productiva>
+JWT_SECRET_BASE64=<base64 de 32 bytes o más>
+APP_FIREBASE_ENABLED=false
+MAIL_PROVIDER=smtp
+MAIL_HOST=localhost
+MAIL_PORT=1025
+CORS_ALLOWED_ORIGIN=http://localhost:5173
+COOKIE_SECURE=false
+COOKIE_SAME_SITE=Lax
+```
+
+El archivo `.env` no se sube al repositorio.
+
+### 3.2. Crear la base PostgreSQL
+
+El backend se conecta a PostgreSQL a través de `spring.datasource` en `application.properties`, y el esquema se crea desde `database/schema.sql`.
+
+Usá una instancia PostgreSQL local dedicada y una base nueva vacía. No apuntes
+a `localhost:5432` sin haber comprobado primero qué instancia/base escucha allí.
+Este ejemplo supone que ya existe una instancia aislada en el puerto `55432` y
+que creaste la base `proyecto_local`; no reutilices datos de producción.
+
+```powershell
+psql -h localhost -p 55432 -U proyecto_local -d proyecto_local -f .\database\schema.sql
+```
+
+Si el entorno local no tiene `psql`, el requisito sigue siendo el mismo: la base debe existir y debe estar creada con el esquema del proyecto antes de arrancar Spring.
+
+### 3.3. Arrancar la aplicación
+
+```powershell
+cd .\backend\api
+.\mvnw spring-boot:run
+```
+
+La app queda escuchando en:
+
+- `http://localhost:8080`
+
+## 4. Cómo funciona el backend real
+
+### 4.1. Seguridad y JWT
+
+El backend usa `JwtService` para emitir tokens con:
+
+- `issuer = "grupo4-api"`
+- `subject = usuarioId`
+- claim `role`
+- expiración configurable por `app.jwt.expiration-seconds`
+
+La configuración de seguridad está en `SecurityConfig`. La aplicación exige autenticación para rutas protegidas y habilita CORS con `STATELESS` session management.
+
+### 4.2. Login real
+
+El `AuthService` valida:
+
+- CI no vacía
+- password no vacía
+- acceso `SOCIO` o `EMPLEADO`
+- para empleados: `plataforma = WEB`
+- usuario y hash con `BCryptPasswordEncoder(12)`
+
+La respuesta del login devuelve un JWT y una cookie de refresh;
+la cookie se crea por `RefreshCookieService` y una salida real del backend la entrega en el header `Set-Cookie`.
+
+### 4.3. Base de datos y flujo real
+
+El flujo de la aplicación es:
+
+1. HTTP llega a controller
+2. controller delega en servicio
+3. servicio consulta repositorios
+4. repositorios ejecutan SQL contra PostgreSQL
+5. respuesta vuelve por JSON
+
+El esquema de tablas en `database/schema.sql` incluye objetos como:
+
+- `persona`
+- `cuenta`
+- `sesion`
+- `enlace_cuenta`
+- `especialidad`
+- `consultorio`
+- `turno_semanal`
+- `numero_semanal`
+- `consulta`
+- `pase`
+- `atencion`
+- `aviso_llegada`
+
+Esto es la evidencia real del flujo de negocio hasta PostgreSQL.
+
+## 5. Endpoints reales que existen
+
+A continuación se listan los endpoints implementados y verificados en el código del backend. No se listan rutas inventadas.
+
+### 5.1. Autenticación
+
+Para rutas protegidas, después de autenticar cuentas ficticias de prueba,
+copiá el `accessToken` de cada respuesta de login a una variable de entorno
+adecuada al rol. No guardes tokens en el repositorio ni los compartas:
+
+```powershell
+$base = "http://localhost:8080"
+$env:SOCIO_TOKEN = '<accessToken de un socio de prueba>'
+$env:FUNCIONARIO_TOKEN = '<accessToken de un funcionario de prueba>'
+$env:ADMIN_TOKEN = '<accessToken de un administrador de prueba>'
+$env:MEDICO_TOKEN = '<accessToken de un médico de prueba>'
+```
+
+#### Login
+
+```powershell
+$headers = @{ "Content-Type" = "application/json" }
+$body = @{
+  ci = "12345678"
+  password = "TuPassword123"
+  acceso = "SOCIO"
+} | ConvertTo-Json
+
+curl.exe -i -c cookies.txt -H "Content-Type: application/json" -d $body http://localhost:8080/api/auth/login
+```
+
+Respuesta esperada: JSON con `accessToken` y un refresh token en cookie.
+
+#### Refresh
+
+```powershell
+curl.exe -i -b cookies.txt -c cookies.txt -X POST http://localhost:8080/api/auth/refresh
+```
+
+#### Logout
+
+```powershell
+curl.exe -i -b cookies.txt -c cookies.txt -X POST http://localhost:8080/api/auth/logout
+```
+
+### 5.2. Disponibilidad y agenda del socio
+
+#### Consultar disponibilidad
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:SOCIO_TOKEN" "http://localhost:8080/api/disponibilidad?especialidadId=1"
+```
+
+#### Agendar consulta
+
+```powershell
+$body = @{
+  numeroId = 1
+  paseId = $null
+} | ConvertTo-Json
+
+curl.exe -i -H "Authorization: Bearer $env:SOCIO_TOKEN" -H "Content-Type: application/json" -d $body http://localhost:8080/api/consultas
+```
+
+#### Listar consultas del socio
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:SOCIO_TOKEN" "http://localhost:8080/api/consultas"
+```
+
+#### Detalle de una consulta
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:SOCIO_TOKEN" "http://localhost:8080/api/consultas/123"
+```
+
+### 5.3. Pases disponibles
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:SOCIO_TOKEN" "http://localhost:8080/api/socios/me/pases/disponibles"
+```
+
+Este endpoint usa el `sub` del JWT para identificar el socio.
+
+### 5.4. Gestión de turnos y fechas
+
+#### Listar turnos
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:FUNCIONARIO_TOKEN" "http://localhost:8080/api/turnos"
+```
+
+#### Obtener detalle de turno semanal
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:FUNCIONARIO_TOKEN" "http://localhost:8080/api/turnos-semanales/1"
+```
+
+#### Suspender fechas
+
+La ruta existe en el servicio. La sintaxis exacta está definida en los request DTOs, no se inventa; debe usarse según el contrato real de los DTOs de turno.
+
+### 5.5. Aviso de llegada
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:FUNCIONARIO_TOKEN" "http://localhost:8080/api/avisos-llegada/consultas-hoy?ci=<CI-VALIDA-DE-PRUEBA>"
+```
+
+### 5.6. Atención médica
+
+#### Registrar resultado de consulta
+
+```powershell
+$body = @{
+  afeccion = "Dolor lumbar"
+  tratamiento = "Reposo y analgésicos"
+  observaciones = "Control en 7 días"
+} | ConvertTo-Json
+
+curl.exe -i -H "Authorization: Bearer $env:MEDICO_TOKEN" -H "Content-Type: application/json" -d $body http://localhost:8080/api/medico/consultas/1/resultado
+```
+
+### 5.7. Especialidades y consultorios
+
+#### Listar especialidades
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:FUNCIONARIO_TOKEN" http://localhost:8080/api/especialidades
+```
+
+#### Crear especialidad
+
+```powershell
+curl.exe -X POST -H "Authorization: Bearer $env:ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"nombre":"Cardiología","requierePase":true}' http://localhost:8080/api/especialidades
+```
+
+#### Listar consultorios
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:ADMIN_TOKEN" http://localhost:8080/api/consultorios
+```
+
+### 5.8. Contratos verificados para frontend y consola
+
+Los siguientes contratos se contrastaron con los controladores, servicios,
+repositorios y `SecurityConfig`. Para todas estas consultas GET se envía:
+
+- `Authorization: Bearer <accessToken>`; el token debe corresponder al rol
+  indicado.
+- `Accept: application/json`.
+- No se requiere `Content-Type` porque no hay cuerpo.
+
+En los ejemplos, las variables `SOCIO_TOKEN`, `FUNCIONARIO_TOKEN` y
+`ADMIN_TOKEN` contienen access tokens de cuentas ficticias de pruebas. No
+incluyas tokens reales en el historial de PowerShell ni en capturas públicas.
+
+#### `GET /api/medicos`
+
+- **Rol:** `FUNCIONARIO`.
+- **Query:** `especialidadId` opcional, entero. Cuando se envía, limita la
+  respuesta a médicos habilitados que tienen esa especialidad; cada médico
+  conserva en `especialidades` todas las especialidades que tiene asignadas.
+- **200:** array de médicos habilitados. Cada elemento contiene `id`, `nombre`,
+  `apellido` y `especialidades` (objetos `id`, `nombre`, `requierePase`).
+  No incluye CI, correo, teléfonos, contraseñas ni tokens.
+- **400:** parámetro mal formado. **401:** sesión ausente/inválida.
+  **403:** rol distinto de `FUNCIONARIO`.
+- **curl.exe:**
+
+```powershell
+curl.exe -i -H "Authorization: Bearer $env:FUNCIONARIO_TOKEN" -H "Accept: application/json" "http://localhost:8080/api/medicos?especialidadId=3"
+```
+
+- **Invoke-RestMethod:**
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "$base/api/medicos?especialidadId=3" -Headers @{ Authorization = "Bearer $env:FUNCIONARIO_TOKEN"; Accept = "application/json" }
+```
+
+Respuesta de ejemplo:
+
+```json
+[
+  {
+    "id": 17,
+    "nombre": "Marta",
+    "apellido": "Rodriguez",
+    "especialidades": [
+      { "id": 3, "nombre": "Cardiologia", "requierePase": true }
+    ]
+  }
+]
+```
+
+#### `GET /api/usuarios`
+
+- **Rol:** `ADMINISTRADOR`.
+- **Query:** `rol` opcional (`SOCIO`, `FUNCIONARIO`, `MEDICO`,
+  `ADMINISTRADOR`); `estado` opcional (`ACTIVA`, `INACTIVA`); `texto` opcional
+  para coincidencia parcial con CI o apellido; `page` (desde 0, default 0);
+  `size` (1-100, default 20).
+- **200:** objeto paginado `{items,page,size,total}`. Cada fila es una cuenta e
+  incluye `id`, `ci`, `nombre`, `apellido`, `rol`, `correo`, `estado`,
+  `activada` y `fechaAlta`. No incluye hashes ni tokens; cuentas inactivas se
+  conservan.
+- **400:** filtros o paginación inválidos. **401:** sesión ausente/inválida.
+  **403:** rol distinto de `ADMINISTRADOR`.
+- **curl.exe:**
+
+```powershell
+curl.exe -i -H "Authorization: Bearer $env:ADMIN_TOKEN" -H "Accept: application/json" "http://localhost:8080/api/usuarios?rol=SOCIO&estado=ACTIVA&texto=45678911&page=0&size=20"
+```
+
+- **Invoke-RestMethod:**
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "$base/api/usuarios?rol=SOCIO&estado=ACTIVA&texto=45678911&page=0&size=20" -Headers @{ Authorization = "Bearer $env:ADMIN_TOKEN"; Accept = "application/json" }
+```
+
+Respuesta de ejemplo:
+
+```json
+{
+  "items": [
+    {
+      "id": 42,
+      "ci": "45678911",
+      "nombre": "Lucia",
+      "apellido": "Fernandez",
+      "rol": "SOCIO",
+      "correo": "lucia@example.org",
+      "estado": "ACTIVA",
+      "activada": true,
+      "fechaAlta": "2026-09-01T09:00:00-03:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "total": 1
+}
+```
+
+#### `GET /api/historia-clinica`
+
+- **Rol:** `SOCIO`; la identidad y propiedad se determinan por `sub` del JWT.
+  No se acepta `socioId`.
+- **Query:** `fechaDesde`, `fechaHasta` (`yyyy-MM-dd`); `especialidadId`,
+  `medicoId` (enteros positivos); `texto` (coincidencia en tratamiento);
+  `orden` (`fecha_atencion` o `especialidad`, default `fecha_atencion`);
+  `sentido` (`asc` o `desc`, default `desc`). Los filtros se combinan.
+- **200:** array de atenciones propias; cada elemento incluye fecha, médico,
+  especialidad, afección, tratamiento, observaciones y `pases` emitidos con
+  `emitidoEn` y `venceEl`. La lista no está paginada en esta implementación.
+- **400:** formato de fecha, filtro, orden o sentido inválido.
+  **401:** sesión ausente/inválida. **403:** rol distinto de `SOCIO`.
+- **curl.exe:**
+
+```powershell
+curl.exe -i -H "Authorization: Bearer $env:SOCIO_TOKEN" -H "Accept: application/json" "http://localhost:8080/api/historia-clinica?fechaDesde=2026-01-01&fechaHasta=2026-12-31&especialidadId=3&medicoId=17&texto=control&orden=fecha_atencion&sentido=desc"
+```
+
+- **Invoke-RestMethod:**
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "$base/api/historia-clinica?fechaDesde=2026-01-01&fechaHasta=2026-12-31&especialidadId=3&medicoId=17&texto=control&orden=fecha_atencion&sentido=desc" -Headers @{ Authorization = "Bearer $env:SOCIO_TOKEN"; Accept = "application/json" }
+```
+
+Respuesta de ejemplo con datos ficticios:
+
+```json
+[
+  {
+    "idAtencion": 5530,
+    "fechaAtencion": "2026-10-20",
+    "medicoId": 17,
+    "medicoNombre": "Marta",
+    "medicoApellido": "Rodriguez",
+    "especialidad": { "id": 3, "nombre": "Cardiologia", "requierePase": true },
+    "afeccion": "Afeccion ficticia",
+    "tratamiento": "Tratamiento ficticio",
+    "observaciones": null,
+    "pases": [
+      {
+        "id": 78,
+        "especialidad": { "id": 4, "nombre": "Nutricion", "requierePase": true },
+        "emitidoEn": "2026-10-20T09:41:00-03:00",
+        "venceEl": "2027-01-18"
+      }
+    ]
+  }
+]
+```
+
+La lista actual expone los datos clínicos solo al socio autenticado y los
+devuelve junto con cada atención. Esto difiere de la propuesta de
+`contrato-v1.md`, que describía un resumen paginado sin contenido clínico.
+
+#### `GET /api/historia-clinica/{idAtencion}`
+
+- **Rol:** `SOCIO`; se vuelve a verificar la propiedad de la atención en la
+  consulta SQL, usando el socio autenticado.
+- **Path:** `idAtencion`, entero positivo. No acepta socio como parámetro.
+- **200:** mismo objeto de atención que el listado, con afección, tratamiento,
+  observaciones y pases con fechas de emisión/vencimiento.
+- **400:** ID no positivo. **401:** sesión ausente/inválida.
+  **403:** rol distinto de `SOCIO`. **404:** ID inexistente o atención de otro
+  socio; ambos casos usan el mismo mensaje sin contenido clínico.
+- **curl.exe:**
+
+```powershell
+curl.exe -i -H "Authorization: Bearer $env:SOCIO_TOKEN" -H "Accept: application/json" "http://localhost:8080/api/historia-clinica/5530"
+```
+
+- **Invoke-RestMethod:**
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "$base/api/historia-clinica/5530" -Headers @{ Authorization = "Bearer $env:SOCIO_TOKEN"; Accept = "application/json" }
+```
+
+Respuesta de ejemplo con datos ficticios:
+
+```json
+{
+  "idAtencion": 5530,
+  "fechaAtencion": "2026-10-20",
+  "medicoId": 17,
+  "medicoNombre": "Marta",
+  "medicoApellido": "Rodriguez",
+  "especialidad": { "id": 3, "nombre": "Cardiologia", "requierePase": true },
+  "afeccion": "Afeccion ficticia",
+  "tratamiento": "Tratamiento ficticio",
+  "observaciones": null,
+  "pases": []
+}
+```
+
+#### `GET /api/consultas`
+
+- **Rol:** `SOCIO`; la identidad se extrae del JWT.
+- **Query:** `estado`, `fechaDesde`, `fechaHasta`, `especialidadId`,
+  `medicoId`, `orden` (`fecha` o `especialidad`), `sentido` (`asc` o `desc`),
+  `page` (default 0) y `size` (default 20, máximo 100). Fechas en
+  `yyyy-MM-dd`.
+- **200:** objeto `{items,page,size,total}` con consultas propias. Los items
+  incluyen `id`, `estado`, fecha/hora, médico, especialidad, consultorio,
+  `paseId` y datos de agenda/cancelación.
+- **400:** filtro/paginación inválidos. **401:** sesión ausente/inválida.
+  **403:** rol distinto de `SOCIO`.
+- **curl.exe:**
+
+```powershell
+curl.exe -i -H "Authorization: Bearer $env:SOCIO_TOKEN" -H "Accept: application/json" "http://localhost:8080/api/consultas?fechaDesde=2026-10-01&fechaHasta=2026-10-31&page=0&size=20"
+```
+
+- **Invoke-RestMethod:**
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "$base/api/consultas?fechaDesde=2026-10-01&fechaHasta=2026-10-31&page=0&size=20" -Headers @{ Authorization = "Bearer $env:SOCIO_TOKEN"; Accept = "application/json" }
+```
+
+Respuesta resumida:
+
+```json
+{
+  "items": [
+    {
+      "id": 9001,
+      "estado": "AGENDADA",
+      "fecha": "2026-10-20",
+      "numero": 2,
+      "horaInicio": "09:20",
+      "horaFin": "09:40",
+      "medico": { "id": 17, "nombre": "Marta", "apellido": "Rodriguez" },
+      "especialidad": { "id": 3, "nombre": "Cardiologia", "requierePase": true },
+      "consultorio": { "id": 5, "nombre": "Consultorio 5", "ubicacion": "Piso 2" },
+      "paseId": null,
+      "agendadaEn": "2026-10-14T10:12:45-03:00",
+      "canceladaEn": null,
+      "motivoCancelacion": null
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "total": 1
+}
+```
+
+#### `GET /api/agendas`
+
+- **Rol:** `FUNCIONARIO`.
+- **Query opcional:** `ci`, `consultaId`, `fecha` (una fecha
+  `yyyy-MM-dd`), `medicoId`, `estado`, `llegada` (`true`/`false`), `orden`
+  (`fechaHora`/`horaLlegada`), `sentido` (`asc`/`desc`), `page` (default 0)
+  y `size` (default 20, máximo 100).
+- **200:** `{items,page,size,total}` de agenda operativa; no contiene campos
+  de atención clínica.
+- **400:** filtros o paginación inválidos. **401:** sesión ausente/inválida.
+  **403:** rol distinto de `FUNCIONARIO`.
+- **curl.exe:**
+
+```powershell
+curl.exe -i -H "Authorization: Bearer $env:FUNCIONARIO_TOKEN" -H "Accept: application/json" "http://localhost:8080/api/agendas?fecha=2026-10-26&llegada=true&page=0&size=20"
+```
+
+- **Invoke-RestMethod:**
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "$base/api/agendas?fecha=2026-10-26&llegada=true&page=0&size=20" -Headers @{ Authorization = "Bearer $env:FUNCIONARIO_TOKEN"; Accept = "application/json" }
+```
+
+Respuesta resumida:
+
+```json
+{
+  "items": [
+    {
+      "consultaId": 9001,
+      "socio": { "ci": "45678911", "nombre": "Lucia", "apellido": "Fernandez" },
+      "medico": { "id": 17, "nombre": "Marta", "apellido": "Rodriguez" },
+      "especialidad": { "id": 3, "nombre": "Cardiologia", "requierePase": true },
+      "fecha": "2026-10-26",
+      "horaInicio": "09:20",
+      "horaFin": "09:40",
+      "consultorio": { "id": 5, "nombre": "Consultorio 5", "ubicacion": "Piso 2" },
+      "estado": "AGENDADA",
+      "llegadaEn": "2026-10-26T08:55:12-03:00"
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "total": 1
+}
+```
+
+#### `GET /api/socios/me/pases/disponibles`
+
+- **Rol:** `SOCIO`; el socio se toma del JWT y no de un parámetro.
+- **Query:** ninguno.
+- **200:** array de pases propios disponibles, cada uno con `id`,
+  `especialidadDestino`, `emitidoEn` y `venceEl`. Lista vacía si no tiene
+  pases disponibles.
+- **401:** sesión ausente/inválida. **403:** rol distinto de `SOCIO`.
+- **curl.exe:**
+
+```powershell
+curl.exe -i -H "Authorization: Bearer $env:SOCIO_TOKEN" -H "Accept: application/json" "http://localhost:8080/api/socios/me/pases/disponibles"
+```
+
+- **Invoke-RestMethod:**
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "$base/api/socios/me/pases/disponibles" -Headers @{ Authorization = "Bearer $env:SOCIO_TOKEN"; Accept = "application/json" }
+```
+
+Respuesta de ejemplo:
+
+```json
+[
+  {
+    "id": 78,
+    "especialidadDestino": { "id": 4, "nombre": "Nutricion", "requierePase": true },
+    "emitidoEn": "2026-10-20T09:41:00-03:00",
+    "venceEl": "2027-01-18"
+  }
+]
+```
+
+## 6. Flujo completo hasta PostgreSQL
+
+### Caso típico de login y acceso
+
+1. `POST /api/auth/login` llega a `AuthController`
+2. `AuthService.login` valida `ci`, `password`, `acceso` y `plataforma`
+3. `CuentaAuthRepository` busca la cuenta por `ci` y rol
+4. `PasswordEncoder` compara el password con `BCrypt`
+5. `JwtService` genera el access token
+6. `RefreshCookieService` arma la cookie de refresh
+7. respuesta JSON + header `Set-Cookie`
+8. el cliente usa `Authorization: Bearer <token>` para rutas protegidas
+9. `SecurityConfig` valida el JWT y decide si el rol puede acceder
+10. la operación llega a servicio y repositorio
+11. repositorio ejecuta consultas SQL sobre PostgreSQL
+12. la base responde con registros
+13. el controller serializa JSON
+
+## 7. Qué no se debe asumir
+
+No se debe asumir que:
+
+- todos los RF críticos están totalmente cerrados;
+- la validación real con PostgreSQL del entorno de pruebas ya está hecha;
+- los tests unitarios son equivalentes a pruebas funcionales sobre el producto final;
+- la ruta de especificación solicitada existe en el repositorio.
+
+## 8. Ejemplos útiles para defensa
+
+### Caso 1: login para socio
+
+```powershell
+$body = @{ ci = '12345678'; password = 'Secret123'; acceso = 'SOCIO' } | ConvertTo-Json
+curl.exe -i -c cookies.txt -H 'Content-Type: application/json' -d $body http://localhost:8080/api/auth/login
+```
+
+### Caso 2: login para empleado
+
+```powershell
+$body = @{ ci = '12345678'; password = 'Secret123'; acceso = 'EMPLEADO'; plataforma = 'WEB' } | ConvertTo-Json
+curl.exe -i -c cookies.txt -H 'Content-Type: application/json' -d $body http://localhost:8080/api/auth/login
+```
+
+### Caso 3: consulta de disponibilidad
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:SOCIO_TOKEN" "http://localhost:8080/api/disponibilidad?especialidadId=1&orden=fecha&sentido=ASC"
+```
+
+### Caso 4: atención médica
+
+```powershell
+curl.exe -i -H "Authorization: Bearer $env:MEDICO_TOKEN" -H "Content-Type: application/json" -d '{"afeccion":"Afecci\u00f3n","tratamiento":"Tratamiento","observaciones":"Observaci\u00f3n"}' http://localhost:8080/api/medico/consultas/1/resultado
+```
+
+## 9. Recomendaciones operativas
+
+- Mantener `.env` fuera del repositorio.
+- No apuntar la app a una base compartida o de producción.
+- Usar una base local aislada con `database/schema.sql`.
+- Verificar con `curl.exe` antes de ejecutar cualquier flujo de prueba real.
+- No correr pruebas destructivas ni sobre datos clínicos reales.
+- Tratar los tests unitarios como respaldo de implementación, no como sustituto de validación real de negocio.
+
+## 10. Conclusión
+
+El backend real del repositorio tiene una estructura sólida y un conjunto de endpoints funcionales reales. El manual demuestra cómo levantarlo, autenticarse y operar la API sin frontend. La clave para la defensa es distinguir claramente entre lo que existe en el código y lo que todavía requiere validación real con PostgreSQL y casos de negocio de producción.
+
+## 11. Estado de validación de endpoints críticos
+
+En la revisión del 26/10/2026, `.\mvnw.cmd -B verify` terminó con **338
+tests aprobados, 0 fallidos, 0 errores y 0 omitidos**. Para evitar conectarse
+al listener local no identificado en el puerto 5432, la suite se ejecutó con
+una URL deliberadamente inalcanzable (`127.0.0.1:1`). Por lo tanto, el resultado
+corresponde a las pruebas unitarias, de mocks, HTTP/seguridad y de contexto que
+ejecuta Maven; no demuestra integración con PostgreSQL ni E2E.
+
+Queda pendiente, en una base de pruebas PostgreSQL aislada, validar las
+consultas reales, paginación/filtros sobre datos de prueba, propiedad de
+historias clínicas y vigencia/uso de pases. No se usaron datos clínicos reales.
