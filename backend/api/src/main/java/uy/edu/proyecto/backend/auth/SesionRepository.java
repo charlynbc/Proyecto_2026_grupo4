@@ -51,6 +51,8 @@ public class SesionRepository {
                               WHERE c.id_cuenta = s.id_cuenta
                                 AND c.habilitada = TRUE
                                 AND c.primer_ingreso_completado = TRUE
+                                AND (c.ultima_reactivacion_en IS NULL
+                                     OR s.creada_en > c.ultima_reactivacion_en)
                           )
                         RETURNING s.id_cuenta
                         """,

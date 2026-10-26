@@ -249,6 +249,7 @@ Restricciones relevantes: `ck_consulta_estado` (AGENDADA, ATENDIDA, CANCELADA_SO
 - Reglas por rol en `SecurityConfig` (secciones 6 y 12 de este informe): ADMIN (`/api/usuarios`, `/api/estadisticas/**`, creación de especialidades/consultorios), FUNCIONARIO, SOCIO, MEDICO; el resto de `/api/**` exige autenticación.
 - Conflicto de interés: el funcionario/médico no puede operar sobre su propia CI (RF-16, RF-23).
 - Errores 401/403 con formato uniforme (`SecurityErrorHandler`).
+- Vigencia de cuenta (rama `fix/seguridad-jwt-cuentas-inactivas`, pendiente de integrar): antes de este cambio el `JwtDecoder` solo validaba firma, emisor y expiración, por lo que el JWT de una cuenta inactivada seguía siendo válido hasta 900 s. `CuentaVigenteValidator` consulta `cuenta` en cada solicitud (sin caché), exige cuenta habilitada, rol coincidente e `iat` posterior a la última reactivación; ante fallo de BD responde 401. `SesionRepository.rotar` no renueva sesiones previas a una reactivación. Pruebas: `CuentaVigenteValidatorTest` (11) y `CuentasInactivasIT`. Riesgos: `iat` con precisión de segundos; una solicitud en curso no se interrumpe.
 - No verificado: configuración real de `COOKIE_SECURE`/`COOKIE_SAME_SITE` en producción.
 
 ## 10. Transacciones y concurrencia
