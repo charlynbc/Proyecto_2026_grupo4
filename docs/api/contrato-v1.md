@@ -1559,7 +1559,7 @@ Errores comunes: `400 VALIDACION` (fecha mal formada o rango invertido).
 #### #34 · `GET /api/estadisticas/especialidades`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-39. **Diseño:** `calcularPorEspecialidad(filtro): List<EstadisticaEspecialidadDTO>` (S20). **Estado:** PROPUESTA.
+- **RF:** RF-39. **Diseño:** `calcularPorEspecialidad(filtro): List<EstadisticaEspecialidadDTO>` (S20). **Estado:** CONFIRMADA (integrada en avances, PR #24, `a22eef9`).
 
 Consultas agendadas en el período, **contadas por la fecha en que se agendaron** (`agendadaEn`), incluidas las que luego se cancelaron.
 
@@ -1580,7 +1580,7 @@ Consultas agendadas en el período, **contadas por la fecha en que se agendaron*
 #### #35 · `GET /api/estadisticas/turnos`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** PROPUESTA.
+- **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** CONFIRMADA en `feat/rf-40-estadisticas-turnos` (no integrada en avances). Diferencias con la propuesta: agrega `fechasActivas` y `utilizacion` (texto, `"Sin datos"` cuando `porcentajeUtilizacion` es `null`); `consultorio` incluye `ubicacion`; el porcentaje lleva 2 decimales.
 
 Porcentaje de números ocupados sobre los ofrecidos, en las fechas del período en que la fecha del turno estuvo activa. Ocupado: consulta `AGENDADA`, `ATENDIDA`, `NO_ASISTIO`, `NO_ATENDIDA` o `NO_SE_PRESENTO`; las canceladas lo dejan libre. Qué es "cada turno" (el patrón semanal o la fecha concreta): P-13. **PROPUESTA:** una fila por patrón semanal.
 

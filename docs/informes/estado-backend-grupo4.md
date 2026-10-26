@@ -12,8 +12,8 @@ Lo que no se pudo verificar se marca como **no verificado**.
 - Backend REST en Java 25 / Spring Boot 4.1.1 con JDBC (`JdbcTemplate`) y PostgreSQL 17.
 - De los 22 RF críticos, con el criterio de la leyenda de la sección 5:
   **16 completos, 4 parciales (RF-12, RF-24, RF-35, RF-39) y 2 ausentes (RF-40, RF-41)**.
-- RF-39 (estadísticas por especialidad) existe en el código de esta rama, pero **no está integrado en `avances`**
-  (PR #24 en borrador). RF-40 y RF-41 no tienen código.
+- RF-39 (estadísticas por especialidad) está **integrado en `avances`** (PR #24, `a22eef9`). RF-40 (estadísticas por turno) está **implementado en la rama `feat/rf-40-estadisticas-turnos`**, aún no integrado; el estado de CI se registra en el PR. RF-41 no tiene código.
+- Con RF-40 la suite Maven pasa de 358 a **370** pruebas (+12: ServiceTest 7, RepositoryTest 1, SeguridadTest +4) y las IT de 45 a **54** esperadas (+9 `EstadisticaTurnoIT`), a confirmar en CI.
 - Suite Maven (`mvnw verify`) en `avances`: **343 pruebas**, 0 fallos (el «686» fue un error de conteo duplicado). Con RF-39: 343 + 15 = **358**, confirmado en GitHub Actions (PR #24, commit 528201d): 358 aprobadas, 0 fallos, 0 errores, 0 omitidas. El «686» no corresponde a ninguna salida real de Maven.
 - Las pruebas `*IT` no corren con `mvnw verify`; corren en `.github/workflows/e2e.yml` contra PostgreSQL 17 efímero: **39 IT aprobadas** en `avances` antes de RF-39 (+ 18 pruebas de contexto). `EstadisticaEspecialidadIT` (6) **aprobó en CI** (PostgreSQL 17.11 efímero): 45 IT ejecutadas, 45 aprobadas, 0 fallidas, 0 omitidas (AutenticacionIT 19, CircuitoConsultasIT 4, ConcurrenciaIT 5, EstadisticaEspecialidadIT 6, LlegadaAgendaMedicoIT 6, RolesIT 5).
 - Railway: **no verificado en esta sesión**. El repo documenta la configuración prevista, no un despliegue realizado.
@@ -59,7 +59,7 @@ Raíz `uy.edu.proyecto.backend` (+ `ApiApplication`):
 | `consultorio` | alta, listado, previsualización de CSV |
 | `correo` | envío de correo (none/smtp/resend) |
 | `especialidad` | alta y listado |
-| `estadistica` | RF-39 (solo en esta rama) |
+| `estadistica` | RF-39 (integrado), RF-40 (solo en rama RF-40); `PeriodoEstadistico` compartido |
 | `exception` | manejo de errores |
 | `medico` | listado de médicos por especialidad |
 | `notificacion` | registro de dispositivo, envío de suspensiones (listener + poller) |
@@ -105,8 +105,8 @@ Raíz `uy.edu.proyecto.backend` (+ `ApiApplication`):
 | RF-31 | Sí | Sí | Sí | Solo permisos (RolesIT) | No verificado | Completo |
 | RF-33 | Sí | Sí | Sí | Solo permisos (RolesIT) | No verificado | Completo |
 | RF-35 | Sí | Sí | Sí | Solo permisos (RolesIT) | No verificado | **Parcial** |
-| RF-39 | Sí | **No** | Sí (15) | **Pendiente de CI** (EstadisticaEspecialidadIT, 6) | No | **Parcial** (no integrado) |
-| RF-40 | No | No | No | No | No | **Ausente** |
+| RF-39 | Sí | Sí (`a22eef9`) | Sí (15) | Sí (EstadisticaEspecialidadIT 6/6 en CI) | No verificado | **Completo** (en avances) |
+| RF-40 | Sí | **No** (rama RF-40) | Sí (12) | Escrita (EstadisticaTurnoIT, 9); **pendiente de CI** | No | **Implementado, pendiente de CI/integración** |
 | RF-41 | No | No | No | No | No | **Ausente** |
 
 ### 5.2 Matriz detallada
@@ -134,8 +134,8 @@ Rutas y reglas tomadas de controllers/services/repositories. Paquetes bajo `uy.e
 | RF-31 | `POST /api/usuarios` | ADMIN | AltaUsuarioController | AltaUsuarioService | repositorio de usuario | alta / `CuentaCreadaResponse` (201) | persona, cuenta, medico_especialidad | CI uruguaya con dígito verificador, correo, roles, teléfono ≤30; MEDICO requiere ≥1 especialidad y los demás ninguna; `DATOS_PERSONA_DISCORDANTES`, `SOCIO_DUPLICADO`, `EMPLEADO_DUPLICADO` | AltaUsuarioServiceTest, AltaUsuarioControllerTest, AltaUsuarioSeguridadTest, CiUruguayaTest | Solo permisos (RolesIT) | Persona existente con otros datos | No envía correo (el primer ingreso lo inicia el usuario, RF-02) | Completo |
 | RF-33 | `POST /api/consultorios`, `GET /api/consultorios`, `POST /api/consultorios/importaciones/previsualizar` | ADMIN (GET: cualquier autenticado) | ConsultorioController | ConsultorioService, ConsultorioImportacionService | repositorio de consultorio | consultorio | consultorio | Nombre ≤120 y ubicación ≤200 obligatorios; `nombre` único exacto (sensible a mayúsculas) → `CONSULTORIO_DUPLICADO` | ConsultorioServiceTest, ConsultorioControllerTest, ConsultorioSeguridadTest, ConsultorioCsv* (Parser, Validador, Previsualizador), ConsultorioImportacionServiceTest | Solo permisos (RolesIT) | Duplicado | El ejemplo del RF habla de «nombre o número único»; el código solo tiene `nombre` | Completo |
 | RF-35 | `GET /api/usuarios` (rol, estado ACTIVA\|INACTIVA, texto, page, size ≤100) | ADMIN | AltaUsuarioController | UsuarioService | UsuarioPadronRepository | id, ci, nombre, apellido, rol, correo, estado, activada, fechaAlta | cuenta, persona | Una fila por cuenta; `texto` busca por CI o apellido; orden apellido ASC, fecha_alta DESC | UsuarioServiceTest, UsuarioRepositoryTest, AltaUsuarioControllerTest, AltaUsuarioSeguridadTest | Solo autorización (RolesIT); filtros sin IT | — | No hay endpoint para activar/inactivar cuentas; contrato-v1 propone `q` y el código usa `texto`; contraste fino con el texto del RF sin evidencia contra PostgreSQL | Parcial |
-| RF-39 | `GET /api/estadisticas/especialidades?desde&hasta` | ADMIN | EstadisticaEspecialidadController | EstadisticaEspecialidadService | EstadisticaEspecialidadRepository | `{desde,hasta,items:[{especialidad:{id,nombre,requierePase},cantidadConsultas}]}` | consulta, numero, turno, especialidad | Cuenta consultas por `agendada_en` en [desde, hasta+1 día) America/Montevideo; LEFT JOIN: especialidades con 0 aparecen; incluye canceladas; orden cantidad DESC, nombre, id; por defecto mes actual | EstadisticaEspecialidadServiceTest 8, EstadisticaEspecialidadRepositoryTest 1, EstadisticaSeguridadTest 6 (= 15) | **Pendiente de CI**: EstadisticaEspecialidadIT (6) | Sin datos; rangos inválidos; sin parámetros | **No integrado en `avances`**; PR #24 en borrador; docs no actualizadas (`endpoints-usados.md` #34 sigue como PROPUESTA) | Parcial (no integrado) |
-| RF-40 | — (no existe) | — | — | — | — | — | — | — | — | — | — | Sin código ni pruebas. `/api/estadisticas/**` ya exige ADMIN en SecurityConfig | Ausente |
+| RF-39 | `GET /api/estadisticas/especialidades?desde&hasta` | ADMIN | EstadisticaEspecialidadController | EstadisticaEspecialidadService | EstadisticaEspecialidadRepository | `{desde,hasta,items:[{especialidad:{id,nombre,requierePase},cantidadConsultas}]}` | consulta, numero, turno, especialidad | Cuenta consultas por `agendada_en` en [desde, hasta+1 día) America/Montevideo; LEFT JOIN: especialidades con 0 aparecen; incluye canceladas; orden cantidad DESC, nombre, id; por defecto mes actual | EstadisticaEspecialidadServiceTest 8, EstadisticaEspecialidadRepositoryTest 1, EstadisticaSeguridadTest 6 (= 15) | **Pendiente de CI**: EstadisticaEspecialidadIT (6) | Sin datos; rangos inválidos; sin parámetros | Integrado en `avances` (PR #24, `a22eef9`); `endpoints-usados.md` #34 CONFIRMADA | Completo |
+| RF-40 | `GET /api/estadisticas/turnos?desde&hasta` | ADMIN | EstadisticaController | EstadisticaTurnoService | EstadisticaTurnoRepository | `{desde,hasta,items:[{turnoSemanalId,medico,especialidad,consultorio,diaSemana,fechasActivas,numerosOfrecidos,numerosOcupados,porcentajeUtilizacion,utilizacion}]}` | turno_semanal, turno, numero, consulta, medico, especialidad, consultorio | ocupados/ofrecidos×100 sobre fechas con `turno.estado='ACTIVO'`; ocupado = existe consulta no cancelada (EXISTS, sin doble conteo); denominador 0 = "Sin datos"; mes actual por defecto, America/Montevideo | ServiceTest 7, RepositoryTest 1, SeguridadTest +4 | EstadisticaTurnoIT (9) escrita, pendiente de CI | Período vacío, fechas suspendidas/rehabilitadas, reserva repetida | **Limitación**: «activa» usa el estado actual de la fecha; no se reconstruye `turno_evento`. No integrado | Implementado, pendiente de CI |
 | RF-41 | — (no existe) | — | — | — | — | — | — | — | — | — | — | Sin código ni pruebas | Ausente |
 
 ### 5.3 Qué falta en los RF parciales (a contrastar con `docs/analisis/requerimientos.md`)
@@ -143,17 +143,18 @@ Rutas y reglas tomadas de controllers/services/repositories. Paquetes bajo `uy.e
 - **RF-12**: el listado debería poder paginarse y el contrato-v1 propone un resumen paginado; el código devuelve una lista completa con campos clínicos. No hay IT que pruebe que un socio no ve historias ajenas con PostgreSQL real.
 - **RF-24**: la emisión y el uso del pase funcionan; el flujo en que el pase vuelve a estar disponible cuando el **socio** cancela no existe porque no hay cancelación por el socio. Los pases disponibles no tienen IT.
 - **RF-35**: listado y filtros en el código, sin prueba funcional con PostgreSQL ni gestión de estado de cuentas. Se marca parcial por falta de evidencia, no por un defecto demostrado.
-- **RF-39**: completo en código y con mocks, pero sin integrar y sin confirmación de CI.
+- **RF-39**: completo, integrado en `avances` y confirmado con PostgreSQL en CI.
+- **RF-40**: implementado en la rama `feat/rf-40-estadisticas-turnos`; pendiente de CI e integración.
 
 ### 5.4 Contradicciones entre documentos y código
 
-1. `docs/api/endpoints-usados.md` marca `/api/estadisticas/especialidades` (#34) como PROPUESTA; el código de esta rama ya lo implementa (no integrado).
+1. `docs/api/endpoints-usados.md` ya marca #34 (RF-39) y #35 (RF-40) como CONFIRMADAS; #35 solo existe en la rama RF-40.
 2. `endpoints-usados.md` lista `POST /api/consultas/{id}/cancelar` (#20), `GET /api/notificaciones` (#32) y `POST /api/dispositivos` (#33) como propuestos; **no existen**. La ruta real del registro de dispositivo es `POST /api/notificaciones/registro`.
 3. contrato-v1: `q` vs `texto` real en `GET /api/usuarios`; historia clínica paginada vs lista real.
 4. `docs/informes/auditoria-backend-criticos.md` está desfasado: describe RF-02 como parcial y cita `docs/especificaciones/backend_criticos_2026.md`, que no existe; es anterior al PR #23.
-5. `docs/pruebas-integracion.md` no menciona RF-39 ni `EstadisticaEspecialidadIT`.
-6. `docs/integracion/estado-2026-10-21.md` habla de 34 pruebas HTTP reales; hoy las IT son 39 (45 con RF-39).
-7. `docs/manual-backend-consola.md` tiene cambios sin commit en este worktree (sección de RF-39); no se tocó.
+5. `docs/pruebas-integracion.md` no menciona las IT de estadísticas (`EstadisticaEspecialidadIT`, `EstadisticaTurnoIT`).
+6. `docs/integracion/estado-2026-10-21.md` habla de 34 pruebas HTTP reales; hoy las IT son 45 en `avances` (54 esperadas con RF-40).
+7. El manual de consola se actualiza en esta rama con RF-40 (sección 5.10).
 
 ## 6. Endpoints completos por rol
 
@@ -184,7 +185,8 @@ Fuente: `@*Mapping` de los controllers y `SecurityConfig`. **No existe ningún P
 | POST | `/api/especialidades` | 201 |
 | POST | `/api/consultorios` | 201 |
 | POST | `/api/consultorios/importaciones/previsualizar` | multipart `archivo` (CSV: nombre, ubicacion); solo previsualiza |
-| GET | `/api/estadisticas/especialidades` | desde, hasta; **solo en esta rama (RF-39)** |
+| GET | `/api/estadisticas/especialidades` | desde, hasta (RF-39, integrado) |
+| GET | `/api/estadisticas/turnos` | desde, hasta; **solo en la rama RF-40** |
 | — | `/api/admin/**` | reservado en SecurityConfig, sin controller |
 
 ### FUNCIONARIO
@@ -287,11 +289,10 @@ Restricciones relevantes: `ck_consulta_estado` (AGENDADA, ATENDIDA, CANCELADA_SO
 
 ## 15. Estado de GitHub y ramas
 
-- `integracion/proyecto-2026-avances` = `28b33a6fa0cd786fee491b9e2082ee973d083e9f`, con el PR #23 (RF-02) fusionado.
-- `main` = `39dae5c7f9a780914917876160f1e59f0bbfb522`, intacta (ancestro de `avances`; `avances` está 22 commits por delante).
-- `feat/rf-39-estadisticas-especialidad` = `528201d` (padre `28b33a6`; toca 10 archivos: SecurityConfig, 5 de `estadistica/`, 3 tests unitarios y `EstadisticaEspecialidadIT`). **PR #24 en borrador hacia `avances`; RF-39 NO integrado.**
+- `integracion/proyecto-2026-avances` = `a22eef9e91b9baf33f8e999e01d4461327e81082`, con RF-02 (PR #23) y RF-39 (PR #24) fusionados.
+- `main` = `39dae5c7f9a780914917876160f1e59f0bbfb522`, intacta (ancestro de `avances`).
+- `feat/rf-40-estadisticas-turnos`: creada desde `a22eef9`; PR hacia `avances` para CI, sin fusionar.
 - Otras ramas remotas: `feat/rf-02-primer-ingreso`, `feat/pases-disponibles`, `test/e2e-postgresql-2026`, `integracion/pr-19-segura-2026-10-23`.
-- El estado del PR #24 y de sus checks no se consultó en GitHub en esta sesión.
 
 ## 16. Estado conocido de Railway
 
@@ -299,12 +300,12 @@ Restricciones relevantes: `ck_consulta_estado` (AGENDADA, ATENDIDA, CANCELADA_SO
 - `docs/analisis/arquitectura.md` describe el destino (Railway + PostgreSQL 17 en Supabase vía Supavisor).
 - `docs/api/railway-correo.md` lista variables (PORT, DB_URL/DB_USER/DB_PASSWORD, JWT_SECRET_BASE64, CORS_ALLOWED_ORIGIN, COOKIE_SECURE, COOKIE_SAME_SITE, APP_FIREBASE_ENABLED, MAIL_PROVIDER=resend, RESEND_API_KEY, MAIL_FROM, FIRST_LOGIN_URL) y avisa que Railway bloquea SMTP en planes Free/Trial/Hobby.
 - `docs/integracion/estado-2026-10-21.md`: «despliegue en Railway (no realizado)». `docs/pruebas-integracion.md` lo lista como «No cubierto».
-- No se afirma ningún despliegue, y menos de RF-39 (no está en `avances`).
+- No se afirma ningún despliegue de RF-39 ni de RF-40.
 
 ## 17. Pendientes
 
-1. Confirmar `EstadisticaEspecialidadIT` en CI y fusionar PR #24 (RF-39).
-2. Implementar RF-40 y RF-41.
+1. Confirmar `EstadisticaTurnoIT` en CI y revisar/fusionar el PR de RF-40 (RF-39 ya integrado).
+2. Implementar RF-41.
 3. RF-12: alinear contrato (paginación) y agregar IT de propiedad con PostgreSQL.
 4. RF-24: IT de pases disponibles; RF-10 (cancelación por el socio) para devolver pases.
 5. RF-35: IT funcional de filtros; decidir gestión de estado de cuentas.
@@ -317,7 +318,7 @@ Restricciones relevantes: `ck_consulta_estado` (AGENDADA, ATENDIDA, CANCELADA_SO
 
 ## 18. Plan de implementación (orden recomendado)
 
-1. **Cerrar RF-39**: confirmar CI, fusionar PR #24, actualizar `endpoints-usados.md`, `pruebas-integracion.md` y el manual.
+1. **Cerrar RF-40**: confirmar CI y fusionar su PR (RF-39 ya integrado en `a22eef9`). Pendiente: `pruebas-integracion.md` no menciona las IT de estadísticas.
 2. **RF-41** (consultas por estado y tasa): reutilizar los estados derivados de `ConsultaRepository`; endpoint propuesto bajo `/api/estadisticas/consultas` (ya protegido para ADMIN); service, repository, DTO, tests con mocks y una IT.
 3. **RF-40** (estadística de turnos): ídem bajo `/api/estadisticas/turnos`, con IT.
 4. **RF-12**: paginación/contrato + IT de propiedad.
