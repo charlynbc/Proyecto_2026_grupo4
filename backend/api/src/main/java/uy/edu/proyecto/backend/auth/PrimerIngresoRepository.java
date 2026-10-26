@@ -49,6 +49,40 @@ public class PrimerIngresoRepository {
                 .findFirst();
     }
 
+    public Optional<CuentaPendiente> buscarCuentaActiva(
+            String ci,
+            String acceso
+    ) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT c.id_cuenta, c.correo, p.nombre
+                        FROM public.cuenta c
+                        JOIN public.persona p ON p.ci = c.ci
+                        WHERE c.ci = ?
+                          AND c.habilitada = TRUE
+                          AND c.primer_ingreso_completado = TRUE
+                          AND (
+                              (? = 'SOCIO' AND c.rol = 'SOCIO')
+                              OR (
+                                  ? = 'EMPLEADO'
+                                  AND c.rol IN ('FUNCIONARIO', 'MEDICO', 'ADMINISTRADOR')
+                              )
+                          )
+                        FOR UPDATE OF c
+                        """,
+                        (rs, rowNum) -> new CuentaPendiente(
+                                rs.getLong("id_cuenta"),
+                                rs.getString("correo"),
+                                rs.getString("nombre")
+                        ),
+                        ci,
+                        acceso,
+                        acceso
+                )
+                .stream()
+                .findFirst();
+    }
+
     public void invalidarEnlacesPendientes(Long idCuenta) {
         jdbcTemplate.update(
                 """

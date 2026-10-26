@@ -186,6 +186,136 @@ curl.exe -i -c cookies.txt -H "Content-Type: application/json" -d $body http://l
 
 Respuesta esperada: JSON con `accessToken` y un refresh token en cookie.
 
+#### Primer ingreso — RF-02
+
+Las dos rutas son públicas (`permitAll`) y no requieren JWT:
+
+- `POST /api/auth/primer-ingreso/solicitar` recibe `ci` y `acceso` (`SOCIO` o
+  `EMPLEADO`) y responde `202 Accepted` con el mismo mensaje genérico para
+  cuentas inexistentes, pendientes, activas o inactivadas.
+- Si faltan campos o la CI/acceso no son válidos, responde `400 VALIDACION`.
+- Para una cuenta habilitada que aún no completó el primer ingreso, el backend
+  invalida enlaces anteriores, genera un token aleatorio de un solo uso,
+  persiste solamente su hash y envía el enlace al correo del padrón. Su
+  validez por defecto es 24 horas (`FIRST_LOGIN_TOKEN_VALIDITY_HOURS=24`).
+- Si la cuenta ya está activa, se envía un correo que informa que está activa
+  y orienta a recuperar la contraseña mediante RF-05. No se crea un enlace de
+  activación, no se modifica la cuenta y no se cambia la contraseña.
+- Una CI inexistente o una cuenta inactivada no genera correo ni enlace.
+  SOCIO y EMPLEADO se resuelven como cuentas independientes.
+- `POST /api/auth/primer-ingreso/completar` recibe el token obtenido desde el
+  correo, dirección, teléfono 1 y contraseña. Dirección y teléfono son
+  obligatorios; la contraseña respeta `PASSWORD_MIN_LENGTH` (8 por defecto).
+  El correo no forma parte del DTO de activación. Un token expirado, consumido
+  o de una cuenta inactivada devuelve el mismo error `400 ENLACE_INVALIDO`.
+  Si falta un dato obligatorio o la contraseña no cumple las reglas responde
+  `400 VALIDACION`; una activación válida responde `200 OK`.
+- La activación se realiza dentro de una transacción; el enlace se consume en
+  PostgreSQL y solo se activa una vez. La contraseña se codifica con el
+  `PasswordEncoder` BCrypt configurado por el backend.
+- Los correos se procesan de forma asíncrona después del commit. Si el
+  proveedor falla, el error no revierte ni deja a medio camino la operación
+  de base de datos. Los logs no incluyen el token ni el correo destinatario.
+
+Ejemplo ficticio para solicitar primer ingreso desde PowerShell. La cuenta
+debe existir previamente en una base local de pruebas y estar pendiente:
+
+```powershell
+$base = "http://localhost:8080"
+$solicitud = @{
+  ci = "67890127"
+  acceso = "SOCIO"
+} | ConvertTo-Json
+
+function Invoke-CurlJson {
+  param([string]$Uri, [string]$Json)
+  $requestFile = [System.IO.Path]::GetTempFileName()
+  try {
+    [System.IO.File]::WriteAllText(
+      $requestFile, $Json, [System.Text.UTF8Encoding]::new($false)
+    )
+    curl.exe -i -X POST $Uri -H "Content-Type: application/json" `
+      --data-binary "@$requestFile"
+  } finally {
+    Remove-Item -LiteralPath $requestFile -Force
+  }
+}
+
+# Elegí un solo cliente por solicitud: cada solicitud pendiente invalida
+# cualquier enlace de primer ingreso anterior.
+$cliente = "powershell"
+if ($cliente -eq "powershell") {
+  Invoke-RestMethod -Method Post `
+    -Uri "$base/api/auth/primer-ingreso/solicitar" `
+    -ContentType "application/json" `
+    -Body $solicitud
+} else {
+  Invoke-CurlJson "$base/api/auth/primer-ingreso/solicitar" $solicitud
+}
+```
+
+La respuesta pública de ambos comandos es genérica. Para completar, obtené el
+token desde el correo de prueba (por ejemplo, Mailpit local) y no lo guardes en
+archivos, logs ni documentación:
+
+```powershell
+$secureToken = Read-Host -Prompt "Token recibido en el correo de prueba" -AsSecureString
+$tokenPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
+try {
+  $token = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($tokenPointer)
+  $activacion = @{
+    token = $token
+    direccion = "Av. Ejemplo 123"
+    telefono1 = "099123456"
+    telefono2 = $null
+    password = "Clave-Ficticia-2026"
+  } | ConvertTo-Json
+
+  # El enlace es de un solo uso: elegí un solo cliente para esta activación.
+  $cliente = "powershell"
+  if ($cliente -eq "powershell") {
+    Invoke-RestMethod -Method Post `
+      -Uri "$base/api/auth/primer-ingreso/completar" `
+      -ContentType "application/json" `
+      -Body $activacion
+  } else {
+    Invoke-CurlJson "$base/api/auth/primer-ingreso/completar" $activacion
+  }
+} finally {
+  [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($tokenPointer)
+  Remove-Variable token, activacion, secureToken -ErrorAction SilentlyContinue
+}
+```
+
+Para probar un correo de cuenta ya activa, enviá la solicitud con una cuenta
+ficticia activa. La respuesta HTTP no permite distinguirla de una CI
+inexistente; el mensaje de recuperación se verifica únicamente en el buzón de
+prueba. El flujo de recuperación completo corresponde a RF-05 y no se
+implementa en este cambio de RF-02.
+
+#### Validación de RF-02 en esta revisión
+
+- Pruebas unitarias focalizadas: 15 aprobadas, 0 fallidas, 0 errores y 0
+  omitidas (`PrimerIngresoServiceTest` y `PrimerIngresoMailListenerTest`).
+- Suite Maven (`./mvnw -B verify`, workflow Backend): 343 aprobadas, 0
+  fallidas, 0 errores y 0 omitidas. Son pruebas unitarias, de mocks,
+  HTTP/seguridad y de contexto; no incluyen las clases `*IT`, que Maven no
+  ejecuta en `verify` (el POM no configura Failsafe).
+- Pruebas de integración con PostgreSQL real (workflow `E2E PostgreSQL` de
+  GitHub Actions, commit `bc6473d`): 39 IT ejecutadas, 39 aprobadas, 0
+  fallidas, 0 errores y 0 omitidas, contra PostgreSQL 17.11. De ellas, 19
+  corresponden a `AutenticacionIT` (activación, expiración, reutilización,
+  inactivación posterior al enlace, separación SOCIO/EMPLEADO y consumo
+  concurrente del mismo enlace). Además se ejecutaron 18 pruebas de contexto
+  contra el esquema real.
+- La base se ejecutó como servicio efímero del job de GitHub Actions: exclusiva
+  del job, descartable, con credenciales ficticias, inicializada con
+  `database/schema.sql` y destruida al terminar. No intervienen Railway,
+  producción ni una base local.
+- Pendiente: E2E con frontend. Tampoco hay una IT que capture el correo
+  enviado a una cuenta activa; el contenido del correo se valida con pruebas
+  unitarias del listener y la publicación del evento con HTTP.
+
 #### Refresh
 
 ```powershell
@@ -690,13 +820,20 @@ El backend real del repositorio tiene una estructura sólida y un conjunto de en
 
 ## 11. Estado de validación de endpoints críticos
 
-En la revisión del 26/10/2026, `.\mvnw.cmd -B verify` terminó con **338
-tests aprobados, 0 fallidos, 0 errores y 0 omitidos**. Para evitar conectarse
-al listener local no identificado en el puerto 5432, la suite se ejecutó con
-una URL deliberadamente inalcanzable (`127.0.0.1:1`). Por lo tanto, el resultado
-corresponde a las pruebas unitarias, de mocks, HTTP/seguridad y de contexto que
-ejecuta Maven; no demuestra integración con PostgreSQL ni E2E.
+En la revisión del 26/10/2026, antes de RF-02, `.\mvnw.cmd -B verify` terminó
+con 338 tests aprobados, 0 fallidos, 0 errores y 0 omitidos, ejecutado con una
+URL deliberadamente inalcanzable (`127.0.0.1:1`) para no tocar el listener
+local no identificado del puerto 5432. Con RF-02, la suite Maven pasó a 343
+aprobadas (0 fallidas, 0 errores, 0 omitidas). Estos resultados corresponden a
+pruebas unitarias, de mocks, HTTP/seguridad y de contexto.
 
-Queda pendiente, en una base de pruebas PostgreSQL aislada, validar las
-consultas reales, paginación/filtros sobre datos de prueba, propiedad de
-historias clínicas y vigencia/uso de pases. No se usaron datos clínicos reales.
+Las 39 pruebas de integración `*IT` se ejecutaron en GitHub Actions contra
+PostgreSQL 17.11 efímero y aprobaron (ver sección de RF-02). Esa validación cubre
+los escenarios implementados en esas clases, entre ellos primer ingreso,
+circuito de consultas, roles y concurrencia.
+
+Siguen pendientes en una base PostgreSQL aislada las consultas reales,
+paginación/filtros sobre datos de prueba, propiedad de historias clínicas y
+vigencia/uso de pases de los endpoints agregados antes de RF-02, salvo que una
+`*IT` los cubra expresamente. Sigue pendiente el E2E con frontend. No se usaron
+datos clínicos reales.
