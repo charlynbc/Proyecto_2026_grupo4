@@ -39,6 +39,7 @@ La aplicación es un monolito modular con capas bien separadas:
 - `aviso` → registro y consulta del aviso de llegada
 - `atencion` → registro de resultado de consulta y atención
 - `pase` → listado de pases disponibles
+- `estadistica` → estadísticas del administrador (RF-39 implementado; RF-40 y RF-41 pendientes)
 - `especialidad` / `consultorio` / `usuario` → catálogo y padrón
 - `security` → firma y validación JWT
 - `config` → seguridad, password, correo y CORS
@@ -750,6 +751,133 @@ Respuesta de ejemplo:
 ]
 ```
 
+### 5.9. Estadísticas por especialidad (RF-39)
+
+> Estado: implementado en la rama `feat/rf-39-estadisticas-especialidad`
+> (PR #24). **No está integrado en `integracion/proyecto-2026-avances` ni
+> desplegado.** La ruta es la propuesta #34 de `docs/api/endpoints-usados.md`.
+
+#### Arquitectura de estadísticas
+
+Paquete `uy.edu.proyecto.backend.estadistica`, con la misma cadena de capas que
+el resto del backend:
+
+| Capa | Clase | Responsabilidad |
+|---|---|---|
+| Controller | `EstadisticaController` | `GET /api/estadisticas/especialidades`; recibe `desde` y `hasta` como texto. |
+| Service | `EstadisticaEspecialidadService` | Interpreta fechas, aplica el mes en curso por defecto, valida el rango y fija los límites en la zona del `Clock` de la aplicación (`America/Montevideo`). |
+| Repository | `EstadisticaEspecialidadRepository` | Una consulta SQL parametrizada con `JdbcTemplate`. |
+| DTO | `EstadisticaEspecialidadResponse`, `EstadisticaEspecialidadDTO` | Respuesta; reutiliza el record `Especialidad` existente. |
+| Seguridad | `SecurityConfig` | `GET /api/estadisticas/**` exige `ROLE_ADMINISTRADOR`. |
+
+RF-40 y RF-41 podrán colgar del mismo paquete y de la misma regla de seguridad.
+
+#### Endpoint
+
+`GET /api/estadisticas/especialidades`
+
+- **Rol:** solo `ADMINISTRADOR`. Sin JWT responde 401; `SOCIO`, `FUNCIONARIO` y `MEDICO` reciben 403.
+- **Query (opcionales):** `desde` y `hasta`, formato `YYYY-MM-DD`, ambos inclusive.
+  Sin parámetros se usa el mes en curso (de su día 1 a su último día). Si falta
+  solo uno, se completa con el límite del mes en curso.
+- **Qué cuenta:** las consultas **agendadas** en el período, según la fecha en
+  que se agendaron (`consulta.agendada_en`), **no** según la fecha de la
+  atención. Incluye las consultas que luego se cancelaron (por el socio o por la
+  institución). Una misma reserva repetida sobre un número que se liberó cuenta
+  como dos reservas.
+- **Zona horaria:** `desde` empieza a las 00:00 de Montevideo y `hasta` termina a
+  las 24:00 de ese día (límite superior exclusivo en el día siguiente). Una
+  reserva hecha el 31/03 a las 23:30 hora local pertenece a marzo aunque en UTC
+  ya sea 1/04.
+- **200:** `desde`, `hasta` e `items`. Cada item tiene `especialidad`
+  (`id`, `nombre`, `requierePase`) y `cantidadConsultas`. Aparecen todas las
+  especialidades; las que no tuvieron reservas figuran con `0`. Orden: mayor
+  cantidad primero y luego nombre. No se expone ningún dato de socios ni de
+  consultas individuales.
+- **400** (`code: VALIDACION`): fecha con formato inválido (incluido texto
+  malicioso) o `desde` posterior a `hasta`.
+
+Request de ejemplo (curl.exe):
+
+```powershell
+curl.exe -i -H "Authorization: Bearer $TOKEN_ADMIN" -H "Accept: application/json" "http://localhost:8080/api/estadisticas/especialidades?desde=2026-03-01&hasta=2026-03-31"
+```
+
+PowerShell:
+
+```powershell
+$base = "http://localhost:8080"
+Invoke-RestMethod -Method Get -Uri "$base/api/estadisticas/especialidades?desde=2026-03-01&hasta=2026-03-31" -Headers @{ Authorization = "Bearer $TOKEN_ADMIN"; Accept = "application/json" }
+# Mes en curso:
+Invoke-RestMethod -Method Get -Uri "$base/api/estadisticas/especialidades" -Headers @{ Authorization = "Bearer $TOKEN_ADMIN" }
+```
+
+Respuesta (datos ficticios):
+
+```json
+{
+  "desde": "2026-03-01",
+  "hasta": "2026-03-31",
+  "items": [
+    { "especialidad": { "id": 1, "nombre": "Medicina General", "requierePase": false }, "cantidadConsultas": 6 },
+    { "especialidad": { "id": 2, "nombre": "Cardiologia", "requierePase": true }, "cantidadConsultas": 2 },
+    { "especialidad": { "id": 3, "nombre": "Pediatria", "requierePase": false }, "cantidadConsultas": 0 }
+  ]
+}
+```
+
+#### SQL utilizado y por qué es correcto
+
+```sql
+SELECT e.id_especialidad, e.nombre, e.requiere_pase,
+       COUNT(x.id_consulta) AS cantidad
+FROM public.especialidad e
+LEFT JOIN (
+    SELECT c.id_consulta, ts.id_especialidad
+    FROM public.consulta c
+    JOIN public.numero n ON n.id_numero = c.id_numero
+    JOIN public.turno t ON t.id_turno = n.id_turno
+    JOIN public.turno_semanal ts ON ts.id_turno_semanal = t.id_turno_semanal
+    WHERE c.agendada_en >= ? AND c.agendada_en < ?
+) x ON x.id_especialidad = e.id_especialidad
+GROUP BY e.id_especialidad, e.nombre, e.requiere_pase
+ORDER BY cantidad DESC, e.nombre ASC, e.id_especialidad ASC
+```
+
+- La especialidad de una consulta se obtiene por `consulta → numero → turno →
+  turno_semanal`. Cada consulta tiene un solo número, un solo turno y un solo
+  patrón semanal, así que los `JOIN` no duplican filas.
+- El filtro del período está únicamente sobre `consulta.agendada_en`. No se
+  mira `turno.fecha` (fecha de atención) ni `consulta.estado`, por eso las
+  canceladas quedan incluidas.
+- El `LEFT JOIN` parte de `especialidad` para mostrar `0` donde no hubo reservas.
+- Los dos `?` son `Timestamp` calculados en Java; nunca se concatena texto del
+  usuario en el SQL, y las fechas se validan con `LocalDate.parse` antes.
+
+#### Cómo demostrarlo desde consola, sin frontend
+
+1. Levantar una base descartable (nunca la de producción) con `database/schema.sql`
+   y el backend contra ella (secciones 3.1 a 3.3).
+2. Iniciar sesión como administrador ficticio (`acceso = EMPLEADO`) y guardar el token.
+3. Consultar el mes en curso y luego un rango explícito (ejemplos de arriba).
+4. Probar los rechazos: sin token (401), con token de socio (403) y con
+   `desde=2026-03-31&hasta=2026-03-01` o `desde=ayer` (400).
+5. Para mostrar que cuenta por fecha de reserva, comparar contra la base con
+   `SELECT count(*) FROM consulta WHERE agendada_en >= '2026-03-01 00:00-03' AND agendada_en < '2026-04-01 00:00-03';`:
+   debe coincidir con la suma de `cantidadConsultas`.
+
+#### Pruebas de RF-39
+
+| Tipo | Clase | Cobertura |
+|---|---|---|
+| Unitaria (Mockito, reloj fijo) | `EstadisticaEspecialidadServiceTest` (8) | mes por defecto, zona Montevideo, límites, rango de un día, rango invertido, formatos inválidos y texto malicioso |
+| Mock de JDBC | `EstadisticaEspecialidadRepositoryTest` (1) | SQL por `agendada_en`, sin filtro de estado ni de fecha médica, `LEFT JOIN`, solo dos parámetros, sin datos de pacientes |
+| HTTP/seguridad (MockMvc) | `EstadisticaSeguridadTest` (6) | 200 administrador, 403 socio/funcionario/médico, 401 sin JWT, 400, método no permitido |
+| Integración PostgreSQL real | `EstadisticaEspecialidadIT` (6) | canceladas incluidas, límites del período, reserva vs. fecha médica, sin duplicados, período vacío, mes en curso, roles, 400 sin alterar la base |
+
+La `EstadisticaEspecialidadIT` solo corre en el workflow `e2e.yml` (PostgreSQL 17
+efímero en GitHub Actions). Aprobó 6/6 en CI (ver sección 11).
+
 ## 6. Flujo completo hasta PostgreSQL
 
 ### Caso típico de login y acceso
@@ -772,9 +900,10 @@ Respuesta de ejemplo:
 
 No se debe asumir que:
 
-- todos los RF críticos están totalmente cerrados;
-- la validación real con PostgreSQL del entorno de pruebas ya está hecha;
+- todos los RF críticos están totalmente cerrados (ver `docs/informes/estado-backend-grupo4.md`);
+- la validación contra PostgreSQL cubre todo: solo las clases `*IT` se ejecutan contra PostgreSQL 17 efímero en GitHub Actions, y nada se validó todavía en un E2E con frontend;
 - los tests unitarios son equivalentes a pruebas funcionales sobre el producto final;
+- lo que está en una rama de trabajo (por ejemplo RF-39 en el PR #24) ya está en `integracion/proyecto-2026-avances` o desplegado en Railway;
 - la ruta de especificación solicitada existe en el repositorio.
 
 ## 8. Ejemplos útiles para defensa
@@ -837,3 +966,11 @@ paginación/filtros sobre datos de prueba, propiedad de historias clínicas y
 vigencia/uso de pases de los endpoints agregados antes de RF-02, salvo que una
 `*IT` los cubra expresamente. Sigue pendiente el E2E con frontend. No se usaron
 datos clínicos reales.
+
+### RF-39 (PR #24, rama feat/rf-39-estadisticas-especialidad)
+
+En GitHub Actions sobre el commit 528201d: suite Maven 358 aprobadas (343
+previas + 15 de RF-39), 0 fallidas, 0 errores, 0 omitidas; 45 IT aprobadas contra
+PostgreSQL 17.11 efímero (6 de `EstadisticaEspecialidadIT`), 0 fallidas, 0
+omitidas. RF-39 **no está integrado en avances** ni desplegado en Railway; el E2E
+con frontend sigue pendiente.
