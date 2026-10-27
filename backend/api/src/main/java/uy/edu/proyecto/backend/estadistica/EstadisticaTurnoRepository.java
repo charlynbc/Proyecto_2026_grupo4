@@ -1,6 +1,8 @@
 package uy.edu.proyecto.backend.estadistica;
 
 import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -26,7 +28,10 @@ public class EstadisticaTurnoRepository {
     }
 
     // Unidad: patron semanal (turno_semanal) cuya vigencia toca el periodo.
-    // Fechas activas: turno.estado = 'ACTIVO' (una fecha suspendida y luego rehabilitada vuelve a ACTIVO).
+    // Fechas activas (RF-40, interpretacion historica): una fecha cuenta como ofrecida si estaba activa al
+    // terminar su dia en America/Montevideo (o ahora, si el dia no termino). El estado a ese instante sale de
+    // turno_evento: ultimo evento <= corte (empate por id_evento); sin eventos previos, el estado inicial es el
+    // opuesto al primer evento del turno; sin eventos, el estado actual (limitacion documentada).
     // Ofrecidos: numeros de esas fechas. Ocupado: existe al menos una consulta no cancelada del numero;
     // el EXISTS evalua una vez por numero, de modo que las reservas historicas no se duplican.
     // AGENDADA cubre tambien los estados derivados NO_ASISTIO y NO_ATENDIDA (no se persisten).
@@ -42,7 +47,7 @@ public class EstadisticaTurnoRepository {
                    co.id_consultorio,
                    co.nombre AS consultorio_nombre,
                    co.ubicacion AS consultorio_ubicacion,
-                   COUNT(DISTINCT t.id_turno) AS fechas_activas,
+                   COUNT(DISTINCT t.id_turno) FILTER (WHERE h.activo) AS fechas_activas,
                    COUNT(n.id_numero) AS ofrecidos,
                    COALESCE(SUM(CASE WHEN EXISTS (
                                   SELECT 1
@@ -57,10 +62,26 @@ public class EstadisticaTurnoRepository {
             JOIN public.consultorio co ON co.id_consultorio = ts.id_consultorio
             LEFT JOIN public.turno t
                    ON t.id_turno_semanal = ts.id_turno_semanal
-                  AND t.estado = 'ACTIVO'
                   AND t.fecha >= ?
                   AND t.fecha <= ?
-            LEFT JOIN public.numero n ON n.id_turno = t.id_turno
+            LEFT JOIN LATERAL (
+                SELECT COALESCE(
+                    (SELECT ev.tipo = 'REHABILITACION'
+                     FROM public.turno_evento ev
+                     WHERE ev.id_turno = t.id_turno
+                       AND ev.realizado_en <= LEAST(
+                             ((t.fecha + 1)::timestamp AT TIME ZONE 'America/Montevideo') - INTERVAL '1 microsecond',
+                             ?::timestamptz)
+                     ORDER BY ev.realizado_en DESC, ev.id_evento DESC
+                     LIMIT 1),
+                    (SELECT ev.tipo = 'SUSPENSION'
+                     FROM public.turno_evento ev
+                     WHERE ev.id_turno = t.id_turno
+                     ORDER BY ev.realizado_en ASC, ev.id_evento ASC
+                     LIMIT 1),
+                    t.estado = 'ACTIVO') AS activo
+            ) h ON TRUE
+            LEFT JOIN public.numero n ON n.id_turno = t.id_turno AND h.activo
             WHERE ts.fecha_inicio <= ?
               AND ts.fecha_fin >= ?
             GROUP BY ts.id_turno_semanal, ts.dia_semana, e.id_especialidad, e.nombre, e.requiere_pase,
@@ -75,6 +96,10 @@ public class EstadisticaTurnoRepository {
     }
 
     public List<Fila> contarUtilizacion(LocalDate desde, LocalDate hasta) {
+        return contarUtilizacion(desde, hasta, Instant.now());
+    }
+
+    public List<Fila> contarUtilizacion(LocalDate desde, LocalDate hasta, Instant ahora) {
         Date sqlDesde = Date.valueOf(desde);
         Date sqlHasta = Date.valueOf(hasta);
         return jdbcTemplate.query(
@@ -103,6 +128,7 @@ public class EstadisticaTurnoRepository {
                 ),
                 sqlDesde,
                 sqlHasta,
+                Timestamp.from(ahora),
                 sqlHasta,
                 sqlDesde
         );

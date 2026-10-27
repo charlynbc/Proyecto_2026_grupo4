@@ -27,7 +27,7 @@ public class EstadisticaTurnoService {
         return new EstadisticaTurnoResponse(
                 periodo.desde(),
                 periodo.hasta(),
-                repository.contarUtilizacion(periodo.desde(), periodo.hasta()).stream()
+                repository.contarUtilizacion(periodo.desde(), periodo.hasta(), clock.instant()).stream()
                         .map(EstadisticaTurnoService::aDto)
                         .toList()
         );
