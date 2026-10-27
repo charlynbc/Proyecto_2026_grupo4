@@ -832,9 +832,8 @@ El `socioId` sale del token. Toda la validación y la inserción ocurren en una 
 | 409 | `TURNO_SUSPENDIDO` | La fecha se suspendió mientras tanto (S04, concurrencia adicional). |
 | 409 | `ANTICIPACION_MAXIMA` | La fecha está a más de 30 días. |
 | 409 | `ANTICIPACION_MINIMA` | Faltan menos de 2 horas para el inicio del número. |
-| 409 | `LIMITE_ESPECIALIDAD` | Ya tiene una consulta activa en esa especialidad. |
-| 409 | `LIMITE_TOTAL` | Ya tiene 3 consultas activas. |
-| 409 | `SUPERPOSICION_CONSULTA` | Se solapa en el tiempo con otra consulta agendada del socio. |
+| 409 | `LIMITE_ESPECIALIDAD` | Ya tiene una consulta activa en esa especialidad. «Activa» = `AGENDADA` cuyo día (America/Montevideo) es hoy o futuro; una `AGENDADA` sin resultado de un día ya terminado es la inasistencia derivada (`NO_ASISTIO`/`NO_ATENDIDA`) y no cuenta. |
+| 409 | `LIMITE_TOTAL` | Ya tiene 3 consultas activas (misma definición de «activa»). || 409 | `SUPERPOSICION_CONSULTA` | Se solapa en el tiempo con otra consulta agendada del socio. |
 | 409 | `PASE_NO_VALIDO` | La especialidad requiere pase y no hay uno utilizable: no existe, es de otro socio o de otra especialidad, ya se usó (también si lo usó una reserva simultánea) o vence antes de la fecha de la consulta. |
 
 Preguntas relacionadas: P-07, P-08.

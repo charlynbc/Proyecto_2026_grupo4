@@ -200,13 +200,26 @@ public class ConsultaRepository {
         ));
     }
 
+    // Una consulta bloquea nuevas reservas solo mientras esta efectivamente pendiente: AGENDADA y con el dia
+    // de su turno sin terminar (hoy, America/Montevideo). Una AGENDADA sin resultado de un dia pasado es el
+    // estado derivado NO_ASISTIO o NO_ATENDIDA (ver HISTORIAL_CTE) y deja de contar. No se modifica nada.
+    private static final String CONSULTA_ACTIVA = """
+            consulta.estado = 'AGENDADA'
+            AND (turno.fecha >= (CURRENT_TIMESTAMP AT TIME ZONE 'America/Montevideo')::date
+                 OR consulta.fecha_resultado IS NOT NULL)
+            """;
+
     public long contarConsultasAgendadas(Long socioId) {
         Long cantidad = jdbcTemplate.queryForObject(
                 """
                 SELECT COUNT(*)
-                FROM public.consulta
-                WHERE id_socio = ? AND estado = 'AGENDADA'
-                """,
+                FROM public.consulta consulta
+                JOIN public.numero numero
+                  ON numero.id_numero = consulta.id_numero
+                JOIN public.turno turno ON turno.id_turno = numero.id_turno
+                WHERE consulta.id_socio = ?
+                  AND
+                """ + CONSULTA_ACTIVA,
                 Long.class,
                 socioId
         );
@@ -228,7 +241,8 @@ public class ConsultaRepository {
                     JOIN public.turno_semanal semanal
                       ON semanal.id_turno_semanal = turno.id_turno_semanal
                     WHERE consulta.id_socio = ?
-                      AND consulta.estado = 'AGENDADA'
+                      AND
+                """ + CONSULTA_ACTIVA + """
                       AND semanal.id_especialidad = ?
                 )
                 """,
