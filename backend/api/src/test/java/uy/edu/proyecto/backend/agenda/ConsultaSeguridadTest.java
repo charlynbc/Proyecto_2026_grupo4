@@ -45,7 +45,58 @@ class ConsultaSeguridadTest {
     private ConsultaHistorialService historialService;
 
     @MockitoBean
+    private CancelacionService cancelacionService;
+
+    @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @Test
+    void cancelarSinJwtDevuelve401() throws Exception {
+        mockMvc.perform(post("/api/consultas/9001/cancelar"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(cancelacionService);
+    }
+
+    @Test
+    void cancelarRechazaRolesDeEmpleado() throws Exception {
+        for (String rol : new String[] {"FUNCIONARIO", "MEDICO", "ADMINISTRADOR"}) {
+            mockMvc.perform(post("/api/consultas/9001/cancelar")
+                            .with(jwt().jwt(token -> token.subject("31"))
+                                    .authorities(new SimpleGrantedAuthority("ROLE_" + rol))))
+                    .andExpect(status().isForbidden());
+        }
+
+        verifyNoInteractions(cancelacionService);
+    }
+
+    @Test
+    void socioCancelaConSuIdentidadDelJwt() throws Exception {
+        OffsetDateTime cancelada = OffsetDateTime.parse("2026-10-15T08:03:10-03:00");
+        when(cancelacionService.cancelarPorSocio(eq(91L), eq("9001")))
+                .thenReturn(new CancelacionDTO(9001L, "CANCELADA_SOCIO", cancelada, true));
+
+        mockMvc.perform(post("/api/consultas/9001/cancelar")
+                        .param("socioId", "1")
+                        .with(jwt().jwt(token -> token.subject("91"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_SOCIO"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.consultaId").value(9001))
+                .andExpect(jsonPath("$.estado").value("CANCELADA_SOCIO"))
+                .andExpect(jsonPath("$.paseDevuelto").value(true));
+
+        verify(cancelacionService).cancelarPorSocio(91L, "9001");
+    }
+
+    @Test
+    void cancelarPorGetNoEstaPermitido() throws Exception {
+        mockMvc.perform(get("/api/consultas/9001/cancelar")
+                        .with(jwt().jwt(token -> token.subject("91"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_SOCIO"))))
+                .andExpect(status().is4xxClientError());
+
+        verifyNoInteractions(cancelacionService);
+    }
 
     @Test
     void solicitudSinAutenticacionDevuelve401() throws Exception {

@@ -920,7 +920,7 @@ positivo y los registros inexistentes o ajenos producen la misma respuesta
 #### #20 · `POST /api/consultas/{id}/cancelar`
 
 - **Roles:** SOCIO (solo las propias). La cancelación a pedido del socio por un funcionario (RF-19) no está en este contrato.
-- **RF:** RF-10. **Diseño:** `cancelarPorSocio(socioId, consultaId): CancelacionDTO` (S23). **Estado:** PROPUESTA.
+- **RF:** RF-10. **Diseño:** `cancelarPorSocio(socioId, consultaId): CancelacionDTO` (S23). **Estado:** CONFIRMADA (rama `feat/cierre-cancelaciones-pases`; vigente al fusionarse). Un id no numérico o ≤ 0 devuelve 400 `VALIDACION`.
 
 Sin cuerpo. Pasa la consulta a `CANCELADA_SOCIO`, la conserva en el histórico, libera el número y devuelve el pase usado si sigue vigente, con su vencimiento original (RF-09, RF-10).
 

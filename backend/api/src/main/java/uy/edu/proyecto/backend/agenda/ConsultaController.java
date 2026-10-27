@@ -20,13 +20,16 @@ public class ConsultaController {
 
     private final ConsultaService service;
     private final ConsultaHistorialService historialService;
+    private final CancelacionService cancelacionService;
 
     public ConsultaController(
             ConsultaService service,
-            ConsultaHistorialService historialService
+            ConsultaHistorialService historialService,
+            CancelacionService cancelacionService
     ) {
         this.service = service;
         this.historialService = historialService;
+        this.cancelacionService = cancelacionService;
     }
 
     @GetMapping
@@ -73,6 +76,14 @@ public class ConsultaController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(service.agendar(socioId(jwt), request));
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public CancelacionDTO cancelar(
+            @PathVariable String id,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return cancelacionService.cancelarPorSocio(socioId(jwt), id);
     }
 
     private Long socioId(Jwt jwt) {
