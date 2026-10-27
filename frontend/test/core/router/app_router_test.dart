@@ -7,6 +7,8 @@ import 'package:agenda_medica/features/auth/providers/auth_repository_provider.d
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart';
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
+import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
 import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
 import 'package:agenda_medica/features/especialidades/screens/specialties_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/new_weekly_shift_screen.dart';
@@ -112,12 +114,17 @@ void main() {
       final hasHomeScreen =
           role == UserRole.administrador ||
           role == UserRole.funcionario ||
+          role == UserRole.medico ||
           role == UserRole.socio;
       expect(
         find.text('Próximamente'),
         hasHomeScreen ? findsNothing : findsOneWidget,
         reason: role.name,
       );
+      if (role == UserRole.medico) {
+        await unmountApp(tester);
+        container.invalidate(doctorAgendaControllerProvider);
+      }
     }
     await unmountApp(tester);
   });
@@ -130,6 +137,9 @@ void main() {
 
       expect(find.byType(NavigationBar), findsNothing);
       expect(find.byType(NavigationRail), findsNothing);
+      expect(find.byType(DoctorShiftsScreen), findsOneWidget);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
     },
   );
 
