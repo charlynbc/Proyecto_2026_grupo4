@@ -1308,7 +1308,7 @@ registrados, incluidas las cancelaciones por institución, se conservan.
 #### #29 · `GET /api/medico/turnos`
 
 - **Roles:** MEDICO (solo los propios).
-- **RF:** RF-21. **Diseño:** `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO` (S13). **Estado:** PROPUESTA.
+- **RF:** RF-21. **Diseño:** `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO` (S13). **Estado:** CONFIRMADA (implementada; pantalla Flutter `/medico/turnos` con sondeo cada 3 s, PR #39; no es push).
 
 El Diseño devuelve turnos y pacientes en un solo DTO. **PROPUESTA:** se parte en dos pedidos para seguir el flujo del CU 3.4.1 (elegir fecha, ver sus turnos, elegir un turno, ver sus números): este endpoint trae los turnos del día y #30 el detalle de un turno.
 
@@ -1342,7 +1342,7 @@ Sin turnos ese día: `{ "items": [] }`.
 #### #30 · `GET /api/medico/turnos/{id}/numeros`
 
 - **Roles:** MEDICO (solo turnos propios).
-- **RF:** RF-21. **Diseño:** S13. **Estado:** PROPUESTA.
+- **RF:** RF-21. **Diseño:** S13. **Estado:** CONFIRMADA (el cliente refresca cada 3 s; latencia medida ~1,8 s).
 
 Todos los números del turno, con el paciente y el aviso de llegada de los reservados. El número no impone una cola: el médico decide a quién llamar (RF-21).
 
@@ -1567,7 +1567,7 @@ Consultas agendadas en el período, **contadas por la fecha en que se agendaron*
 - **Roles:** ADMINISTRADOR.
 - **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** CONFIRMADA (integrada en avances, PR #25 y corrección JWT PR #26). Diferencias con la propuesta: agrega `fechasActivas` y `utilizacion` (texto, `"Sin datos"` cuando `porcentajeUtilizacion` es `null`); `consultorio` incluye `ubicacion`; el porcentaje lleva 2 decimales.
 
-Porcentaje de números ocupados sobre los ofrecidos, en las fechas del período en que la fecha del turno estuvo activa. Ocupado: consulta `AGENDADA`, `ATENDIDA`, `NO_ASISTIO`, `NO_ATENDIDA` o `NO_SE_PRESENTO`; las canceladas lo dejan libre. Qué es "cada turno" (el patrón semanal o la fecha concreta): P-13. **PROPUESTA:** una fila por patrón semanal.
+Porcentaje de números ocupados sobre los ofrecidos, en las fechas del período en que la fecha del turno estuvo activa (interpretación histórica, PR #38: se evalúa con `turno_evento` al cierre de cada día en `America/Montevideo`; sin eventos se usa el estado actual; el JSON no cambió). Ocupado: consulta `AGENDADA`, `ATENDIDA`, `NO_ASISTIO`, `NO_ATENDIDA` o `NO_SE_PRESENTO`; las canceladas lo dejan libre. Qué es "cada turno" (el patrón semanal o la fecha concreta): P-13. **PROPUESTA:** una fila por patrón semanal.
 
 **Respuesta 200**
 

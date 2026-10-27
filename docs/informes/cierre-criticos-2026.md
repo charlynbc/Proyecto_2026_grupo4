@@ -10,25 +10,26 @@ Todo lo que figura como verificado salió de ejecuciones reales citadas; lo dem�
 - **Arquitectura**: backend REST (Java 25, Spring Boot 4.1.1, JDBC `JdbcTemplate`, PostgreSQL 17,
   JWT HS256 + refresh opaco rotativo) y frontend Flutter web (Riverpod, go_router, dio).
   Zona horaria de negocio `America/Montevideo`.
-- **Rama de integración**: `integracion/proyecto-2026-avances`, HEAD verificado
-  **`4612f0d25b683de47ff7099320e700bac0d9b509`** (merge del PR #34). `main` no se tocó.
+- **Rama de integración**: `integracion/proyecto-2026-avances`, HEAD validado
+  **`25405b4e42718c79047ac20320b7dcbaf6415e00`** (merge del PR #39). `main` no se tocó.
 - **PR integrados en esta etapa** (en orden, sin conflictos, sin force push): #31 selector de
-  médicos (`5ed6448`), #32 reservas tras inasistencia (`d29edc0`), #33 RF-24 pases duplicados
-  (`5f41c93`), #34 RF-35 padrón (`4612f0d`). Antes: #30 RF-02/correo.
-- **PR abiertos, no fusionados**: #35 RF-08 disponibilidad solo con médicos habilitados
-  (`6103d03`), #36 pruebas de cierre de RF-24 (`880e4f6`), y el PR de esta documentación.
-- **Estado real del backend**: los 22 críticos tienen endpoints, reglas y pruebas. 20 están
-  completos; **RF-21** (falta «tiempo real») y **RF-40** (interpretación histórica pendiente de
-  decisión del grupo) quedan **parciales**. RF-08 está completo solo cuando se fusione el PR #35.
+  médicos, #32 reservas tras inasistencia, #33 RF-24 pases duplicados, #34 RF-35 padrón, #35 RF-08
+  disponibilidad, #36 escenarios RF-24, #38 RF-40 histórico (`18f6538`), #39 RF-21 pantalla del
+  médico (`0e63be3`). Antes: #30 RF-02/correo.
+- **PR abierto**: este de documentación (#37).
+- **Estado real del backend**: los 22 críticos tienen endpoints, reglas y pruebas verificadas;
+  **22/22 a nivel backend**, con las condiciones de RF-21 (sondeo cada 3 s, no push) y RF-40
+  (limitación para fechas sin eventos, sección 4).
 - **Estado real del frontend**: Flutter consume auth, primer ingreso, especialidades,
   consultorios, usuarios, turnos semanales (alta, listado, detalle), médicos, disponibilidad,
-  reserva con pase, mis consultas. **No hay pantallas** para suspensión/rehabilitación de fechas
-  (RF-14/15), aviso de llegada (RF-16), agendas del funcionario (RF-18), turnos y pacientes del
-  médico (RF-21), resultado y pases (RF-23/24), historia clínica (RF-12) ni estadísticas reales
-  (RF-39/40/41; `statistics_screen.dart` es una demo). Esas secciones muestran «Próximamente».
-- **Conclusión**: no se declara 22/22. El backend cubre los 22 con las dos excepciones
-  indicadas; la entrega completa depende de las pantallas ausentes y de dos decisiones
-  (sección 9).
+  reserva con pase, mis consultas y, desde #39, **Mis turnos del médico (RF-21)**. **No hay
+  pantallas** para suspensión/rehabilitación de fechas (RF-14/15), aviso de llegada (RF-16),
+  agendas del funcionario (RF-18), resultado y pases (RF-23/24), historia clínica (RF-12) ni
+  estadísticas reales (RF-39/40/41; `statistics_screen.dart` es una demo). Esas secciones muestran
+  «Próximamente».
+- **Conclusión**: **22/22 completos a nivel backend** (verificado por pruebas). **No** es 22/22 del
+  sistema de punta a punta: faltan las pantallas indicadas, el despliegue no está verificado y
+  Resend no está validado (sección 9).
 
 ## 2. Matriz de los 22 críticos
 
@@ -40,7 +41,7 @@ Tests PG = clases `*IT` contra PostgreSQL 17 (`e2e.yml`).
 |---|---|---|---|---|---|---|---|---|
 | 01 | Inicio de sesión | `POST /api/auth/login`, `/refresh`, `/logout` | AuthControllerTest, AuthSeguridadTest, AuthServiceTest | AutenticacionIT, CuentasInactivasIT | login/sesión | COMPLETO | COMPLETO | **COMPLETO** |
 | 02 | Primer ingreso | `POST /api/auth/primer-ingreso/solicitar`, `/completar` (público) | PrimerIngreso{Controller,Seguridad,Service,MailListener}Test | AutenticacionIT; Mailpit local manual | pantallas solicitar/activar | COMPLETO | COMPLETO | **COMPLETO** (correo remoto Resend no verificado) |
-| 08 | Consulta de disponibilidad | `GET /api/disponibilidad` (SOCIO) | AgendaServiceTest, AgendaRepositoryTest, DisponibilidadSeguridadTest | CircuitoConsultasIT; **DisponibilidadIT (PR #35)** | AvailabilityScreen | COMPLETO tras PR #35 | COMPLETO | **COMPLETO al fusionar #35** |
+| 08 | Consulta de disponibilidad | `GET /api/disponibilidad` (SOCIO) | AgendaServiceTest, AgendaRepositoryTest, DisponibilidadSeguridadTest | CircuitoConsultasIT, DisponibilidadIT | AvailabilityScreen | COMPLETO | COMPLETO | **COMPLETO** |
 | 09 | Agenda de consulta | `POST /api/consultas` (SOCIO) | ConsultaServiceTest, ConsultaRepositoryActivasTest, ConsultaSeguridadTest | CircuitoConsultasIT, ConcurrenciaIT, ReservasTrasInasistenciaIT, PasesRF24IT | AvailabilityScreen, pases | COMPLETO | COMPLETO | **COMPLETO** |
 | 11 | Histórico de agendas | `GET /api/consultas`, `/{id}` (SOCIO) | ConsultaHistorialServiceTest | CircuitoConsultasIT, CancelacionConsultaIT | Mis consultas (pendientes y detalle) | COMPLETO | PARCIAL (filtros completos del histórico no verificados) | **PARCIAL** |
 | 12 | Consulta de historia clínica | `GET /api/historia-clinica`, `/{id}` (SOCIO) | HistoriaClinica{Service,Repository,Seguridad}Test | HistoriaClinicaIT | — | COMPLETO | AUSENTE | **PARCIAL** |
@@ -50,7 +51,7 @@ Tests PG = clases `*IT` contra PostgreSQL 17 (`e2e.yml`).
 | 16 | Registro de aviso de llegada | `GET /api/avisos-llegada/consultas-hoy`, `POST /api/avisos-llegada` (FUNCIONARIO) | AvisoLlegada{Service,Repository,Seguridad}Test | LlegadaAgendaMedicoIT | — | COMPLETO | AUSENTE | **PARCIAL** |
 | 17 | Consulta de turnos | `GET /api/turnos`, `/api/turnos-semanales/{id}` (FUNCIONARIO) | TurnoConsulta{Service,Repository,Seguridad}Test | RolesIT (permisos) | ShiftsScreen | COMPLETO | COMPLETO | **COMPLETO** |
 | 18 | Consulta de agendas | `GET /api/agendas` (FUNCIONARIO) | AgendaConsulta{Service,Repository,Seguridad}Test | LlegadaAgendaMedicoIT | — | COMPLETO | AUSENTE | **PARCIAL** |
-| 21 | Turnos y pacientes de una fecha | `GET /api/medico/turnos`, `/{id}/numeros` (MEDICO) | TurnoMedico{Service,Repository,Seguridad}Test | LlegadaAgendaMedicoIT | — | **PARCIAL** (sin tiempo real) | AUSENTE | **PARCIAL** |
+| 21 | Turnos y pacientes de una fecha | `GET /api/medico/turnos`, `/{id}/numeros` (MEDICO) | TurnoMedico{Service,Repository,Seguridad}Test | LlegadaAgendaMedicoIT, **MedicoTurnosTiempoRealIT 7** | DoctorShiftsScreen (`doctor_shifts_test`, 12) | COMPLETO (sondeo de 3 s) | COMPLETO | **COMPLETO** (actualización por sondeo, no push) |
 | 23 | Registro del resultado | `POST /api/medico/consultas/{id}/resultado` (MEDICO) | AtencionServiceTest, AtencionRepositoryTest, AtencionSeguridadTest | LlegadaAgendaMedicoIT, ConcurrenciaIT, PasesRF24IT | — | COMPLETO | AUSENTE | **PARCIAL** |
 | 24 | Registro de pases | mismo endpoint + `GET /api/socios/me/pases/disponibles` (SOCIO) | AtencionServiceTest | **PasesRF24IT 13**, CancelacionConsultaIT 18, **PasesEscenariosRF24IT 4 (PR #36)** | selección de pase en reserva | COMPLETO | PARCIAL (el socio elige pase; la emisión del médico no tiene pantalla) | **PARCIAL** |
 | 29 | Alta de especialidades | `POST /api/especialidades` (ADMIN) | EspecialidadControllerTest, EspecialidadSeguridadTest | RolesIT | pantallas | COMPLETO | COMPLETO | **COMPLETO** |
@@ -58,12 +59,13 @@ Tests PG = clases `*IT` contra PostgreSQL 17 (`e2e.yml`).
 | 33 | Alta de consultorios | `POST /api/consultorios` (ADMIN) | ConsultorioControllerTest, ConsultorioSeguridadTest | RolesIT | pantallas | COMPLETO | COMPLETO | **COMPLETO** |
 | 35 | Consulta de usuarios | `GET /api/usuarios` (ADMIN) | UsuarioServiceTest | **PadronUsuariosIT 9** | UsersScreen, `api_user_repository_test` (contrato `q`, `orden`, `sentido`, `page`, `size`) | COMPLETO | COMPLETO (E2E visual no ejecutado) | **COMPLETO** |
 | 39 | Estadísticas por especialidad | `GET /api/estadisticas/especialidades` (ADMIN) | EstadisticaEspecialidad{Service,Repository}Test, EstadisticaSeguridadTest | EstadisticaEspecialidadIT | demo estática | COMPLETO | AUSENTE | **PARCIAL** |
-| 40 | Estadísticas por turno | `GET /api/estadisticas/turnos` (ADMIN) | EstadisticaTurno{Service,Repository}Test, EstadisticaSeguridadTest | EstadisticaTurnoIT | — | **PARCIAL** (decisión pendiente) | AUSENTE | **PARCIAL** |
+| 40 | Estadísticas por turno | `GET /api/estadisticas/turnos` (ADMIN) | EstadisticaTurno{Service,Repository}Test, EstadisticaSeguridadTest | EstadisticaTurnoIT 9, **EstadisticaTurnoHistoricoIT 12** | — | COMPLETO (interpretación histórica) | AUSENTE | **PARCIAL** (solo backend) |
 | 41 | Estadísticas de consultas | `GET /api/estadisticas/consultas` (ADMIN) | EstadisticaConsulta{Service,Repository}Test, EstadisticaSeguridadTest | EstadisticaConsultaIT | — | COMPLETO | AUSENTE | **PARCIAL** |
 
-Recuento: COMPLETO 9 (RF-01, 02, 09, 13, 17, 29, 31, 33, 35) + RF-08 al fusionar #35 = 10;
-PARCIAL 12. Backend: 20 completos, 2 parciales (RF-21, RF-40). Las clases de test de las
-columnas se listan por nombre; no se contó por RF cada caso individual.
+Recuento (Estado global = backend + frontend): COMPLETO 11 (RF-01, 02, 08, 09, 13, 17, 21, 29, 31,
+33, 35); PARCIAL 11, todos por frontend ausente (RF-11 también por filtros del histórico).
+**Backend: 22/22 completos. Frontend: 11 completos de 22.** Las clases de test de las columnas se
+listan por nombre; no se contó por RF cada caso individual.
 
 ### Reglas auditadas en esta etapa
 
@@ -87,48 +89,51 @@ columnas se listan por nombre; no se contó por RF cada caso individual.
   conflicto de interés, atención solo con aviso y del día, NO_SE_PRESENTO, concurrencia). Falta
   interfaz en Flutter.
 
-## 3. RF-21: actualización en tiempo real
+## 3. RF-21: actualización automática
 
-Búsqueda en backend (`SseEmitter`, `text/event-stream`, WebSocket) y frontend (`Timer.periodic`,
-`Stream.periodic`, `WebSocket`, `EventSource`): **sin resultados**. No existe ningún mecanismo,
-ni pantalla del médico. Los endpoints responden bajo demanda, de modo que el médico solo vería
-cambios recargando. **RF-21 queda PARCIAL.**
+Decisión técnica: **sondeo (polling) cada 3 s** desde Flutter sobre los endpoints existentes. No es
+push (ni SSE ni WebSocket): `EventSource` no envía la cabecera `Authorization`, y el sondeo es
+compatible con JWT y Railway sin cambios de backend.
 
-Opciones (decisión del grupo pendiente; no se implementó para no simular cumplimiento):
+- Pantalla `/medico/turnos` (`DoctorShiftsScreen`): fecha, turnos propios, números con paciente
+  (nombre, apellido, CI), estado de la consulta, aviso y hora de llegada, filtro de llegada, orden
+  por hora o por llegada y sentido.
+- `DoctorAgendaController`: `Timer.periodic` de 3 s; no solapa consultas; se pausa con la app
+  oculta y reanuda al volver; se cancela al salir o cerrar sesión; conserva filtro y orden; solo
+  cambia el estado si los datos cambiaron; un error de red conserva los últimos datos, muestra un
+  aviso y reintenta solo.
+- Cubre nuevas reservas, cancelaciones, avisos de llegada y resultados porque cada sondeo vuelve a
+  leer el estado completo.
+- **Latencia medida** (`MedicoTurnosTiempoRealIT`, dos clientes sobre PostgreSQL 17): el
+  funcionario registra la llegada y el médico la observa **~1,8 s después** con sondeo de 3 s. El
+  máximo teórico es el intervalo (3 s) más el tiempo de la consulta.
+- Limitación: no hay notificación inmediata; un cambio puede tardar hasta ~3 s en verse. No se
+  probó en navegador real (solo pruebas de widget y de API).
 
-| Opción | Ventaja | Riesgo |
-|---|---|---|
-| Polling de la pantalla cada 10–15 s (recomendada) | Sin cambios de backend, compatible con JWT y con Railway, latencia ≤ intervalo | Más consultas; hay que pausar con la pestaña oculta |
-| SSE | Latencia baja | `EventSource` no envía cabecera `Authorization`; exige token por URL o cliente propio |
-| WebSocket | Bidireccional | Más infraestructura y seguridad; excesivo para una lista |
+## 4. RF-40: interpretación histórica
 
-Debe incluir nuevas reservas, cancelaciones, avisos de llegada y cambios de estado. Frecuencia
-y latencia se documentarán al elegir la opción. Primero hay que construir la pantalla.
+Decisión del grupo: **interpretación histórica**. El texto cuenta los números ofrecidos «en las
+fechas del período en que la fecha del turno estuvo activa»; antes el SQL tomaba el estado actual
+(`turno.estado`). Desde #38 `EstadisticaTurnoRepository` reconstruye el estado de cada fecha con
+`turno_evento` (`SUSPENSION`/`REHABILITACION`).
 
-## 4. RF-40: brecha histórica
+Algoritmo:
 
-El texto exige contar los números ofrecidos «en las fechas del período en que la fecha del turno
-estuvo activa». El SQL actual (`EstadisticaTurnoRepository`) toma `turno.estado = 'ACTIVO'`
-(estado actual) y no consulta `turno_evento` (historial de `SUSPENSION`/`REHABILITACION`).
+- Una fecha cuenta como ofrecida si estaba **activa al cierre de su día** en `America/Montevideo`
+  (o al instante actual si el día no terminó).
+- El estado es el del último evento con `realizado_en` anterior a ese corte (desempate por
+  `id_evento`).
+- Sin evento previo, el estado inicial es lo opuesto al primer evento del turno.
+- **Limitación**: un turno sin eventos usa `turno.estado`; no se inventan eventos. Un dato
+  suspendido por carga directa en la base (sin evento) se interpreta con su estado actual.
+- El JSON de respuesta no cambió; las 9 `EstadisticaTurnoIT` previas pasan sin modificación y
+  `EstadisticaTurnoHistoricoIT` (12) cubre suspensión posterior, rehabilitación, varios eventos en
+  un día, cambio de día, números ocupados, seguridad y casos sin eventos.
 
-| Escenario | Resultado actual | Verificado por |
-|---|---|---|
-| 1. Fecha activa durante todo el período | Entra con sus números ofrecidos y ocupados | `EstadisticaTurnoIT` fechas A, B |
-| 2. Fecha suspendida y luego rehabilitada | Vuelve a ACTIVO; entra completa; lo cancelado por la suspensión queda libre (ejemplo: 4 ofrecidos, 1 ocupado) | `EstadisticaTurnoIT` fecha D |
-| 3. Fecha suspendida **hoy** que estuvo activa antes | Se excluye (ejemplo: fecha C, 4 números) | `EstadisticaTurnoIT` fecha C |
-
-Interpretaciones:
-
-- **A (actual)**: «activa» = estado vigente de la fecha. Ejemplo del IT de marzo: 17 ofrecidos,
-  9 ocupados → **52,94 %**.
-- **B**: «estuvo activa» = la fecha estuvo activa en algún momento del período, aunque hoy esté
-  suspendida. La fecha C aporta 4 ofrecidos y 0 ocupados (sus consultas quedaron
-  `CANCELADA_INSTITUCION`): 21 ofrecidos, 9 ocupados → **42,86 %**.
-
-Con B toda fecha creada contaría (nace activa), y la condición casi no filtra; además penaliza al
-turno por una suspensión institucional. **Recomendación: A**, documentada y probada (la
-`turno_evento` sigue siendo auditoría). **Decisión pendiente del grupo**; hasta entonces RF-40 es
-PARCIAL. No se cambió código.
+Ejemplo del requisito: con estado actual 9/17 = **52,94 %**; con la interpretación histórica (la
+fecha suspendida hoy que estuvo activa suma 4 ofrecidos) 9/21 = **42,86 %**. Ese ejemplo
+textual no se reprodujo con los datos del IT de marzo; `EstadisticaTurnoHistoricoIT` usa datos
+controlados (8 ofrecidos, 3 ocupados) que distinguen ambas interpretaciones.
 
 ## 5. Seguridad
 
@@ -167,29 +172,25 @@ persisten ni se corrigen estados históricos.
 
 ## 7. Testing
 
-Resultados sobre el **árbol combinado de los PR #31–#34**, idéntico al HEAD `4612f0d`
-(árbol `a5a4c0227aec247df10472f43dbd853834dfe1fa`):
+Resultados sobre el **árbol combinado de los PR #30–#39**, idéntico al HEAD `25405b4`
+(ejecutados en un worktree limpio antes de publicar):
 
 | Prueba | Resultado |
 |---|---|
-| Maven `verify` (sin IT) | **419** pruebas, 0 fallos, 0 errores, 0 omitidas |
-| IT PostgreSQL 17 (`*IT`) | **157**, 0 fallos, 0 errores, 0 omitidas |
-| 5 clases de contexto completo | BUILD SUCCESS (conteo no desagregado) |
+| Maven `verify` (sin IT) | **419** pruebas, 0 fallos, 0 errores |
+| IT PostgreSQL 17 (`*IT`) | **182**, 0 fallos, 0 errores (163 + 12 RF-40 + 7 RF-21) |
 | `flutter analyze` | sin problemas |
-| `flutter test` | **897** aprobadas |
+| `flutter test` | **909** aprobadas (897 + 12 RF-21) |
 | `flutter build web --release` | OK |
 
-Workflows en el push a avances: `4612f0d` Backend, E2E PostgreSQL e Imagen en **success**
-(runs 40582023179, 40582022534, 40582022526). Frontend y Esquema no se disparan por filtro de rutas.
+CI de los PR: #38 Backend, E2E PostgreSQL e Imagen en success (el filtro de rutas no dispara
+Frontend); #39 Backend, E2E PostgreSQL, Imagen y Frontend en success. #35: 159/159 IT y #36:
+161/161 IT según CI, antes de combinarse. El resultado de los workflows sobre el HEAD publicado
+`25405b4` **no se verificó en este documento**; debe consultarse en GitHub Actions. Esquema no se
+dispara por filtro de rutas.
 
-| PR | Commit | Backend | E2E PG | Imagen | Notas |
-|---|---|---|---|---|---|
-| #35 RF-08 | `6103d03` | success | success | success | 159/159 IT según CI |
-| #36 RF-24 | `880e4f6` | success | success | pendiente al escribir | +4 IT |
-
-Tras fusionar #35 y #36 el total esperado de IT es 163 (157 + 2 + 4); **no se afirma hasta ver el
-run del HEAD final**. Las IT corren con base descartable terminada en `_e2e`/`_test`,
-`E2E_ALLOW_DESTRUCTIVE=true` y `mvnw test -Dtest=*IT`; sin esa variable fallan por diseño.
+Las IT corren con base descartable terminada en `_e2e`/`_test`, `E2E_ALLOW_DESTRUCTIVE=true` y
+`mvnw test -Dtest=*IT`; sin esa variable fallan por diseño.
 
 **Concurrencia cubierta**: reservas simultáneas del mismo número y del mismo pase, cancelaciones
 dobles, registro simultáneo de una atención, rehabilitación/suspensión, activación de primer ingreso.
@@ -208,16 +209,15 @@ login de Google, por lo que no se pudo verificar V2/V3.
 
 ## 9. Pendientes
 
-**Funcionalidades (frontend)**: pantallas de RF-14/15, 16, 18, 21, 23/24 (emisión de pases),
-12, 39/40/41 y cancelación de consultas del socio; histórico RF-11 con todos sus filtros.
+**Funcionalidades (frontend)**: pantallas de RF-14/15, 16, 18, 23/24 (emisión de pases), 12,
+39/40/41 y cancelación de consultas del socio; histórico RF-11 con todos sus filtros.
 
-**Integración**: fusionar #35, #36 y este PR (autorización del equipo); luego verificar los
-workflows del HEAD final.
+**Integración**: fusionar este PR; luego verificar los workflows del HEAD final.
 
 **Infraestructura**: Railway/Resend (sección 8); datos de prueba de Drive (acceso).
 
-**Decisiones del grupo**: (1) RF-21 mecanismo de tiempo real; (2) RF-40 interpretación A o B;
-(3) alcance de entrega si las pantallas no llegan.
+**Decisiones del grupo**: alcance de entrega si las pantallas no llegan; si el sondeo de 3 s de
+RF-21 se considera suficiente como «tiempo real» o se exige push.
 
 **Para la demostración**: levantar PostgreSQL 17 efímero con datos ficticios (no usar scripts de
 Drive sobre bases compartidas), backend con `MAIL_PROVIDER=smtp` y Mailpit, `flutter build web`,

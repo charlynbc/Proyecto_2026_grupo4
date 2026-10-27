@@ -7,10 +7,12 @@ Sistema online para que pacientes reserven órdenes de consulta en una
 institución de asistencia médica, con cuatro perfiles de usuario: paciente,
 funcionario, médico y administrador.
 
-> **Estado (27/10/2026)**: integración en `integracion/proyecto-2026-avances` (HEAD verificado
-> `4612f0d`). El backend cubre los 22 RF críticos, con RF-21 (sin tiempo real) y RF-40
-> (interpretación histórica) parciales; el frontend aún no tiene pantallas para varios
-> circuitos del funcionario, el médico y las estadísticas. Ver
+> **Estado (27/10/2026)**: integración en `integracion/proyecto-2026-avances` (HEAD validado
+> `25405b4`). **22/22 RF críticos completos a nivel backend** (419 pruebas Maven, 182 IT PostgreSQL).
+> RF-21 tiene pantalla Flutter con actualización por sondeo de 3 s (no push) y RF-40 usa la
+> interpretación histórica decidida por el grupo. **No es 22/22 del sistema completo**: el frontend
+> aún no tiene pantallas para varios circuitos del funcionario, la atención del médico y las
+> estadísticas; Railway y Resend no están verificados. Ver
 > [`docs/informes/cierre-criticos-2026.md`](docs/informes/cierre-criticos-2026.md).
 
 ---

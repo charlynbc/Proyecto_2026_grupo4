@@ -49,9 +49,11 @@ $env:APP_FIREBASE_ENABLED = "false"
 | `PasesRF24IT` (13), `PasesEscenariosRF24IT` (4, PR #36) | RF-24: emisión, vigencia 90 d y 1–365, duplicados, consumo, devolución, sin devolución por inasistencia, atención repetida, circuito completo, concurrencia |
 | `PadronUsuariosIT` (9) | RF-35: `q`/`texto`, `orden`, `sentido`, paginación, `%`/`_` literales, una fila por cuenta, seguridad |
 | `Estadistica{Especialidad,Turno,Consulta}IT` | RF-39/40/41 |
-| `DisponibilidadIT` (2, PR #35) | RF-08: solo médicos habilitados y turnos activos |
+| `DisponibilidadIT` (2) | RF-08: solo médicos habilitados y turnos activos |
+| `EstadisticaTurnoHistoricoIT` (12) | RF-40 histórico desde `turno_evento` |
+| `MedicoTurnosTiempoRealIT` (7) | RF-21: roles, médico ajeno, cambios de otros actores y dos clientes con sondeo de 3 s (latencia medida ~1,8 s) |
 
-Totales verificados sobre el HEAD `4612f0d` de avances: **157 IT** y **419** pruebas Maven (sin IT), 0 fallos; ver `docs/informes/cierre-criticos-2026.md`.
+Totales verificados sobre el HEAD `25405b4` de avances: **182 IT**, **419** pruebas Maven (sin IT) y **909** pruebas Flutter, 0 fallos; ver `docs/informes/cierre-criticos-2026.md`.
 
 ## Hallazgos
 
@@ -61,8 +63,8 @@ Totales verificados sobre el HEAD `4612f0d` de avances: **157 IT** y **419** pru
 ## No cubierto
 
 - Navegador automatizado (Flutter web contra el backend real); las pruebas Flutter son unitarias y de widgets.
-- Actualización en tiempo real de RF-21 (no implementada).
-- Interpretación histórica de RF-40 (decisión pendiente del grupo).
+- Notificación inmediata (push/SSE) de RF-21: se resolvió con sondeo de 3 s; no se probó en navegador real.
+- Limitación de RF-40: un turno sin eventos en `turno_evento` usa su estado actual.
 - Docker local (se verifica solo en Actions, workflow Imagen).
 - Envío real de correo (Resend) y push Firebase.
 - Despliegue en Railway.
