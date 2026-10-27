@@ -14,6 +14,8 @@ import uy.edu.proyecto.backend.exception.ApiException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -41,7 +43,7 @@ class EstadisticaTurnoServiceTest {
 
     @Test
     void sinParametrosUsaElMesEnCurso() {
-        when(repository.contarUtilizacion(LocalDate.parse("2026-10-01"), LocalDate.parse("2026-10-31")))
+        when(repository.contarUtilizacion(eq(LocalDate.parse("2026-10-01")), eq(LocalDate.parse("2026-10-31")), any(Instant.class)))
                 .thenReturn(List.of());
 
         EstadisticaTurnoResponse r = servicioA("2026-10-15T12:00:00Z").calcular(null, null);
@@ -54,7 +56,7 @@ class EstadisticaTurnoServiceTest {
     @Test
     void elMesEnCursoSeCalculaEnMontevideoYNoEnUtc() {
         // 2026-11-01T01:30Z es todavia 31 de octubre en Montevideo.
-        when(repository.contarUtilizacion(LocalDate.parse("2026-10-01"), LocalDate.parse("2026-10-31")))
+        when(repository.contarUtilizacion(eq(LocalDate.parse("2026-10-01")), eq(LocalDate.parse("2026-10-31")), any(Instant.class)))
                 .thenReturn(List.of());
 
         EstadisticaTurnoResponse r = servicioA("2026-11-01T01:30:00Z").calcular("", " ");
@@ -64,13 +66,14 @@ class EstadisticaTurnoServiceTest {
 
     @Test
     void rangoExplicitoSeDelegaTalCual() {
-        when(repository.contarUtilizacion(LocalDate.parse("2026-03-01"), LocalDate.parse("2026-03-01")))
+        when(repository.contarUtilizacion(eq(LocalDate.parse("2026-03-01")), eq(LocalDate.parse("2026-03-01")), any(Instant.class)))
                 .thenReturn(List.of());
 
         servicioA("2026-10-15T12:00:00Z").calcular("2026-03-01", "2026-03-01");
 
         verify(repository).contarUtilizacion(
-                LocalDate.parse("2026-03-01"), LocalDate.parse("2026-03-01"));
+                LocalDate.parse("2026-03-01"), LocalDate.parse("2026-03-01"),
+                Instant.parse("2026-10-15T12:00:00Z"));
     }
 
     @Test

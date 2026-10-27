@@ -1,6 +1,8 @@
 package uy.edu.proyecto.backend.estadistica;
 
 import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -29,7 +31,8 @@ class EstadisticaTurnoRepositoryTest {
         LocalDate desde = LocalDate.parse("2026-03-01");
         LocalDate hasta = LocalDate.parse("2026-03-31");
 
-        assertTrue(new EstadisticaTurnoRepository(jdbc).contarUtilizacion(desde, hasta).isEmpty());
+        Instant ahora = Instant.parse("2026-10-15T12:00:00Z");
+        assertTrue(new EstadisticaTurnoRepository(jdbc).contarUtilizacion(desde, hasta, ahora).isEmpty());
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Object[]> parametros = ArgumentCaptor.forClass(Object[].class);
@@ -37,7 +40,9 @@ class EstadisticaTurnoRepositoryTest {
 
         String consulta = sql.getValue();
         // Solo fechas activas del periodo, por fecha del turno.
-        assertTrue(consulta.contains("t.estado = 'ACTIVO'"));
+        // La actividad se reconstruye desde turno_evento, sin multiplicar filas por JOIN.
+        assertTrue(consulta.contains("public.turno_evento"));
+        assertTrue(consulta.contains("America/Montevideo"));
         assertTrue(consulta.contains("t.fecha >= ?"));
         assertTrue(consulta.contains("t.fecha <= ?"));
         // Ocupado: existe una consulta NO cancelada; el EXISTS impide contar dos veces un numero.
@@ -50,9 +55,10 @@ class EstadisticaTurnoRepositoryTest {
         assertFalse(consulta.contains("id_socio"));
         assertFalse(consulta.contains("correo"));
         assertFalse(consulta.contains("contrasena"));
-        assertEquals(4, consulta.chars().filter(c -> c == '?').count());
+        assertEquals(5, consulta.chars().filter(c -> c == '?').count());
         assertArrayEquals(
-                new Object[] {Date.valueOf(desde), Date.valueOf(hasta), Date.valueOf(hasta), Date.valueOf(desde)},
+                new Object[] {Date.valueOf(desde), Date.valueOf(hasta), Timestamp.from(ahora),
+                        Date.valueOf(hasta), Date.valueOf(desde)},
                 parametros.getValue()
         );
     }
