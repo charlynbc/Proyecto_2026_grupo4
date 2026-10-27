@@ -134,18 +134,20 @@ public class AtencionRepository {
                         FROM public.pase pase
                         JOIN public.atencion atencion
                           ON atencion.id_atencion = pase.id_atencion
-                        WHERE atencion.id_consulta IN (
-                            SELECT uso.id_consulta
-                            FROM public.consulta uso
-                            WHERE uso.id_socio = ?
-                              AND uso.id_pase = pase.id_pase
-                              AND uso.estado NOT IN (
-                                  'CANCELADA_SOCIO',
-                                  'CANCELADA_INSTITUCION'
-                              )
-                        )
+                        JOIN public.consulta origen
+                          ON origen.id_consulta = atencion.id_consulta
+                        WHERE origen.id_socio = ?
                           AND pase.id_especialidad_destino = ?
                           AND pase.vence_el >= ?
+                          AND NOT EXISTS (
+                              SELECT 1
+                              FROM public.consulta uso
+                              WHERE uso.id_pase = pase.id_pase
+                                AND uso.estado NOT IN (
+                                    'CANCELADA_SOCIO',
+                                    'CANCELADA_INSTITUCION'
+                                )
+                          )
                     )
                     OR EXISTS (
                         SELECT 1
@@ -158,6 +160,8 @@ public class AtencionRepository {
                         WHERE pendiente.id_socio = ?
                           AND pendiente.id_consulta <> ?
                           AND pendiente.estado = 'AGENDADA'
+                          AND (t.fecha >= ?
+                               OR pendiente.fecha_resultado IS NOT NULL)
                           AND ts.id_especialidad = ?
                     )
                 )
@@ -168,6 +172,7 @@ public class AtencionRepository {
                 hoy,
                 socioId,
                 consultaId,
+                hoy,
                 especialidadId
         ));
     }
