@@ -67,6 +67,29 @@ jobs:
       - name: Pruebas HTTP reales (auth, circuito, roles, concurrencia)
         run: ./mvnw -B test -Dtest='*IT' -Dsurefire.failIfNoSpecifiedTests=false
 
+      - name: Resumen de pruebas IT (ejecutadas, aprobadas, omitidas)
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, os, xml.etree.ElementTree as ET
+          t = f = e = s = 0
+          detalle = []
+          for p in sorted(glob.glob("target/surefire-reports/TEST-*IT.xml")):
+              r = ET.parse(p).getroot()
+              a = [int(r.get(k, 0)) for k in ("tests", "failures", "errors", "skipped")]
+              t += a[0]; f += a[1]; e += a[2]; s += a[3]
+              detalle.append(f"| {r.get('name').split('.')[-1]} | {a[0]} | {a[0]-a[1]-a[2]-a[3]} | {a[1]} | {a[2]} | {a[3]} |")
+          out = ["## Pruebas IT contra PostgreSQL 17 efimero", "",
+                 f"Ejecutadas: {t} | Aprobadas: {t-f-e-s} | Fallidas: {f} | Errores: {e} | Omitidas: {s}", "",
+                 "| Clase | Ejecutadas | Aprobadas | Fallidas | Errores | Omitidas |", "|---|---|---|---|---|---|"] + detalle
+          texto = "\n".join(out)
+          print(texto)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as fh:
+              fh.write(texto + "\n")
+          if t == 0 or s > 0:
+              raise SystemExit("No hubo pruebas IT ejecutadas o hubo omitidas")
+          PY
+
       - name: Pruebas de contexto completo contra el esquema real
         run: >-
           ./mvnw -B test

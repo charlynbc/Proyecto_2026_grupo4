@@ -151,6 +151,40 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.GET,
+                                                "/api/medicos"
+                                        )
+                                        .hasRole(
+                                                "FUNCIONARIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/usuarios"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/estadisticas",
+                                                "/api/estadisticas/**"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/historia-clinica",
+                                                "/api/historia-clinica/**"
+                                        )
+                                        .hasRole(
+                                                "SOCIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
                                                 "/api/turnos",
                                                 "/api/turnos-semanales/**"
                                         )
@@ -184,7 +218,8 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
-                                                "/api/consultas"
+                                                "/api/consultas",
+                                                "/api/consultas/*/cancelar"
                                         )
                                         .hasRole(
                                                 "SOCIO"
@@ -194,6 +229,14 @@ public class SecurityConfig {
                                                 HttpMethod.GET,
                                                 "/api/consultas",
                                                 "/api/consultas/*"
+                                        )
+                                        .hasRole(
+                                                "SOCIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/socios/me/pases/disponibles"
                                         )
                                         .hasRole(
                                                 "SOCIO"

@@ -102,6 +102,17 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<environmentVariables>
+						<!-- Clave descartable solo para tests; no se usa en produccion. -->
+						<JWT_SECRET_BASE64>MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=</JWT_SECRET_BASE64>
+						<APP_FIREBASE_ENABLED>false</APP_FIREBASE_ENABLED>
+					</environmentVariables>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 

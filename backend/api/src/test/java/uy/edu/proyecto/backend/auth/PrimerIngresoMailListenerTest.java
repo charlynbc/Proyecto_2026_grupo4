@@ -28,7 +28,14 @@ class PrimerIngresoMailListenerTest {
                     12L,
                     "ana@example.org",
                     "Ana",
-                    "token-unico"
+                    "token-unico",
+                    24
+            );
+    private static final CuentaActivaPrimerIngresoSolicitada CUENTA_ACTIVA =
+            new CuentaActivaPrimerIngresoSolicitada(
+                    13L,
+                    "bruno@example.org",
+                    "Bruno"
             );
 
     private final CorreoSender sender = mock(CorreoSender.class);
@@ -67,6 +74,22 @@ class PrimerIngresoMailListenerTest {
     }
 
     @Test
+    void informaQueLaCuentaEstaActivaYExplicaRecuperacionSinCambiarCredenciales() {
+        listener.informarCuentaActiva(CUENTA_ACTIVA);
+
+        ArgumentCaptor<CorreoMensaje> mensaje =
+                ArgumentCaptor.forClass(CorreoMensaje.class);
+        verify(sender).enviar(mensaje.capture());
+        assertTrue("bruno@example.org".equals(mensaje.getValue().para()));
+        assertTrue(mensaje.getValue().asunto().contains("ya está activa"));
+        assertTrue(mensaje.getValue().texto().contains("Tu cuenta ya está activa"));
+        assertTrue(mensaje.getValue().texto().contains("recuperación de contraseña (RF-05)"));
+        assertTrue(mensaje.getValue().texto().contains("no modifica tu contraseña"));
+        assertFalse(mensaje.getValue().texto().contains("token"));
+        assertFalse(CUENTA_ACTIVA.toString().contains("bruno@example.org"));
+    }
+
+    @Test
     void siFallaElProveedorNoPropagaNiRegistraTokenNiCorreo() {
         doThrow(new CorreoException("Resend respondio HTTP 500"))
                 .when(sender).enviar(any());
@@ -100,5 +123,20 @@ class PrimerIngresoMailListenerTest {
     void elEventoNoImprimeElToken() {
         assertFalse(EVENTO.toString().contains("token-unico"));
         assertFalse(EVENTO.toString().contains("ana@example.org"));
+    }
+
+    @Test
+    void falloAlEnviarInstruccionesNoExponeElCorreo() {
+        doThrow(new CorreoException("falla de proveedor"))
+                .when(sender).enviar(any());
+
+        listener.informarCuentaActiva(CUENTA_ACTIVA);
+
+        String salida = logs.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .reduce("", String::concat);
+        assertTrue(salida.contains("13"));
+        assertFalse(salida.contains("bruno@example.org"));
+        assertFalse(salida.contains("falla de proveedor"));
     }
 }

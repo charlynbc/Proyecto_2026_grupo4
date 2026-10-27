@@ -920,7 +920,7 @@ positivo y los registros inexistentes o ajenos producen la misma respuesta
 #### #20 · `POST /api/consultas/{id}/cancelar`
 
 - **Roles:** SOCIO (solo las propias). La cancelación a pedido del socio por un funcionario (RF-19) no está en este contrato.
-- **RF:** RF-10. **Diseño:** `cancelarPorSocio(socioId, consultaId): CancelacionDTO` (S23). **Estado:** PROPUESTA.
+- **RF:** RF-10. **Diseño:** `cancelarPorSocio(socioId, consultaId): CancelacionDTO` (S23). **Estado:** CONFIRMADA (rama `feat/cierre-cancelaciones-pases`; vigente al fusionarse). Un id no numérico o ≤ 0 devuelve 400 `VALIDACION`.
 
 Sin cuerpo. Pasa la consulta a `CANCELADA_SOCIO`, la conserva en el histórico, libera el número y devuelve el pase usado si sigue vigente, con su vencimiento original (RF-09, RF-10).
 
@@ -948,74 +948,58 @@ Sin cuerpo. Pasa la consulta a `CANCELADA_SOCIO`, la conserva en el histórico, 
 #### #21 · `GET /api/historia-clinica`
 
 - **Roles:** SOCIO (solo la propia).
-- **RF:** RF-12. **Diseño:** `AtencionService.obtenerHistoria(socioId, filtros: FiltroHistoriaDTO): HistoriaDTO` (S06). **Estado:** PROPUESTA.
+- **RF:** RF-12. **Clase:** `HistoriaClinicaController` → `HistoriaClinicaService` → `HistoriaClinicaRepository`. **Estado:** CONFIRMADA (implementada y probada con PostgreSQL real en `HistoriaClinicaIT`).
 
-El servidor autoriza la identidad del socio con el token. **No existe parámetro para consultar la historia de otra persona** (S06).
+El servidor toma la identidad del socio del JWT validado. **No existe parámetro para consultar la historia de otra persona**: un `socioId` enviado por el cliente se ignora.
 
 | Parámetro | Tipo | Notas |
 |---|---|---|
-| `fechaDesde`, `fechaHasta` | fecha | |
+| `fechaDesde`, `fechaHasta` | fecha `YYYY-MM-DD` | Inclusivas. Se aplican a la fecha de atención en `America/Montevideo`. |
 | `especialidadId` | entero | |
 | `medicoId` | entero | |
-| `texto` | texto | Búsqueda opcional en el tratamiento (RF-12). |
-| `orden` | `fecha` o `especialidad` | Por defecto `fecha`. |
+| `texto` | texto | Contenido en el tratamiento, sin distinguir mayúsculas. `%` y `_` se buscan literalmente. |
+| `orden` | `fecha` (alias de `fecha_atencion`), `fecha_atencion` o `especialidad` | Por defecto `fecha_atencion`. |
 | `sentido` | `asc` o `desc` | Por defecto `desc`. |
-| `page`, `size` | | Sección 1.3. Los filtros se combinan. |
 
-**Respuesta 200** (`HistoriaDTO` con `AtencionDTO` en `items`; **PROPUESTA:** paginada, P-11). La lista no trae el contenido clínico: afección, tratamiento y observaciones solo viajan en #22.
+Los filtros se combinan con AND. **Decisión sobre paginación:** RF-12 no la exige y el frontend aún no consume este endpoint, así que la respuesta es una **lista sin paginar** (la propuesta paginada `{items,page,size,total}` queda descartada). Si el volumen lo justifica, se acordará un contrato nuevo.
+
+**Respuesta 200** (`List<HistoriaClinicaDTO>`; vacía `[]` si no hay atenciones). Incluye el contenido clínico y los pases, resueltos con una sola consulta adicional (sin N+1).
 
 ```json
-{
-  "items": [
-    {
-      "id": 5530,
-      "consultaId": 9001,
-      "fecha": "2026-10-20",
-      "medico": { "id": 17, "nombre": "Marta", "apellido": "Rodríguez" },
-      "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
-      "cantidadPases": 1
-    }
-  ],
-  "page": 0,
-  "size": 20,
-  "total": 1
-}
+[
+  {
+    "idAtencion": 5530,
+    "fechaAtencion": "2026-10-20",
+    "medicoId": 17,
+    "medicoNombre": "Marta",
+    "medicoApellido": "Rodríguez",
+    "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
+    "afeccion": "Hipertensión arterial leve",
+    "tratamiento": "Control de dieta y medicación indicada",
+    "observaciones": null,
+    "pases": [
+      {
+        "id": 78,
+        "especialidad": { "id": 4, "nombre": "Nutrición", "requierePase": true },
+        "emitidoEn": "2026-10-20T09:41:00-03:00",
+        "venceEl": "2027-01-18"
+      }
+    ]
+  }
+]
 ```
+
+**Errores:** `400 VALIDACION` (fecha o id inválido, rango invertido), `400 ORDEN_INVALIDO`, `400 SENTIDO_INVALIDO`, `401` sin JWT o cuenta inactivada, `403` rol distinto de SOCIO.
 
 <a id="e22"></a>
 #### #22 · `GET /api/historia-clinica/{idAtencion}`
 
 - **Roles:** SOCIO (solo la propia).
-- **RF:** RF-12. **Diseño:** S06. **Estado:** PROPUESTA.
+- **RF:** RF-12. **Estado:** CONFIRMADA (probada con PostgreSQL real en `HistoriaClinicaIT`).
 
-**Respuesta 200** (`AtencionDTO` con `PaseDTO`)
+**Respuesta 200**: un `HistoriaClinicaDTO` con la misma forma que cada elemento de #21 (`idAtencion`, `fechaAtencion`, `medicoId`, `medicoNombre`, `medicoApellido`, `especialidad`, `afeccion`, `tratamiento`, `observaciones`, `pases[]`). `pases` son los emitidos en esa atención con su vigencia original (`venceEl`); no incluyen una `situacion`. `pases[].id` es el que el socio envía como `paseId` en #17. Orden de los pases: `venceEl` descendente.
 
-```json
-{
-  "id": 5530,
-  "consultaId": 9001,
-  "fecha": "2026-10-20",
-  "medico": { "id": 17, "nombre": "Marta", "apellido": "Rodríguez" },
-  "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
-  "afeccion": "Hipertensión arterial leve",
-  "tratamiento": "Control de dieta y medicación indicada",
-  "observaciones": null,
-  "registradaEn": "2026-10-20T09:41:00-03:00",
-  "pases": [
-    {
-      "id": 78,
-      "especialidadDestino": { "id": 4, "nombre": "Nutrición", "requierePase": true },
-      "emitidoEn": "2026-10-20T09:41:00-03:00",
-      "venceEl": "2027-01-18",
-      "situacion": "DISPONIBLE"
-    }
-  ]
-}
-```
-
-`pases` son los emitidos en esa atención, con su vigencia (RF-12). `situacion` (**PROPUESTA** para el socio; RF-26 la define para el médico) se calcula de uso y vencimiento. `id` del pase es el que el socio envía como `paseId` en #17.
-
-**Errores:** `404 NO_ENCONTRADO` si no existe o es de otra persona (P-10).
+**Errores:** `404 HISTORIA_NO_ENCONTRADA` si la atención no existe **o** es de otra persona (mismo mensaje y mismo status, para no revelar su existencia); `400 VALIDACION` si el id no es numérico; `401`; `403` rol distinto de SOCIO.
 
 ### 3.6 Funcionario: suspensión, rehabilitación, llegada y agendas
 
@@ -1559,7 +1543,7 @@ Errores comunes: `400 VALIDACION` (fecha mal formada o rango invertido).
 #### #34 · `GET /api/estadisticas/especialidades`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-39. **Diseño:** `calcularPorEspecialidad(filtro): List<EstadisticaEspecialidadDTO>` (S20). **Estado:** PROPUESTA.
+- **RF:** RF-39. **Diseño:** `calcularPorEspecialidad(filtro): List<EstadisticaEspecialidadDTO>` (S20). **Estado:** CONFIRMADA (integrada en avances, PR #24, `a22eef9`).
 
 Consultas agendadas en el período, **contadas por la fecha en que se agendaron** (`agendadaEn`), incluidas las que luego se cancelaron.
 
@@ -1580,7 +1564,7 @@ Consultas agendadas en el período, **contadas por la fecha en que se agendaron*
 #### #35 · `GET /api/estadisticas/turnos`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** PROPUESTA.
+- **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** CONFIRMADA (integrada en avances, PR #25 y corrección JWT PR #26). Diferencias con la propuesta: agrega `fechasActivas` y `utilizacion` (texto, `"Sin datos"` cuando `porcentajeUtilizacion` es `null`); `consultorio` incluye `ubicacion`; el porcentaje lleva 2 decimales.
 
 Porcentaje de números ocupados sobre los ofrecidos, en las fechas del período en que la fecha del turno estuvo activa. Ocupado: consulta `AGENDADA`, `ATENDIDA`, `NO_ASISTIO`, `NO_ATENDIDA` o `NO_SE_PRESENTO`; las canceladas lo dejan libre. Qué es "cada turno" (el patrón semanal o la fecha concreta): P-13. **PROPUESTA:** una fila por patrón semanal.
 
@@ -1621,9 +1605,11 @@ La segunda fila muestra "Sin datos" (no hubo números ofrecidos en fechas activa
 #### #36 · `GET /api/estadisticas/consultas`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-41. **Diseño:** `calcularConsultas(filtro): EstadisticaConsultaDTO` (S22). **Estado:** PROPUESTA.
+- **RF:** RF-41. **Diseño:** `calcularConsultas(filtro): EstadisticaConsultaDTO` (S22). **Estado:** CONFIRMADA en `feat/rf-41-estadisticas-consultas` (no integrada en avances hasta fusionar su PR). Diferencias con la propuesta: los conteos van en `estados` (no `porEstado`), el total en `totalConsultas`, y se agregan `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`.
 
-Consultas del período por estado, según la **fecha de la consulta**, con los siete estados (los calculados incluidos), y la tasa de cancelación por el socio: canceladas por el socio sobre el total.
+Consultas del período por estado, según la **fecha de la consulta** (`turno.fecha`), nunca la fecha en que se agendó. Siempre devuelve los siete estados, incluso en cero. `NO_ASISTIO` y `NO_ATENDIDA` son derivados: una consulta `AGENDADA` sin resultado cuyo día terminó (zona `America/Montevideo`) es `NO_ATENDIDA` si el socio tiene aviso de llegada ese día y `NO_ASISTIO` si no. Tasa de cancelación: `canceladasPorSocio / totalConsultas * 100` (2 decimales); las canceladas por la institución no entran en el numerador.
+
+Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, el mes en curso. Fechas inválidas o `desde > hasta`: `400 VALIDACION`.
 
 **Respuesta 200**
 
@@ -1631,8 +1617,7 @@ Consultas del período por estado, según la **fecha de la consulta**, con los s
 {
   "desde": "2026-10-01",
   "hasta": "2026-10-31",
-  "total": 200,
-  "porEstado": {
+  "estados": {
     "AGENDADA": 40,
     "ATENDIDA": 110,
     "CANCELADA_SOCIO": 20,
@@ -1641,11 +1626,14 @@ Consultas del período por estado, según la **fecha de la consulta**, con los s
     "NO_ATENDIDA": 5,
     "NO_SE_PRESENTO": 3
   },
-  "tasaCancelacionSocio": 10.0
+  "totalConsultas": 200,
+  "canceladasPorSocio": 20,
+  "porcentajeCancelacion": 10.0,
+  "porcentajeCancelacionTexto": "10 %"
 }
 ```
 
-`total` cero: `tasaCancelacionSocio` es `null` ("Sin datos"). Con consultas y ninguna cancelada por el socio: `0`.
+`totalConsultas` cero: `porcentajeCancelacion` es `null` y `porcentajeCancelacionTexto` es `"Sin datos"`. Con consultas y ninguna cancelada por el socio: `0` y `"0 %"`. No incluye datos de pacientes.
 
 ---
 

@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import uy.edu.proyecto.backend.usuario.AltaUsuarioController;
 import uy.edu.proyecto.backend.usuario.AltaUsuarioService;
+import uy.edu.proyecto.backend.usuario.UsuarioService;
 
 /**
  * La app Flutter web se sirve desde el mismo origen que la API (DA-11): sus
@@ -33,6 +34,9 @@ class AppWebSeguridadTest {
 
     @MockitoBean
     private AltaUsuarioService service;
+
+    @MockitoBean
+    private UsuarioService usuarioService;
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
