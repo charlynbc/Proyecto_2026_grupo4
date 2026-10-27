@@ -472,8 +472,8 @@ Sin parámetros. Todos los consultorios, sin paginar, ordenados por `nombre`. Lo
 <a id="e10"></a>
 #### #10 · `GET /api/medicos`
 
-- **Roles:** cualquier rol autenticado.
-- **RF:** RF-13, RF-08, RF-14, RF-15, RF-17, RF-18 (selectores de médico). **Diseño:** sin operación en 2.1 a 2.7. **Estado:** PROPUESTA.
+- **Roles:** FUNCIONARIO (así está implementado y protegido en `SecurityConfig`; el alta de turno es de FUNCIONARIO).
+- **RF:** RF-13, RF-08, RF-14, RF-15, RF-17, RF-18 (selectores de médico). **Diseño:** sin operación en 2.1 a 2.7. **Estado:** IMPLEMENTADO.
 
 | Parámetro | Tipo | Obligatorio | Notas |
 |---|---|---|---|
@@ -481,22 +481,20 @@ Sin parámetros. Todos los consultorios, sin paginar, ordenados por `nombre`. Lo
 
 Devuelve médicos **activos**, sin paginar, ordenados por `apellido` y `nombre`. Cada médico trae sus especialidades, porque el alta de turno exige "una de las del médico" (RF-13). No expone CI, correo ni teléfonos.
 
-**Respuesta 200**
+**Respuesta 200** (una lista JSON, sin envoltorio `items`; el cliente Flutter también tolera `{"items": [...]}`)
 
 ```json
-{
-  "items": [
-    {
-      "id": 17,
-      "nombre": "Marta",
-      "apellido": "Rodríguez",
-      "especialidades": [
-        { "id": 1, "nombre": "Medicina General", "requierePase": false },
-        { "id": 3, "nombre": "Cardiología", "requierePase": true }
-      ]
-    }
-  ]
-}
+[
+  {
+    "id": 17,
+    "nombre": "Marta",
+    "apellido": "Rodríguez",
+    "especialidades": [
+      { "id": 1, "nombre": "Medicina General", "requierePase": false },
+      { "id": 3, "nombre": "Cardiología", "requierePase": true }
+    ]
+  }
+]
 ```
 
 Preguntas relacionadas: P-16.

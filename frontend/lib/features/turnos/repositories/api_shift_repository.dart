@@ -22,13 +22,19 @@ class ApiShiftRepository implements ShiftRepository {
 
   @override
   Future<List<Doctor>> listDoctors({int? specialtyId}) => _request(() async {
-    final response = await _dio.get<Map<String, dynamic>>(
+    final response = await _dio.get<Object>(
       ApiRoutes.doctors,
       queryParameters: {'especialidadId': ?specialtyId},
     );
+    // El backend devuelve una lista JSON; se acepta también `{"items": [...]}`.
+    final body = response.data;
+    final items = switch (body) {
+      List<dynamic>() => body,
+      Map<String, dynamic>() => body['items'] as List<dynamic>,
+      _ => throw const ApiException(),
+    };
     return [
-      for (final item in _body(response)['items'] as List<dynamic>)
-        Doctor.fromJson(item as Map<String, dynamic>),
+      for (final item in items) Doctor.fromJson(item as Map<String, dynamic>),
     ];
   });
 

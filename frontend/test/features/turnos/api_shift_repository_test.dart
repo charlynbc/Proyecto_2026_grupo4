@@ -102,7 +102,7 @@ void main() {
     test(
       'pide GET /api/medicos sin parámetros si no hay especialidad',
       () async {
-        final (repository, adapter) = _ok(200, {'items': <Object>[]});
+        final (repository, adapter) = _ok(200, <Object>[]);
 
         await repository.listDoctors();
 
@@ -113,7 +113,7 @@ void main() {
     );
 
     test('con especialidad manda especialidadId', () async {
-      final (repository, adapter) = _ok(200, {'items': <Object>[]});
+      final (repository, adapter) = _ok(200, <Object>[]);
 
       await repository.listDoctors(specialtyId: 3);
 
@@ -121,9 +121,7 @@ void main() {
     });
 
     test('lee los médicos con sus especialidades', () async {
-      final (repository, _) = _ok(200, {
-        'items': [doctorJson()],
-      });
+      final (repository, _) = _ok(200, [doctorJson()]);
 
       final doctors = await repository.listDoctors();
 
@@ -131,13 +129,21 @@ void main() {
       expect(doctors.single.specialties.map((s) => s.id), [1, 3]);
     });
 
+    test('también acepta el envoltorio {"items": [...]}', () async {
+      final (repository, _) = _ok(200, {
+        'items': [doctorJson()],
+      });
+
+      expect((await repository.listDoctors()).single.id, 17);
+    });
+
     test('sin médicos devuelve una lista vacía', () async {
-      final (repository, _) = _ok(200, {'items': <Object>[]});
+      final (repository, _) = _ok(200, <Object>[]);
 
       expect(await repository.listDoctors(), isEmpty);
     });
 
-    test('una respuesta sin "items" es el error genérico', () async {
+    test('un objeto sin "items" es el error genérico', () async {
       final (repository, _) = _ok(200, <String, Object>{});
 
       await expectLater(repository.listDoctors(), throwsA(_genericError));
@@ -150,11 +156,9 @@ void main() {
     });
 
     test('un médico mal formado es el error genérico', () async {
-      final (repository, _) = _ok(200, {
-        'items': [
-          {'id': 1, 'nombre': 'Marta'},
-        ],
-      });
+      final (repository, _) = _ok(200, [
+        {'id': 1, 'nombre': 'Marta'},
+      ]);
 
       await expectLater(repository.listDoctors(), throwsA(_genericError));
     });
@@ -163,6 +167,21 @@ void main() {
       final (repository, _) = _ok(200, null);
 
       await expectLater(repository.listDoctors(), throwsA(_genericError));
+    });
+
+    test('sin conexión es un error de red, no una lista vacía', () async {
+      final (repository, _) = _repository(_StubAdapter.offline());
+
+      await expectLater(repository.listDoctors(), throwsA(isA<ApiException>()));
+    });
+
+    test('un 500 es un error, no una lista vacía', () async {
+      final (repository, _) = _ok(500, {
+        'code': 'ERROR_INTERNO',
+        'message': 'Falló.',
+      });
+
+      await expectLater(repository.listDoctors(), throwsA(isA<ApiException>()));
     });
   });
 
