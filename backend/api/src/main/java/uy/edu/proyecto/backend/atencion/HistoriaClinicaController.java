@@ -46,10 +46,20 @@ public class HistoriaClinicaController {
 
     @GetMapping("/api/historia-clinica/{idAtencion}")
     public HistoriaClinicaDTO detalle(
-            @PathVariable Long idAtencion,
+            @PathVariable String idAtencion,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        return service.detalle(socioId(jwt), idAtencion);
+        Long id;
+        try {
+            id = Long.parseLong(idAtencion);
+        } catch (NumberFormatException exception) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "VALIDACION",
+                    "idAtencion debe ser un identificador válido"
+            );
+        }
+        return service.detalle(socioId(jwt), id);
     }
 
     private Long socioId(Jwt jwt) {

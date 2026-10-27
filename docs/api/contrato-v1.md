@@ -948,74 +948,58 @@ Sin cuerpo. Pasa la consulta a `CANCELADA_SOCIO`, la conserva en el histórico, 
 #### #21 · `GET /api/historia-clinica`
 
 - **Roles:** SOCIO (solo la propia).
-- **RF:** RF-12. **Diseño:** `AtencionService.obtenerHistoria(socioId, filtros: FiltroHistoriaDTO): HistoriaDTO` (S06). **Estado:** PROPUESTA.
+- **RF:** RF-12. **Clase:** `HistoriaClinicaController` → `HistoriaClinicaService` → `HistoriaClinicaRepository`. **Estado:** CONFIRMADA (implementada y probada con PostgreSQL real en `HistoriaClinicaIT`).
 
-El servidor autoriza la identidad del socio con el token. **No existe parámetro para consultar la historia de otra persona** (S06).
+El servidor toma la identidad del socio del JWT validado. **No existe parámetro para consultar la historia de otra persona**: un `socioId` enviado por el cliente se ignora.
 
 | Parámetro | Tipo | Notas |
 |---|---|---|
-| `fechaDesde`, `fechaHasta` | fecha | |
+| `fechaDesde`, `fechaHasta` | fecha `YYYY-MM-DD` | Inclusivas. Se aplican a la fecha de atención en `America/Montevideo`. |
 | `especialidadId` | entero | |
 | `medicoId` | entero | |
-| `texto` | texto | Búsqueda opcional en el tratamiento (RF-12). |
-| `orden` | `fecha` o `especialidad` | Por defecto `fecha`. |
+| `texto` | texto | Contenido en el tratamiento, sin distinguir mayúsculas. `%` y `_` se buscan literalmente. |
+| `orden` | `fecha` (alias de `fecha_atencion`), `fecha_atencion` o `especialidad` | Por defecto `fecha_atencion`. |
 | `sentido` | `asc` o `desc` | Por defecto `desc`. |
-| `page`, `size` | | Sección 1.3. Los filtros se combinan. |
 
-**Respuesta 200** (`HistoriaDTO` con `AtencionDTO` en `items`; **PROPUESTA:** paginada, P-11). La lista no trae el contenido clínico: afección, tratamiento y observaciones solo viajan en #22.
+Los filtros se combinan con AND. **Decisión sobre paginación:** RF-12 no la exige y el frontend aún no consume este endpoint, así que la respuesta es una **lista sin paginar** (la propuesta paginada `{items,page,size,total}` queda descartada). Si el volumen lo justifica, se acordará un contrato nuevo.
+
+**Respuesta 200** (`List<HistoriaClinicaDTO>`; vacía `[]` si no hay atenciones). Incluye el contenido clínico y los pases, resueltos con una sola consulta adicional (sin N+1).
 
 ```json
-{
-  "items": [
-    {
-      "id": 5530,
-      "consultaId": 9001,
-      "fecha": "2026-10-20",
-      "medico": { "id": 17, "nombre": "Marta", "apellido": "Rodríguez" },
-      "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
-      "cantidadPases": 1
-    }
-  ],
-  "page": 0,
-  "size": 20,
-  "total": 1
-}
+[
+  {
+    "idAtencion": 5530,
+    "fechaAtencion": "2026-10-20",
+    "medicoId": 17,
+    "medicoNombre": "Marta",
+    "medicoApellido": "Rodríguez",
+    "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
+    "afeccion": "Hipertensión arterial leve",
+    "tratamiento": "Control de dieta y medicación indicada",
+    "observaciones": null,
+    "pases": [
+      {
+        "id": 78,
+        "especialidad": { "id": 4, "nombre": "Nutrición", "requierePase": true },
+        "emitidoEn": "2026-10-20T09:41:00-03:00",
+        "venceEl": "2027-01-18"
+      }
+    ]
+  }
+]
 ```
+
+**Errores:** `400 VALIDACION` (fecha o id inválido, rango invertido), `400 ORDEN_INVALIDO`, `400 SENTIDO_INVALIDO`, `401` sin JWT o cuenta inactivada, `403` rol distinto de SOCIO.
 
 <a id="e22"></a>
 #### #22 · `GET /api/historia-clinica/{idAtencion}`
 
 - **Roles:** SOCIO (solo la propia).
-- **RF:** RF-12. **Diseño:** S06. **Estado:** PROPUESTA.
+- **RF:** RF-12. **Estado:** CONFIRMADA (probada con PostgreSQL real en `HistoriaClinicaIT`).
 
-**Respuesta 200** (`AtencionDTO` con `PaseDTO`)
+**Respuesta 200**: un `HistoriaClinicaDTO` con la misma forma que cada elemento de #21 (`idAtencion`, `fechaAtencion`, `medicoId`, `medicoNombre`, `medicoApellido`, `especialidad`, `afeccion`, `tratamiento`, `observaciones`, `pases[]`). `pases` son los emitidos en esa atención con su vigencia original (`venceEl`); no incluyen una `situacion`. `pases[].id` es el que el socio envía como `paseId` en #17. Orden de los pases: `venceEl` descendente.
 
-```json
-{
-  "id": 5530,
-  "consultaId": 9001,
-  "fecha": "2026-10-20",
-  "medico": { "id": 17, "nombre": "Marta", "apellido": "Rodríguez" },
-  "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
-  "afeccion": "Hipertensión arterial leve",
-  "tratamiento": "Control de dieta y medicación indicada",
-  "observaciones": null,
-  "registradaEn": "2026-10-20T09:41:00-03:00",
-  "pases": [
-    {
-      "id": 78,
-      "especialidadDestino": { "id": 4, "nombre": "Nutrición", "requierePase": true },
-      "emitidoEn": "2026-10-20T09:41:00-03:00",
-      "venceEl": "2027-01-18",
-      "situacion": "DISPONIBLE"
-    }
-  ]
-}
-```
-
-`pases` son los emitidos en esa atención, con su vigencia (RF-12). `situacion` (**PROPUESTA** para el socio; RF-26 la define para el médico) se calcula de uso y vencimiento. `id` del pase es el que el socio envía como `paseId` en #17.
-
-**Errores:** `404 NO_ENCONTRADO` si no existe o es de otra persona (P-10).
+**Errores:** `404 HISTORIA_NO_ENCONTRADA` si la atención no existe **o** es de otra persona (mismo mensaje y mismo status, para no revelar su existencia); `400 VALIDACION` si el id no es numérico; `401`; `403` rol distinto de SOCIO.
 
 ### 3.6 Funcionario: suspensión, rehabilitación, llegada y agendas
 

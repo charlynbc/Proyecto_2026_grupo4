@@ -38,6 +38,9 @@ public class HistoriaClinicaService {
         }
 
         String ordenNormalizado = orden == null || orden.isBlank() ? "fecha_atencion" : orden.trim().toLowerCase();
+        if ("fecha".equals(ordenNormalizado)) {
+            ordenNormalizado = "fecha_atencion";
+        }
         String sentidoNormalizado = sentido == null || sentido.isBlank() ? "desc" : sentido.trim().toLowerCase();
 
         if (!"fecha_atencion".equals(ordenNormalizado)
