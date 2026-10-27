@@ -114,6 +114,21 @@ El backend usa `JwtService` para emitir tokens con:
 
 La configuración de seguridad está en `SecurityConfig`. La aplicación exige autenticación para rutas protegidas y habilita CORS con `STATELESS` session management.
 
+#### Vigencia de la cuenta en cada solicitud
+
+Un JWT firmado y no vencido **no basta**: `CuentaVigenteValidator` (instalado en el `JwtDecoder` desde `JwtConfig`) consulta `cuenta` por clave primaria en cada solicitud y rechaza con 401 cuando:
+
+- la cuenta no existe, está inhabilitada (`habilitada = false`) o no completó el primer ingreso;
+- el claim `role` difiere del rol actual en la base;
+- el token carece de `iat` o fue emitido en o antes del segundo de `ultima_reactivacion_en` (una reactivación no revive tokens anteriores);
+- falla la consulta a la base: se rechaza (fail-closed) y se registra el error.
+
+El refresh (`SesionRepository.rotar`) tampoco renueva sesiones creadas antes de la última reactivación. Un login nuevo tras reactivar debe ocurrir en un segundo posterior (el `iat` tiene precisión de segundos).
+
+No hay caché: cuesta una consulta por PK por solicitud, a cambio de revocación inmediata. Riesgo residual: una solicitud ya validada que está en curso termina normalmente.
+
+Pruebas: `CuentaVigenteValidatorTest` (11, unitarias con mocks) y `CuentasInactivasIT` (PostgreSQL real, ejecutada en el workflow E2E): los cuatro roles inactivados, cuenta inexistente, token expirado, firma inválida, rol adulterado, reactivación, refresh y concurrencia.
+
 ### 4.2. Login real
 
 El `AuthService` valida:
