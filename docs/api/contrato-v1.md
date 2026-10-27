@@ -1580,7 +1580,7 @@ Consultas agendadas en el período, **contadas por la fecha en que se agendaron*
 #### #35 · `GET /api/estadisticas/turnos`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** CONFIRMADA en `feat/rf-40-estadisticas-turnos` (no integrada en avances). Diferencias con la propuesta: agrega `fechasActivas` y `utilizacion` (texto, `"Sin datos"` cuando `porcentajeUtilizacion` es `null`); `consultorio` incluye `ubicacion`; el porcentaje lleva 2 decimales.
+- **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** CONFIRMADA (integrada en avances, PR #25 y corrección JWT PR #26). Diferencias con la propuesta: agrega `fechasActivas` y `utilizacion` (texto, `"Sin datos"` cuando `porcentajeUtilizacion` es `null`); `consultorio` incluye `ubicacion`; el porcentaje lleva 2 decimales.
 
 Porcentaje de números ocupados sobre los ofrecidos, en las fechas del período en que la fecha del turno estuvo activa. Ocupado: consulta `AGENDADA`, `ATENDIDA`, `NO_ASISTIO`, `NO_ATENDIDA` o `NO_SE_PRESENTO`; las canceladas lo dejan libre. Qué es "cada turno" (el patrón semanal o la fecha concreta): P-13. **PROPUESTA:** una fila por patrón semanal.
 
@@ -1621,9 +1621,11 @@ La segunda fila muestra "Sin datos" (no hubo números ofrecidos en fechas activa
 #### #36 · `GET /api/estadisticas/consultas`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-41. **Diseño:** `calcularConsultas(filtro): EstadisticaConsultaDTO` (S22). **Estado:** PROPUESTA.
+- **RF:** RF-41. **Diseño:** `calcularConsultas(filtro): EstadisticaConsultaDTO` (S22). **Estado:** CONFIRMADA en `feat/rf-41-estadisticas-consultas` (no integrada en avances hasta fusionar su PR). Diferencias con la propuesta: los conteos van en `estados` (no `porEstado`), el total en `totalConsultas`, y se agregan `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`.
 
-Consultas del período por estado, según la **fecha de la consulta**, con los siete estados (los calculados incluidos), y la tasa de cancelación por el socio: canceladas por el socio sobre el total.
+Consultas del período por estado, según la **fecha de la consulta** (`turno.fecha`), nunca la fecha en que se agendó. Siempre devuelve los siete estados, incluso en cero. `NO_ASISTIO` y `NO_ATENDIDA` son derivados: una consulta `AGENDADA` sin resultado cuyo día terminó (zona `America/Montevideo`) es `NO_ATENDIDA` si el socio tiene aviso de llegada ese día y `NO_ASISTIO` si no. Tasa de cancelación: `canceladasPorSocio / totalConsultas * 100` (2 decimales); las canceladas por la institución no entran en el numerador.
+
+Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, el mes en curso. Fechas inválidas o `desde > hasta`: `400 VALIDACION`.
 
 **Respuesta 200**
 
@@ -1631,8 +1633,7 @@ Consultas del período por estado, según la **fecha de la consulta**, con los s
 {
   "desde": "2026-10-01",
   "hasta": "2026-10-31",
-  "total": 200,
-  "porEstado": {
+  "estados": {
     "AGENDADA": 40,
     "ATENDIDA": 110,
     "CANCELADA_SOCIO": 20,
@@ -1641,11 +1642,14 @@ Consultas del período por estado, según la **fecha de la consulta**, con los s
     "NO_ATENDIDA": 5,
     "NO_SE_PRESENTO": 3
   },
-  "tasaCancelacionSocio": 10.0
+  "totalConsultas": 200,
+  "canceladasPorSocio": 20,
+  "porcentajeCancelacion": 10.0,
+  "porcentajeCancelacionTexto": "10 %"
 }
 ```
 
-`total` cero: `tasaCancelacionSocio` es `null` ("Sin datos"). Con consultas y ninguna cancelada por el socio: `0`.
+`totalConsultas` cero: `porcentajeCancelacion` es `null` y `porcentajeCancelacionTexto` es `"Sin datos"`. Con consultas y ninguna cancelada por el socio: `0` y `"0 %"`. No incluye datos de pacientes.
 
 ---
 

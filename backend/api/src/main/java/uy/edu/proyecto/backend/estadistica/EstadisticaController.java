@@ -11,13 +11,24 @@ public class EstadisticaController {
 
     private final EstadisticaEspecialidadService especialidades;
     private final EstadisticaTurnoService turnos;
+    private final EstadisticaConsultaService consultas;
 
     public EstadisticaController(
             EstadisticaEspecialidadService especialidades,
-            EstadisticaTurnoService turnos
+            EstadisticaTurnoService turnos,
+            EstadisticaConsultaService consultas
     ) {
         this.especialidades = especialidades;
         this.turnos = turnos;
+        this.consultas = consultas;
+    }
+
+    @GetMapping("/consultas")
+    public EstadisticaConsultaResponse porConsulta(
+            @RequestParam(required = false) String desde,
+            @RequestParam(required = false) String hasta
+    ) {
+        return consultas.calcular(desde, hasta);
     }
 
     @GetMapping("/turnos")
