@@ -956,8 +956,11 @@ utilización de un turno = números ocupados / números ofrecidos * 100
 
 - **Unidad «turno»:** el patrón semanal (`turno_semanal`: médico, especialidad,
   consultorio y día de la semana) cuya vigencia toca el período.
-- **Fechas activas:** fechas (`turno.fecha`) dentro de `[desde, hasta]` (ambos
-  inclusive) con `turno.estado = 'ACTIVO'`. Una fecha suspendida queda excluida del
+- **Fechas activas (interpretación histórica, PR #38):** fechas (`turno.fecha`) dentro de
+  `[desde, hasta]` que estaban activas al cierre de su día (`America/Montevideo`) o al instante
+  actual, según el último `turno_evento` previo. Sin evento previo, el estado inicial es el
+  opuesto al primer evento; sin eventos se usa `turno.estado` (limitación documentada).
+  Una fecha suspendida queda excluida del
   numerador y del denominador. Una fecha suspendida y luego rehabilitada vuelve a
   `ACTIVO` y cuenta; las consultas que la suspensión canceló siguen canceladas, por
   lo que sus números figuran libres.
@@ -1072,9 +1075,11 @@ Para contrastar con SQL: `SELECT count(DISTINCT c.id_numero) FROM consulta c JOI
 | Unitaria | `EstadisticaTurnoServiceTest` (7) | mes por defecto, zona Montevideo, rango, fechas inválidas, parcial/total/0 %, Sin datos, redondeo |
 | Mock de JDBC | `EstadisticaTurnoRepositoryTest` (1) | solo fechas ACTIVO, EXISTS sobre consultas no canceladas, 4 parámetros, sin datos de pacientes |
 | HTTP/seguridad | `EstadisticaSeguridadTest` (+4 de RF-40) | 200 administrador, 403, 401, 400 |
-| PostgreSQL real | `EstadisticaTurnoIT` (9) | escenario mixto, estados derivados, reserva repetida, fecha suspendida, rehabilitada, límites, período vacío, roles, SQL injection, sin datos de pacientes, lecturas concurrentes |
+| PostgreSQL real | `EstadisticaTurnoIT` (9) y `EstadisticaTurnoHistoricoIT` (12) | escenario mixto, estados derivados, reserva repetida, fecha suspendida, rehabilitada, límites, período vacío, roles, SQL injection, sin datos de pacientes, lecturas concurrentes; histórico: suspensión posterior, rehabilitación, varios eventos, cambio de día |
 
-`EstadisticaTurnoIT` solo corre en `e2e.yml` (PostgreSQL 17 efímero en GitHub Actions). Resultado confirmado en el PR #25 (commit `ca1af34`, PostgreSQL 17.11): `EstadisticaTurnoIT` 9/9; total IT 54 ejecutadas, 54 aprobadas, 0 fallidas, 0 omitidas; Maven 370 aprobadas.
+Las IT solo corren en `e2e.yml` (PostgreSQL 17 efímero en GitHub Actions). Estado vigente sobre el HEAD `25405b4`, ejecutado localmente: **182 IT** y **419** pruebas Maven, 0 fallos (el PR #25 original tenía 54 IT y 370 Maven: conteos históricos).
+
+**Interpretación histórica (PR #38)**: una fecha cuenta como ofrecida si estaba activa al cierre de su día en `America/Montevideo`, según el último evento de `turno_evento`; sin eventos se usa el estado actual. Ver `docs/informes/cierre-criticos-2026.md` §4.
 
 ### 5.11. Estadísticas de consultas (RF-41)
 

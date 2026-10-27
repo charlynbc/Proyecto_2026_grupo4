@@ -56,14 +56,14 @@ PostgreSQL.
 | 26 | `GET /api/avisos-llegada/consultas-hoy?ci=` | FUNCIONARIO | 16 | Buscar socio | CONFIRMADA | - | [contrato #26](contrato-v1.md#e26) |
 | 27 | `POST /api/avisos-llegada` | FUNCIONARIO | 16 | Registrar llegada | CONFIRMADA | - | [contrato #27](contrato-v1.md#e27) |
 | 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas | CONFIRMADA | Backend en integracion/proyecto-2026-avances 23/10/2026; Flutter pendiente | [contrato #28](contrato-v1.md#e28) |
-| 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos | CONFIRMADA | - | [contrato #29](contrato-v1.md#e29) |
-| 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21 | Pacientes del turno | CONFIRMADA | - | [contrato #30](contrato-v1.md#e30) |
+| 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos (pantalla Flutter `/medico/turnos`, sondeo cada 3 s, PR #39) | CONFIRMADA | - | [contrato #29](contrato-v1.md#e29) |
+| 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21 | Pacientes del turno (con `llegada`, `orden`, `sentido`; sondeo cada 3 s) | CONFIRMADA | - | [contrato #30](contrato-v1.md#e30) |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases | CONFIRMADA | - | [contrato #31](contrato-v1.md#e31) |
 | 32 | `GET /api/notificaciones` | SOCIO | RNF-23 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
 | 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push | CAMBIADA | - | [contrato #33](contrato-v1.md#e33) |
 | 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | CONFIRMADA (integrada en avances, PR #24) | - | [contrato #34](contrato-v1.md#e34) |
-| 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | CONFIRMADA (integrada en avances, PR #25; agrega `fechasActivas` y `utilizacion`) | - | [contrato #35](contrato-v1.md#e35) |
-| 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | CONFIRMADA en la rama `feat/rf-41-estadisticas-consultas` (pendiente de integración; usa `estados`, `totalConsultas`, `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`) | - | [contrato #36](contrato-v1.md#e36) |
+| 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | CONFIRMADA (integrada en avances, PR #25; agrega `fechasActivas` y `utilizacion`; interpretación histórica desde `turno_evento` en el PR #38, JSON sin cambios) | - | [contrato #35](contrato-v1.md#e35) |
+| 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | CONFIRMADA (integrada en avances; usa `estados`, `totalConsultas`, `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`) | - | [contrato #36](contrato-v1.md#e36) |
 | 37 | `GET /api/socios/me/pases/disponibles` | SOCIO | 09 | Confirmar agenda (pase que se usará) | CONFIRMADA | feat/front-socio-sobre-integracion 25/10/2026 | Sin sección en el contrato (P-08 sigue diciendo que no hay endpoint). Ver "Cambios de campos acordados". |
 
 ## Rutas de la prueba de concepto
