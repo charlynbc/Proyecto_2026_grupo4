@@ -577,9 +577,9 @@ Una fila por cuenta. Una persona con varias cuentas (incluidas las de empleado a
 |---|---|---|
 | `rol` | `Rol` | |
 | `estado` | `EstadoCuenta` | `ACTIVA` o `INACTIVA`. |
-| `q` | texto | **PROPUESTA:** coincidencia parcial, sin distinguir mayúsculas, con CI o apellido. |
-| `orden` | `apellido` o `fechaAlta` | Por defecto `apellido`. |
-| `sentido` | `asc` o `desc` | Por defecto `asc`. |
+| `q` | texto | Coincidencia parcial, sin distinguir mayúsculas, con CI o apellido. `%` y `_` se buscan literalmente. `texto` se acepta como alias; si ambos llegan con valores distintos, `400 VALIDACION`. |
+| `orden` | `apellido` o `fechaAlta` | Por defecto `apellido`. Otro valor: `400 VALIDACION`. Desempate estable por `id`. |
+| `sentido` | `asc` o `desc` | Por defecto `asc`. Otro valor: `400 VALIDACION`. |
 | `page`, `size` | | Sección 1.3. |
 
 **Respuesta 200** (`UsuarioDTO`)
