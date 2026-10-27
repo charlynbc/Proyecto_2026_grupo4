@@ -112,9 +112,22 @@ El backend usa `JwtService` para emitir tokens con:
 - claim `role`
 - expiración configurable por `app.jwt.expiration-seconds`
 
-**Incidencia conocida (transversal, abierta):** el backend valida solo firma, emisor y expiración del JWT (`JwtConfig`) y toma el rol del claim `role`. No vuelve a consultar si la cuenta sigue habilitada, por lo que un JWT emitido antes de inactivar una cuenta sigue siendo aceptado hasta expirar (900 s por defecto). Afecta a todos los endpoints protegidos, no solo a RF-40. Se corregirá en una rama y PR independientes (`fix/seguridad-jwt-cuentas-inactivas`); no está corregida en `avances` ni en el PR #25.
-
 La configuración de seguridad está en `SecurityConfig`. La aplicación exige autenticación para rutas protegidas y habilita CORS con `STATELESS` session management.
+
+#### Vigencia de la cuenta en cada solicitud
+
+Un JWT firmado y no vencido **no basta**: `CuentaVigenteValidator` (instalado en el `JwtDecoder` desde `JwtConfig`) consulta `cuenta` por clave primaria en cada solicitud y rechaza con 401 cuando:
+
+- la cuenta no existe, está inhabilitada (`habilitada = false`) o no completó el primer ingreso;
+- el claim `role` difiere del rol actual en la base;
+- el token carece de `iat` o fue emitido en o antes del segundo de `ultima_reactivacion_en` (una reactivación no revive tokens anteriores);
+- falla la consulta a la base: se rechaza (fail-closed) y se registra el error.
+
+El refresh (`SesionRepository.rotar`) tampoco renueva sesiones creadas antes de la última reactivación. Un login nuevo tras reactivar debe ocurrir en un segundo posterior (el `iat` tiene precisión de segundos).
+
+No hay caché: cuesta una consulta por PK por solicitud, a cambio de revocación inmediata. Riesgo residual: una solicitud ya validada que está en curso termina normalmente.
+
+Pruebas: `CuentaVigenteValidatorTest` (11, unitarias con mocks) y `CuentasInactivasIT` (PostgreSQL real, ejecutada en el workflow E2E): los cuatro roles inactivados, cuenta inexistente, token expirado, firma inválida, rol adulterado, reactivación, refresh y concurrencia.
 
 ### 4.2. Login real
 

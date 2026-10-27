@@ -8,12 +8,15 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+
+import uy.edu.proyecto.backend.security.CuentaVigenteValidator;
 
 @Configuration
 public class JwtConfig {
@@ -55,7 +58,7 @@ public class JwtConfig {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder() {
+    public JwtDecoder jwtDecoder(CuentaVigenteValidator cuentaVigenteValidator) {
 
         NimbusJwtDecoder decoder = NimbusJwtDecoder
                 .withSecretKey(obtenerClave())
@@ -63,8 +66,9 @@ public class JwtConfig {
                 .build();
 
         decoder.setJwtValidator(
-                JwtValidators.createDefaultWithIssuer(
-                        "grupo4-api"
+                new DelegatingOAuth2TokenValidator<>(
+                        JwtValidators.createDefaultWithIssuer("grupo4-api"),
+                        cuentaVigenteValidator
                 )
         );
 

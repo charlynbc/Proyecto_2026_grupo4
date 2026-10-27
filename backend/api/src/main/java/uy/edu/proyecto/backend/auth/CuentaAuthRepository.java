@@ -1,5 +1,6 @@
 package uy.edu.proyecto.backend.auth;
 
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -82,6 +83,36 @@ public class CuentaAuthRepository {
                 )
                 .stream()
                 .findFirst();
+    }
+
+    public Optional<Vigencia> buscarVigencia(long idCuenta) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT rol,
+                               habilitada,
+                               primer_ingreso_completado,
+                               date_trunc('second', ultima_reactivacion_en) AS reactivada_en
+                        FROM public.cuenta
+                        WHERE id_cuenta = ?
+                        """,
+                        (rs, rowNum) -> new Vigencia(
+                                rs.getString("rol"),
+                                rs.getBoolean("habilitada"),
+                                rs.getBoolean("primer_ingreso_completado"),
+                                rs.getObject("reactivada_en", OffsetDateTime.class)
+                        ),
+                        idCuenta
+                )
+                .stream()
+                .findFirst();
+    }
+
+    public record Vigencia(
+            String rol,
+            boolean habilitada,
+            boolean primerIngresoCompletado,
+            OffsetDateTime reactivadaEn
+    ) {
     }
 
     public record CuentaAutenticacion(
