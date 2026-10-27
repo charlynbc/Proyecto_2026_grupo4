@@ -63,6 +63,7 @@ public class ResendCorreoSender implements CorreoSender {
                     .timeout(TIMEOUT)
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
+                    .header("User-Agent", "proyecto-2026-grupo4-api")
                     .POST(HttpRequest.BodyPublishers.ofString(cuerpo))
                     .build();
 

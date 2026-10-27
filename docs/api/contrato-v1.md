@@ -308,11 +308,13 @@ Sin cuerpo. Revoca la sesión en el servidor y borra la cookie de renovación. E
 
 Lo que pase después (enviar el enlace de un solo uso válido por 24 horas, enviar el correo de "ya está activa" o no enviar nada) es interno y asíncrono; no cambia la respuesta ni su tiempo apreciable. No se puede enumerar CI con este endpoint.
 
+**Implementación y correo (verificado 27/10/2026).** El `202` solo significa que el pedido fue aceptado: el correo sale después del commit, en segundo plano, y su fallo no cambia la respuesta. El enlace es `FIRST_LOGIN_URL + "?token=<token>"`, con `FIRST_LOGIN_URL=https://<host>/#/primer-ingreso` (Flutter web usa `#`), de modo que el cliente recibe `/#/primer-ingreso?token=…` (resuelve P-34). El token es aleatorio de 256 bits, solo se guarda su hash SHA-256, vence a las 24 horas y pedir uno nuevo invalida los anteriores. Un acceso que no corresponde al rol (por ejemplo `SOCIO` para un médico) responde igual y no envía enlace. Proveedores: ver `docs/api/railway-correo.md`.
+
 **Errores**
 
 | Status | `code` | Cuándo |
 |---|---|---|
-| 400 | `VALIDACION` | Falta un campo o `acceso` inválido. Solo por forma del pedido; nunca depende de si la CI existe. |
+| 400 | `VALIDACION` | Falta un campo, `acceso` inválido o CI con dígito verificador inválido. Solo por forma del pedido; nunca depende de si la CI existe. |
 
 <a id="e05"></a>
 #### #5 · `POST /api/auth/primer-ingreso/completar`
@@ -357,6 +359,8 @@ El correo **no** se envía ni se puede modificar en el primer ingreso (RF-02).
 ```
 
 La cuenta queda activa y el usuario inicia sesión por #1. No devuelve token: no inicia sesión sola.
+
+Errores: `400 ENLACE_INVALIDO` (mismo código y mensaje si el enlace no existe, venció, ya se usó, fue reemplazado por uno más nuevo o la cuenta fue inactivada) y `400 VALIDACION` (falta `direccion`/`telefono1`/`password`, `password` de menos de 8 caracteres o de más de 72 bytes, teléfonos de más de 30 caracteres). Un `400 VALIDACION` no consume el enlace. El empleado inicia sesión con `acceso: "EMPLEADO"` y `plataforma: "WEB"`.
 
 **Errores**
 

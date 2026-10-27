@@ -101,6 +101,7 @@ class PrimerIngresoMailListenerTest {
                 .map(ILoggingEvent::getFormattedMessage)
                 .reduce("", String::concat);
         assertTrue(salida.contains("12"));
+        assertTrue(salida.contains("Resend respondio HTTP 500"));
         assertFalse(salida.contains("token-unico"));
         assertFalse(salida.contains("ana@example.org"));
         assertTrue(logs.list.stream().allMatch(e -> e.getThrowableProxy() == null));
@@ -137,6 +138,6 @@ class PrimerIngresoMailListenerTest {
                 .reduce("", String::concat);
         assertTrue(salida.contains("13"));
         assertFalse(salida.contains("bruno@example.org"));
-        assertFalse(salida.contains("falla de proveedor"));
+        assertTrue(salida.contains("falla de proveedor"));
     }
 }
