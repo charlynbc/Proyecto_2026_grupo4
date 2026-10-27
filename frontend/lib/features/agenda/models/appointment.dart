@@ -3,6 +3,28 @@ import '../../especialidades/models/specialty.dart';
 import 'agenda_time.dart';
 import 'available_number.dart';
 
+/// Los siete valores de `EstadoConsulta` (contrato 1.7). `NO_ASISTIO` y
+/// `NO_ATENDIDA` se calculan al consultar y nunca se guardan.
+const Set<String> kAppointmentStatuses = {
+  'AGENDADA',
+  'ATENDIDA',
+  'CANCELADA_SOCIO',
+  'CANCELADA_INSTITUCION',
+  'NO_SE_PRESENTO',
+  'NO_ASISTIO',
+  'NO_ATENDIDA',
+};
+
+/// El estado tal como lo manda el servidor. Uno que no sea de la lista tira
+/// `FormatException`, en vez de mostrarse o clasificarse mal en silencio
+/// (decisión del cliente, no del contrato).
+String _statusFromApi(String value) {
+  if (!kAppointmentStatuses.contains(value)) {
+    throw FormatException('Estado de consulta desconocido', value);
+  }
+  return value;
+}
+
 /// La consulta que devuelve `POST /api/consultas` (`Consulta`, contrato #17).
 /// `fecha` y las horas son locales de Uruguay; `agendadaEn` y `canceladaEn`
 /// son instantes y se muestran pasados a hora de Uruguay.
@@ -25,7 +47,7 @@ class Appointment {
 
   factory Appointment.fromJson(Map<String, dynamic> json) => Appointment(
     id: json['id'] as int,
-    status: json['estado'] as String,
+    status: _statusFromApi(json['estado'] as String),
     date: parseApiDate(json['fecha'] as String),
     number: json['numero'] as int,
     startMinutes: parseApiTime(json['horaInicio'] as String),
@@ -65,7 +87,7 @@ class Appointment {
     'ATENDIDA' => 'Atendida',
     'CANCELADA_SOCIO' => 'Cancelada por el socio',
     'CANCELADA_INSTITUCION' => 'Cancelada por la institución',
-    'NO_SE_PRESENTO' => 'No se presentó',
+    'NO_SE_PRESENTO' => 'No se presentó a la consulta',
     'NO_ASISTIO' => 'No asistió',
     'NO_ATENDIDA' => 'No atendida',
     _ => status,

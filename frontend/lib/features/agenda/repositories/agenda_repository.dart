@@ -2,13 +2,21 @@ import '../../../core/network/api_exception.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
+import '../models/referral.dart';
 
-/// Disponibilidad (RF-08, contrato #16) y alta de consultas (RF-09,
-/// contrato #17). Listar las consultas del socio (RF-11) y cancelarlas no
-/// están en el backend todavía y por eso no figuran acá.
+/// Disponibilidad (RF-08, contrato #16), alta de consultas (RF-09, contrato
+/// #17) y los pases disponibles del socio
+/// (`GET /api/socios/me/pases/disponibles`). Listar las consultas del socio
+/// (RF-11) y cancelarlas no están en el backend todavía y por eso no figuran
+/// acá.
 abstract class AgendaRepository {
   /// Los números libres de la especialidad de [query], en el orden pedido.
   Future<List<AvailableNumber>> listAvailability(AvailabilityQuery query);
+
+  /// Los pases del socio de la sesión que no están vencidos ni usados, en el
+  /// orden del servidor (por vencimiento). No filtra por especialidad: eso es
+  /// de quien lo pide.
+  Future<List<Referral>> listReferrals();
 
   /// Agenda el número [numberId] para el socio de la sesión. [referralId] es
   /// el pase, que el servidor exige solo en las especialidades que lo piden.

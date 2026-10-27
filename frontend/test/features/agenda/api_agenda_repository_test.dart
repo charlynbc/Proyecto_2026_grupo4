@@ -32,6 +32,30 @@ Map<String, dynamic> _consulta() => _item(11)
     'motivoCancelacion': null,
   });
 
+/// Un pase como lo manda `GET /api/socios/me/pases/disponibles`: Cardiología,
+/// la del catálogo de los fakes (id 2).
+Map<String, dynamic> _referral(
+  int id,
+  String expiresOn, {
+  String issuedAt = '2026-10-20T14:30:00Z',
+}) => {
+  'id': id,
+  'especialidadDestino': {
+    'id': 2,
+    'nombre': 'Cardiología',
+    'requierePase': true,
+  },
+  'emitidoEn': issuedAt,
+  'venceEl': expiresOn,
+};
+
+/// El error genérico de siempre: lo que se ve cuando la respuesta no sirve.
+final _genericError = isA<ApiException>().having(
+  (e) => e.message,
+  'message',
+  kApiGenericMessage,
+);
+
 class _Adapter implements HttpClientAdapter {
   _Adapter(this.status, this.body);
 
@@ -146,6 +170,84 @@ void main() {
     });
   });
 
+  group('pases disponibles', () {
+    const route = '/api/socios/me/pases/disponibles';
+
+    test('pide GET $route sin parámetros de consulta', () async {
+      final (repo, adapter) = _repo(200, <Object>[]);
+
+      await repo.listReferrals();
+
+      expect(adapter.last!.method, 'GET');
+      expect(adapter.last!.path, route);
+      expect(adapter.last!.queryParameters, isEmpty);
+    });
+
+    test('lee una lista de dos pases con todos sus campos', () async {
+      final (repo, _) = _repo(200, [
+        _referral(77, '2026-11-19'),
+        _referral(78, '2026-12-01', issuedAt: '2026-10-22T11:30:00-03:00'),
+      ]);
+
+      final referrals = await repo.listReferrals();
+
+      expect(referrals, hasLength(2));
+      expect(referrals[0].id, 77);
+      expect(referrals[0].specialty.id, 2);
+      expect(referrals[0].specialty.name, 'Cardiología');
+      expect(referrals[0].issuedAt, DateTime.utc(2026, 10, 20, 14, 30));
+      expect(referrals[0].expiresOn, DateTime.utc(2026, 11, 19));
+      expect(referrals[1].id, 78);
+      expect(referrals[1].issuedAt, DateTime.utc(2026, 10, 22, 14, 30));
+      expect(referrals[1].expiresOn, DateTime.utc(2026, 12, 1));
+    });
+
+    test('una lista vacía da una lista vacía, no un error', () async {
+      final (repo, _) = _repo(200, <Object>[]);
+
+      expect(await repo.listReferrals(), isEmpty);
+    });
+
+    test('un cuerpo que no es una lista es el error genérico', () async {
+      final (repo, _) = _repo(200, {'items': <Object>[]});
+
+      await expectLater(repo.listReferrals(), throwsA(_genericError));
+    });
+
+    test(
+      'un elemento con venceEl en otro formato es el error genérico',
+      () async {
+        final (repo, _) = _repo(200, [_referral(77, '19/11/2026')]);
+
+        await expectLater(repo.listReferrals(), throwsA(_genericError));
+      },
+    );
+
+    test('un elemento sin id es el error genérico', () async {
+      final (repo, _) = _repo(200, [_referral(77, '2026-11-19')..remove('id')]);
+
+      await expectLater(repo.listReferrals(), throwsA(_genericError));
+    });
+
+    test('un 401 TOKEN_INVALIDO sale con el mensaje del servidor', () async {
+      final (repo, _) = _repo(401, {
+        'code': 'TOKEN_INVALIDO',
+        'message': 'La sesión no es válida',
+      });
+
+      await expectLater(
+        repo.listReferrals(),
+        throwsA(
+          isA<ApiException>().having(
+            (e) => e.message,
+            'message',
+            'La sesión no es válida',
+          ),
+        ),
+      );
+    });
+  });
+
   group('crear consulta', () {
     test('POST /api/consultas con numeroId y paseId nulo', () async {
       final (repo, adapter) = _repo(201, _consulta());
@@ -214,6 +316,23 @@ void main() {
       final (repo, _) = _repo(201, {'id': 'x'});
       await expectLater(repo.book(numberId: 11), throwsA(isA<ApiException>()));
     });
+
+    test(
+      'un estado desconocido en la consulta creada es un error genérico',
+      () async {
+        final (repo, _) = _repo(201, _consulta()..['estado'] = 'REPROGRAMADA');
+        await expectLater(
+          repo.book(numberId: 11),
+          throwsA(
+            isA<ApiException>().having(
+              (e) => e.message,
+              'message',
+              kApiGenericMessage,
+            ),
+          ),
+        );
+      },
+    );
   });
 
   test('AvailabilityQuery compara por valor', () {

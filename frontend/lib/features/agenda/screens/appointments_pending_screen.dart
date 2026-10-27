@@ -9,11 +9,11 @@ import '../../../core/widgets/centered_content.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialties_provider.dart';
-import '../models/appointment.dart';
 import '../models/appointment_history_page.dart';
 import '../models/appointment_history_query.dart';
 import '../providers/appointment_history_provider.dart';
 import '../repositories/appointment_history_repository.dart';
+import '../widgets/appointment_card.dart';
 
 const String kAvailabilityPath = '/socio/disponibilidad';
 const String kAppointmentsPath = '/socio/consultas';
@@ -161,6 +161,7 @@ class _AppointmentsPendingScreenState
       children: [
         DropdownButtonFormField<String?>(
           key: const Key('history-filter-status'),
+          isExpanded: true,
           initialValue: _status,
           decoration: const InputDecoration(labelText: 'Estado'),
           items: const [
@@ -195,6 +196,7 @@ class _AppointmentsPendingScreenState
           ),
           data: (items) => DropdownButtonFormField<int?>(
             key: const Key('history-filter-specialty'),
+            isExpanded: true,
             initialValue: _specialtyId,
             decoration: const InputDecoration(labelText: 'Especialidad'),
             items: [
@@ -253,6 +255,7 @@ class _AppointmentsPendingScreenState
             Expanded(
               child: DropdownButtonFormField<AppointmentHistoryOrder>(
                 key: const Key('history-filter-order'),
+                isExpanded: true,
                 initialValue: _order,
                 decoration: const InputDecoration(labelText: 'Ordenar por'),
                 items: const [
@@ -275,6 +278,7 @@ class _AppointmentsPendingScreenState
             Expanded(
               child: DropdownButtonFormField<AppointmentHistoryDirection>(
                 key: const Key('history-filter-direction'),
+                isExpanded: true,
                 initialValue: _direction,
                 decoration: const InputDecoration(labelText: 'Sentido'),
                 items: const [
@@ -333,7 +337,11 @@ class _AppointmentsPendingScreenState
     };
     return Column(
       children: [
-        Text(message, key: const Key('history-error')),
+        Text(
+          message,
+          key: const Key('history-error'),
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
         const SizedBox(height: 8),
         OutlinedButton(
           onPressed: () => ref.invalidate(appointmentHistoryProvider(query)),
@@ -345,6 +353,25 @@ class _AppointmentsPendingScreenState
 
   Widget _results(AppointmentHistoryPage result) {
     if (result.items.isEmpty) {
+      // Una página que ya no existe (por ejemplo, si se achicó la lista) deja
+      // la fila de paginación para volver a la anterior.
+      if (result.hasPrevious) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: Text(
+                  'Esta página ya no tiene consultas.',
+                  key: Key('history-empty-page'),
+                ),
+              ),
+            ),
+            _pagination(result),
+          ],
+        );
+      }
       return const Padding(
         padding: EdgeInsets.all(24),
         child: Center(
@@ -364,52 +391,33 @@ class _AppointmentsPendingScreenState
         ),
         const SizedBox(height: 8),
         for (final appointment in result.items)
-          _AppointmentCard(appointment: appointment),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton(
-              key: const Key('history-previous'),
-              onPressed: result.hasPrevious
-                  ? () => setState(() => _page -= 1)
-                  : null,
-              child: const Text('Anterior'),
-            ),
-            Text('Página ${result.page + 1}'),
-            TextButton(
-              key: const Key('history-next'),
-              onPressed: result.hasNext
-                  ? () => setState(() => _page += 1)
-                  : null,
-              child: const Text('Siguiente'),
-            ),
-          ],
-        ),
+          AppointmentCard(
+            appointment: appointment,
+            onTap: () => context.push('$kAppointmentsPath/${appointment.id}'),
+          ),
+        _pagination(result),
       ],
     );
   }
-}
 
-class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({required this.appointment});
-
-  final Appointment appointment;
-
-  @override
-  Widget build(BuildContext context) {
-    final value = appointment;
-    return Card(
-      child: ListTile(
-        key: Key('appointment-${value.id}'),
-        title: Text('${value.specialty.name} · ${value.statusLabel}'),
-        subtitle: Text(
-          '${formatUiDate(value.date)} · ${value.timeRange}\n'
-          '${value.doctor.fullName} · ${value.clinic.name}',
+  Widget _pagination(AppointmentHistoryPage result) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        TextButton(
+          key: const Key('history-previous'),
+          onPressed: result.hasPrevious
+              ? () => setState(() => _page -= 1)
+              : null,
+          child: const Text('Anterior'),
         ),
-        isThreeLine: true,
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.push('$kAppointmentsPath/${value.id}'),
-      ),
+        Text('Página ${result.page + 1}'),
+        TextButton(
+          key: const Key('history-next'),
+          onPressed: result.hasNext ? () => setState(() => _page += 1) : null,
+          child: const Text('Siguiente'),
+        ),
+      ],
     );
   }
 }

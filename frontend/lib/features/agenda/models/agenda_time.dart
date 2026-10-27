@@ -3,6 +3,10 @@
 /// y no se interpretan como UTC ni se desplazan.
 library;
 
+/// Anticipación máxima para agendar: la fecha de la consulta no puede estar a
+/// más de estos días desde hoy (RF-09).
+const int kMaxAdvanceDays = 30;
+
 final RegExp _datePattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
 final RegExp _timePattern = RegExp(r'^(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?$');
 

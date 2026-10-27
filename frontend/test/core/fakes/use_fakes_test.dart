@@ -6,10 +6,14 @@ import 'package:agenda_medica/core/utils/uruguay_time.dart';
 import 'package:agenda_medica/core/validators/uruguayan_ci_validator.dart';
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/features/agenda/models/availability_query.dart';
+import 'package:agenda_medica/features/agenda/models/appointment_history_query.dart';
 import 'package:agenda_medica/features/agenda/providers/agenda_repository_provider.dart';
+import 'package:agenda_medica/features/agenda/providers/appointment_history_provider.dart';
 import 'package:agenda_medica/features/agenda/repositories/agenda_repository.dart';
 import 'package:agenda_medica/features/agenda/repositories/api_agenda_repository.dart';
+import 'package:agenda_medica/features/agenda/repositories/api_appointment_history_repository.dart';
 import 'package:agenda_medica/features/agenda/repositories/fake_agenda_repository.dart';
+import 'package:agenda_medica/features/agenda/repositories/fake_appointment_history_repository.dart';
 import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
@@ -53,6 +57,19 @@ void main() {
         expect(repo, isA<FakeAgendaRepository>());
       });
 
+      test('historial de consultas', () async {
+        final repo = await _container(useFakes: true)
+            .read(appointmentHistoryRepositoryProvider.future);
+        expect(repo, isA<FakeAppointmentHistoryRepository>());
+      });
+
+      test('el historial falso trae las tres consultas de la semilla', () async {
+        final repo = await _container(useFakes: true)
+            .read(appointmentHistoryRepositoryProvider.future);
+        final page = await repo.list(const AppointmentHistoryQuery());
+        expect(page.total, 3);
+      });
+
       test('turnos', () async {
         final repo = await _container(useFakes: true)
             .read(shiftRepositoryProvider.future);
@@ -72,6 +89,12 @@ void main() {
       final repo = await _container(useFakes: false)
           .read(agendaRepositoryProvider.future);
       expect(repo, isA<ApiAgendaRepository>());
+    });
+
+    test('historial de consultas', () async {
+      final repo = await _container(useFakes: false)
+          .read(appointmentHistoryRepositoryProvider.future);
+      expect(repo, isA<ApiAppointmentHistoryRepository>());
     });
 
     test('turnos', () async {

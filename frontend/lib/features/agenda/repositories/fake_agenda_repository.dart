@@ -7,6 +7,7 @@ import '../../especialidades/models/specialty.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
+import '../models/referral.dart';
 import 'agenda_repository.dart';
 
 /// Implementación en memoria de [AgendaRepository] para `USE_FAKES=true`
@@ -72,6 +73,34 @@ class FakeAgendaRepository implements AgendaRepository {
         : items.reversed.toList();
   }
 
+  /// Los pases vigentes hoy y sin usar, por vencimiento y después por id,
+  /// como los lista el servidor.
+  @override
+  Future<List<Referral>> listReferrals() async {
+    await Future<void>.delayed(latency);
+    final now = UruguayTime.toUruguay(_clock());
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final items =
+        [
+          for (final referral in _db.referrals)
+            if (!referral.expiresOn.isBefore(today) && _isUnused(referral))
+              referral,
+        ]..sort((a, b) {
+          final byExpiry = a.expiresOn.compareTo(b.expiresOn);
+          return byExpiry != 0 ? byExpiry : a.id.compareTo(b.id);
+        });
+    return items;
+  }
+
+  /// Un pase queda libre si ninguna consulta lo usa. Como en el servidor, lo
+  /// usan las consultas en cualquier estado salvo las dos canceladas.
+  bool _isUnused(Referral referral) => !_db.appointments.any(
+    (a) =>
+        a.referralId == referral.id &&
+        a.status != 'CANCELADA_SOCIO' &&
+        a.status != 'CANCELADA_INSTITUCION',
+  );
+
   @override
   Future<Appointment> book({required int numberId, int? referralId}) async {
     await Future<void>.delayed(latency);
@@ -136,7 +165,14 @@ class FakeAgendaRepository implements AgendaRepository {
         'No se debe enviar paseId para una especialidad que no lo requiere',
       );
     }
-    if (specialty.requiresReferral && (referralId == null || referralId <= 0)) {
+    if (specialty.requiresReferral &&
+        !_db.referrals.any(
+          (r) =>
+              r.id == referralId &&
+              r.specialty.id == specialty.id &&
+              !r.expiresOn.isBefore(candidate.date) &&
+              _isUnused(r),
+        )) {
       throw const BookingException(
         BookingFailure.invalidReferral,
         'No existe un pase propio, vigente y sin utilizar para esta '

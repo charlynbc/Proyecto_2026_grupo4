@@ -1,3 +1,4 @@
+import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_page.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_query.dart';
@@ -12,6 +13,8 @@ import 'package:agenda_medica/features/especialidades/providers/specialties_prov
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../helpers/load_roboto.dart';
 
 final _appointment = Appointment(
   id: 9001,
@@ -53,6 +56,55 @@ class _HistoryRepository implements AppointmentHistoryRepository {
     requestedId = id;
     if (error != null) throw error!;
     return _appointment;
+  }
+}
+
+/// Responde distinto por página: las que no figuran vienen vacías con total 0.
+class _PagedHistoryRepository extends _HistoryRepository {
+  _PagedHistoryRepository(this.pages);
+
+  final Map<int, ({List<Appointment> items, int total})> pages;
+
+  @override
+  Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
+    final page = pages[query.page] ?? (items: const <Appointment>[], total: 0);
+    return AppointmentHistoryPage(
+      items: page.items,
+      page: query.page,
+      size: query.size,
+      total: page.total,
+    );
+  }
+}
+
+const _loadFailure = 'No pudimos cargar tus consultas de prueba.';
+
+/// Falla la primera vez que se pide la [failingPage] y después responde bien.
+/// Anota las páginas pedidas, en orden.
+class _FlakyHistoryRepository extends _HistoryRepository {
+  _FlakyHistoryRepository({
+    required this.failingPage,
+    super.items,
+    super.total,
+  });
+
+  final int failingPage;
+  bool _failed = false;
+  final requestedPages = <int>[];
+
+  @override
+  Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
+    requestedPages.add(query.page);
+    if (query.page == failingPage && !_failed) {
+      _failed = true;
+      throw const ApiException(_loadFailure);
+    }
+    return AppointmentHistoryPage(
+      items: items,
+      page: query.page,
+      size: query.size,
+      total: total,
+    );
   }
 }
 
@@ -99,7 +151,7 @@ void main() {
     expect(find.byKey(const Key('history-next')), findsOneWidget);
   });
 
-  testWidgets('muestra estado vacío y permite reintentar error de conexión', (
+  testWidgets('muestra el estado vacío cuando no hay consultas', (
     tester,
   ) async {
     await _pump(
@@ -161,5 +213,197 @@ void main() {
     );
 
     expect(find.text('No se encontró esta consulta.'), findsOneWidget);
+  });
+
+  group('página vacía después de la primera', () {
+    const emptyPageText = 'Esta página ya no tiene consultas.';
+
+    Future<void> goToNextPage(WidgetTester tester) async {
+      await tester.tap(find.byKey(const Key('history-next')));
+      await tester.pumpAndSettle();
+    }
+
+    bool isEnabled(WidgetTester tester, String key) =>
+        tester.widget<TextButton>(find.byKey(Key(key))).onPressed != null;
+
+    testWidgets('con el total real avisa y deja volver a la anterior', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _PagedHistoryRepository({
+          0: (items: [_appointment], total: 25),
+          1: (items: const [], total: 25),
+        }),
+      );
+      expect(find.byKey(const Key('appointment-9001')), findsOneWidget);
+
+      await goToNextPage(tester);
+
+      expect(find.byKey(const Key('history-empty-page')), findsOneWidget);
+      expect(find.text(emptyPageText), findsOneWidget);
+      expect(find.byKey(const Key('history-empty')), findsNothing);
+      expect(find.text('Página 2'), findsOneWidget);
+      expect(isEnabled(tester, 'history-previous'), isTrue);
+      expect(isEnabled(tester, 'history-next'), isFalse);
+
+      await tester.tap(find.byKey(const Key('history-previous')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('history-empty-page')), findsNothing);
+      expect(find.byKey(const Key('appointment-9001')), findsOneWidget);
+      expect(find.text('Página 1'), findsOneWidget);
+    });
+
+    testWidgets('con total 0 muestra el mismo aviso y el mismo botón', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _PagedHistoryRepository({
+          0: (items: [_appointment], total: 25),
+          1: (items: const [], total: 0),
+        }),
+      );
+
+      await goToNextPage(tester);
+
+      expect(find.text(emptyPageText), findsOneWidget);
+      expect(find.byKey(const Key('history-empty-page')), findsOneWidget);
+      expect(find.byKey(const Key('history-empty')), findsNothing);
+      expect(isEnabled(tester, 'history-previous'), isTrue);
+      expect(isEnabled(tester, 'history-next'), isFalse);
+    });
+
+    testWidgets('la primera página vacía no muestra la fila de paginación', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _HistoryRepository(),
+      );
+
+      expect(find.byKey(const Key('history-empty')), findsOneWidget);
+      expect(find.byKey(const Key('history-empty-page')), findsNothing);
+      expect(find.byKey(const Key('history-previous')), findsNothing);
+      expect(find.byKey(const Key('history-next')), findsNothing);
+      expect(find.textContaining('Página'), findsNothing);
+    });
+  });
+
+  group('error de carga del historial', () {
+    final retry = find.text('Reintentar');
+
+    testWidgets('el mensaje va en el color de error del tema', (tester) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _FlakyHistoryRepository(failingPage: 0),
+      );
+      final message = find.text(_loadFailure);
+      expect(message, findsOneWidget);
+
+      final element = tester.element(message);
+      final scheme = Theme.of(element).colorScheme;
+      final drawn = DefaultTextStyle.of(element).style
+          .merge(tester.widget<Text>(message).style)
+          .color;
+
+      expect(scheme.error, isNot(scheme.onSurface));
+      expect(drawn, scheme.error);
+    });
+
+    testWidgets('"Reintentar" vuelve a pedir y muestra la lista', (
+      tester,
+    ) async {
+      final repository = _FlakyHistoryRepository(
+        failingPage: 0,
+        items: [_appointment],
+        total: 1,
+      );
+      await _pump(tester, const AppointmentsPendingScreen(), repository);
+      expect(find.text(_loadFailure), findsOneWidget);
+      expect(find.byKey(const Key('appointment-9001')), findsNothing);
+
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('appointment-9001')), findsOneWidget);
+      expect(find.text(_loadFailure), findsNothing);
+      expect(repository.requestedPages, [0, 0]);
+    });
+
+    testWidgets('"Reintentar" pide la página en la que estaba el socio', (
+      tester,
+    ) async {
+      final repository = _FlakyHistoryRepository(
+        failingPage: 1,
+        items: [_appointment],
+        total: 25,
+      );
+      await _pump(tester, const AppointmentsPendingScreen(), repository);
+      await tester.tap(find.byKey(const Key('history-next')));
+      await tester.pumpAndSettle();
+      expect(find.text(_loadFailure), findsOneWidget);
+
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+
+      expect(repository.requestedPages, [0, 1, 1]);
+      expect(find.text('Página 2'), findsOneWidget);
+      expect(find.byKey(const Key('appointment-9001')), findsOneWidget);
+      expect(find.text(_loadFailure), findsNothing);
+    });
+
+    testWidgets('con el error no hay tarjetas ni fila de paginación', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _FlakyHistoryRepository(
+          failingPage: 0,
+          items: [_appointment],
+          total: 1,
+        ),
+      );
+
+      expect(find.byKey(const Key('history-error')), findsOneWidget);
+      expect(find.byKey(const Key('appointment-9001')), findsNothing);
+      expect(find.byKey(const Key('history-previous')), findsNothing);
+      expect(find.byKey(const Key('history-next')), findsNothing);
+      expect(find.textContaining('Página'), findsNothing);
+    });
+  });
+
+  // Va al final: Roboto se carga una sola vez por archivo y los tests que
+  // vinieran después dejarían de usar la fuente de prueba. Con Roboto el texto
+  // mide como en un celular; Ahem ensancha todo y daría desbordes que no
+  // existen.
+  group('filtros a 320 px de ancho (con Roboto)', () {
+    setUpAll(loadRoboto);
+
+    testWidgets('los desplegables de filtros no desbordan', (tester) async {
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _HistoryRepository(items: [_appointment], total: 1),
+      );
+      tester.view.physicalSize = const Size(320, 640);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      for (final key in [
+        'history-filter-status',
+        'history-filter-specialty',
+        'history-filter-order',
+        'history-filter-direction',
+      ]) {
+        expect(find.byKey(Key(key)), findsOneWidget, reason: key);
+      }
+    });
   });
 }
