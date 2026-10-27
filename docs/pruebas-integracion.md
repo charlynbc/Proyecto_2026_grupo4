@@ -43,6 +43,15 @@ $env:APP_FIREBASE_ENABLED = "false"
 | `LlegadaAgendaMedicoIT` | RF-16/18/21/23: llegada, agendas, resultado médico, conflicto de interés |
 | `RolesIT` | Matriz endpoint × rol (401/403/permitido), base intacta tras los rechazos, recursos públicos de Flutter |
 | `ConcurrenciaIT` | 5 escenarios con barrera: misma reserva, reserva vs suspensión, suspensión vs rehabilitación, rehabilitaciones solapadas, resultados incompatibles (8 rondas c/u) |
+| `CancelacionConsultaIT` (18), `HistoriaClinicaIT` (18), `CuentasInactivasIT` (15) | Cancelación y devolución de pase (RF-10), historia clínica (RF-12), cuentas inactivadas |
+| `MedicoIT` (4) | `GET /api/medicos` como lista JSON, filtro y habilitados; consumo por Flutter (selector de turno semanal) |
+| `ReservasTrasInasistenciaIT` (9) | Reserva tras NO_ASISTIO/NO_ATENDIDA, límites de 3 y por especialidad, cambio de día |
+| `PasesRF24IT` (13), `PasesEscenariosRF24IT` (4, PR #36) | RF-24: emisión, vigencia 90 d y 1–365, duplicados, consumo, devolución, sin devolución por inasistencia, atención repetida, circuito completo, concurrencia |
+| `PadronUsuariosIT` (9) | RF-35: `q`/`texto`, `orden`, `sentido`, paginación, `%`/`_` literales, una fila por cuenta, seguridad |
+| `Estadistica{Especialidad,Turno,Consulta}IT` | RF-39/40/41 |
+| `DisponibilidadIT` (2, PR #35) | RF-08: solo médicos habilitados y turnos activos |
+
+Totales verificados sobre el HEAD `4612f0d` de avances: **157 IT** y **419** pruebas Maven (sin IT), 0 fallos; ver `docs/informes/cierre-criticos-2026.md`.
 
 ## Hallazgos
 
@@ -51,7 +60,9 @@ $env:APP_FIREBASE_ENABLED = "false"
 
 ## No cubierto
 
-- Navegador automatizado (Flutter web contra el backend real).
+- Navegador automatizado (Flutter web contra el backend real); las pruebas Flutter son unitarias y de widgets.
+- Actualización en tiempo real de RF-21 (no implementada).
+- Interpretación histórica de RF-40 (decisión pendiente del grupo).
 - Docker local (se verifica solo en Actions, workflow Imagen).
 - Envío real de correo (Resend) y push Firebase.
 - Despliegue en Railway.

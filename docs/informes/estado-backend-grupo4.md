@@ -9,6 +9,13 @@ Lo que no se pudo verificar se marca como **no verificado**.
 
 ## 1. Resumen ejecutivo
 
+> **Actualización de cierre (27/10/2026).** Las viñetas siguientes son el historial previo y quedan
+> superadas por [`cierre-criticos-2026.md`](cierre-criticos-2026.md). Estado vigente: avances en
+> `4612f0d` con los PR #30–#34 integrados (RF-12 y RF-41 ya integrados; RF-24 y RF-35 con IT
+> PostgreSQL); suite Maven **419**, IT **157**, Flutter **897**, 0 fallos. Abiertos: #35 (RF-08,
+> disponibilidad solo con médicos habilitados) y #36 (pruebas RF-24). Backend: 20 completos y 2
+> parciales (RF-21 sin tiempo real, RF-40 con decisión pendiente). Resend y Railway siguen sin verificar.
+
 - Backend REST en Java 25 / Spring Boot 4.1.1 con JDBC (`JdbcTemplate`) y PostgreSQL 17.
 - De los 22 RF críticos, con el criterio de la leyenda de la sección 5:
   **20 completos (RF-12 completo en su rama `feat/cierre-historia-clinica`, sin integrar) y 2 parciales (RF-24, RF-35)**; RF-40 completo con la brecha funcional histórica registrada.
@@ -93,23 +100,23 @@ Raíz `uy.edu.proyecto.backend` (+ `ApiApplication`):
 | RF-08 | Sí | Sí | Sí | Sí (CircuitoConsultasIT) | No verificado | Completo |
 | RF-09 | Sí | Sí | Sí | Sí (CircuitoConsultasIT, ConcurrenciaIT) | No verificado | Completo |
 | RF-11 | Sí | Sí | Sí | Sí (CircuitoConsultasIT) | No verificado | Completo |
-| RF-12 | Sí | Sí | Sí | Sí (HistoriaClinicaIT) | No verificado | **Completo** (en rama) |
+| RF-12 | Sí | Sí (PR #29) | Sí | Sí (HistoriaClinicaIT) | No verificado | **Completo** (integrado) |
 | RF-13 | Sí | Sí | Sí | Sí (CircuitoConsultasIT) | No verificado | Completo |
 | RF-14 | Sí | Sí | Sí | Sí (CircuitoConsultasIT, ConcurrenciaIT) | No verificado | Completo |
 | RF-15 | Sí | Sí | Sí | Sí (CircuitoConsultasIT, ConcurrenciaIT) | No verificado | Completo |
 | RF-16 | Sí | Sí | Sí | Sí (LlegadaAgendaMedicoIT) | No verificado | Completo |
 | RF-17 | Sí | Sí | Sí | Solo permisos (RolesIT) | No verificado | Completo |
 | RF-18 | Sí | Sí | Sí | Sí (LlegadaAgendaMedicoIT) | No verificado | Completo |
-| RF-21 | Sí | Sí | Sí | Sí (LlegadaAgendaMedicoIT) | No verificado | Completo (sin «tiempo real») |
+| RF-21 | Sí | Sí | Sí | Sí (LlegadaAgendaMedicoIT) | No verificado | **Parcial** (sin «tiempo real»; sin pantalla) |
 | RF-23 | Sí | Sí | Sí | Sí (LlegadaAgendaMedicoIT, ConcurrenciaIT) | No verificado | Completo |
-| RF-24 | Parcial | Sí | Sí | Parcial (payload con `pases` en LlegadaAgendaMedicoIT) | No verificado | **Parcial** |
+| RF-24 | Sí | Sí (PR #33) | Sí | Sí (PasesRF24IT 13; PasesEscenariosRF24IT 4 en PR #36) | No verificado | **Completo** (backend) |
 | RF-29 | Sí | Sí | Sí | Solo permisos (RolesIT) | No verificado | Completo |
 | RF-31 | Sí | Sí | Sí | Solo permisos (RolesIT) | No verificado | Completo |
 | RF-33 | Sí | Sí | Sí | Solo permisos (RolesIT) | No verificado | Completo |
-| RF-35 | Sí | Sí | Sí | Solo permisos (RolesIT) | No verificado | **Parcial** |
+| RF-35 | Sí | Sí (PR #34) | Sí | Sí (PadronUsuariosIT 9) | No verificado | **Completo** (contrato Flutter probado; E2E visual no) |
 | RF-39 | Sí | Sí (`a22eef9`) | Sí (15) | Sí (EstadisticaEspecialidadIT 6/6 en CI) | No verificado | **Completo** (en avances) |
-| RF-40 | Sí | Sí (PR #25) | Sí (12) | Sí (EstadisticaTurnoIT 9/9 en CI, PR #25) | No | **Completo** (en avances, con brecha histórica) |
-| RF-41 | Sí | **No** (rama RF-41) | Sí (14) | Pendiente: `EstadisticaConsultaIT` (13) corre en CI del PR de RF-41 | No | **Completo en la rama; pendiente de integración** |
+| RF-40 | Sí | Sí (PR #25) | Sí (12) | Sí (EstadisticaTurnoIT 9/9 en CI, PR #25) | No | **Parcial** (interpretación histórica pendiente de decisión; ver cierre-criticos-2026 §4) |
+| RF-41 | Sí | Sí (PR #27) | Sí (14) | Sí (EstadisticaConsultaIT 13) | No | **Completo** (integrado) |
 
 ### 5.2 Matriz detallada
 
@@ -119,7 +126,7 @@ Rutas y reglas tomadas de controllers/services/repositories. Paquetes bajo `uy.e
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | RF-01 | `POST /api/auth/login`, `/refresh`, `/logout` | público (logout: autenticado) | AuthController | AuthService, SesionTokenService | UsuarioRepository, SesionRepository | login `{ci,password,acceso SOCIO\|EMPLEADO,plataforma WEB\|ANDROID}` | cuenta, persona, sesion | Solo cuentas habilitadas con primer ingreso completado; EMPLEADO solo WEB; error genérico `CREDENCIALES_INVALIDAS`; refresh `v2.`+32 bytes, hash SHA-256, 7 días, rotativo, cookie httpOnly path `/api/auth` | AuthControllerTest, AuthSeguridadTest, AuthServiceTest, SesionTokenServiceTest | AutenticacionIT (19) | EMPLEADO con ANDROID → 401 genérico; refresh vencido/rotado | `secure`/`sameSite` de la cookie dependen de variables (por defecto false/Lax) | Completo |
 | RF-02 | `POST /api/auth/primer-ingreso/solicitar`, `/completar` | público | PrimerIngresoController | PrimerIngresoService, PrimerIngresoMailListener | repositorio de primer ingreso / enlace_cuenta | solicitar/completar | cuenta, persona, enlace_cuenta | Respuesta genérica; enlace de un solo uso, 24 h, hasheado; uno nuevo invalida los previos; `habilitada` verificada al solicitar y completar (FOR UPDATE); contraseña 8–72 bytes; correo no editable; correo vía `@Async` tras commit | PrimerIngresoControllerTest, PrimerIngresoSeguridadTest, PrimerIngresoServiceTest, PrimerIngresoMailListenerTest | AutenticacionIT | Cuenta ya activa: recibe correo de recuperación; CI inexistente: misma respuesta | CI con dígito verificador inválido devuelve 400 (no la respuesta uniforme); con `MAIL_PROVIDER=none` no sale correo | Completo |
-| RF-08 | `GET /api/disponibilidad` | SOCIO | DisponibilidadController (agenda) | AgendaService | AgendaRepository | disponibilidad | turno, numero, consulta, medico_especialidad, consultorio | Solo turnos ACTIVO, ≥2 h y ≤30 d (America/Montevideo); excluye números con consulta AGENDADA; especialidad obligatoria; orden fecha\|apellidoMedico | AgendaServiceTest, AgendaRepositoryTest, DisponibilidadSeguridadTest | CircuitoConsultasIT | Sin turnos → lista vacía | El SQL no filtra médico habilitado (la reserva sí lo rechaza) | Completo |
+| RF-08 | `GET /api/disponibilidad` | SOCIO | DisponibilidadController (agenda) | AgendaService | AgendaRepository | disponibilidad | turno, numero, consulta, medico_especialidad, consultorio | Solo turnos ACTIVO, ≥2 h y ≤30 d (America/Montevideo); excluye números con consulta AGENDADA; solo médicos habilitados (PR #35); especialidad obligatoria; orden fecha\|apellidoMedico | AgendaServiceTest, AgendaRepositoryTest, DisponibilidadSeguridadTest | CircuitoConsultasIT; DisponibilidadIT (PR #35) | Sin turnos → lista vacía | Completo al fusionar el PR #35 (antes el SQL no filtraba médico habilitado) | Completo |
 | RF-09 | `POST /api/consultas` `{numeroId, paseId?}` | SOCIO | ConsultaController | ConsultaService | ConsultaRepository | request/response consulta | consulta, numero, turno, pase, notificacion | Bloqueos FOR UPDATE (socio, número/turno, pase); `NUMERO_NO_DISPONIBLE`, `ANTICIPACION_INVALIDA`, `LIMITE_TOTAL` (≥3), `LIMITE_ESPECIALIDAD`, `CONSULTA_SUPERPUESTA`, `PASE_NO_VALIDO`; índice único parcial `uq_consulta_numero_no_cancelada` → 409; crea fila de notificación AGENDA | ConsultaServiceTest (15), ConsultaRepositoryTest, ConsultaSeguridadTest | CircuitoConsultasIT, ConcurrenciaIT | Carrera por el mismo número → 409; pase enviado donde no se requiere → 400 | La notificación AGENDA es solo una fila, sin envío | Completo |
 | RF-11 | `GET /api/consultas`, `GET /api/consultas/{id}` | SOCIO | ConsultaController | ConsultaHistorialService | ConsultaRepository | consulta resumen | consulta, aviso_llegada, atencion | Filtros estado/fechas/especialidad/médico; orden fecha\|especialidad; paginado (size ≤100); estados derivados en SQL (NO_ATENDIDA/NO_ASISTIO) | ConsultaHistorialServiceTest, ConsultaSeguridadTest | CircuitoConsultasIT (`?estado=`) | AGENDADA vencida con aviso → NO_ATENDIDA; sin aviso → NO_ASISTIO | Estados derivados no se almacenan | Completo |
 | RF-12 | `GET /api/historia-clinica`, `GET /api/historia-clinica/{idAtencion}` | SOCIO | HistoriaClinicaController | HistoriaClinicaService | HistoriaClinicaRepository | HistoriaClinicaDTO (afección, tratamiento, observaciones, médico, especialidad, pases emitidos) | atencion, consulta, pase, especialidad, persona | Socio tomado del JWT; detalle filtra por socio+id (404 `HISTORIA_NO_ENCONTRADA`); filtros fechas/especialidad/médico/texto; orden fecha_atencion\|especialidad | HistoriaClinicaServiceTest, HistoriaClinicaRepositoryTest, HistoriaClinicaSeguridadTest | HistoriaClinicaIT 18/18 en CI (PR #29; total 118 IT, 0 fallos, 0 errores, 0 omitidas) | Atención ajena → 404 | Lista sin paginar por decisión; fecha en `America/Montevideo` | **Completo** (rama `feat/cierre-historia-clinica`, CI verde) |
