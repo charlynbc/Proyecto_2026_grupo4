@@ -1121,6 +1121,18 @@ curl.exe -i -H "Authorization: Bearer $token" "$base/api/estadisticas/consultas?
 
 `EstadisticaConsultaIT` solo corre en `e2e.yml` (PostgreSQL 17 efímero en GitHub Actions); los resultados reales se registran en el PR.
 
+### Cancelación de consulta por el socio (RF-10, `POST /api/consultas/{id}/cancelar`)
+
+Solo SOCIO, solo consultas propias, sin cuerpo. Reglas: la consulta debe estar `AGENDADA`; no puede haber aviso de llegada ese día (409 `LLEGADA_YA_REGISTRADA`); faltan al menos 2 horas para el inicio del número, en America/Montevideo (409 `CANCELACION_FUERA_DE_PLAZO`); ajena o inexistente es 404 `NO_ENCONTRADO`; id no numérico o ≤ 0 es 400 `VALIDACION`. Se conserva en el histórico, el número queda libre y el pase usado vuelve a estar disponible (RF-24) mientras no haya vencido (`paseDevuelto`).
+
+```powershell
+$h = @{ Authorization = "Bearer $tokenSocio" }
+Invoke-RestMethod -Method Post -Uri "$base/api/consultas/9001/cancelar" -Headers $h
+curl.exe -s -X POST -H "Authorization: Bearer $tokenSocio" "$base/api/consultas/9001/cancelar"
+```
+
+Pruebas: `CancelacionServiceTest` (mocks), `ConsultaSeguridadTest` (HTTP/roles) y `CancelacionConsultaIT` (PostgreSQL real: plazo, ciclo del pase, concurrencia); la IT solo corre en `e2e.yml`.
+
 ## 6. Flujo completo hasta PostgreSQL
 
 ### Caso típico de login y acceso

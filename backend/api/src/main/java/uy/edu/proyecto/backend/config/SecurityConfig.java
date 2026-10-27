@@ -218,7 +218,8 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
-                                                "/api/consultas"
+                                                "/api/consultas",
+                                                "/api/consultas/*/cancelar"
                                         )
                                         .hasRole(
                                                 "SOCIO"
