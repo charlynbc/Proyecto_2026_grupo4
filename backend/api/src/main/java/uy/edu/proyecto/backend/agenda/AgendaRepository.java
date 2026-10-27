@@ -73,6 +73,7 @@ public class AgendaRepository {
                 JOIN public.consultorio co
                   ON co.id_consultorio = t.id_consultorio
                 WHERE ts.id_especialidad = ?
+                  AND c.habilitada = TRUE
                   AND t.estado = 'ACTIVO'
                   AND ((t.fecha + n.hora_inicio)
                        AT TIME ZONE 'America/Montevideo')
