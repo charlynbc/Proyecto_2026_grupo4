@@ -39,7 +39,7 @@ La aplicación es un monolito modular con capas bien separadas:
 - `aviso` → registro y consulta del aviso de llegada
 - `atencion` → registro de resultado de consulta y atención
 - `pase` → listado de pases disponibles
-- `estadistica` → estadísticas del administrador (RF-39 y RF-40 implementados; RF-41 pendiente)
+- `estadistica` → estadísticas del administrador (RF-39 y RF-40 integrados; RF-41 en su rama)
 - `especialidad` / `consultorio` / `usuario` → catálogo y padrón
 - `security` → firma y validación JWT
 - `config` → seguridad, password, correo y CORS
@@ -785,7 +785,7 @@ el resto del backend:
 | DTO | `EstadisticaEspecialidadResponse`, `EstadisticaEspecialidadDTO` | Respuesta; reutiliza el record `Especialidad` existente. |
 | Seguridad | `SecurityConfig` | `GET /api/estadisticas/**` exige `ROLE_ADMINISTRADOR`. |
 
-RF-40 reutiliza el mismo controller, el mismo `PeriodoEstadistico` (mes en curso, validación y zona horaria) y la misma regla de seguridad (sección 5.10); RF-41 podrá hacerlo igual.
+RF-40 reutiliza el mismo controller, el mismo `PeriodoEstadistico` (mes en curso, validación y zona horaria) y la misma regla de seguridad (secciones 5.10 y 5.11); RF-41 lo reutiliza igual.
 
 #### Endpoint
 
@@ -895,8 +895,9 @@ efímero en GitHub Actions). Aprobó 6/6 en CI (ver sección 11).
 
 ### 5.10. Estadísticas por turno (RF-40)
 
-> Estado: implementado en la rama `feat/rf-40-estadisticas-turnos`; **no
-> integrado en avances ni desplegado**. Ruta #35 de `docs/api/endpoints-usados.md`.
+> Estado: **integrado en avances** (PR #25). La corrección transversal de seguridad JWT
+> (cuentas inactivas) está integrada mediante el PR #26; no hay despliegue en Railway.
+> Ruta #35 de `docs/api/endpoints-usados.md`.
 
 #### Arquitectura
 
@@ -1035,6 +1036,91 @@ Para contrastar con SQL: `SELECT count(DISTINCT c.id_numero) FROM consulta c JOI
 
 `EstadisticaTurnoIT` solo corre en `e2e.yml` (PostgreSQL 17 efímero en GitHub Actions). Resultado confirmado en el PR #25 (commit `ca1af34`, PostgreSQL 17.11): `EstadisticaTurnoIT` 9/9; total IT 54 ejecutadas, 54 aprobadas, 0 fallidas, 0 omitidas; Maven 370 aprobadas.
 
+### 5.11. Estadísticas de consultas (RF-41)
+
+**Estado:** implementado en la rama `feat/rf-41-estadisticas-consultas` (PR hacia avances); no está integrado hasta fusionar el PR ni desplegado en Railway.
+
+Mismo paquete `estadistica`: `EstadisticaController` (`GET /api/estadisticas/consultas`) → `EstadisticaConsultaService` → `EstadisticaConsultaRepository` → PostgreSQL. Reutiliza `PeriodoEstadistico` (mes en curso, validación `400 VALIDACION`, zona `America/Montevideo`) y la regla `GET /api/estadisticas/**` solo `ADMINISTRADOR`. No se tocó el esquema ni la autenticación.
+
+`GET /api/estadisticas/consultas?desde=YYYY-MM-DD&hasta=YYYY-MM-DD` (ambos opcionales, inclusivos).
+
+Respuesta:
+
+```json
+{
+  "desde": "2026-03-01",
+  "hasta": "2026-03-31",
+  "estados": {
+    "AGENDADA": 0, "ATENDIDA": 2, "CANCELADA_SOCIO": 1, "CANCELADA_INSTITUCION": 1,
+    "NO_ASISTIO": 2, "NO_ATENDIDA": 3, "NO_SE_PRESENTO": 1
+  },
+  "totalConsultas": 10,
+  "canceladasPorSocio": 1,
+  "porcentajeCancelacion": 10.0,
+  "porcentajeCancelacionTexto": "10 %"
+}
+```
+
+Los siete estados aparecen siempre, aunque valgan 0. `porcentajeCancelacion` es numérico o `null`; el texto va en `porcentajeCancelacionTexto`: `"Sin datos"` si el total es 0, `"0 %"` si hay consultas y ninguna cancelada por el socio.
+
+#### Reglas
+
+- **El período se aplica a la fecha de la consulta médica** (`turno.fecha`), no a `agendada_en` (a diferencia de RF-39).
+- **Estado efectivo** (misma regla que `ConsultaRepository` y `AgendaConsultaRepository`, no se persiste nada): una consulta `AGENDADA`, sin `fecha_resultado` y con `turno.fecha < hoy` (hoy en Montevideo) es `NO_ATENDIDA` si existe `aviso_llegada` del socio en esa fecha y `NO_ASISTIO` si no. El día de hoy y el futuro siguen `AGENDADA`. Los demás estados se cuentan tal como están guardados.
+- Tasa: `canceladasPorSocio / totalConsultas × 100` con 2 decimales; las canceladas por la institución cuentan en el total pero no en el numerador.
+- Una consulta pertenece a un solo estado: una fila por `consulta`, unida por clave primaria a su número y turno; el aviso se consulta con `EXISTS`, sin `JOIN` que multiplique filas.
+
+#### SQL
+
+```sql
+SELECT CASE
+           WHEN c.estado = 'AGENDADA' AND c.fecha_resultado IS NULL AND t.fecha < ? THEN
+               CASE WHEN EXISTS (SELECT 1 FROM public.aviso_llegada a
+                                 WHERE a.id_socio = c.id_socio AND a.fecha = t.fecha)
+                    THEN 'NO_ATENDIDA' ELSE 'NO_ASISTIO' END
+           ELSE c.estado
+       END AS estado_efectivo,
+       COUNT(*) AS cantidad
+FROM public.consulta c
+JOIN public.numero n ON n.id_numero = c.id_numero
+JOIN public.turno t ON t.id_turno = n.id_turno
+WHERE t.fecha >= ? AND t.fecha <= ?
+GROUP BY 1
+```
+
+Los tres `?` son `java.sql.Date` (hoy, desde, hasta); no se concatena texto del usuario. El servicio completa con 0 los estados ausentes.
+
+#### Limitaciones
+
+- La regla de estados derivados está escrita también en las consultas de agenda e historial del socio; RF-41 la replica en SQL porque necesita agrupar. Si cambia la regla, hay que actualizar las tres.
+- Una fecha suspendida cuenta sus consultas como `CANCELADA_INSTITUCION`, tal como están guardadas.
+- No se reconstruye el estado en una fecha pasada: se informa el estado actual de cada consulta.
+
+#### Demostración por consola, sin frontend
+
+```powershell
+$base = "http://localhost:8080"
+$h = @{ Authorization = "Bearer $token"; Accept = "application/json" }
+Invoke-RestMethod -Uri "$base/api/estadisticas/consultas?desde=2026-03-01&hasta=2026-03-31" -Headers $h | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Uri "$base/api/estadisticas/consultas" -Headers $h   # mes en curso
+curl.exe -i -H "Authorization: Bearer $token" "$base/api/estadisticas/consultas?desde=2026-03-01&hasta=2026-03-31"
+curl.exe -i "$base/api/estadisticas/consultas"                                  # 401
+curl.exe -i -H "Authorization: Bearer $token" "$base/api/estadisticas/consultas?desde=2026-03-31&hasta=2026-03-01"  # 400 VALIDACION
+```
+
+`$token` es el access token de un administrador ficticio de una base descartable. Para contrastar con SQL: `SELECT count(*) FROM consulta c JOIN numero n ON n.id_numero = c.id_numero JOIN turno t ON t.id_turno = n.id_turno WHERE t.fecha BETWEEN '2026-03-01' AND '2026-03-31';` debe igualar `totalConsultas`.
+
+#### Pruebas de RF-41
+
+| Tipo | Clase | Cobertura |
+|---|---|---|
+| Unitaria | `EstadisticaConsultaServiceTest` (8) | mes por defecto, zona Montevideo, siete estados en cero, total cero, 0 %, parcial, 100 %, suma, fechas inválidas |
+| Mock de JDBC | `EstadisticaConsultaRepositoryTest` (1) | filtro por `turno.fecha`, sin `agendada_en`, derivación, `EXISTS`, sin `LEFT JOIN`, 3 parámetros, sin datos de pacientes |
+| HTTP/seguridad | `EstadisticaSeguridadTest` (+5 de RF-41) | 200 administrador, 403 socio/funcionario/médico, 401, 400 `VALIDACION`, solo GET |
+| PostgreSQL real | `EstadisticaConsultaIT` (13) | siete estados, derivados con y sin aviso, hoy/futuro vs ayer, período por fecha médica, límites, vacío, 0 %/parcial/100 %, mes por defecto, fechas inválidas, SQL injection, roles, administrador inactivado con JWT previo |
+
+`EstadisticaConsultaIT` solo corre en `e2e.yml` (PostgreSQL 17 efímero en GitHub Actions); los resultados reales se registran en el PR.
+
 ## 6. Flujo completo hasta PostgreSQL
 
 ### Caso típico de login y acceso
@@ -1060,7 +1146,7 @@ No se debe asumir que:
 - todos los RF críticos están totalmente cerrados (ver `docs/informes/estado-backend-grupo4.md`);
 - la validación contra PostgreSQL cubre todo: solo las clases `*IT` se ejecutan contra PostgreSQL 17 efímero en GitHub Actions, y nada se validó todavía en un E2E con frontend;
 - los tests unitarios son equivalentes a pruebas funcionales sobre el producto final;
-- lo que está en una rama de trabajo (por ejemplo RF-40 en su PR) ya está en `integracion/proyecto-2026-avances`, o que algo integrado en avances ya está desplegado en Railway;
+- lo que está en una rama de trabajo (por ejemplo RF-41 en su PR) ya está en `integracion/proyecto-2026-avances`, o que algo integrado en avances ya está desplegado en Railway;
 - la ruta de especificación solicitada existe en el repositorio.
 
 ## 8. Ejemplos útiles para defensa

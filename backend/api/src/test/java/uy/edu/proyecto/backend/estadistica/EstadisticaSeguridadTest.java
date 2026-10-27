@@ -49,6 +49,9 @@ class EstadisticaSeguridadTest {
     private EstadisticaTurnoService turnoService;
 
     @MockitoBean
+    private EstadisticaConsultaService consultaService;
+
+    @MockitoBean
     private JwtDecoder jwtDecoder;
 
     private static RequestPostProcessor rol(String rol) {
@@ -194,5 +197,69 @@ class EstadisticaSeguridadTest {
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(service);
+    }
+
+    private static final String RUTA_CONSULTAS = "/api/estadisticas/consultas";
+
+    @Test
+    void rf41AdministradorRecibeConteosPorEstadoSinDatosDePacientes() throws Exception {
+        java.util.Map<String, Long> estados = new java.util.LinkedHashMap<>();
+        for (String estado : EstadisticaConsultaService.ESTADOS) {
+            estados.put(estado, 0L);
+        }
+        estados.put("AGENDADA", 3L);
+        estados.put("CANCELADA_SOCIO", 1L);
+        when(consultaService.calcular("2026-03-01", "2026-03-31")).thenReturn(
+                new EstadisticaConsultaResponse(
+                        LocalDate.parse("2026-03-01"), LocalDate.parse("2026-03-31"),
+                        estados, 4, 1, java.math.BigDecimal.valueOf(25.00), "25 %"));
+
+        mockMvc.perform(get(RUTA_CONSULTAS + "?desde=2026-03-01&hasta=2026-03-31").with(rol("ADMINISTRADOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.desde").value("2026-03-01"))
+                .andExpect(jsonPath("$.estados.AGENDADA").value(3))
+                .andExpect(jsonPath("$.estados.NO_SE_PRESENTO").value(0))
+                .andExpect(jsonPath("$.totalConsultas").value(4))
+                .andExpect(jsonPath("$.canceladasPorSocio").value(1))
+                .andExpect(jsonPath("$.porcentajeCancelacion").value(25.0))
+                .andExpect(jsonPath("$.porcentajeCancelacionTexto").value("25 %"))
+                .andExpect(jsonPath("$.socio").doesNotExist())
+                .andExpect(jsonPath("$.items").doesNotExist());
+
+        verifyNoInteractions(service, turnoService);
+    }
+
+    @Test
+    void rf41SocioFuncionarioYMedicoRecibenForbidden() throws Exception {
+        for (String rol : List.of("SOCIO", "FUNCIONARIO", "MEDICO")) {
+            mockMvc.perform(get(RUTA_CONSULTAS).with(rol(rol)))
+                    .andExpect(status().isForbidden());
+        }
+        verifyNoInteractions(consultaService);
+    }
+
+    @Test
+    void rf41SinJwtDevuelve401() throws Exception {
+        mockMvc.perform(get(RUTA_CONSULTAS))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(consultaService);
+    }
+
+    @Test
+    void rf41FechasInvalidasSeTraducenA400ConCodigoValidacion() throws Exception {
+        when(consultaService.calcular(any(), any())).thenThrow(new ApiException(
+                HttpStatus.BAD_REQUEST, "VALIDACION", "desde debe tener formato YYYY-MM-DD"));
+
+        mockMvc.perform(get(RUTA_CONSULTAS + "?desde=ayer").with(rol("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDACION"));
+    }
+
+    @Test
+    void rf41SoloSeExponeLectura() throws Exception {
+        mockMvc.perform(post(RUTA_CONSULTAS).with(rol("ADMINISTRADOR")))
+                .andExpect(status().is4xxClientError());
+        verifyNoInteractions(consultaService);
     }
 }
