@@ -56,7 +56,8 @@ class CancelacionConsultaIT extends BaseIntegracionIT {
         if (objetivo.getHour() == 23 && objetivo.getMinute() >= 40) {
             objetivo = objetivo.plusMinutes(30);
         }
-        LocalTime inicio = objetivo.toLocalTime();
+        LocalTime inicio = objetivo.toLocalTime().minusMinutes(objetivo.getMinute() % 5);
+        objetivo = objetivo.minusMinutes(objetivo.getMinute() % 5);
         long turno = sembrarTurno(objetivo.toLocalDate(), 0);
         long semanal = jdbc.queryForObject(
                 "SELECT id_turno_semanal FROM turno WHERE id_turno = ?", Long.class, turno);
