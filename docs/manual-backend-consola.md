@@ -547,8 +547,10 @@ Respuesta de ejemplo:
   No se acepta `socioId`.
 - **Query:** `fechaDesde`, `fechaHasta` (`yyyy-MM-dd`); `especialidadId`,
   `medicoId` (enteros positivos); `texto` (coincidencia en tratamiento);
-  `orden` (`fecha_atencion` o `especialidad`, default `fecha_atencion`);
-  `sentido` (`asc` o `desc`, default `desc`). Los filtros se combinan.
+  `orden` (`fecha`/`fecha_atencion` o `especialidad`, default `fecha_atencion`);
+  `sentido` (`asc` o `desc`, default `desc`). Los filtros se combinan. `texto`
+  busca sin distinguir mayúsculas y trata `%` y `_` como caracteres literales.
+  Las fechas se evalúan en `America/Montevideo`.
 - **200:** array de atenciones propias; cada elemento incluye fecha, médico,
   especialidad, afección, tratamiento, observaciones y `pases` emitidos con
   `emitidoEn` y `venceEl`. La lista no está paginada en esta implementación.
@@ -593,8 +595,20 @@ Respuesta de ejemplo con datos ficticios:
 ```
 
 La lista actual expone los datos clínicos solo al socio autenticado y los
-devuelve junto con cada atención. Esto difiere de la propuesta de
-`contrato-v1.md`, que describía un resumen paginado sin contenido clínico.
+devuelve junto con cada atención. **Decisión de contrato:** se mantiene sin
+paginar porque RF-12 no lo exige y el frontend aún no consume el endpoint;
+`contrato-v1.md` #21 se actualizó a este formato.
+
+**Cómo llega hasta PostgreSQL.** `HistoriaClinicaController` toma el `sub` del
+JWT → `HistoriaClinicaService` valida filtros (`VALIDACION`, `ORDEN_INVALIDO`,
+`SENTIDO_INVALIDO`) → `HistoriaClinicaRepository` ejecuta un SELECT
+parametrizado: `atencion → consulta → numero → turno → turno_semanal` (de ahí la
+especialidad), `cuenta/persona` del médico, con `WHERE consulta.id_socio = ?`.
+La fecha es `(a.registrada_en AT TIME ZONE 'America/Montevideo')::date`. Los
+pases de todas las atenciones se leen con una sola consulta `IN (...)`.
+Pruebas: unitarias/mocks (`HistoriaClinica*Test`) y PostgreSQL real
+(`HistoriaClinicaIT`, aislamiento entre socios, filtros, orden, pases, roles y
+JWT de cuenta inactivada).
 
 #### `GET /api/historia-clinica/{idAtencion}`
 
@@ -603,8 +617,8 @@ devuelve junto con cada atención. Esto difiere de la propuesta de
 - **Path:** `idAtencion`, entero positivo. No acepta socio como parámetro.
 - **200:** mismo objeto de atención que el listado, con afección, tratamiento,
   observaciones y pases con fechas de emisión/vencimiento.
-- **400:** ID no positivo. **401:** sesión ausente/inválida.
-  **403:** rol distinto de `SOCIO`. **404:** ID inexistente o atención de otro
+- **400:** ID no numérico o no positivo (`VALIDACION`). **401:** sesión ausente/inválida.
+  **403:** rol distinto de `SOCIO`. **404 `HISTORIA_NO_ENCONTRADA`:** ID inexistente o atención de otro
   socio; ambos casos usan el mismo mensaje sin contenido clínico.
 - **curl.exe:**
 

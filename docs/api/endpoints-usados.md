@@ -103,7 +103,7 @@ Al 26/10/2026, el backend implementa las rutas #10, #12, #18, #21, #22, #28 y
 de verdad para las consultas de consola y puede diferir de propuestas previas
 en `contrato-v1.md`: por ejemplo, `GET /api/usuarios` usa `texto` (no `q`), y
 `GET /api/historia-clinica` devuelve una lista sin paginar con los campos
-clínicos permitidos (no el resumen paginado propuesto). Ver el manual enlazado
+clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige paginación). Ver el manual enlazado
 arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend

@@ -62,6 +62,18 @@ class HistoriaClinicaServiceTest {
     }
 
     @Test
+    void ordenFechaEsAliasDeFechaAtencion() {
+        HistoriaClinicaService service = new HistoriaClinicaService(repository);
+        when(repository.listar(
+                SOCIO_ID, null, null, null, null, null, "fecha_atencion", "asc"
+        )).thenReturn(List.of());
+
+        assertEquals(List.of(), service.listar(
+                SOCIO_ID, null, null, null, null, null, "fecha", "asc"
+        ));
+    }
+
+    @Test
     void listaVaciaEsValida() {
         HistoriaClinicaService service = new HistoriaClinicaService(repository);
         when(repository.listar(

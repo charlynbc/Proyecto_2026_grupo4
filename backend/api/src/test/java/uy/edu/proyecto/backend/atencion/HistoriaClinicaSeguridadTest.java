@@ -148,6 +148,17 @@ class HistoriaClinicaSeguridadTest {
     }
 
     @Test
+    void idDeDetalleNoNumericoDevuelve400ConCodigoValidacion() throws Exception {
+        mockMvc.perform(get("/api/historia-clinica/abc")
+                        .with(jwt().jwt(token -> token.subject("91"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_SOCIO"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDACION"));
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
     void consultaSinAutenticacionDevuelve401() throws Exception {
         mockMvc.perform(get("/api/historia-clinica"))
                 .andExpect(status().isUnauthorized());
