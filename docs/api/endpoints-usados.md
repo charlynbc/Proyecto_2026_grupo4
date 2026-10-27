@@ -61,8 +61,8 @@ PostgreSQL.
 | 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases | CONFIRMADA | - | [contrato #31](contrato-v1.md#e31) |
 | 32 | `GET /api/notificaciones` | SOCIO | RNF-23 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
 | 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push | CAMBIADA | - | [contrato #33](contrato-v1.md#e33) |
-| 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | PROPUESTA | - | [contrato #34](contrato-v1.md#e34) |
-| 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | PROPUESTA | - | [contrato #35](contrato-v1.md#e35) |
+| 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | CONFIRMADA (integrada en avances, PR #24) | - | [contrato #34](contrato-v1.md#e34) |
+| 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | CONFIRMADA en la rama `feat/rf-40-estadisticas-turnos` (aún no integrada en avances; agrega `fechasActivas` y `utilizacion`) | - | [contrato #35](contrato-v1.md#e35) |
 | 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | PROPUESTA | - | [contrato #36](contrato-v1.md#e36) |
 
 ## Rutas de la prueba de concepto

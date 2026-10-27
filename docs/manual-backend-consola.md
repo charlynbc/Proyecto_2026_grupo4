@@ -39,7 +39,7 @@ La aplicación es un monolito modular con capas bien separadas:
 - `aviso` → registro y consulta del aviso de llegada
 - `atencion` → registro de resultado de consulta y atención
 - `pase` → listado de pases disponibles
-- `estadistica` → estadísticas del administrador (RF-39 implementado; RF-40 y RF-41 pendientes)
+- `estadistica` → estadísticas del administrador (RF-39 y RF-40 implementados; RF-41 pendiente)
 - `especialidad` / `consultorio` / `usuario` → catálogo y padrón
 - `security` → firma y validación JWT
 - `config` → seguridad, password, correo y CORS
@@ -768,9 +768,9 @@ Respuesta de ejemplo:
 
 ### 5.9. Estadísticas por especialidad (RF-39)
 
-> Estado: implementado en la rama `feat/rf-39-estadisticas-especialidad`
-> (PR #24). **No está integrado en `integracion/proyecto-2026-avances` ni
-> desplegado.** La ruta es la propuesta #34 de `docs/api/endpoints-usados.md`.
+> Estado: implementado e **integrado en `integracion/proyecto-2026-avances`**
+> (PR #24, commit `a22eef9`). **No está desplegado en Railway** (no verificado).
+> La ruta es la #34 de `docs/api/endpoints-usados.md`.
 
 #### Arquitectura de estadísticas
 
@@ -785,7 +785,7 @@ el resto del backend:
 | DTO | `EstadisticaEspecialidadResponse`, `EstadisticaEspecialidadDTO` | Respuesta; reutiliza el record `Especialidad` existente. |
 | Seguridad | `SecurityConfig` | `GET /api/estadisticas/**` exige `ROLE_ADMINISTRADOR`. |
 
-RF-40 y RF-41 podrán colgar del mismo paquete y de la misma regla de seguridad.
+RF-40 reutiliza el mismo controller, el mismo `PeriodoEstadistico` (mes en curso, validación y zona horaria) y la misma regla de seguridad (sección 5.10); RF-41 podrá hacerlo igual.
 
 #### Endpoint
 
@@ -893,6 +893,148 @@ ORDER BY cantidad DESC, e.nombre ASC, e.id_especialidad ASC
 La `EstadisticaEspecialidadIT` solo corre en el workflow `e2e.yml` (PostgreSQL 17
 efímero en GitHub Actions). Aprobó 6/6 en CI (ver sección 11).
 
+### 5.10. Estadísticas por turno (RF-40)
+
+> Estado: implementado en la rama `feat/rf-40-estadisticas-turnos`; **no
+> integrado en avances ni desplegado**. Ruta #35 de `docs/api/endpoints-usados.md`.
+
+#### Arquitectura
+
+Mismo paquete `estadistica`: `EstadisticaController` (`GET /api/estadisticas/turnos`) →
+`EstadisticaTurnoService` → `EstadisticaTurnoRepository` (una consulta SQL
+parametrizada) → DTO `EstadisticaTurnoDTO` / `EstadisticaTurnoResponse`.
+`PeriodoEstadistico` (compartido con RF-39) resuelve el mes en curso, valida el rango
+y usa la zona del `Clock` (`America/Montevideo`). La regla `GET /api/estadisticas/**`
+exige `ROLE_ADMINISTRADOR`.
+
+#### Fórmula
+
+```
+utilización de un turno = números ocupados / números ofrecidos * 100
+```
+
+- **Unidad «turno»:** el patrón semanal (`turno_semanal`: médico, especialidad,
+  consultorio y día de la semana) cuya vigencia toca el período.
+- **Fechas activas:** fechas (`turno.fecha`) dentro de `[desde, hasta]` (ambos
+  inclusive) con `turno.estado = 'ACTIVO'`. Una fecha suspendida queda excluida del
+  numerador y del denominador. Una fecha suspendida y luego rehabilitada vuelve a
+  `ACTIVO` y cuenta; las consultas que la suspensión canceló siguen canceladas, por
+  lo que sus números figuran libres.
+- **Ofrecidos:** filas de `numero` de las fechas activas.
+- **Ocupado:** el número tiene al menos una consulta que no es `CANCELADA_SOCIO` ni
+  `CANCELADA_INSTITUCION`. Eso cubre AGENDADA, ATENDIDA y NO_SE_PRESENTO. NO_ASISTIO y NO_ATENDIDA
+  no se guardan en la base: son derivadas de una consulta `AGENDADA` de una fecha ya pasada,
+  por lo que también quedan cubiertas.
+- **Una vez por número:** se usa `EXISTS`, así que un número cancelado y reservado de nuevo, o con varias
+  reservas históricas, suma un único ocupado.
+- **Denominador cero:** `utilizacion = "Sin datos"` y `porcentajeUtilizacion = null`.
+- **Denominador positivo y ninguna ocupación:** `"0 %"` y `0`.
+- Porcentaje con 2 decimales (HALF_UP); en texto se omiten ceros finales (`25 %`, `33.33 %`).
+
+#### Endpoint
+
+`GET /api/estadisticas/turnos?desde=YYYY-MM-DD&hasta=YYYY-MM-DD`
+
+- Rol: solo ADMINISTRADOR (401 sin JWT, 403 para SOCIO, FUNCIONARIO y MEDICO).
+- Sin parámetros: mes en curso. 400 `VALIDACION` para formato inválido o `desde` > `hasta`.
+- Solo aparecen los patrones cuya vigencia (`fecha_inicio`..`fecha_fin`) toca el período; si
+  todas sus fechas del período están suspendidas, figuran con `Sin datos`.
+- Orden: nombre de especialidad, día de la semana, id.
+- No se expone ningún dato de socios. Se informa el médico (id, nombre y apellido) porque identifica el turno.
+
+Respuesta (datos ficticios; mismos campos que `contrato-v1.md` #35, más `fechasActivas` y `utilizacion`):
+
+```json
+{
+  "desde": "2026-03-01",
+  "hasta": "2026-03-31",
+  "items": [
+    {
+      "turnoSemanalId": 1,
+      "medico": { "id": 4, "nombre": "Mario", "apellido": "Medina" },
+      "especialidad": { "id": 1, "nombre": "Medicina General", "requierePase": false },
+      "consultorio": { "id": 1, "nombre": "Consultorio 1", "ubicacion": "Planta baja" },
+      "diaSemana": 1,
+      "fechasActivas": 5, "numerosOfrecidos": 17, "numerosOcupados": 9,
+      "porcentajeUtilizacion": 52.94, "utilizacion": "52.94 %"
+    },
+    {
+      "turnoSemanalId": 2,
+      "medico": { "id": 4, "nombre": "Mario", "apellido": "Medina" },
+      "especialidad": { "id": 2, "nombre": "Cardiologia", "requierePase": true },
+      "consultorio": { "id": 1, "nombre": "Consultorio 1", "ubicacion": "Planta baja" },
+      "diaSemana": 1,
+      "fechasActivas": 0, "numerosOfrecidos": 0, "numerosOcupados": 0,
+      "porcentajeUtilizacion": null, "utilizacion": "Sin datos"
+    }
+  ]
+}
+```
+
+#### SQL utilizado
+
+```sql
+SELECT ts.id_turno_semanal, ts.dia_semana, e.id_especialidad, e.nombre, e.requiere_pase,
+       ts.id_medico, p.nombre, p.apellido, co.id_consultorio, co.nombre, co.ubicacion,
+       COUNT(DISTINCT t.id_turno) AS fechas_activas,
+       COUNT(n.id_numero)         AS ofrecidos,
+       COALESCE(SUM(CASE WHEN EXISTS (
+                SELECT 1 FROM public.consulta c
+                WHERE c.id_numero = n.id_numero
+                  AND c.estado NOT IN ('CANCELADA_SOCIO', 'CANCELADA_INSTITUCION')
+            ) THEN 1 ELSE 0 END), 0) AS ocupados
+FROM public.turno_semanal ts
+JOIN public.especialidad e ON e.id_especialidad = ts.id_especialidad
+JOIN public.cuenta m ON m.id_cuenta = ts.id_medico
+JOIN public.persona p ON p.ci = m.ci
+JOIN public.consultorio co ON co.id_consultorio = ts.id_consultorio
+LEFT JOIN public.turno t ON t.id_turno_semanal = ts.id_turno_semanal
+                        AND t.estado = 'ACTIVO' AND t.fecha >= ? AND t.fecha <= ?
+LEFT JOIN public.numero n ON n.id_turno = t.id_turno
+WHERE ts.fecha_inicio <= ? AND ts.fecha_fin >= ?
+GROUP BY ... ORDER BY e.nombre, ts.dia_semana, ts.id_turno_semanal
+```
+
+La cadena de `JOIN` es 1:N solo hasta `numero` (una fila por número), y la
+reserva se evalúa con `EXISTS`, de modo que no se multiplican filas. El `LEFT JOIN` conserva los
+patrones sin fechas activas para poder informar `Sin datos`. Los cuatro `?` son `java.sql.Date`; no se concatena texto del usuario.
+
+#### Limitaciones documentadas
+
+- «Activa» se determina por el estado actual de la fecha (`turno.estado`). `turno_evento` guarda el
+  historial de suspensiones y rehabilitaciones, pero no se usa: no hay una regla que haga
+  depender el cálculo del momento exacto en que se suspendió una fecha, y no se inventó una.
+- **Brecha funcional registrada:** el requerimiento oficial dice «en que la fecha del turno estuvo activa». Si se interpreta como actividad histórica (fecha suspendida y luego rehabilitada), el cálculo actual no la reconstruye desde `turno_evento`. No se cambió el significado del indicador sin una decisión del grupo; queda como pendiente funcional.
+- Las consultas con `agendada_en` posterior al período también ocupan el número: el RF mide la
+  ocupación actual de las fechas del período, no la ocupación en una fecha pasada.
+- No se informa un total global ni por especialidad; solo el detalle por turno.
+
+#### Demostración por consola, sin frontend
+
+```powershell
+$base = "http://localhost:8080"
+$h = @{ Authorization = "Bearer $token"; Accept = "application/json" }
+Invoke-RestMethod -Uri "$base/api/estadisticas/turnos?desde=2026-03-01&hasta=2026-03-31" -Headers $h | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Uri "$base/api/estadisticas/turnos" -Headers $h   # mes en curso
+curl.exe -i -H "Authorization: Bearer $token" "$base/api/estadisticas/turnos?desde=2026-03-01&hasta=2026-03-31"
+curl.exe -i "$base/api/estadisticas/turnos"                                 # 401
+curl.exe -i -H "Authorization: Bearer $token" "$base/api/estadisticas/turnos?desde=2026-03-31&hasta=2026-03-01"  # 400
+```
+
+`$token` es el access token de un administrador ficticio de una base descartable (sección 3).
+Para contrastar con SQL: `SELECT count(DISTINCT c.id_numero) FROM consulta c JOIN numero n ON n.id_numero = c.id_numero JOIN turno t ON t.id_turno = n.id_turno WHERE t.id_turno_semanal = 1 AND t.estado = 'ACTIVO' AND t.fecha BETWEEN '2026-03-01' AND '2026-03-31' AND c.estado NOT IN ('CANCELADA_SOCIO','CANCELADA_INSTITUCION');`
+
+#### Pruebas de RF-40
+
+| Tipo | Clase | Cobertura |
+|---|---|---|
+| Unitaria | `EstadisticaTurnoServiceTest` (7) | mes por defecto, zona Montevideo, rango, fechas inválidas, parcial/total/0 %, Sin datos, redondeo |
+| Mock de JDBC | `EstadisticaTurnoRepositoryTest` (1) | solo fechas ACTIVO, EXISTS sobre consultas no canceladas, 4 parámetros, sin datos de pacientes |
+| HTTP/seguridad | `EstadisticaSeguridadTest` (+4 de RF-40) | 200 administrador, 403, 401, 400 |
+| PostgreSQL real | `EstadisticaTurnoIT` (9) | escenario mixto, estados derivados, reserva repetida, fecha suspendida, rehabilitada, límites, período vacío, roles, SQL injection, sin datos de pacientes, lecturas concurrentes |
+
+`EstadisticaTurnoIT` solo corre en `e2e.yml` (PostgreSQL 17 efímero en GitHub Actions). Resultado confirmado en el PR #25 (commit `ca1af34`, PostgreSQL 17.11): `EstadisticaTurnoIT` 9/9; total IT 54 ejecutadas, 54 aprobadas, 0 fallidas, 0 omitidas; Maven 370 aprobadas.
+
 ## 6. Flujo completo hasta PostgreSQL
 
 ### Caso típico de login y acceso
@@ -918,7 +1060,7 @@ No se debe asumir que:
 - todos los RF críticos están totalmente cerrados (ver `docs/informes/estado-backend-grupo4.md`);
 - la validación contra PostgreSQL cubre todo: solo las clases `*IT` se ejecutan contra PostgreSQL 17 efímero en GitHub Actions, y nada se validó todavía en un E2E con frontend;
 - los tests unitarios son equivalentes a pruebas funcionales sobre el producto final;
-- lo que está en una rama de trabajo (por ejemplo RF-39 en el PR #24) ya está en `integracion/proyecto-2026-avances` o desplegado en Railway;
+- lo que está en una rama de trabajo (por ejemplo RF-40 en su PR) ya está en `integracion/proyecto-2026-avances`, o que algo integrado en avances ya está desplegado en Railway;
 - la ruta de especificación solicitada existe en el repositorio.
 
 ## 8. Ejemplos útiles para defensa
@@ -987,5 +1129,5 @@ datos clínicos reales.
 En GitHub Actions sobre el commit 528201d: suite Maven 358 aprobadas (343
 previas + 15 de RF-39), 0 fallidas, 0 errores, 0 omitidas; 45 IT aprobadas contra
 PostgreSQL 17.11 efímero (6 de `EstadisticaEspecialidadIT`), 0 fallidas, 0
-omitidas. RF-39 **no está integrado en avances** ni desplegado en Railway; el E2E
+omitidas. RF-39 está integrado en avances (`a22eef9`) pero no desplegado en Railway; el E2E
 con frontend sigue pendiente.

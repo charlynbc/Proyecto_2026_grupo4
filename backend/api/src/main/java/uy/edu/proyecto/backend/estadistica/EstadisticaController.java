@@ -10,9 +10,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class EstadisticaController {
 
     private final EstadisticaEspecialidadService especialidades;
+    private final EstadisticaTurnoService turnos;
 
-    public EstadisticaController(EstadisticaEspecialidadService especialidades) {
+    public EstadisticaController(
+            EstadisticaEspecialidadService especialidades,
+            EstadisticaTurnoService turnos
+    ) {
         this.especialidades = especialidades;
+        this.turnos = turnos;
+    }
+
+    @GetMapping("/turnos")
+    public EstadisticaTurnoResponse porTurno(
+            @RequestParam(required = false) String desde,
+            @RequestParam(required = false) String hasta
+    ) {
+        return turnos.calcular(desde, hasta);
     }
 
     @GetMapping("/especialidades")

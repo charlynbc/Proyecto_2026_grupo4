@@ -37,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class EstadisticaSeguridadTest {
 
     private static final String RUTA = "/api/estadisticas/especialidades";
+    private static final String RUTA_TURNOS = "/api/estadisticas/turnos";
 
     @Autowired
     private MockMvc mockMvc;
@@ -45,10 +46,75 @@ class EstadisticaSeguridadTest {
     private EstadisticaEspecialidadService service;
 
     @MockitoBean
+    private EstadisticaTurnoService turnoService;
+
+    @MockitoBean
     private JwtDecoder jwtDecoder;
 
     private static RequestPostProcessor rol(String rol) {
         return jwt().authorities(new SimpleGrantedAuthority("ROLE_" + rol));
+    }
+
+    private static EstadisticaTurnoDTO turno(long ofrecidos, long ocupados, String texto) {
+        return new EstadisticaTurnoDTO(
+                7,
+                new EstadisticaTurnoDTO.Persona(5, "Marta", "Medica"),
+                new Especialidad(1L, "Medicina General", false),
+                new EstadisticaTurnoDTO.Consultorio(3, "Consultorio 1", "Planta baja"),
+                2, 2, ofrecidos, ocupados,
+                ofrecidos == 0 ? null : java.math.BigDecimal.valueOf(ocupados * 100.0 / ofrecidos),
+                texto);
+    }
+
+    @Test
+    void rf40AdministradorRecibeUtilizacionPorTurnoSinDatosDePacientes() throws Exception {
+        when(turnoService.calcular("2026-03-01", "2026-03-31")).thenReturn(
+                new EstadisticaTurnoResponse(
+                        LocalDate.parse("2026-03-01"),
+                        LocalDate.parse("2026-03-31"),
+                        List.of(turno(8, 2, "25 %"), turno(0, 0, "Sin datos"))));
+
+        mockMvc.perform(get(RUTA_TURNOS + "?desde=2026-03-01&hasta=2026-03-31").with(rol("ADMINISTRADOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].turnoSemanalId").value(7))
+                .andExpect(jsonPath("$.items[0].medico.nombre").value("Marta"))
+                .andExpect(jsonPath("$.items[0].numerosOfrecidos").value(8))
+                .andExpect(jsonPath("$.items[0].numerosOcupados").value(2))
+                .andExpect(jsonPath("$.items[0].porcentajeUtilizacion").value(25.0))
+                .andExpect(jsonPath("$.items[0].utilizacion").value("25 %"))
+                .andExpect(jsonPath("$.items[1].porcentajeUtilizacion").doesNotExist())
+                .andExpect(jsonPath("$.items[1].utilizacion").value("Sin datos"))
+                .andExpect(jsonPath("$.items[0].socio").doesNotExist())
+                .andExpect(jsonPath("$.items[0].ci").doesNotExist());
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void rf40SocioFuncionarioYMedicoRecibenForbidden() throws Exception {
+        for (String rol : List.of("SOCIO", "FUNCIONARIO", "MEDICO")) {
+            mockMvc.perform(get(RUTA_TURNOS).with(rol(rol)))
+                    .andExpect(status().isForbidden());
+        }
+        verifyNoInteractions(turnoService);
+    }
+
+    @Test
+    void rf40SinJwtDevuelve401() throws Exception {
+        mockMvc.perform(get(RUTA_TURNOS))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(turnoService);
+    }
+
+    @Test
+    void rf40FechasInvalidasSeTraducenA400() throws Exception {
+        when(turnoService.calcular(any(), any())).thenThrow(new ApiException(
+                HttpStatus.BAD_REQUEST, "VALIDACION", "desde debe tener formato YYYY-MM-DD"));
+
+        mockMvc.perform(get(RUTA_TURNOS + "?desde=ayer").with(rol("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDACION"));
     }
 
     @Test
