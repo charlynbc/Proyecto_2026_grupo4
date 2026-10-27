@@ -21,6 +21,29 @@ public class UsuarioService {
             int page,
             int size
     ) {
+        return listar(rol, estado, texto, null, null, page, size);
+    }
+
+    public UsuarioCuentaPageResponse listar(
+            String rol,
+            String estado,
+            String texto,
+            String orden,
+            String sentido,
+            int page,
+            int size
+    ) {
+        String campo = orden == null || orden.isBlank() ? "apellido" : orden.trim();
+        if (!"apellido".equals(campo) && !"fechaAlta".equals(campo)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "orden debe ser apellido o fechaAlta");
+        }
+        String direccion = sentido == null || sentido.isBlank()
+                ? "asc" : sentido.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!"asc".equals(direccion) && !"desc".equals(direccion)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "sentido debe ser asc o desc");
+        }
         if (page < 0) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
@@ -54,6 +77,7 @@ public class UsuarioService {
             );
         }
 
-        return repository.listar(rolNormalizado, estadoNormalizado, texto, page, size);
+        return repository.listar(rolNormalizado, estadoNormalizado, texto,
+                campo, direccion, page, size);
     }
 }

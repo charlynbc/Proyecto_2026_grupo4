@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import uy.edu.proyecto.backend.exception.ApiException;
+
 @RestController
 @RequestMapping("/api/usuarios")
 public class AltaUsuarioController {
@@ -29,10 +31,23 @@ public class AltaUsuarioController {
             @RequestParam(name = "rol", required = false) String rol,
             @RequestParam(name = "estado", required = false) String estado,
             @RequestParam(name = "texto", required = false) String texto,
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "orden", required = false) String orden,
+            @RequestParam(name = "sentido", required = false) String sentido,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "20") int size
     ) {
-        return usuarioService.listar(rol, estado, texto, page, size);
+        // q es el contrato de Flutter; texto se conserva como alias.
+        if (q != null && !q.isBlank() && texto != null && !texto.isBlank()
+                && !q.trim().equals(texto.trim())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "q y texto no pueden contener búsquedas diferentes");
+        }
+        String busqueda = q != null && !q.isBlank() ? q : texto;
+        if (orden == null && sentido == null) {
+            return usuarioService.listar(rol, estado, busqueda, page, size);
+        }
+        return usuarioService.listar(rol, estado, busqueda, orden, sentido, page, size);
     }
 
     @PostMapping

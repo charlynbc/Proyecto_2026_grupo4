@@ -23,6 +23,18 @@ public class UsuarioPadronRepository {
             int page,
             int size
     ) {
+        return listar(rol, estado, texto, "apellido", "asc", page, size);
+    }
+
+    public UsuarioCuentaPageResponse listar(
+            String rol,
+            String estado,
+            String texto,
+            String orden,
+            String sentido,
+            int page,
+            int size
+    ) {
         StringBuilder sql = new StringBuilder(
                 """
                 SELECT c.id_cuenta,
@@ -54,10 +66,12 @@ public class UsuarioPadronRepository {
         }
 
         if (texto != null && !texto.isBlank()) {
-            String textoBusqueda = "%" + texto.trim() + "%";
-            sql.append(
-                    " AND (LOWER(p.ci) LIKE LOWER(?) OR LOWER(p.apellido) LIKE LOWER(?))"
-            );
+            String literal = texto.trim().replace("!", "!!")
+                    .replace("%", "!%")
+                    .replace("_", "!_");
+            String textoBusqueda = "%" + literal + "%";
+            sql.append(" AND (LOWER(p.ci) LIKE LOWER(?) ESCAPE '!'"
+                    + " OR LOWER(p.apellido) LIKE LOWER(?) ESCAPE '!')");
             parametros.add(textoBusqueda);
             parametros.add(textoBusqueda);
         }
@@ -68,7 +82,16 @@ public class UsuarioPadronRepository {
                 parametros.toArray()
         );
 
-        sql.append(" ORDER BY p.apellido ASC, c.fecha_alta DESC LIMIT ? OFFSET ?");
+        // Solo valores de lista blanca validados en UsuarioService.
+        String direccion = "desc".equals(sentido) ? "DESC" : "ASC";
+        if ("fechaAlta".equals(orden)) {
+            sql.append(" ORDER BY c.fecha_alta ").append(direccion)
+                    .append(", p.apellido ASC, c.id_cuenta ASC");
+        } else {
+            sql.append(" ORDER BY p.apellido ").append(direccion)
+                    .append(", c.fecha_alta DESC, c.id_cuenta ASC");
+        }
+        sql.append(" LIMIT ? OFFSET ?");
         parametros.add(size);
         parametros.add((long) page * size);
 
