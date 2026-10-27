@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import uy.edu.proyecto.backend.correo.CorreoException;
 import uy.edu.proyecto.backend.correo.CorreoMensaje;
 import uy.edu.proyecto.backend.correo.CorreoSender;
 
@@ -63,6 +64,13 @@ public class PrimerIngresoMailListener {
     private void enviar(Long idCuenta, CorreoMensaje mensaje) {
         try {
             correoSender.enviar(mensaje);
+        } catch (CorreoException exception) {
+            // Los mensajes de CorreoException son propios (sin datos del correo) y orientan el diagnostico.
+            LOGGER.error(
+                    "No se pudo enviar un correo de primer ingreso para la cuenta {}: {}",
+                    idCuenta,
+                    exception.getMessage()
+            );
         } catch (RuntimeException exception) {
             // Nunca se registra el contenido ni el destinatario del correo.
             LOGGER.error(

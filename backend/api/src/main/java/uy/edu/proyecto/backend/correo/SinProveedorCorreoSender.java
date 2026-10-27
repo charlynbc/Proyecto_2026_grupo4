@@ -1,5 +1,7 @@
 package uy.edu.proyecto.backend.correo;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +13,14 @@ import org.springframework.stereotype.Component;
         matchIfMissing = true
 )
 public class SinProveedorCorreoSender implements CorreoSender {
+
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(SinProveedorCorreoSender.class);
+
+    public SinProveedorCorreoSender() {
+        LOGGER.warn("MAIL_PROVIDER=none: el backend no enviara correos "
+                + "(configurar smtp con Mailpit o resend)");
+    }
 
     @Override
     public void enviar(CorreoMensaje mensaje) {

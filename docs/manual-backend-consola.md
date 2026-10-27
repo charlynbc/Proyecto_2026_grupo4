@@ -75,6 +75,32 @@ COOKIE_SAME_SITE=Lax
 
 El archivo `.env` no se sube al repositorio.
 
+### 3.1.1. Correo local con Mailpit y primer ingreso (RF-02)
+
+`MAIL_PROVIDER` vale `none` por defecto (no envía nada). Para ver los correos en local:
+
+```powershell
+docker run -d --name mailpit -p 8025:8025 -p 1025:1025 axllent/mailpit
+# Variables: MAIL_PROVIDER=smtp MAIL_HOST=localhost MAIL_PORT=1025 MAIL_FROM=no-reply@mailpit.local
+#            FIRST_LOGIN_URL=http://localhost:5173/#/primer-ingreso
+```
+
+Bandeja: <http://localhost:8025>. Cargar las cuentas ficticias pendientes (solo `INSERT`,
+base local descartable) con `database/pruebas/datos_primer_ingreso_local.sql`
+(CI `40000018` SOCIO, `40000024` MEDICO→EMPLEADO, `40000030` inactivada).
+
+Probar el envío y la activación, y verificar el login:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/probar-primer-ingreso-mailpit.ps1 -BaseUrl http://localhost:8080 -Ci 40000018 -Acceso SOCIO
+```
+
+El script pide el enlace (202), espera el correo en Mailpit, comprueba que el enlace tenga
+la forma `/#/primer-ingreso?token=…`, activa la cuenta, comprueba que el enlace no se
+reutiliza y ejecuta el login. Manualmente: `POST /api/auth/primer-ingreso/solicitar`, abrir
+el enlace del correo, `POST /api/auth/primer-ingreso/completar`, y `POST /api/auth/login`
+(los empleados envían además `"plataforma":"WEB"`). Para Railway y Resend ver
+`docs/api/railway-correo.md`.
 ### 3.2. Crear la base PostgreSQL
 
 El backend se conecta a PostgreSQL a través de `spring.datasource` en `application.properties`, y el esquema se crea desde `database/schema.sql`.
