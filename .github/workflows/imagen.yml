@@ -1,0 +1,53 @@
+# Construye la imagen que se despliega (app web + API) y la arranca para
+# comprobar que sirve las dos cosas. Corre en cada Pull Request que toque el
+# backend, el frontend o el Dockerfile.
+name: Imagen
+
+on:
+  pull_request:
+    paths:
+      - "backend/api/**"
+      - "frontend/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/imagen.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/api/**"
+      - "frontend/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/imagen.yml"
+
+jobs:
+  imagen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir la imagen
+        run: docker build -t agenda:ci .
+
+      # La conexión a la base se abre recién con la primera consulta, así que
+      # el contenedor arranca sin base. Alcanza para probar lo que sirve.
+      - name: Arrancar el contenedor
+        run: |
+          docker run -d --name agenda -p 8080:8080 \
+            -e DB_URL=jdbc:postgresql://localhost:5432/no-se-usa \
+            -e DB_USER=no-se-usa \
+            -e DB_PASSWORD=no-se-usa \
+            -e JWT_SECRET_BASE64=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY= \
+            -e APP_FIREBASE_ENABLED=false \
+            agenda:ci
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://localhost:8080/index.html && exit 0
+            sleep 2
+          done
+          docker logs agenda
+          exit 1
+
+      - name: La app web es pública y la API pide sesión
+        run: |
+          curl -sf http://localhost:8080/ | grep -q "flutter_bootstrap.js"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/especialidades)" = "401"

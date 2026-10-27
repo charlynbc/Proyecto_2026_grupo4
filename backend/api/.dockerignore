@@ -1,8 +1,0 @@
-# Lo que no tiene que entrar al contexto de la imagen.
-target/
-.idea/
-.vscode/
-*.iml
-HELP.md
-.env
-.env.*
