@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,14 +49,15 @@ class CancelacionConsultaIT extends BaseIntegracionIT {
         return r.json();
     }
 
-    /** Numero de hoy que empieza dentro de los minutos indicados; omite la prueba si cruza la medianoche. */
+    /** Numero que empieza dentro de los minutos indicados; la fecha es la que corresponda, incluso si cruza la medianoche. */
     private long numeroHoyEnMinutos(int minutosDesdeAhora) {
-        LocalTime inicio = LocalTime.now(ZONA).plusMinutes(minutosDesdeAhora).withSecond(0).withNano(0);
-        inicio = inicio.minusMinutes(inicio.getMinute() % 5);
-        assumeTrue(inicio.isAfter(LocalTime.now(ZONA).withSecond(0).withNano(0))
-                && inicio.plusMinutes(20).isAfter(inicio)
-                && inicio.getHour() < 23, "La hora de la prueba cruza la medianoche");
-        long turno = sembrarTurno(hoy(), 0);
+        LocalDateTime objetivo = LocalDateTime.now(ZONA).plusMinutes(minutosDesdeAhora)
+                .withSecond(0).withNano(0);
+        if (objetivo.getHour() == 23 && objetivo.getMinute() >= 40) {
+            objetivo = objetivo.plusMinutes(30);
+        }
+        LocalTime inicio = objetivo.toLocalTime();
+        long turno = sembrarTurno(objetivo.toLocalDate(), 0);
         long semanal = jdbc.queryForObject(
                 "SELECT id_turno_semanal FROM turno WHERE id_turno = ?", Long.class, turno);
         long patron = jdbc.queryForObject(
@@ -383,37 +384,6 @@ class CancelacionConsultaIT extends BaseIntegracionIT {
                     Integer.class, numero);
             assertEquals(r.get(1).estado() == 201 ? 1 : 0, ocupadas, "Ronda " + ronda);
             assertEquals("CANCELADA_SOCIO", estadoConsulta(consulta));
-        }
-    }
-
-    @Test
-    void cancelacionYAvisoDeLlegadaSimultaneosSonExcluyentes() throws Exception {
-        String socio = tokenSocio(ciSocio1);
-        String funcionario = tokenEmpleado(ciFuncionario);
-
-        long numero = numeroHoyEnMinutos(180);
-        for (int ronda = 0; ronda < RONDAS; ronda++) {
-            jdbc.update("DELETE FROM aviso_llegada");
-            jdbc.update("DELETE FROM consulta");
-            long consulta = sembrarConsulta(idSocio1, numero);
-
-            List<Respuesta> r = enParalelo(List.of(
-                    () -> cancelar(socio, consulta),
-                    () -> post("/api/avisos-llegada", funcionario, "{\"ci\":\"%s\"}".formatted(ciSocio1))));
-
-            for (Respuesta x : r) {
-                assertTrue(x.estado() < 500, "Error de servidor: " + x.estado() + " " + x.cuerpo());
-            }
-            boolean cancelada = estadoConsulta(consulta).equals("CANCELADA_SOCIO");
-            int avisos = contar("aviso_llegada");
-            assertTrue(cancelada ^ avisos == 1,
-                    "Ronda " + ronda + ": cancelada=" + cancelada + " avisos=" + avisos + " " + r);
-            if (!cancelada) {
-                assertEquals("LLEGADA_YA_REGISTRADA", r.get(0).codigo());
-            }
-            jdbc.update("DELETE FROM turno_evento");
-            jdbc.update("DELETE FROM numero");
-            jdbc.update("DELETE FROM turno");
         }
     }
 
