@@ -93,7 +93,8 @@ class DoctorResultController extends Notifier<DoctorResultFormState> {
   DoctorResultFormState build() => const DoctorResultFormState();
 
   void setOutcome(ConsultationOutcome outcome) {
-    state = state.copyWith(outcome: outcome);
+    // La marca de la afección solo vale para Atendida: no queda guardada.
+    state = state.copyWith(outcome: outcome, conditionError: null);
   }
 
   void setCondition(String text) {
@@ -146,18 +147,24 @@ class DoctorResultController extends Notifier<DoctorResultFormState> {
     );
   }
 
+  /// Si el formulario se puede enviar. Con Atendida exige la afección y, si
+  /// falta, marca el campo. Con No se presentó no pide nada.
+  bool validate() {
+    if (state.outcome == ConsultationOutcome.attended &&
+        state.condition.trim().isEmpty) {
+      state = state.copyWith(conditionError: kMissingConditionMessage);
+      return false;
+    }
+    return true;
+  }
+
   /// Envía el resultado de la consulta [appointmentId]. Devuelve lo registrado,
   /// o `null` si no se envió o falló; en ese caso el estado dice por qué.
   Future<AppointmentResult?> submit(int appointmentId) async {
     // El resultado es definitivo: ni en curso ni ya registrado hay otro envío.
     if (state.isLoading || state.status == SubmitStatus.done) return null;
-    if (state.outcome == ConsultationOutcome.attended &&
-        state.condition.trim().isEmpty) {
-      state = state.copyWith(
-        conditionError: kMissingConditionMessage,
-        status: SubmitStatus.idle,
-        errorMessage: null,
-      );
+    if (!validate()) {
+      state = state.copyWith(status: SubmitStatus.idle, errorMessage: null);
       return null;
     }
     // Si se sale de la pantalla mientras se envía, el envío igual termina.

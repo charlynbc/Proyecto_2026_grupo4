@@ -23,6 +23,12 @@ class FakeDoctorResultRepository implements DoctorResultRepository {
   final Duration latency;
   int _nextReferralId = 1;
 
+  /// El día de Uruguay de [instant], como clave de día en UTC.
+  static DateTime _dayKey(DateTime instant) {
+    final local = UruguayTime.toUruguay(instant);
+    return DateTime.utc(local.year, local.month, local.day);
+  }
+
   @override
   Future<AppointmentResult> register(
     int appointmentId,
@@ -32,7 +38,8 @@ class FakeDoctorResultRepository implements DoctorResultRepository {
     if (appointmentId == kFakeNotTodayAppointmentId) {
       throw const AppointmentNotTodayException();
     }
-    final now = DateTime.now();
+    final now = _db.clock();
+    final today = _dayKey(now);
     if (request.outcome == ConsultationOutcome.noShow) {
       return AppointmentResult(
         appointmentId: appointmentId,
@@ -56,7 +63,7 @@ class FakeDoctorResultRepository implements DoctorResultRepository {
           id: _nextReferralId++,
           specialty: specialty,
           issuedAt: now,
-          expiresOn: UruguayTime.today().add(Duration(days: item.validityDays)),
+          expiresOn: today.add(Duration(days: item.validityDays)),
         ),
       );
     }

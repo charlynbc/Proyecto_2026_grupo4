@@ -14,6 +14,8 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/consultorios/screens/clinics_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
+import '../../features/medico/screens/doctor_appointment_result_screen.dart';
+import '../../features/medico/screens/doctor_result_routes.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
@@ -102,6 +104,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
         ],
+      ),
+      // El guard de `redirectFor` deja entrar solo al médico: el prefijo
+      // `/medico` es de ese rol.
+      GoRoute(
+        path: kDoctorResultPath,
+        // Un id que no es un número vuelve a "Mis turnos".
+        redirect: (context, state) =>
+            _appointmentId(state) == null ? kDoctorShiftsPath : null,
+        builder: (context, state) => DoctorAppointmentResultScreen(
+          appointmentId: _appointmentId(state)!,
+          patientName: state.uri.queryParameters['paciente'],
+        ),
       ),
       for (final role in UserRole.values) _roleShell(role),
     ],

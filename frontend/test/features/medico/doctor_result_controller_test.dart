@@ -156,6 +156,51 @@ void main() {
       );
     }
 
+    test('validate marca la afección vacía de Atendida y no envía', () {
+      final (container, controller, repository) = _setup();
+      controller.setCondition('   ');
+
+      expect(controller.validate(), isFalse);
+
+      expect(
+        _state(container).conditionError,
+        'Escribí la afección que se diagnosticó.',
+      );
+      expect(repository.calls, 0);
+    });
+
+    test('validate acepta Atendida con afección y No se presentó vacío', () {
+      final (container, controller, _) = _setup();
+      controller.setCondition('gripe');
+      expect(controller.validate(), isTrue);
+      expect(_state(container).conditionError, isNull);
+
+      controller.setCondition('');
+      controller.setOutcome(ConsultationOutcome.noShow);
+      expect(controller.validate(), isTrue);
+      expect(_state(container).conditionError, isNull);
+    });
+
+    test('pasar a No se presentó limpia la marca de la afección', () async {
+      final (container, controller, _) = _setup();
+      await controller.submit(15);
+      expect(_state(container).conditionError, isNotNull);
+
+      controller.setOutcome(ConsultationOutcome.noShow);
+
+      expect(_state(container).conditionError, isNull);
+    });
+
+    test('volver a Atendida no trae de vuelta la marca', () async {
+      final (container, controller, _) = _setup();
+      await controller.submit(15);
+      controller.setOutcome(ConsultationOutcome.noShow);
+
+      controller.setOutcome(ConsultationOutcome.attended);
+
+      expect(_state(container).conditionError, isNull);
+    });
+
     test('escribir la afección limpia la marca', () async {
       final (container, controller, _) = _setup();
       await controller.submit(15);
