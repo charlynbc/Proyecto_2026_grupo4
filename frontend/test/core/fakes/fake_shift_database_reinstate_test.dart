@@ -22,7 +22,7 @@ void main() {
     db = FakeShiftDatabase(admin, seed: false);
   });
 
-  int _createOneShift() {
+  int createOneShift() {
     final doctor = admin.accounts.firstWhere(
       (a) => a.role == UserRole.medico && a.lastName == 'Méndez',
     );
@@ -41,7 +41,7 @@ void main() {
   }
 
   test('reinstateShift deja activo un turno suspendido', () {
-    final id = _createOneShift();
+    final id = createOneShift();
     db.suspendShift(id);
 
     db.reinstateShift(id);
@@ -50,7 +50,7 @@ void main() {
   });
 
   test('reinstateShift sobre un turno activo lanza no rehabilitable', () {
-    final id = _createOneShift();
+    final id = createOneShift();
 
     expect(
       () => db.reinstateShift(id),
