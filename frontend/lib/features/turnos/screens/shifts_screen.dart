@@ -26,15 +26,16 @@ class ShiftsScreen extends StatelessWidget {
           children: [
             Align(
               alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 12,
+                runSpacing: 12,
                 children: [
                   FilledButton(
                     onPressed: () =>
                         context.go('/funcionario/turnos/rehabilitar'),
                     child: const Text('Rehabilitar fechas'),
                   ),
-                  const SizedBox(width: 12),
                   FilledButton.icon(
                     onPressed: () => context.go(kNewWeeklyShiftPath),
                     icon: const Icon(Icons.add),
