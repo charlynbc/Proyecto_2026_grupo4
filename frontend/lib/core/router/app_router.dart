@@ -18,6 +18,7 @@ import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
 import '../../features/turnos/screens/new_weekly_shift_screen.dart';
+import '../../features/turnos/screens/reinstate_shifts_screen.dart';
 import '../../features/turnos/screens/shift_routes.dart';
 import '../../features/turnos/screens/shifts_screen.dart';
 import '../../features/turnos/screens/weekly_shift_detail_screen.dart';
@@ -131,7 +132,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
       path: path,
       builder: (context, state) => const ShiftsScreen(),
       routes: [
-        // `nuevo` (un segmento) y `configuracion/:id` (dos) no se pisan.
+        // `nuevo` y `rehabilitar` (un segmento) y `configuracion/:id` (dos)
+        // no se pisan.
+        GoRoute(
+          path: 'rehabilitar',
+          builder: (context, state) => const ReinstateShiftsScreen(),
+        ),
         GoRoute(
           path: 'nuevo',
           builder: (context, state) => const NewWeeklyShiftScreen(),
