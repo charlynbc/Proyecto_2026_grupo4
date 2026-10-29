@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../../../core/widgets/ui_date_field.dart';
@@ -133,6 +134,12 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
           if (!mounted || !dialogContext.mounted) return;
           Navigator.of(dialogContext).pop();
           await _search();
+        } catch (error) {
+          if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(apiMessageOf(error))),
+          );
         } finally {
           if (mounted) setState(() => _sending = false);
         }

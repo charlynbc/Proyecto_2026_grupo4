@@ -20,6 +20,20 @@ const String _warning =
     'Las consultas que se cancelaron por la suspensión no se vuelven a '
     'agendar. Los socios tienen que pedir una nueva consulta.';
 
+const String _notReinstatable =
+    'Ese turno no se puede volver a habilitar: no está suspendido o la '
+    'fecha ya pasó. Elegí otros turnos de la lista.';
+
+class _FailingReinstatementRepository
+    implements ShiftReinstatementRepository {
+  @override
+  Future<ShiftReinstatementResult> reinstate(
+    ShiftReinstatement request,
+  ) async {
+    throw const ShiftNotReinstatableException();
+  }
+}
+
 class _RecordingReinstatementRepository
     implements ShiftReinstatementRepository {
   _RecordingReinstatementRepository(this.db);
@@ -46,7 +60,10 @@ class _RecordingReinstatementRepository
   }
 }
 
-Future<_RecordingReinstatementRepository> _pump(WidgetTester tester) async {
+Future<_RecordingReinstatementRepository> _pump(
+  WidgetTester tester, {
+  ShiftReinstatementRepository? reinstatement,
+}) async {
   final admin = FakeAdminDatabase();
   final db = FakeShiftDatabase(admin, seed: false);
   final doctor = admin.accounts.firstWhere(
@@ -90,7 +107,9 @@ Future<_RecordingReinstatementRepository> _pump(WidgetTester tester) async {
       specialtyRepositoryProvider.overrideWith(
         (ref) async => FakeSpecialtyRepository(admin, latency: Duration.zero),
       ),
-      reinstatementRepositoryProvider.overrideWith((ref) async => repository),
+      reinstatementRepositoryProvider.overrideWith(
+        (ref) async => reinstatement ?? repository,
+      ),
     ],
   );
   return repository;
@@ -206,4 +225,22 @@ void main() {
 
     expect(repository.calls, hasLength(1));
   });
+
+  testWidgets(
+    'si la rehabilitación falla se ve el mensaje y se cierra el diálogo',
+    (tester) async {
+      await _pump(tester, reinstatement: _FailingReinstatementRepository());
+      await _search(tester);
+      await tester.tap(find.byType(Checkbox).first);
+      await tester.pumpAndSettle();
+      await tester.tap(_rehabilitate);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Volver a habilitar'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_notReinstatable), findsOneWidget);
+      expect(find.text(_warning), findsNothing);
+    },
+  );
 }
