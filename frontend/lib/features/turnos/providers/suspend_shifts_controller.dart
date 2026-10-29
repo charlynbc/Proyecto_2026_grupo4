@@ -29,6 +29,7 @@ class SuspendShiftsState {
     this.observation = '',
     this.phase = SuspendPhase.idle,
     this.preview,
+    this.previewedIds,
     this.error,
     this.result,
   });
@@ -43,6 +44,11 @@ class SuspendShiftsState {
   /// Lo que se mostraría al confirmar; `null` si no se pidió o se descartó.
   final SuspensionPreview? preview;
 
+  /// Los ids con que se pidió la vista previa, ordenados: la foto de lo que se
+  /// mostró. Es lo que se suspende al confirmar, aunque la selección haya
+  /// cambiado mientras tanto. Se renueva y se borra junto con [preview].
+  final List<int>? previewedIds;
+
   /// El mensaje del último error, para mostrar tal cual.
   final String? error;
 
@@ -54,6 +60,7 @@ class SuspendShiftsState {
     String? observation,
     SuspendPhase? phase,
     ValueGetter<SuspensionPreview?>? preview,
+    ValueGetter<List<int>?>? previewedIds,
     ValueGetter<String?>? error,
   }) => SuspendShiftsState(
     filter: filter,
@@ -61,6 +68,7 @@ class SuspendShiftsState {
     observation: observation ?? this.observation,
     phase: phase ?? this.phase,
     preview: preview != null ? preview() : this.preview,
+    previewedIds: previewedIds != null ? previewedIds() : this.previewedIds,
     error: error != null ? error() : this.error,
     result: result,
   );
@@ -78,8 +86,11 @@ class SuspendShiftsController extends Notifier<SuspendShiftsState> {
   }
 
   /// Cambia el filtro: limpia la selección, la vista previa y el error, y
-  /// conserva la observación.
+  /// conserva la observación. Mientras se espera al servidor (vista previa o
+  /// confirmación) no hace nada: cambiar lo elegido en ese momento dejaría la
+  /// pantalla mostrando otra cosa que lo que se va a suspender.
   void setFilter(SuspensionFilter filter) {
+    if (state.phase != SuspendPhase.idle) return;
     final effective = filter.fromTodayOn(ref.read(suspensionClockProvider)());
     _lastAction = null;
     state = SuspendShiftsState(
@@ -106,24 +117,35 @@ class SuspendShiftsController extends Notifier<SuspendShiftsState> {
     }
   }
 
+  /// Los tres métodos de selección no hacen nada mientras se espera al
+  /// servidor, por la misma razón que [setFilter].
   void toggleSelection(int id) {
+    if (state.phase != SuspendPhase.idle) return;
     final next = {...state.selectedIds};
     if (!next.remove(id)) next.add(id);
     state = state.copyWith(selectedIds: next);
   }
 
-  void selectAll(Iterable<int> ids) =>
-      state = state.copyWith(selectedIds: {...ids});
+  void selectAll(Iterable<int> ids) {
+    if (state.phase != SuspendPhase.idle) return;
+    state = state.copyWith(selectedIds: {...ids});
+  }
 
-  void clearSelection() => state = state.copyWith(selectedIds: {});
+  void clearSelection() {
+    if (state.phase != SuspendPhase.idle) return;
+    state = state.copyWith(selectedIds: {});
+  }
 
   void setObservation(String text) =>
       state = state.copyWith(observation: text, error: () => null);
 
   /// "Volver": descarta la vista previa y el error que venía con ella.
   /// Conserva selección y observación.
-  void dismissPreview() =>
-      state = state.copyWith(preview: () => null, error: () => null);
+  void dismissPreview() => state = state.copyWith(
+    preview: () => null,
+    previewedIds: () => null,
+    error: () => null,
+  );
 
   /// Pide al servidor qué pasaría al suspender lo elegido.
   Future<void> requestPreview() async {
@@ -132,16 +154,24 @@ class SuspendShiftsController extends Notifier<SuspendShiftsState> {
         state.selectedIds.isEmpty) {
       return;
     }
+    // La foto de lo pedido se toma ahora, antes de cualquier espera: es lo que
+    // se va a mostrar y, si se confirma, lo que se va a suspender.
+    final ids = _sortedSelection();
     _lastAction = _Action.preview;
     state = state.copyWith(phase: SuspendPhase.previewing, error: () => null);
-    await _runPreview();
+    await _runPreview(ids);
   }
 
-  /// Suspende lo elegido con el total que se vio en la vista previa.
+  /// Suspende las fechas de la vista previa, con el total que se vio en ella.
+  /// Manda los ids de la vista previa, no la selección de ahora.
   Future<void> confirm() async {
     final preview = state.preview;
+    final previewedIds = state.previewedIds;
     final filter = state.filter;
-    if (state.phase != SuspendPhase.idle || preview == null || filter == null) {
+    if (state.phase != SuspendPhase.idle ||
+        preview == null ||
+        previewedIds == null ||
+        filter == null) {
       return;
     }
     final observation = state.observation.trim();
@@ -162,7 +192,7 @@ class SuspendShiftsController extends Notifier<SuspendShiftsState> {
       );
       final result = await repository.suspend(
         filter: filter,
-        ids: _sortedSelection(),
+        ids: previewedIds,
         observation: observation.isEmpty ? null : observation,
         confirmedCount: preview.totalAppointments,
       );
@@ -174,13 +204,14 @@ class SuspendShiftsController extends Notifier<SuspendShiftsState> {
     } on StaleSuspensionConfirmationException catch (e) {
       if (!ref.mounted) return;
       // La cantidad cambió: se vuelve a previsualizar para que se confirme el
-      // total nuevo, y se conserva el aviso.
+      // total nuevo, y se conserva el aviso. Se piden los mismos ids de la
+      // vista previa anterior, no la selección de ahora.
       _lastAction = _Action.preview;
       state = state.copyWith(
         phase: SuspendPhase.previewing,
         error: () => e.message,
       );
-      await _runPreview(afterStale: true);
+      await _runPreview(previewedIds, afterStale: true);
     } catch (e) {
       if (!ref.mounted) return;
       _fail(e);
@@ -194,19 +225,26 @@ class SuspendShiftsController extends Notifier<SuspendShiftsState> {
     null => Future.value(),
   };
 
-  Future<void> _runPreview({bool afterStale = false}) async {
+  /// Pide la vista previa de [ids] y, si llega, la deja junto con esos ids.
+  Future<void> _runPreview(List<int> ids, {bool afterStale = false}) async {
     try {
       final repository = await ref.read(
         shiftSuspensionRepositoryProvider.future,
       );
-      final preview = await repository.preview(_sortedSelection());
+      final preview = await repository.preview(ids);
       if (!ref.mounted) return;
-      state = state.copyWith(phase: SuspendPhase.idle, preview: () => preview);
+      state = state.copyWith(
+        phase: SuspendPhase.idle,
+        preview: () => preview,
+        previewedIds: () => ids,
+      );
     } catch (e) {
       if (!ref.mounted) return;
       _fail(e);
       // Tras una desactualización, la vista previa vieja ya no vale.
-      if (afterStale) state = state.copyWith(preview: () => null);
+      if (afterStale) {
+        state = state.copyWith(preview: () => null, previewedIds: () => null);
+      }
     }
   }
 
@@ -223,6 +261,7 @@ class SuspendShiftsController extends Notifier<SuspendShiftsState> {
           phase: SuspendPhase.idle,
           selectedIds: {},
           preview: () => null,
+          previewedIds: () => null,
           error: () => message,
         );
       case ShiftNotSuspendableException():
@@ -232,6 +271,7 @@ class SuspendShiftsController extends Notifier<SuspendShiftsState> {
         state = state.copyWith(
           phase: SuspendPhase.idle,
           preview: () => null,
+          previewedIds: () => null,
           error: () => message,
         );
       default:

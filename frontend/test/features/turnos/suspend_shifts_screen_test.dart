@@ -9,6 +9,7 @@ import 'package:agenda_medica/features/turnos/models/new_weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/models/shift_filters.dart';
 import 'package:agenda_medica/features/turnos/models/shift_number.dart';
 import 'package:agenda_medica/features/turnos/models/shift_page.dart';
+import 'package:agenda_medica/features/turnos/models/shift_state.dart';
 import 'package:agenda_medica/features/turnos/models/suspension_filter.dart';
 import 'package:agenda_medica/features/turnos/models/suspension_preview.dart';
 import 'package:agenda_medica/features/turnos/models/suspension_result.dart';
@@ -44,6 +45,7 @@ class _ScriptedRepository implements ShiftSuspensionRepository {
 
   final List<Object?> previewScript = [];
   final List<Object?> suspendScript = [];
+  Completer<void>? previewGate;
   Completer<void>? suspendGate;
 
   int previewCalls = 0;
@@ -52,6 +54,7 @@ class _ScriptedRepository implements ShiftSuspensionRepository {
   @override
   Future<SuspensionPreview> preview(List<int> ids) async {
     previewCalls++;
+    await previewGate?.future;
     if (previewScript.isNotEmpty) {
       final next = previewScript.removeAt(0);
       if (next != null) throw next;
@@ -220,6 +223,9 @@ Future<void> _pump(
 
 bool _enabled(WidgetTester tester, String key) =>
     tester.widget<ButtonStyleButton>(find.byKey(Key(key))).onPressed != null;
+
+bool _checkboxEnabled(WidgetTester tester, String key) =>
+    tester.widget<CheckboxListTile>(find.byKey(Key(key))).onChanged != null;
 
 Future<void> _enterDate(WidgetTester tester, String label, String text) async {
   await tester.enterText(find.widgetWithText(TextFormField, label), text);
@@ -578,6 +584,91 @@ void main() {
 
       expect(s.suspension.suspendCalls, 1);
       expect(_dialog, findsNothing);
+    });
+  });
+
+  group('mientras se espera al servidor', () {
+    testWidgets('con la vista previa en curso se deshabilitan las casillas, '
+        '"Seleccionar todas" y "Buscar"', (tester) async {
+      await _pump(tester, s);
+      await _search(tester, s);
+      await _check(tester, 9);
+      expect(_checkboxEnabled(tester, 'suspend-check-9'), isTrue);
+      expect(_checkboxEnabled(tester, 'suspend-select-all'), isTrue);
+      expect(_enabled(tester, 'suspend-search'), isTrue);
+      s.suspension.previewGate = Completer<void>();
+
+      await tester.tap(find.byKey(const Key('preview-suspension')));
+      await tester.pump();
+
+      expect(s.suspension.previewCalls, 1);
+      expect(_checkboxEnabled(tester, 'suspend-check-9'), isFalse);
+      expect(_checkboxEnabled(tester, 'suspend-check-6'), isFalse);
+      expect(_checkboxEnabled(tester, 'suspend-select-all'), isFalse);
+      expect(_enabled(tester, 'suspend-search'), isFalse);
+
+      s.suspension.previewGate!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('tocar otra fecha con la vista previa en curso no la suma ni '
+        'la suspende', (tester) async {
+      await _pump(tester, s);
+      await _search(tester, s);
+      await _check(tester, 9);
+      s.suspension.previewGate = Completer<void>();
+      await tester.tap(find.byKey(const Key('preview-suspension')));
+      await tester.pump();
+
+      // La 6 (11/11) se toca con el pedido en vuelo: no tiene efecto.
+      await _check(tester, 6);
+      expect(find.text('Elegidas: 1'), findsOneWidget);
+      s.suspension.previewGate!.complete();
+      await tester.pumpAndSettle();
+
+      expect(_inDialog(find.textContaining('02/12/2026')), findsOneWidget);
+      expect(_inDialog(find.textContaining('11/11/2026')), findsNothing);
+      await _confirm(tester);
+
+      expect(
+        s.db.shifts.firstWhere((shift) => shift.id == 9).state,
+        ShiftState.suspended,
+      );
+      expect(
+        s.db.shifts.firstWhere((shift) => shift.id == 6).state,
+        ShiftState.active,
+      );
+    });
+
+    testWidgets('con la confirmacion en curso tambien se deshabilitan', (
+      tester,
+    ) async {
+      await _pump(tester, s);
+      await _openDialog(tester, s);
+      s.suspension.suspendGate = Completer<void>();
+
+      await tester.tap(find.byKey(const Key('confirm-suspension')));
+      await tester.pump();
+
+      expect(s.suspension.suspendCalls, 1);
+      expect(_checkboxEnabled(tester, 'suspend-check-9'), isFalse);
+      expect(_checkboxEnabled(tester, 'suspend-select-all'), isFalse);
+      expect(_enabled(tester, 'suspend-search'), isFalse);
+
+      s.suspension.suspendGate!.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('al volver del dialogo se habilitan otra vez', (tester) async {
+      await _pump(tester, s);
+      await _openDialog(tester, s);
+
+      await tester.tap(find.text('Volver'));
+      await tester.pumpAndSettle();
+
+      expect(_checkboxEnabled(tester, 'suspend-check-9'), isTrue);
+      expect(_checkboxEnabled(tester, 'suspend-select-all'), isTrue);
+      expect(_enabled(tester, 'suspend-search'), isTrue);
     });
   });
 

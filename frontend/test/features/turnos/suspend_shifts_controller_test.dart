@@ -206,6 +206,35 @@ class _Setup {
   }
 }
 
+/// Deja el controller esperando la vista previa: filtro, la 9 elegida y el
+/// pedido retenido en el repositorio. Devuelve el pedido, para esperarlo al
+/// final.
+Future<({Future<void> pending})> _holdPreview(_Setup s) async {
+  s.notifier.setFilter(s.filter());
+  await s.settle();
+  s.notifier.toggleSelection(9);
+  s.repository.previewGate = Completer<void>();
+  final pending = s.notifier.requestPreview();
+  for (var i = 0; i < 20 && s.repository.previewCalls == 0; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+  expect(s.state.phase, SuspendPhase.previewing);
+  return (pending: pending);
+}
+
+/// Deja el controller esperando la confirmacion: 9 y 7 elegidas, la vista
+/// previa hecha y el envio retenido en el repositorio. Devuelve el pedido.
+Future<({Future<void> pending})> _holdConfirm(_Setup s) async {
+  await s.readyToConfirm();
+  s.repository.suspendGate = Completer<void>();
+  final pending = s.notifier.confirm();
+  for (var i = 0; i < 20 && s.repository.suspendCalls == 0; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+  expect(s.state.phase, SuspendPhase.confirming);
+  return (pending: pending);
+}
+
 void main() {
   late _Setup s;
 
@@ -528,6 +557,284 @@ void main() {
       await Future.wait([first, second]);
 
       expect(s.repository.suspendCalls, 1);
+    });
+  });
+
+  group('seleccion mientras la vista previa esta en curso', () {
+    test('una fecha marcada con el pedido en vuelo no se suspende', () async {
+      s.notifier.setFilter(s.filter());
+      await s.settle();
+      s.notifier.toggleSelection(9);
+      s.repository.previewGate = Completer<void>();
+
+      final pending = s.notifier.requestPreview();
+      // Se espera a que el pedido salga hacia el repositorio.
+      for (var i = 0; i < 20 && s.repository.previewCalls == 0; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(s.repository.previewCalls, 1);
+      expect(s.state.phase, SuspendPhase.previewing);
+
+      // La 6 (11/11, sin consultas) se marca con la vista previa en curso.
+      s.notifier.toggleSelection(6);
+
+      s.repository.previewGate!.complete();
+      await pending;
+
+      // El dialogo muestra solo lo que se previsualizo: la 9.
+      expect(s.repository.lastPreviewIds, [9]);
+      expect(
+        [for (final date in s.state.preview!.affectedDates) date.shiftId],
+        [9],
+      );
+
+      await s.notifier.confirm();
+
+      // Se suspende solo lo que se vio: la 9, con el total de la vista previa.
+      expect(s.repository.lastSuspendIds, [9]);
+      expect(s.repository.lastConfirmedCount, 1);
+      expect(s.stateOf(9), ShiftState.suspended);
+      expect(s.stateOf(6), ShiftState.active);
+    });
+  });
+
+  group('fuera de reposo la seleccion y el filtro no cambian', () {
+    for (final phase in [SuspendPhase.previewing, SuspendPhase.confirming]) {
+      group('con la fase ${phase.name}', () {
+        late Future<void> pending;
+        late Set<int> selectionBefore;
+        late SuspensionFilter? filterBefore;
+
+        setUp(() async {
+          final held = phase == SuspendPhase.previewing
+              ? await _holdPreview(s)
+              : await _holdConfirm(s);
+          pending = held.pending;
+          selectionBefore = {...s.state.selectedIds};
+          filterBefore = s.state.filter;
+        });
+
+        tearDown(() async {
+          // Se suelta lo que quedo retenido para que no quede nada en vuelo.
+          for (final gate in [
+            s.repository.previewGate,
+            s.repository.suspendGate,
+          ]) {
+            if (gate != null && !gate.isCompleted) gate.complete();
+          }
+          await pending;
+        });
+
+        test('toggleSelection no hace nada', () {
+          s.notifier.toggleSelection(6);
+          s.notifier.toggleSelection(9);
+
+          expect(s.state.selectedIds, selectionBefore);
+          expect(s.state.phase, phase);
+        });
+
+        test('selectAll no hace nada', () {
+          s.notifier.selectAll(const [5, 6, 7, 8]);
+
+          expect(s.state.selectedIds, selectionBefore);
+          expect(s.state.phase, phase);
+        });
+
+        test('clearSelection no hace nada', () {
+          s.notifier.clearSelection();
+
+          expect(s.state.selectedIds, isNotEmpty);
+          expect(s.state.selectedIds, selectionBefore);
+          expect(s.state.phase, phase);
+        });
+
+        test('setFilter no hace nada', () {
+          s.notifier.setFilter(s.filter(toDate: DateTime.utc(2026, 12, 2)));
+
+          expect(s.state.filter, filterBefore);
+          expect(s.state.selectedIds, selectionBefore);
+          expect(s.state.phase, phase);
+          if (phase == SuspendPhase.confirming) {
+            expect(s.state.preview, isNotNull);
+          }
+        });
+      });
+    }
+
+    test('al terminar el pedido los metodos vuelven a funcionar', () async {
+      final held = await _holdPreview(s);
+      s.notifier.toggleSelection(6);
+      expect(s.state.selectedIds, {9});
+
+      s.repository.previewGate!.complete();
+      await held.pending;
+      s.notifier.toggleSelection(6);
+
+      expect(s.state.selectedIds, {6, 9});
+    });
+  });
+
+  group('previewedIds', () {
+    test('es la foto de lo pedido, ordenada', () async {
+      await s.readyToConfirm();
+
+      // Se eligio la 9 y despues la 7.
+      expect(s.state.previewedIds, [7, 9]);
+      expect(s.repository.lastPreviewIds, [7, 9]);
+    });
+
+    test('la foto se toma al pedir, no despues de las esperas', () async {
+      final held = await _holdPreview(s);
+      expect(s.state.previewedIds, isNull);
+
+      s.repository.previewGate!.complete();
+      await held.pending;
+
+      expect(s.state.previewedIds, [9]);
+    });
+
+    test('cambiar la seleccion con la vista previa hecha no cambia lo que se '
+        'suspende', () async {
+      await s.readyToConfirm();
+
+      s.notifier.toggleSelection(7);
+      s.notifier.toggleSelection(6);
+      expect(s.state.selectedIds, {6, 9});
+      await s.notifier.confirm();
+
+      expect(s.repository.lastSuspendIds, [7, 9]);
+      expect(s.stateOf(7), ShiftState.suspended);
+      expect(s.stateOf(6), ShiftState.active);
+    });
+
+    test('confirmar manda los ids de la vista previa aunque la poda de la '
+        'lista haya sacado uno de la seleccion', () async {
+      await s.readyToConfirm();
+      // La 7 se suspende por otro lado y la lista se recarga: la poda la saca
+      // de la seleccion sin pasar por ningun metodo de seleccion.
+      s.db.suspendShift(7);
+      s.container.invalidate(suspensionCandidatesProvider(s.state.filter!));
+      await s.settle();
+      expect(s.state.selectedIds, {9});
+      expect(s.state.previewedIds, [7, 9]);
+
+      await s.notifier.confirm();
+
+      // Se manda lo que se vio; el servidor es quien dice que la 7 ya no se
+      // puede suspender, y no se suspende ninguna.
+      expect(s.repository.lastSuspendIds, [7, 9]);
+      expect(s.state.error, isNotNull);
+      expect(s.state.preview, isNull);
+      expect(s.state.previewedIds, isNull);
+      expect(s.stateOf(9), ShiftState.active);
+    });
+
+    test('"Volver" lo borra junto con la vista previa', () async {
+      await s.readyToConfirm();
+
+      s.notifier.dismissPreview();
+
+      expect(s.state.preview, isNull);
+      expect(s.state.previewedIds, isNull);
+    });
+
+    test('cambiar el filtro lo borra', () async {
+      await s.readyToConfirm();
+
+      s.notifier.setFilter(s.filter(toDate: DateTime.utc(2026, 12, 2)));
+
+      expect(s.state.preview, isNull);
+      expect(s.state.previewedIds, isNull);
+    });
+
+    test('una suspension exitosa lo borra', () async {
+      await s.readyToConfirm();
+
+      await s.notifier.confirm();
+
+      expect(s.state.result, isNotNull);
+      expect(s.state.previewedIds, isNull);
+    });
+
+    test('NO_ENCONTRADO lo borra', () async {
+      await s.readyToConfirm();
+      s.repository.suspendScript.add(
+        const ShiftNotFoundException('Una fecha ya no existe.'),
+      );
+
+      await s.notifier.confirm();
+
+      expect(s.state.preview, isNull);
+      expect(s.state.previewedIds, isNull);
+    });
+
+    test('TURNO_NO_SUSPENDIBLE lo borra', () async {
+      await s.readyToConfirm();
+      s.repository.suspendScript.add(
+        const ShiftNotSuspendableException('Una fecha ya paso.'),
+      );
+
+      await s.notifier.confirm();
+
+      expect(s.state.preview, isNull);
+      expect(s.state.previewedIds, isNull);
+    });
+
+    test('CONFIRMACION_DESACTUALIZADA: pide de nuevo los mismos ids y los '
+        'renueva junto con la vista previa', () async {
+      await s.readyToConfirm();
+      s.repository.suspendScript.add(
+        const StaleSuspensionConfirmationException('Cambio la cantidad.'),
+      );
+      s.appointments[7] = 3;
+
+      await s.notifier.confirm();
+
+      expect(s.repository.previewCalls, 2);
+      expect(s.repository.lastPreviewIds, [7, 9]);
+      expect(s.state.previewedIds, [7, 9]);
+      expect(s.state.preview!.totalAppointments, 4);
+      expect(s.state.phase, SuspendPhase.idle);
+
+      await s.notifier.confirm();
+
+      expect(s.repository.suspendCalls, 2);
+      expect(s.repository.lastSuspendIds, [7, 9]);
+      expect(s.repository.lastConfirmedCount, 4);
+    });
+
+    test('CONFIRMACION_DESACTUALIZADA: la nueva vista previa usa la foto, no '
+        'la seleccion de ahora', () async {
+      await s.readyToConfirm();
+      // La poda deja la seleccion en {9} mientras la foto sigue siendo [7, 9].
+      s.db.suspendShift(7);
+      s.container.invalidate(suspensionCandidatesProvider(s.state.filter!));
+      await s.settle();
+      expect(s.state.selectedIds, {9});
+      s.repository.suspendScript.add(
+        const StaleSuspensionConfirmationException('Cambio la cantidad.'),
+      );
+
+      await s.notifier.confirm();
+
+      expect(s.repository.previewCalls, 2);
+      expect(s.repository.lastPreviewIds, [7, 9]);
+    });
+
+    test('si la nueva vista previa falla, la foto vieja tambien se borra', () async {
+      await s.readyToConfirm();
+      s.repository.suspendScript.add(
+        const StaleSuspensionConfirmationException('Cambio la cantidad.'),
+      );
+      // La primera vista previa ya se hizo: esto falla la que se pide de nuevo.
+      s.repository.previewScript.add(
+        const ApiException(kApiNoConnectionMessage),
+      );
+
+      await s.notifier.confirm();
+
+      expect(s.state.preview, isNull);
+      expect(s.state.previewedIds, isNull);
     });
   });
 

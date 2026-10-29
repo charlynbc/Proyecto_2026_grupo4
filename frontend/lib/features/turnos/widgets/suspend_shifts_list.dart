@@ -78,6 +78,13 @@ class _Dates extends ConsumerWidget {
     final selected = ref.watch(
       suspendShiftsControllerProvider.select((s) => s.selectedIds),
     );
+    // Mientras se espera al servidor no se puede cambiar lo elegido: lo que
+    // se muestra en el diálogo tiene que ser lo que se suspende.
+    final busy = ref.watch(
+      suspendShiftsControllerProvider.select(
+        (s) => s.phase != SuspendPhase.idle,
+      ),
+    );
     final controller = ref.read(suspendShiftsControllerProvider.notifier);
     final allSelected = shifts.every((s) => selected.contains(s.id));
     return Column(
@@ -89,9 +96,11 @@ class _Dates extends ConsumerWidget {
           title: const Text('Seleccionar todas'),
           subtitle: Text('Elegidas: ${selected.length}'),
           value: allSelected,
-          onChanged: (value) => value == true
-              ? controller.selectAll([for (final s in shifts) s.id])
-              : controller.clearSelection(),
+          onChanged: busy
+              ? null
+              : (value) => value == true
+                    ? controller.selectAll([for (final s in shifts) s.id])
+                    : controller.clearSelection(),
         ),
         const Divider(height: 1),
         for (final shift in shifts)
@@ -107,7 +116,9 @@ class _Dates extends ConsumerWidget {
               '${shift.clinic.name}',
             ),
             value: selected.contains(shift.id),
-            onChanged: (_) => controller.toggleSelection(shift.id),
+            onChanged: busy
+                ? null
+                : (_) => controller.toggleSelection(shift.id),
           ),
       ],
     );

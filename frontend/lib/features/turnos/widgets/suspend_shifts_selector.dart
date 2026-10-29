@@ -85,7 +85,15 @@ class _SuspendShiftsSelectorState extends ConsumerState<SuspendShiftsSelector> {
     final doctors = ref.watch(doctorsProvider).value ?? const <Doctor>[];
     final today = ref.watch(suspensionClockProvider);
     final doctor = doctors.where((d) => d.id == _doctorId).firstOrNull;
+    // Con la vista previa o la confirmación en curso, buscar de nuevo
+    // cambiaría la lista debajo del diálogo que se está por mostrar.
+    final busy = ref.watch(
+      suspendShiftsControllerProvider.select(
+        (s) => s.phase != SuspendPhase.idle,
+      ),
+    );
     final canSearch =
+        !busy &&
         doctor != null &&
         _specialtyId != null &&
         parseUiDate(_fromController.text.trim()) != null &&
