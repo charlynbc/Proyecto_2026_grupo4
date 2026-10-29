@@ -3,6 +3,7 @@ import 'agenda_time.dart';
 
 /// Un pase disponible del socio (`PaseDTO` de
 /// `GET /api/socios/me/pases/disponibles`).
+/// También lo usa la respuesta del resultado de consulta del médico.
 ///
 /// [issuedAt] es un instante (el servidor manda el offset); [expiresOn] es una
 /// fecha local de Uruguay, una clave de día en UTC sin hora. Una clave de más
