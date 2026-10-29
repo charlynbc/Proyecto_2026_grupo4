@@ -17,6 +17,29 @@ class SuspensionFilter {
   final DateTime fromDate;
   final DateTime toDate;
 
+  /// El mismo filtro con [fromDate] ajustado a [today] si era anterior: solo
+  /// se suspenden fechas actuales o futuras. Este es el filtro que arma la
+  /// lista y el que se envía al suspender.
+  SuspensionFilter fromTodayOn(DateTime today) => fromDate.isBefore(today)
+      ? SuspensionFilter(
+          doctorId: doctorId,
+          specialtyId: specialtyId,
+          fromDate: today,
+          toDate: toDate,
+        )
+      : this;
+
+  @override
+  bool operator ==(Object other) =>
+      other is SuspensionFilter &&
+      other.doctorId == doctorId &&
+      other.specialtyId == specialtyId &&
+      other.fromDate == fromDate &&
+      other.toDate == toDate;
+
+  @override
+  int get hashCode => Object.hash(doctorId, specialtyId, fromDate, toDate);
+
   Map<String, Object> toJson() => {
     'medicoId': doctorId,
     'especialidadId': specialtyId,
