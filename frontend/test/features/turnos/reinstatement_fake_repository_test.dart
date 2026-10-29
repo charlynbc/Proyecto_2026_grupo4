@@ -6,6 +6,7 @@ import 'package:agenda_medica/features/turnos/models/shift_number.dart';
 import 'package:agenda_medica/features/turnos/models/shift_state.dart';
 import 'package:agenda_medica/features/turnos/repositories/reinstatement_fake_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/shift_reinstatement_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/shift_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -13,7 +14,9 @@ void main() {
   late FakeShiftReinstatementRepository repository;
 
   setUp(() {
-    final admin = FakeAdminDatabase();
+    final admin = FakeAdminDatabase(
+      clock: () => DateTime.utc(2026, 10, 20, 15),
+    );
     db = FakeShiftDatabase(admin, seed: false);
     final doctor = admin.accounts.firstWhere(
       (account) =>
@@ -73,5 +76,84 @@ void main() {
       ),
     );
     expect(db.shifts.single.state, ShiftState.active);
+  });
+
+  test('una fecha pasada no se rehabilita y sigue suspendida', () async {
+    final admin = FakeAdminDatabase(
+      clock: () => DateTime.utc(2026, 10, 21, 15),
+    );
+    final database = FakeShiftDatabase(admin, seed: false);
+    final doctor = admin.accounts.firstWhere(
+      (account) =>
+          account.role == UserRole.medico && account.lastName == 'Méndez',
+    );
+    database.createWeeklyShift(
+      NewWeeklyShift(
+        doctorId: doctor.id,
+        specialtyId: 1,
+        clinicId: admin.clinics[0].id,
+        weekday: 2,
+        startDate: DateTime.utc(2026, 10, 20),
+        endDate: DateTime.utc(2026, 10, 20),
+        numbers: [
+          ShiftNumber(
+            number: 1,
+            startMinutes: ShiftNumber.parseTime('09:00'),
+            endMinutes: ShiftNumber.parseTime('09:20'),
+          ),
+        ],
+      ),
+    );
+    final id = database.shifts.single.id;
+    database.suspendShift(id);
+    final past = FakeShiftReinstatementRepository(
+      database,
+      latency: Duration.zero,
+    );
+
+    expect(
+      () => past.reinstate(
+        ShiftReinstatement(
+          doctorId: doctor.id,
+          specialtyId: 1,
+          fromDate: DateTime.utc(2026, 10, 20),
+          toDate: DateTime.utc(2026, 10, 20),
+          shiftIds: [id],
+        ),
+      ),
+      throwsA(
+        isA<ShiftNotReinstatableException>().having(
+          (error) => error.code,
+          'code',
+          'TURNO_NO_REHABILITABLE',
+        ),
+      ),
+    );
+    expect(database.shifts.single.state, ShiftState.suspended);
+  });
+
+  test('si un turno no existe no rehabilita ninguno', () async {
+    final id = db.shifts.single.id;
+    db.suspendShift(id);
+
+    expect(
+      () => repository.reinstate(
+        ShiftReinstatement(
+          doctorId: db.shifts.single.doctorId,
+          specialtyId: 1,
+          fromDate: DateTime.utc(2026, 10, 20),
+          toDate: DateTime.utc(2026, 10, 20),
+          shiftIds: [id, id + 1],
+        ),
+      ),
+      throwsA(
+        isA<ShiftNotFoundException>().having(
+          (error) => error.code,
+          'code',
+          'NO_ENCONTRADO',
+        ),
+      ),
+    );
+    expect(db.shifts.single.state, ShiftState.suspended);
   });
 }
