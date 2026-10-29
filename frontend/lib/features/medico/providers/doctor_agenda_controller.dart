@@ -23,7 +23,7 @@ final doctorShiftRepositoryProvider = FutureProvider<DoctorShiftRepository>((
 /// Cada cuánto se vuelve a consultar el servidor (RF-21: la lista se
 /// actualiza sola). Se sobrescribe en las pruebas.
 final doctorPollIntervalProvider = Provider<Duration>(
-  (ref) => const Duration(seconds: 3),
+  (ref) => const Duration(seconds: 15),
 );
 
 @immutable
