@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
+import '../../../core/utils/uruguay_time.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../../../core/widgets/ui_date_field.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../models/shift.dart';
 import '../models/shift_date_range.dart';
 import '../models/shift_filters.dart';
+import '../models/shift_number.dart';
 import '../models/shift_state.dart';
 import '../providers/doctors_provider.dart';
 import '../providers/reinstatement_repository_provider.dart';
@@ -24,6 +26,10 @@ const String _missingSearchFields =
 
 const String _emptySuspendedSearch =
     'No hay turnos suspendidos en ese rango. Probá con otras fechas.';
+
+String _shiftSchedule(Shift shift) =>
+    '${ShiftNumber.formatTime(shift.startMinutes)} – '
+    '${ShiftNumber.formatTime(shift.endMinutes)}';
 
 /// El funcionario elige turnos suspendidos de un rango y los vuelve a
 /// habilitar. No cambia médico, especialidad, fecha, consultorio ni horarios.
@@ -71,6 +77,19 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
       });
       return;
     }
+    final today = UruguayTime.today();
+    if (to.isBefore(today)) {
+      setState(() {
+        _loading = false;
+        _fromDate = from;
+        _toDate = to;
+        _shifts = const [];
+        _selected.clear();
+        _notice = _emptySuspendedSearch;
+      });
+      return;
+    }
+    final requestFrom = from.isBefore(today) ? today : from;
     setState(() {
       _loading = true;
       _notice = null;
@@ -86,21 +105,23 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
           ShiftFilters(
             doctorId: _doctorId,
             specialtyId: _specialtyId,
-            fromDate: from,
+            fromDate: requestFrom,
             toDate: to,
             state: ShiftState.suspended,
             page: pageNumber,
             size: 100,
           ),
         );
-        shifts.addAll(page.items);
+        shifts.addAll(
+          page.items.where((shift) => !shift.date.isBefore(today)),
+        );
         if (!page.hasNext || page.items.isEmpty) break;
         pageNumber++;
       }
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _fromDate = from;
+        _fromDate = requestFrom;
         _toDate = to;
         _shifts = shifts;
         _notice = shifts.isEmpty ? _emptySuspendedSearch : null;
@@ -263,12 +284,22 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
             else
               for (final shift in _shifts)
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Checkbox(
                       value: _selected.contains(shift.id),
                       onChanged: (value) => _toggle(shift.id, value ?? false),
                     ),
-                    Text(formatUiDate(shift.date)),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(formatUiDate(shift.date)),
+                          Text(_shiftSchedule(shift)),
+                          Text(shift.clinic.name),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
             const SizedBox(height: 12),

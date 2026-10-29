@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/core/fakes/fake_shift_database.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/core/utils/ui_date.dart';
+import 'package:agenda_medica/core/utils/uruguay_time.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialty_repository_provider.dart';
 import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_repository.dart';
@@ -42,6 +44,15 @@ const String _emptySearch =
 const String _searchFailure =
     'No pudimos conectarnos con el servidor. Revisá tu conexión a internet e '
     'intentá de nuevo.';
+
+/// Hoy en Uruguay. Los turnos del test salen de acá: el 20/10/2026 ya pasó.
+DateTime get _today => UruguayTime.today();
+
+DateTime get _yesterday => _today.subtract(const Duration(days: 1));
+
+DateTime get _nextWeek => _today.add(const Duration(days: 7));
+
+DateTime get _inTwoWeeks => _today.add(const Duration(days: 14));
 
 class _PagedListRepository implements ShiftRepository {
   _PagedListRepository(this._inner);
@@ -132,6 +143,30 @@ class _BrokenListRepository implements ShiftRepository {
   Future<WeeklyShift> getWeeklyShift(int id) => _inner.getWeeklyShift(id);
 }
 
+class _RecordingListRepository implements ShiftRepository {
+  _RecordingListRepository(this._inner);
+
+  final ShiftRepository _inner;
+  final List<ShiftFilters> calls = [];
+
+  @override
+  Future<ShiftPage> listShifts(ShiftFilters filters) async {
+    calls.add(filters);
+    return _inner.listShifts(filters);
+  }
+
+  @override
+  Future<List<Doctor>> listDoctors({int? specialtyId}) =>
+      _inner.listDoctors(specialtyId: specialtyId);
+
+  @override
+  Future<WeeklyShift> createWeeklyShift(NewWeeklyShift data) =>
+      _inner.createWeeklyShift(data);
+
+  @override
+  Future<WeeklyShift> getWeeklyShift(int id) => _inner.getWeeklyShift(id);
+}
+
 class _FailingReinstatementRepository
     implements ShiftReinstatementRepository {
   @override
@@ -168,25 +203,52 @@ class _RecordingReinstatementRepository
   }
 }
 
-Future<_RecordingReinstatementRepository> _pump(
-  WidgetTester tester, {
-  ShiftReinstatementRepository? reinstatement,
-  ShiftRepository Function(FakeShiftDatabase db)? shifts,
-}) async {
-  final admin = FakeAdminDatabase();
-  final db = FakeShiftDatabase(admin, seed: false);
-  final doctor = admin.accounts.firstWhere(
-    (account) =>
-        account.role == UserRole.medico && account.lastName == 'Méndez',
-  );
+int _doctorId(FakeAdminDatabase admin) => admin.accounts
+    .firstWhere(
+      (account) =>
+          account.role == UserRole.medico && account.lastName == 'Méndez',
+    )
+    .id;
+
+void _oneShift(
+  FakeShiftDatabase db,
+  FakeAdminDatabase admin,
+  DateTime day, {
+  required int clinicIndex,
+  required String start,
+  required String end,
+}) {
   db.createWeeklyShift(
     NewWeeklyShift(
-      doctorId: doctor.id,
+      doctorId: _doctorId(admin),
+      specialtyId: 1,
+      clinicId: admin.clinics[clinicIndex].id,
+      weekday: day.weekday,
+      startDate: day,
+      endDate: day,
+      numbers: [
+        ShiftNumber(
+          number: 1,
+          startMinutes: ShiftNumber.parseTime(start),
+          endMinutes: ShiftNumber.parseTime(end),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Hoy y dentro de una semana quedan suspendidos. Dentro de dos semanas
+/// queda activo: es el turno que la lista no tiene que mostrar.
+void _suspendCurrentAndNext(FakeShiftDatabase db, FakeAdminDatabase admin) {
+  final today = UruguayTime.today();
+  db.createWeeklyShift(
+    NewWeeklyShift(
+      doctorId: _doctorId(admin),
       specialtyId: 1,
       clinicId: admin.clinics[0].id,
-      weekday: 2,
-      startDate: DateTime.utc(2026, 10, 20),
-      endDate: DateTime.utc(2026, 11, 3),
+      weekday: today.weekday,
+      startDate: today,
+      endDate: today.add(const Duration(days: 14)),
       numbers: [
         ShiftNumber(
           number: 1,
@@ -196,8 +258,52 @@ Future<_RecordingReinstatementRepository> _pump(
       ],
     ),
   );
+  final active = today.add(const Duration(days: 14));
   for (final shift in db.shifts) {
-    if (shift.date != DateTime.utc(2026, 11, 3)) db.suspendShift(shift.id);
+    if (shift.date != active) db.suspendShift(shift.id);
+  }
+}
+
+void _twoSuspendedSameDay(FakeShiftDatabase db, FakeAdminDatabase admin) {
+  final day = UruguayTime.today();
+  _oneShift(db, admin, day, clinicIndex: 0, start: '09:00', end: '09:20');
+  _oneShift(db, admin, day, clinicIndex: 1, start: '15:00', end: '15:20');
+  for (final shift in db.shifts) {
+    db.suspendShift(shift.id);
+  }
+}
+
+void _suspendedYesterdayAndToday(
+  FakeShiftDatabase db,
+  FakeAdminDatabase admin,
+) {
+  final today = UruguayTime.today();
+  _oneShift(
+    db,
+    admin,
+    today.subtract(const Duration(days: 1)),
+    clinicIndex: 0,
+    start: '09:00',
+    end: '09:20',
+  );
+  _oneShift(db, admin, today, clinicIndex: 0, start: '09:00', end: '09:20');
+  for (final shift in db.shifts) {
+    db.suspendShift(shift.id);
+  }
+}
+
+Future<_RecordingReinstatementRepository> _pump(
+  WidgetTester tester, {
+  ShiftReinstatementRepository? reinstatement,
+  ShiftRepository Function(FakeShiftDatabase db)? shifts,
+  void Function(FakeShiftDatabase db, FakeAdminDatabase admin)? arrange,
+}) async {
+  final admin = FakeAdminDatabase();
+  final db = FakeShiftDatabase(admin, seed: false);
+  if (arrange == null) {
+    _suspendCurrentAndNext(db, admin);
+  } else {
+    arrange(db, admin);
   }
   final repository = _RecordingReinstatementRepository(db);
   await pumpAdminScreens(
@@ -238,11 +344,11 @@ Future<void> _search(WidgetTester tester) async {
   await _choose(tester, const Key('reinstate-specialty'), 'Medicina General');
   await tester.enterText(
     find.widgetWithText(TextField, 'Desde'),
-    '20/10/2026',
+    formatUiDate(_today),
   );
   await tester.enterText(
     find.widgetWithText(TextField, 'Hasta'),
-    '03/11/2026',
+    formatUiDate(_inTwoWeeks),
   );
   await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
   await tester.pumpAndSettle();
@@ -264,9 +370,9 @@ void main() {
     await _pump(tester);
     await _search(tester);
 
-    expect(_shown('20/10/2026'), findsOneWidget);
-    expect(_shown('27/10/2026'), findsOneWidget);
-    expect(_shown('03/11/2026'), findsNothing);
+    expect(_shown(formatUiDate(_today)), findsOneWidget);
+    expect(_shown(formatUiDate(_nextWeek)), findsOneWidget);
+    expect(_shown(formatUiDate(_inTwoWeeks)), findsNothing);
     expect(find.byType(Checkbox), findsNWidgets(2));
   });
 
@@ -300,8 +406,8 @@ void main() {
   testWidgets('después de rehabilitar la lista se recarga', (tester) async {
     final repository = await _pump(tester);
     await _search(tester);
-    final october20 = repository.db.shifts
-        .firstWhere((shift) => shift.date == DateTime.utc(2026, 10, 20))
+    final todayId = repository.db.shifts
+        .firstWhere((shift) => shift.date == _today)
         .id;
     await tester.tap(find.byType(Checkbox).first);
     await tester.pumpAndSettle();
@@ -312,14 +418,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.calls, hasLength(1));
-    expect(repository.calls.single.shiftIds, [october20]);
+    expect(repository.calls.single.shiftIds, [todayId]);
     expect(repository.calls.single.doctorId, isPositive);
     expect(repository.calls.single.specialtyId, 1);
-    expect(repository.calls.single.fromDate, DateTime.utc(2026, 10, 20));
-    expect(repository.calls.single.toDate, DateTime.utc(2026, 11, 3));
-    expect(_shown('20/10/2026'), findsNothing);
-    expect(_shown('27/10/2026'), findsOneWidget);
-    expect(_shown('03/11/2026'), findsNothing);
+    expect(repository.calls.single.fromDate, _today);
+    expect(repository.calls.single.toDate, _inTwoWeeks);
+    expect(_shown(formatUiDate(_today)), findsNothing);
+    expect(_shown(formatUiDate(_nextWeek)), findsOneWidget);
+    expect(_shown(formatUiDate(_inTwoWeeks)), findsNothing);
   });
 
   testWidgets('dos toques seguidos hacen una sola llamada', (tester) async {
@@ -379,11 +485,11 @@ void main() {
     );
     await tester.enterText(
       find.widgetWithText(TextField, 'Desde'),
-      '03/11/2026',
+      formatUiDate(_inTwoWeeks),
     );
     await tester.enterText(
       find.widgetWithText(TextField, 'Hasta'),
-      '03/11/2026',
+      formatUiDate(_inTwoWeeks),
     );
     await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
     await tester.pumpAndSettle();
@@ -414,11 +520,11 @@ void main() {
     );
     await tester.enterText(
       find.widgetWithText(TextField, 'Desde'),
-      '20/10/2026',
+      formatUiDate(_today),
     );
     await tester.enterText(
       find.widgetWithText(TextField, 'Hasta'),
-      '03/11/2026',
+      formatUiDate(_inTwoWeeks),
     );
     await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
     await tester.pump();
@@ -429,7 +535,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(_shown('20/10/2026'), findsOneWidget);
+    expect(_shown(formatUiDate(_today)), findsOneWidget);
   });
 
   testWidgets('si la búsqueda falla se ve el mensaje de la red', (
@@ -458,7 +564,69 @@ void main() {
     );
     await _search(tester);
 
-    expect(_shown('20/10/2026'), findsOneWidget);
-    expect(_shown('27/10/2026'), findsOneWidget);
+    expect(_shown(formatUiDate(_today)), findsOneWidget);
+    expect(_shown(formatUiDate(_nextWeek)), findsOneWidget);
+  });
+
+  testWidgets('la fila muestra el horario y el consultorio', (tester) async {
+    await _pump(tester, arrange: _twoSuspendedSameDay);
+    await _choose(tester, const Key('reinstate-doctor'), 'Carla Méndez');
+    await _choose(
+      tester,
+      const Key('reinstate-specialty'),
+      'Medicina General',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Desde'),
+      formatUiDate(_today),
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Hasta'),
+      formatUiDate(_today),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
+    await tester.pumpAndSettle();
+
+    expect(_shown(formatUiDate(_today)), findsNWidgets(2));
+    expect(_shown('09:00 – 09:20'), findsOneWidget);
+    expect(_shown('15:00 – 15:20'), findsOneWidget);
+    expect(_shown('Consultorio 3'), findsOneWidget);
+    expect(_shown('Consultorio 7'), findsOneWidget);
+  });
+
+  testWidgets('una fecha pasada no se ofrece', (tester) async {
+    final recorded = Completer<_RecordingListRepository>();
+    await _pump(
+      tester,
+      arrange: _suspendedYesterdayAndToday,
+      shifts: (db) {
+        final repository = _RecordingListRepository(
+          FakeShiftRepository(db, latency: Duration.zero),
+        );
+        recorded.complete(repository);
+        return repository;
+      },
+    );
+    await _choose(tester, const Key('reinstate-doctor'), 'Carla Méndez');
+    await _choose(
+      tester,
+      const Key('reinstate-specialty'),
+      'Medicina General',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Desde'),
+      formatUiDate(_yesterday),
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Hasta'),
+      formatUiDate(_today),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
+    await tester.pumpAndSettle();
+
+    expect(_shown(formatUiDate(_yesterday)), findsNothing);
+    expect(_shown(formatUiDate(_today)), findsOneWidget);
+    final repository = await recorded.future;
+    expect(repository.calls.single.fromDate, _today);
   });
 }
