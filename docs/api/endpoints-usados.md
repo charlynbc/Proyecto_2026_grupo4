@@ -52,7 +52,7 @@ PostgreSQL.
 | 22 | `GET /api/historia-clinica/{idAtencion}` | SOCIO (solo propias) | 12 | Detalle de atención | CONFIRMADA | - | [contrato #22](contrato-v1.md#e22) |
 | 23 | `POST /api/turnos/suspensiones/previsualizar` | FUNCIONARIO | 14 | Confirmación previa | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #23](contrato-v1.md#e23) |
 | 24 | `POST /api/turnos/suspensiones` | FUNCIONARIO | 14 | Suspender fechas | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #24](contrato-v1.md#e24) |
-| 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #25](contrato-v1.md#e25) |
+| 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | feat/front-rehabilitar-turnos 29/10/2026 | [contrato #25](contrato-v1.md#e25) |
 | 26 | `GET /api/avisos-llegada/consultas-hoy?ci=` | FUNCIONARIO | 16 | Buscar socio | CONFIRMADA | - | [contrato #26](contrato-v1.md#e26) |
 | 27 | `POST /api/avisos-llegada` | FUNCIONARIO | 16 | Registrar llegada | CONFIRMADA | - | [contrato #27](contrato-v1.md#e27) |
 | 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas | CONFIRMADA | Backend en integracion/proyecto-2026-avances 23/10/2026; Flutter pendiente | [contrato #28](contrato-v1.md#e28) |

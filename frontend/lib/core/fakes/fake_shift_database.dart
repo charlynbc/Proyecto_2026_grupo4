@@ -15,6 +15,7 @@ import '../../features/turnos/models/shift_state.dart';
 import '../../features/turnos/models/weekday_names.dart';
 import '../../features/turnos/models/weekly_shift.dart';
 import '../../features/turnos/repositories/shift_repository.dart';
+import '../../features/turnos/repositories/shift_reinstatement_repository.dart';
 import '../../features/usuarios/models/user_account.dart';
 import '../utils/text_fold.dart';
 import '../utils/uruguay_time.dart';
@@ -413,6 +414,16 @@ class FakeShiftDatabase {
       ),
     );
     suspendShift(shifts.firstWhere((s) => s.weeklyShiftId == first.id).id);
+  }
+
+  /// Vuelve a habilitar una fecha concreta. Si no está suspendida, lanza
+  /// [ShiftNotReinstatableException].
+  void reinstateShift(int shiftId) {
+    final shift = shifts.firstWhere((s) => s.id == shiftId);
+    if (shift.state != ShiftState.suspended) {
+      throw const ShiftNotReinstatableException();
+    }
+    shift._state = ShiftState.active;
   }
 }
 
