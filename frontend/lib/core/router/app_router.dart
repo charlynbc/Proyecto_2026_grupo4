@@ -14,6 +14,8 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/consultorios/screens/clinics_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
+import '../../features/historia_clinica/screens/medical_history_screen.dart';
+import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
@@ -192,6 +194,23 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
   }
   if (role == UserRole.socio) {
     switch (path) {
+      case '/socio/historia':
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const MedicalHistoryScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              redirect: (context, state) {
+                final id = int.tryParse(state.pathParameters['id'] ?? '');
+                return id == null || id <= 0 ? '/socio/historia' : null;
+              },
+              builder: (context, state) => MedicalHistoryDetailScreen(
+                id: int.parse(state.pathParameters['id']!),
+              ),
+            ),
+          ],
+        );
       case kAvailabilityPath:
         return GoRoute(
           path: path,
