@@ -26,10 +26,22 @@ class ShiftsScreen extends StatelessWidget {
           children: [
             Align(
               alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => context.go(kNewWeeklyShiftPath),
-                icon: const Icon(Icons.add),
-                label: const Text('Nuevo turno semanal'),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () => context.go(kSuspendShiftsPath),
+                    icon: const Icon(Icons.event_busy),
+                    label: const Text('Suspender fechas'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => context.go(kNewWeeklyShiftPath),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Nuevo turno semanal'),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
