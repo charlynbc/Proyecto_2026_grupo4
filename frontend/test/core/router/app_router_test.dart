@@ -7,11 +7,14 @@ import 'package:agenda_medica/features/auth/providers/auth_repository_provider.d
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart';
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_appointment_result_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
 import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
 import 'package:agenda_medica/features/especialidades/screens/specialties_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/new_weekly_shift_screen.dart';
+import 'package:agenda_medica/features/turnos/screens/reinstate_shifts_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/shift_routes.dart';
 import 'package:agenda_medica/features/turnos/screens/shifts_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/weekly_shift_detail_screen.dart';
@@ -169,6 +172,101 @@ void main() {
     await unmountApp(tester);
   });
 
+  group('área del médico: resultado de la consulta', () {
+    test('la ruta del resultado la arma con el nombre codificado', () {
+      expect(
+        doctorResultLocation(15, patientName: 'Carlos Rodríguez'),
+        '/medico/consultas/15/resultado?paciente=Carlos%20Rodr%C3%ADguez',
+      );
+      expect(doctorResultLocation(15), '/medico/consultas/15/resultado');
+    });
+
+    test('sin sesión va a login y con otro rol a su home', () {
+      const socio = SessionState(
+        status: SessionStatus.authenticated,
+        accessToken: 't',
+        role: UserRole.socio,
+      );
+      const medico = SessionState(
+        status: SessionStatus.authenticated,
+        accessToken: 't',
+        role: UserRole.medico,
+      );
+      final uri = Uri.parse('/medico/consultas/15/resultado');
+
+      expect(redirectFor(const SessionState(), uri), '/login');
+      expect(redirectFor(socio, uri), UserRole.socio.homePath);
+      expect(redirectFor(medico, uri), null);
+    });
+
+    testWidgets('un médico llega a la pantalla con el id y el paciente', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      await goTo(
+        tester,
+        container,
+        '/medico/consultas/15/resultado?paciente=Carlos%20Rodr%C3%ADguez',
+      );
+
+      expect(find.byType(DoctorAppointmentResultScreen), findsOneWidget);
+      final screen = tester.widget<DoctorAppointmentResultScreen>(
+        find.byType(DoctorAppointmentResultScreen),
+      );
+      expect(screen.appointmentId, 15);
+      expect(screen.patientName, 'Carlos Rodríguez');
+      expect(find.text('Paciente: Carlos Rodríguez'), findsOneWidget);
+      expect(find.text('Página no encontrada'), findsNothing);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('sin ?paciente= la pantalla abre sin nombre', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      await goTo(tester, container, '/medico/consultas/15/resultado');
+
+      final screen = tester.widget<DoctorAppointmentResultScreen>(
+        find.byType(DoctorAppointmentResultScreen),
+      );
+      expect(screen.patientName, isNull);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('un socio que entra a la ruta vuelve a su home', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.socio);
+
+      await goTo(tester, container, '/medico/consultas/15/resultado');
+
+      expect(locationOf(container), UserRole.socio.homePath);
+      expect(find.byType(DoctorAppointmentResultScreen), findsNothing);
+      await unmountApp(tester);
+    });
+
+    testWidgets('un id que no es un número vuelve a "Mis turnos"', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      for (final bad in ['abc', '0', '1x', '-']) {
+        await goTo(tester, container, '/medico/consultas/$bad/resultado');
+        expect(locationOf(container), '/medico/turnos', reason: bad);
+        expect(find.byType(DoctorShiftsScreen), findsOneWidget, reason: bad);
+        expect(find.byType(DoctorAppointmentResultScreen), findsNothing);
+      }
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+  });
+
   group('área del administrador', () {
     testWidgets('cada sección abre su pantalla y estadísticas sigue en '
         '"Próximamente"', (tester) async {
@@ -231,7 +329,11 @@ void main() {
   });
 
   group('área del funcionario: turnos', () {
-    const turnosPaths = [kShiftsPath, kNewWeeklyShiftPath];
+    const turnosPaths = [
+      kShiftsPath,
+      kNewWeeklyShiftPath,
+      kReinstateShiftsPath,
+    ];
 
     String detail(int id) => weeklyShiftDetailLocation(id);
 
@@ -243,6 +345,7 @@ void main() {
       expect(kShiftsPath, UserRole.funcionario.homePath);
       expect(kNewWeeklyShiftPath, startsWith('$kShiftsPath/'));
       expect(kWeeklyShiftDetailPath, startsWith('$kShiftsPath/'));
+      expect(kReinstateShiftsPath, startsWith('$kShiftsPath/'));
     });
 
     testWidgets('al entrar, el funcionario ve la consulta de turnos y "Turnos" '
@@ -257,7 +360,7 @@ void main() {
       expect(find.text('Próximamente'), findsNothing);
     });
 
-    testWidgets('las tres rutas abren su pantalla', (tester) async {
+    testWidgets('las cuatro rutas abren su pantalla', (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.funcionario);
 
@@ -265,6 +368,7 @@ void main() {
         kShiftsPath: find.byType(ShiftsScreen),
         kNewWeeklyShiftPath: find.byType(NewWeeklyShiftScreen),
         detail(1): find.byType(WeeklyShiftDetailScreen),
+        kReinstateShiftsPath: find.byType(ReinstateShiftsScreen),
       };
       for (final entry in screens.entries) {
         await goTo(tester, container, entry.key);
@@ -349,11 +453,15 @@ void main() {
 
       expect(locationOf(container), kShiftsPath);
       expect(find.byType(ShiftsScreen), findsOneWidget);
+      // Al volver, la consulta pide la lista. El repositorio falso tarda
+      // 300 ms, y hay que dejarlo terminar antes de cerrar la pantalla.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
       await unmountApp(tester);
     });
 
     testWidgets('socio, médico y administrador no entran a ninguna de las '
-        'tres rutas', (tester) async {
+        'cuatro rutas', (tester) async {
       for (final role in [
         UserRole.socio,
         UserRole.medico,
@@ -373,7 +481,7 @@ void main() {
       await unmountApp(tester);
     });
 
-    testWidgets('sin sesión las tres rutas llevan al login', (tester) async {
+    testWidgets('sin sesión las cuatro rutas llevan al login', (tester) async {
       final container = await pumpApp(tester);
 
       for (final path in [...turnosPaths, detail(1)]) {
