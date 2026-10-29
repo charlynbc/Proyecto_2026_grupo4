@@ -13,6 +13,7 @@ import '../../features/consultorios/screens/clinics_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
+import '../../features/turnos/screens/doctor_shift_consultation_detail_screen.dart';
 import '../../features/turnos/screens/new_weekly_shift_screen.dart';
 import '../../features/turnos/screens/shift_routes.dart';
 import '../../features/turnos/screens/shifts_screen.dart';
@@ -78,8 +79,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
         path: kDoctorShiftConsultationPath,
-        builder: (context, state) =>
-            const ComingSoonScreen(title: 'Consulta'),
+        builder: (context, state) {
+          final consultationId = int.tryParse(
+            state.pathParameters['consultaId'] ?? '',
+          );
+          if (consultationId == null) {
+            return const ComingSoonScreen(title: 'Consulta');
+          }
+          return DoctorShiftConsultationDetailScreen(
+            consultationId: consultationId,
+          );
+        },
       ),
       GoRoute(
         path: kLoginPath,
