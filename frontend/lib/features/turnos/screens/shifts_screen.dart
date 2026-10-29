@@ -35,8 +35,7 @@ class ShiftsScreen extends StatelessWidget {
                   runSpacing: 12,
                   children: [
                     FilledButton(
-                      onPressed: () =>
-                          context.go('/funcionario/turnos/rehabilitar'),
+                      onPressed: () => context.go(kReinstateShiftsPath),
                       child: const Text('Rehabilitar fechas'),
                     ),
                     FilledButton.icon(

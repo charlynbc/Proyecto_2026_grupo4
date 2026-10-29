@@ -18,6 +18,7 @@ import 'package:agenda_medica/features/turnos/repositories/fake_shift_repository
 import 'package:agenda_medica/features/turnos/repositories/shift_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/shift_reinstatement_repository.dart';
 import 'package:agenda_medica/features/turnos/screens/reinstate_shifts_screen.dart';
+import 'package:agenda_medica/features/turnos/screens/shift_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -201,10 +202,10 @@ Future<_RecordingReinstatementRepository> _pump(
   final repository = _RecordingReinstatementRepository(db);
   await pumpAdminScreens(
     tester,
-    initialLocation: '/funcionario/turnos/rehabilitar',
+    initialLocation: kReinstateShiftsPath,
     routes: [
       GoRoute(
-        path: '/funcionario/turnos/rehabilitar',
+        path: kReinstateShiftsPath,
         builder: (_, _) => const ReinstateShiftsScreen(),
       ),
     ],

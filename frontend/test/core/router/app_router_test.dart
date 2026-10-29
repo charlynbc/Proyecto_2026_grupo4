@@ -232,8 +232,11 @@ void main() {
   });
 
   group('área del funcionario: turnos', () {
-    const reinstateShiftsPath = '/funcionario/turnos/rehabilitar';
-    const turnosPaths = [kShiftsPath, kNewWeeklyShiftPath, reinstateShiftsPath];
+    const turnosPaths = [
+      kShiftsPath,
+      kNewWeeklyShiftPath,
+      kReinstateShiftsPath,
+    ];
 
     String detail(int id) => weeklyShiftDetailLocation(id);
 
@@ -245,7 +248,7 @@ void main() {
       expect(kShiftsPath, UserRole.funcionario.homePath);
       expect(kNewWeeklyShiftPath, startsWith('$kShiftsPath/'));
       expect(kWeeklyShiftDetailPath, startsWith('$kShiftsPath/'));
-      expect(reinstateShiftsPath, startsWith('$kShiftsPath/'));
+      expect(kReinstateShiftsPath, startsWith('$kShiftsPath/'));
     });
 
     testWidgets('al entrar, el funcionario ve la consulta de turnos y "Turnos" '
@@ -268,7 +271,7 @@ void main() {
         kShiftsPath: find.byType(ShiftsScreen),
         kNewWeeklyShiftPath: find.byType(NewWeeklyShiftScreen),
         detail(1): find.byType(WeeklyShiftDetailScreen),
-        reinstateShiftsPath: find.byType(ReinstateShiftsScreen),
+        kReinstateShiftsPath: find.byType(ReinstateShiftsScreen),
       };
       for (final entry in screens.entries) {
         await goTo(tester, container, entry.key);

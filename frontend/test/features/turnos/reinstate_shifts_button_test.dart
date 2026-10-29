@@ -12,8 +12,6 @@ import 'package:go_router/go_router.dart';
 import '../../helpers/pump_admin.dart';
 import '../../helpers/shift_listing_data.dart';
 
-const String _reinstatePath = '/funcionario/turnos/rehabilitar';
-
 void main() {
   testWidgets('"Rehabilitar fechas" abre la pantalla de rehabilitar', (
     tester,
@@ -27,7 +25,7 @@ void main() {
       routes: [
         GoRoute(path: kShiftsPath, builder: (_, _) => const ShiftsScreen()),
         GoRoute(
-          path: _reinstatePath,
+          path: kReinstateShiftsPath,
           builder: (_, _) =>
               const Scaffold(body: Text('Rehabilitar fechas de turnos')),
         ),
@@ -46,7 +44,7 @@ void main() {
     await tester.tap(find.text('Rehabilitar fechas'));
     await tester.pumpAndSettle();
 
-    expect(currentLocation(router), _reinstatePath);
+    expect(currentLocation(router), kReinstateShiftsPath);
     expect(find.text('Rehabilitar fechas de turnos'), findsOneWidget);
   });
 }
