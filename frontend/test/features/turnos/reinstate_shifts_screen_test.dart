@@ -167,6 +167,37 @@ class _RecordingListRepository implements ShiftRepository {
   Future<WeeklyShift> getWeeklyShift(int id) => _inner.getWeeklyShift(id);
 }
 
+class _GateReinstatementRepository implements ShiftReinstatementRepository {
+  _GateReinstatementRepository(this.db);
+
+  final FakeShiftDatabase db;
+  final Completer<void> _gate = Completer<void>();
+
+  void release() {
+    if (!_gate.isCompleted) _gate.complete();
+  }
+
+  @override
+  Future<ShiftReinstatementResult> reinstate(
+    ShiftReinstatement request,
+  ) async {
+    await _gate.future;
+    for (final id in request.shiftIds) {
+      db.reinstateShift(id);
+    }
+    return ShiftReinstatementResult(
+      shifts: [
+        for (final id in request.shiftIds)
+          ReinstatedShift(
+            id: id,
+            date: db.shifts.firstWhere((shift) => shift.id == id).date,
+          ),
+      ],
+      cancelledAppointments: 0,
+    );
+  }
+}
+
 class _FailingReinstatementRepository
     implements ShiftReinstatementRepository {
   @override
@@ -295,6 +326,7 @@ void _suspendedYesterdayAndToday(
 Future<_RecordingReinstatementRepository> _pump(
   WidgetTester tester, {
   ShiftReinstatementRepository? reinstatement,
+  ShiftReinstatementRepository Function(FakeShiftDatabase db)? reinstatementOf,
   ShiftRepository Function(FakeShiftDatabase db)? shifts,
   void Function(FakeShiftDatabase db, FakeAdminDatabase admin)? arrange,
 }) async {
@@ -325,7 +357,8 @@ Future<_RecordingReinstatementRepository> _pump(
         (ref) async => FakeSpecialtyRepository(admin, latency: Duration.zero),
       ),
       reinstatementRepositoryProvider.overrideWith(
-        (ref) async => reinstatement ?? repository,
+        (ref) async =>
+            reinstatement ?? reinstatementOf?.call(db) ?? repository,
       ),
     ],
   );
@@ -628,5 +661,82 @@ void main() {
     expect(_shown(formatUiDate(_today)), findsOneWidget);
     final repository = await recorded.future;
     expect(repository.calls.single.fromDate, _today);
+  });
+
+  testWidgets('al rehabilitar un turno se avisa que fue uno', (tester) async {
+    await _pump(tester);
+    await _search(tester);
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+    await tester.tap(_rehabilitate);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Volver a habilitar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Se volvió a habilitar 1 turno.'), findsOneWidget);
+  });
+
+  testWidgets('al rehabilitar varios se avisa cuántos fueron', (tester) async {
+    await _pump(tester);
+    await _search(tester);
+    await tester.tap(find.byType(Checkbox).at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Checkbox).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(_rehabilitate);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Volver a habilitar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Se volvieron a habilitar 2 turnos.'), findsOneWidget);
+  });
+
+  testWidgets('seleccionar todas marca los turnos del rango', (tester) async {
+    await _pump(tester);
+    await _search(tester);
+
+    await tester.tap(find.text('Seleccionar todas'));
+    await tester.pumpAndSettle();
+
+    final boxes = tester.widgetList<Checkbox>(find.byType(Checkbox));
+    expect(boxes, hasLength(2));
+    expect(boxes.every((box) => box.value == true), isTrue);
+    expect(tester.widget<FilledButton>(_rehabilitate).onPressed, isNotNull);
+  });
+
+  testWidgets('mientras se rehabilita el diálogo no se puede cerrar', (
+    tester,
+  ) async {
+    _GateReinstatementRepository? gate;
+    await _pump(
+      tester,
+      reinstatementOf: (db) {
+        gate = _GateReinstatementRepository(db);
+        return gate!;
+      },
+    );
+    addTearDown(() => gate?.release());
+    await _search(tester);
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+    await tester.tap(_rehabilitate);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Volver a habilitar'));
+    await tester.pump();
+
+    TextButton button(String label) => tester.widget<TextButton>(
+      find.widgetWithText(TextButton, label),
+    );
+    expect(button('No rehabilitar').onPressed, isNull);
+    expect(button('Volver a habilitar').onPressed, isNull);
+
+    gate!.release();
+    await tester.pumpAndSettle();
+
+    expect(find.text(_warning), findsNothing);
+    expect(_shown(formatUiDate(_today)), findsNothing);
   });
 }

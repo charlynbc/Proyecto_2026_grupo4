@@ -31,6 +31,10 @@ String _shiftSchedule(Shift shift) =>
     '${ShiftNumber.formatTime(shift.startMinutes)} – '
     '${ShiftNumber.formatTime(shift.endMinutes)}';
 
+String _reinstatedNotice(int count) => count == 1
+    ? 'Se volvió a habilitar 1 turno.'
+    : 'Se volvieron a habilitar $count turnos.';
+
 /// El funcionario elige turnos suspendidos de un rango y los vuelve a
 /// habilitar. No cambia médico, especialidad, fecha, consultorio ni horarios.
 class ReinstateShiftsScreen extends ConsumerStatefulWidget {
@@ -148,22 +152,38 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
     });
   }
 
+  void _selectAll() {
+    setState(() {
+      _selected
+        ..clear()
+        ..addAll(_shifts.map((shift) => shift.id));
+    });
+  }
+
   void _openDialog() {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          content: const Text(_cancelledAppointmentsWarning),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('No rehabilitar'),
-            ),
-            TextButton(
-              onPressed: () => _confirm(dialogContext),
-              child: const Text('Volver a habilitar'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              content: const Text(_cancelledAppointmentsWarning),
+              actions: [
+                TextButton(
+                  onPressed: _sending
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('No rehabilitar'),
+                ),
+                TextButton(
+                  onPressed: _sending
+                      ? null
+                      : () => _confirm(dialogContext, setDialogState),
+                  child: const Text('Volver a habilitar'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -171,10 +191,11 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
 
   /// El diálogo sigue abierto hasta el próximo frame, así el segundo toque
   /// llega al botón. [_sending] se prende en el acto y ese toque no llama
-  /// de nuevo. La rehabilitación corre una sola vez, en ese frame.
-  void _confirm(BuildContext dialogContext) {
+  /// de nuevo. En el frame siguiente los dos botones quedan apagados hasta
+  /// que termina el pedido.
+  void _confirm(BuildContext dialogContext, StateSetter setDialogState) {
     if (_sending) return;
-    _sending = true;
+    setDialogState(() => _sending = true);
     final selected = List<int>.of(_selected);
     final doctorId = _doctorId!;
     final specialtyId = _specialtyId!;
@@ -187,7 +208,7 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
           final repository = await ref.read(
             reinstatementRepositoryProvider.future,
           );
-          await repository.reinstate(
+          final result = await repository.reinstate(
             ShiftReinstatement(
               doctorId: doctorId,
               specialtyId: specialtyId,
@@ -199,6 +220,10 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
           if (!mounted || !dialogContext.mounted) return;
           Navigator.of(dialogContext).pop();
           await _search();
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_reinstatedNotice(result.shifts.length))),
+          );
         } catch (error) {
           if (dialogContext.mounted) Navigator.of(dialogContext).pop();
           if (!mounted) return;
@@ -281,7 +306,14 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
               )
             else if (_notice != null)
               Text(_notice!)
-            else
+            else ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: _selectAll,
+                  child: const Text('Seleccionar todas'),
+                ),
+              ),
               for (final shift in _shifts)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,6 +334,7 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
                     ),
                   ],
                 ),
+            ],
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _selected.isEmpty ? null : _openDialog,
