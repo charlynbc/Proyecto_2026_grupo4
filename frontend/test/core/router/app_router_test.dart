@@ -353,6 +353,10 @@ void main() {
 
       expect(locationOf(container), kShiftsPath);
       expect(find.byType(ShiftsScreen), findsOneWidget);
+      // Al volver, la consulta pide la lista. El repositorio falso tarda
+      // 300 ms, y hay que dejarlo terminar antes de cerrar la pantalla.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
       await unmountApp(tester);
     });
 
