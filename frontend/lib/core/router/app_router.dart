@@ -14,6 +14,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/consultorios/screens/clinics_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
+import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
@@ -124,9 +125,9 @@ RouteBase _roleShell(UserRole role) {
   );
 }
 
-/// La ruta de una sección. Las del administrador (usuarios, especialidades y
-/// consultorios) y la de turnos del funcionario tienen su pantalla y sus
-/// subrutas; el resto muestra "Próximamente".
+/// La ruta de una sección. Las del administrador (usuarios, especialidades,
+/// consultorios y estadísticas) y la de turnos del funcionario tienen su
+/// pantalla y, algunas, sus subrutas; el resto muestra "Próximamente".
 GoRoute _sectionRoute(UserRole role, AppSection section) {
   final path = role.sectionPath(section);
   if (role == UserRole.funcionario && path == kShiftsPath) {
@@ -189,6 +190,11 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
               builder: (context, state) => const NewClinicScreen(),
             ),
           ],
+        );
+      case kStatisticsPath:
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const StatisticsScreen(),
         );
     }
   }

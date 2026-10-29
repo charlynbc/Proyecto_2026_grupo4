@@ -7,6 +7,7 @@ import 'package:agenda_medica/features/auth/providers/auth_repository_provider.d
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart';
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
+import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
 import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
@@ -171,8 +172,7 @@ void main() {
   });
 
   group('área del administrador', () {
-    testWidgets('cada sección abre su pantalla y estadísticas sigue en '
-        '"Próximamente"', (tester) async {
+    testWidgets('cada sección abre su pantalla', (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.administrador);
       expect(find.byType(UsersScreen), findsOneWidget);
@@ -181,6 +181,7 @@ void main() {
         kUsersPath: find.byType(UsersScreen),
         kSpecialtiesPath: find.byType(SpecialtiesScreen),
         kClinicsPath: find.byType(ClinicsScreen),
+        kStatisticsPath: find.byType(StatisticsScreen),
         kNewUserPath: find.byType(NewUserScreen),
         kNewSpecialtyPath: find.byType(NewSpecialtyScreen),
         kNewClinicPath: find.byType(NewClinicScreen),
@@ -190,10 +191,72 @@ void main() {
         expect(locationOf(container), entry.key);
         expect(entry.value, findsOneWidget, reason: entry.key);
       }
+      expect(find.text('Próximamente'), findsNothing);
+    });
 
-      await goTo(tester, container, '/admin/estadisticas');
-      expect(locationOf(container), '/admin/estadisticas');
-      expect(find.text('Próximamente'), findsOneWidget);
+    test('la ruta de estadísticas cuelga de la sección del administrador', () {
+      final section = UserRole.administrador.sections.firstWhere(
+        (s) => s.slug == 'estadisticas',
+      );
+
+      expect(kStatisticsPath, '/admin/estadisticas');
+      expect(UserRole.administrador.sectionPath(section), kStatisticsPath);
+    });
+
+    testWidgets('estadísticas abre su pantalla con las tres pestañas y no '
+        '"Próximamente"', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+
+      await goTo(tester, container, kStatisticsPath);
+
+      expect(locationOf(container), kStatisticsPath);
+      expect(find.byType(StatisticsScreen), findsOneWidget);
+      expect(find.byType(Tab), findsNWidgets(3));
+      expect(find.text('Próximamente'), findsNothing);
+      // Sigue dentro del menú del administrador.
+      expect(find.byType(NavigationRail), findsOneWidget);
+    });
+
+    testWidgets('estadísticas se abre desde el menú del administrador', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+
+      await tester.tap(find.text('Estadísticas').first);
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), kStatisticsPath);
+      expect(find.byType(StatisticsScreen), findsOneWidget);
+    });
+
+    testWidgets('socio, funcionario y médico no entran a estadísticas', (
+      tester,
+    ) async {
+      for (final role in [
+        UserRole.socio,
+        UserRole.funcionario,
+        UserRole.medico,
+      ]) {
+        final container = await pumpApp(tester);
+        await _loginAs(tester, container, role);
+
+        await goTo(tester, container, kStatisticsPath);
+
+        expect(locationOf(container), role.homePath, reason: role.name);
+        expect(find.byType(StatisticsScreen), findsNothing, reason: role.name);
+      }
+      await unmountApp(tester);
+    });
+
+    testWidgets('sin sesión estadísticas lleva al login', (tester) async {
+      final container = await pumpApp(tester);
+
+      await goTo(tester, container, kStatisticsPath);
+
+      expect(locationOf(container), '/login');
+      expect(find.byType(StatisticsScreen), findsNothing);
     });
 
     testWidgets('el alta se abre y se cierra dentro del menú del '
