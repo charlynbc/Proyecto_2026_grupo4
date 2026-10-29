@@ -154,4 +154,24 @@ void main() {
       isA<ShiftNotReinstatableException>(),
     );
   });
+
+  test('NO_ENCONTRADO conserva el mensaje del servidor', () async {
+    const missing =
+        'No encontramos ese turno. Volvé a la lista y elegí de nuevo.';
+    final (repository, _) = _repository(404, {
+      'code': 'NO_ENCONTRADO',
+      'message': missing,
+    });
+
+    expect(
+      () => repository.reinstate(_request()),
+      throwsA(
+        isA<ShiftNotFoundException>().having(
+          (error) => error.message,
+          'message',
+          missing,
+        ),
+      ),
+    );
+  });
 }

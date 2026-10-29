@@ -165,31 +165,36 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
   }
 
   void _openDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (dialogContext, setDialogState) {
-            return AlertDialog(
-              content: const Text(_cancelledAppointmentsWarning),
-              actions: [
-                TextButton(
-                  onPressed: _sending
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(),
-                  child: const Text('No rehabilitar'),
+    Navigator.of(context).push(
+      DialogRoute<void>(
+        context: context,
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (dialogContext, setDialogState) {
+              return PopScope(
+                canPop: !_sending,
+                child: AlertDialog(
+                  content: const Text(_cancelledAppointmentsWarning),
+                  actions: [
+                    TextButton(
+                      onPressed: _sending
+                          ? null
+                          : () => Navigator.of(dialogContext).pop(),
+                      child: const Text('No rehabilitar'),
+                    ),
+                    TextButton(
+                      onPressed: _sending
+                          ? null
+                          : () => _confirm(dialogContext, setDialogState),
+                      child: const Text('Volver a habilitar'),
+                    ),
+                  ],
                 ),
-                TextButton(
-                  onPressed: _sending
-                      ? null
-                      : () => _confirm(dialogContext, setDialogState),
-                  child: const Text('Volver a habilitar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -221,8 +226,8 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
               shiftIds: selected,
             ),
           );
-          if (!mounted || !dialogContext.mounted) return;
-          Navigator.of(dialogContext).pop();
+          if (!mounted) return;
+          if (dialogContext.mounted) Navigator.of(dialogContext).pop();
           await _search();
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(

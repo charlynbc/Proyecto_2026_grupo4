@@ -62,6 +62,7 @@ class ApiShiftReinstatementRepository implements ShiftReinstatementRepository {
       'TURNO_NO_REHABILITABLE' => ShiftNotReinstatableException(
         apiError.message,
       ),
+      'NO_ENCONTRADO' => ShiftNotFoundException(apiError.message),
       _ => apiError,
     };
   }

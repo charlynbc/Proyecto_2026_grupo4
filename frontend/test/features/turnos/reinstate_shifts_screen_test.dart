@@ -22,6 +22,7 @@ import 'package:agenda_medica/features/turnos/repositories/shift_reinstatement_r
 import 'package:agenda_medica/features/turnos/screens/reinstate_shifts_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/shift_routes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -750,4 +751,87 @@ void main() {
     expect(find.text(_warning), findsNothing);
     expect(_shown(formatUiDate(_today)), findsNothing);
   });
+
+  testWidgets('un rango entero en el pasado no consulta al servidor', (
+    tester,
+  ) async {
+    final recorded = Completer<_RecordingListRepository>();
+    await _pump(
+      tester,
+      shifts: (db) {
+        final repository = _RecordingListRepository(
+          FakeShiftRepository(db, latency: Duration.zero),
+        );
+        recorded.complete(repository);
+        return repository;
+      },
+    );
+    final repository = await recorded.future;
+    await _choose(tester, const Key('reinstate-doctor'), 'Carla Méndez');
+    await _choose(
+      tester,
+      const Key('reinstate-specialty'),
+      'Medicina General',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Desde'),
+      formatUiDate(_yesterday),
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Hasta'),
+      formatUiDate(_yesterday),
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_emptySearch), findsOneWidget);
+    expect(find.byType(Checkbox), findsNothing);
+    expect(repository.calls, isEmpty);
+  });
+
+  testWidgets(
+    'durante el pedido no se cierra el diálogo y si se cierra igual se avisa',
+    (tester) async {
+      _GateReinstatementRepository? gate;
+      await _pump(
+        tester,
+        reinstatementOf: (db) {
+          gate = _GateReinstatementRepository(db);
+          return gate!;
+        },
+      );
+      addTearDown(() => gate?.release());
+      await _search(tester);
+      await tester.tap(find.byType(Checkbox).first);
+      await tester.pumpAndSettle();
+      await tester.tap(_rehabilitate);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Volver a habilitar'));
+      await tester.pump();
+
+      await tester.tapAt(const Offset(8, 8));
+      await tester.pumpAndSettle();
+      expect(find.text(_warning), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text(_warning), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text(_warning), findsOneWidget);
+
+      Navigator.of(
+        tester.element(find.text(_warning)),
+        rootNavigator: true,
+      ).pop();
+      await tester.pumpAndSettle();
+
+      gate!.release();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Se volvió a habilitar 1 turno.'), findsOneWidget);
+      expect(_shown(formatUiDate(_today)), findsNothing);
+    },
+  );
 }
