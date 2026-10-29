@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:agenda_medica/core/network/api_exception.dart';
-import 'package:agenda_medica/features/turnos/repositories/reinstatement_api_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/api_reinstatement_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/shift_reinstatement_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/shift_repository.dart';
 import 'package:dio/dio.dart';

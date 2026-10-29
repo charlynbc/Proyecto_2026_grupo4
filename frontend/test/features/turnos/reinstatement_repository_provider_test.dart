@@ -1,8 +1,8 @@
 import 'package:agenda_medica/core/config/app_config.dart';
 import 'package:agenda_medica/core/network/dio_client.dart';
 import 'package:agenda_medica/features/turnos/providers/reinstatement_repository_provider.dart';
-import 'package:agenda_medica/features/turnos/repositories/reinstatement_api_repository.dart';
-import 'package:agenda_medica/features/turnos/repositories/reinstatement_fake_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/api_reinstatement_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/fake_reinstatement_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

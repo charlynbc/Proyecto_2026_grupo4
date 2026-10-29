@@ -4,7 +4,7 @@ import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/turnos/models/new_weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/models/shift_number.dart';
 import 'package:agenda_medica/features/turnos/models/shift_state.dart';
-import 'package:agenda_medica/features/turnos/repositories/reinstatement_fake_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/fake_reinstatement_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/shift_reinstatement_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/shift_repository.dart';
 import 'package:flutter_test/flutter_test.dart';

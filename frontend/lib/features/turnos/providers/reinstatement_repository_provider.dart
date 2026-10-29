@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/fakes/fake_shift_database.dart';
 import '../../../core/network/dio_client.dart';
-import '../repositories/reinstatement_api_repository.dart';
-import '../repositories/reinstatement_fake_repository.dart';
+import '../repositories/api_reinstatement_repository.dart';
+import '../repositories/fake_reinstatement_repository.dart';
 import '../repositories/shift_reinstatement_repository.dart';
 
 /// Punto único de inyección del repositorio de rehabilitación. Con
