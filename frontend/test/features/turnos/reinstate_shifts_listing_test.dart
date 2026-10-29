@@ -1,25 +1,15 @@
 import 'package:agenda_medica/core/fakes/datos_prueba.dart';
+import 'package:agenda_medica/core/fakes/fake_shift_database.dart';
 import 'package:agenda_medica/core/utils/ui_date.dart';
-import 'package:agenda_medica/core/utils/uruguay_time.dart';
 import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
+import 'package:agenda_medica/features/turnos/models/shift_state.dart';
 import 'package:agenda_medica/features/turnos/screens/shift_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/pump_app.dart';
-
-/// El lunes que la semilla deja suspendido: el primero de Carla Méndez.
-DateTime _suspendedMonday() {
-  final now = UruguayTime.toUruguay(DateTime.now());
-  final today = DateTime.utc(now.year, now.month, now.day);
-  return DateTime.utc(
-    today.year,
-    today.month,
-    today.day + (8 - today.weekday),
-  );
-}
 
 String _stateOf(WidgetTester tester, String date) {
   final table = tester.widget<DataTable>(find.byType(DataTable));
@@ -59,7 +49,11 @@ void main() {
     await done;
     await tester.pumpAndSettle();
 
-    final date = formatUiDate(_suspendedMonday());
+    final suspended = container
+        .read(fakeShiftDatabaseProvider)
+        .shifts
+        .singleWhere((shift) => shift.state == ShiftState.suspended);
+    final date = formatUiDate(suspended.date);
     expect(_stateOf(tester, date), 'Suspendida');
 
     await tester.tap(find.text('Rehabilitar fechas'));
