@@ -55,13 +55,14 @@ class _RecordingRepository implements ArrivalRepository {
   }
 }
 
-/// Servidor falso: el GET devuelve la consulta de Ana y el POST responde
-/// con [postStatus] y [postBody].
+/// Servidor falso: el GET devuelve la consulta de Ana, o 404 con [getError]
+/// si está puesto, y el POST responde con [postStatus] y [postBody].
 class _ServerAdapter implements HttpClientAdapter {
-  _ServerAdapter(this.postStatus, this.postBody);
+  _ServerAdapter({this.getError, this.postStatus = 201, this.postBody});
 
+  final Object? getError;
   final int postStatus;
-  final Object postBody;
+  final Object? postBody;
 
   @override
   Future<ResponseBody> fetch(
@@ -70,42 +71,44 @@ class _ServerAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     final isPost = options.method == 'POST';
+    final status = isPost ? postStatus : (getError == null ? 200 : 404);
     final body = isPost
         ? postBody
-        : {
-            'items': [
+        : getError ??
               {
-                'id': 184,
-                'estado': 'AGENDADA',
-                'fecha': '2026-10-22',
-                'numero': 2,
-                'horaInicio': '09:00',
-                'horaFin': '09:20',
-                'medico': {
-                  'id': 41,
-                  'nombre': 'Alejandro',
-                  'apellido': 'Rivas',
-                },
-                'especialidad': {
-                  'id': 1,
-                  'nombre': 'Medicina general',
-                  'requierePase': false,
-                },
-                'consultorio': {
-                  'id': 1,
-                  'nombre': 'Consultorio 1',
-                  'ubicacion': 'Planta baja, sector 1',
-                },
-                'paseId': null,
-                'agendadaEn': '2026-10-15T10:00:00-03:00',
-                'canceladaEn': null,
-                'motivoCancelacion': null,
-              },
-            ],
-          };
+                'items': [
+                  {
+                    'id': 184,
+                    'estado': 'AGENDADA',
+                    'fecha': '2026-10-22',
+                    'numero': 2,
+                    'horaInicio': '09:00',
+                    'horaFin': '09:20',
+                    'medico': {
+                      'id': 41,
+                      'nombre': 'Alejandro',
+                      'apellido': 'Rivas',
+                    },
+                    'especialidad': {
+                      'id': 1,
+                      'nombre': 'Medicina general',
+                      'requierePase': false,
+                    },
+                    'consultorio': {
+                      'id': 1,
+                      'nombre': 'Consultorio 1',
+                      'ubicacion': 'Planta baja, sector 1',
+                    },
+                    'paseId': null,
+                    'agendadaEn': '2026-10-15T10:00:00-03:00',
+                    'canceladaEn': null,
+                    'motivoCancelacion': null,
+                  },
+                ],
+              };
     return ResponseBody.fromString(
       jsonEncode(body),
-      isPost ? postStatus : 200,
+      status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
       },
@@ -165,6 +168,27 @@ void main() {
     expect(find.textContaining('09:00'), findsOneWidget);
     expect(find.textContaining('Consultorio 1'), findsOneWidget);
     expect(_enabled(tester, _register), isTrue);
+  });
+
+  testWidgets('404 al buscar muestra que no hay un socio con esa CI', (
+    tester,
+  ) async {
+    final dio = Dio()
+      ..httpClientAdapter = _ServerAdapter(
+        getError: {'code': 'NO_ENCONTRADO', 'message': 'Texto del servidor'},
+      );
+    await _pump(tester, ApiArrivalRepository(dio));
+
+    await _searchCi(tester, '12345672');
+
+    expect(
+      find.text(
+        'No encontramos un socio activo con esa cédula. Revisá el número y '
+        'probá de nuevo.',
+      ),
+      findsOneWidget,
+    );
+    expect(_register, findsNothing);
   });
 
   testWidgets('Laura no tiene consultas y no se puede registrar', (
@@ -232,10 +256,10 @@ void main() {
       tester,
     ) async {
       final dio = Dio()
-        ..httpClientAdapter = _ServerAdapter(403, {
-          'code': code,
-          'message': 'Texto del servidor',
-        });
+        ..httpClientAdapter = _ServerAdapter(
+          postStatus: 403,
+          postBody: {'code': code, 'message': 'Texto del servidor'},
+        );
       await _pump(tester, ApiArrivalRepository(dio));
       await _searchCi(tester, '90000046');
 
@@ -257,10 +281,10 @@ void main() {
       tester,
     ) async {
       final dio = Dio()
-        ..httpClientAdapter = _ServerAdapter(409, {
-          'code': code,
-          'message': 'Texto del servidor',
-        });
+        ..httpClientAdapter = _ServerAdapter(
+          postStatus: 409,
+          postBody: {'code': code, 'message': 'Texto del servidor'},
+        );
       await _pump(tester, ApiArrivalRepository(dio));
       await _searchCi(tester, '90000046');
 
