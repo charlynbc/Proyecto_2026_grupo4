@@ -86,4 +86,65 @@ void main() {
     expect(_stateOf(tester, date), 'Activa');
     await unmountApp(tester);
   });
+
+  testWidgets('durante el pedido el menú no cambia de sección', (tester) async {
+    final container = await pumpApp(tester);
+    tester.view.physicalSize = const Size(1600, 1200);
+    await tester.pumpAndSettle();
+
+    final person = TestData.people.firstWhere(
+      (p) => p.role == UserRole.funcionario.apiValue,
+    );
+    final repo = await container.read(authRepositoryProvider.future);
+    final done = repo.login(
+      ci: person.ci,
+      password: kTestPassword,
+      access: AccessType.forRole(UserRole.funcionario),
+    );
+    await tester.pumpAndSettle();
+    await done;
+    await tester.pumpAndSettle();
+
+    await goTo(tester, container, kReinstateShiftsPath);
+    final suspended = container
+        .read(fakeShiftDatabaseProvider)
+        .shifts
+        .singleWhere((shift) => shift.state == ShiftState.suspended);
+    final date = formatUiDate(suspended.date);
+
+    await _choose(tester, const Key('reinstate-doctor'), 'Carla Méndez');
+    await _choose(
+      tester,
+      const Key('reinstate-specialty'),
+      'Medicina General',
+    );
+    await tester.enterText(find.widgetWithText(TextField, 'Desde'), date);
+    await tester.enterText(find.widgetWithText(TextField, 'Hasta'), date);
+    await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(Checkbox));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Rehabilitar turnos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Volver a habilitar'));
+    await tester.pump();
+
+    // La barrera del diálogo tapa el menú: el toque cae ahí, no en Agendas.
+    await tester.tap(find.text('Agendas'), warnIfMissed: false);
+    await tester.pump();
+
+    expect(locationOf(container), kReinstateShiftsPath);
+    expect(
+      find.text(
+        'Las consultas que se cancelaron por la suspensión no se vuelven a '
+        'agendar. Los socios tienen que pedir una nueva consulta.',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    await unmountApp(tester);
+  });
 }

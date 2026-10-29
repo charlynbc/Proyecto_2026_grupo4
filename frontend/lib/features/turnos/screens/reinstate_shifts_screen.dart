@@ -165,7 +165,10 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
   }
 
   void _openDialog() {
-    Navigator.of(context).push(
+    // El navegador de la rama queda debajo del menú. El diálogo va al raíz,
+    // como showDialog, para que la barrera tape la navegación. No usamos
+    // showDialog: envuelve el diálogo en otro PopScope que lo cierra igual.
+    Navigator.of(context, rootNavigator: true).push(
       DialogRoute<void>(
         context: context,
         builder: (dialogContext) {
