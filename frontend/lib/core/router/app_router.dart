@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../features/agenda/screens/appointments_pending_screen.dart';
 import '../../features/agenda/screens/appointment_detail_screen.dart';
 import '../../features/agenda/screens/availability_screen.dart';
+import '../../features/agendas/screens/schedule_routes.dart';
+import '../../features/agendas/screens/schedules_screen.dart';
 import '../../features/auth/models/access_type.dart';
 import '../../features/auth/models/user_role.dart';
 import '../../features/auth/providers/session_provider.dart';
@@ -122,8 +124,8 @@ RouteBase _roleShell(UserRole role) {
 }
 
 /// La ruta de una sección. Las del administrador (usuarios, especialidades y
-/// consultorios) y la de turnos del funcionario tienen su pantalla y sus
-/// subrutas; el resto muestra "Próximamente".
+/// consultorios) y las de turnos y agendas del funcionario tienen su pantalla
+/// y, algunas, sus subrutas; el resto muestra "Próximamente".
 GoRoute _sectionRoute(UserRole role, AppSection section) {
   final path = role.sectionPath(section);
   if (role == UserRole.funcionario && path == kShiftsPath) {
@@ -145,6 +147,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
               WeeklyShiftDetailScreen(id: _weeklyShiftId(state)!),
         ),
       ],
+    );
+  }
+  if (role == UserRole.funcionario && path == kSchedulesPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => const SchedulesScreen(),
     );
   }
   if (role == UserRole.administrador) {
