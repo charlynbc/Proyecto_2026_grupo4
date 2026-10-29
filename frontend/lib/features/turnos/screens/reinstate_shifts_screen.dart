@@ -19,6 +19,12 @@ const String _cancelledAppointmentsWarning =
     'Las consultas que se cancelaron por la suspensión no se vuelven a '
     'agendar. Los socios tienen que pedir una nueva consulta.';
 
+const String _missingSearchFields =
+    'Elegí el médico, la especialidad y las dos fechas, y volvé a buscar.';
+
+const String _emptySuspendedSearch =
+    'No hay turnos suspendidos en ese rango. Probá con otras fechas.';
+
 /// El funcionario elige turnos suspendidos de un rango y los vuelve a
 /// habilitar. No cambia médico, especialidad, fecha, consultorio ni horarios.
 class ReinstateShiftsScreen extends ConsumerStatefulWidget {
@@ -40,6 +46,8 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
   List<Shift> _shifts = const [];
   final List<int> _selected = [];
   bool _sending = false;
+  bool _loading = false;
+  String? _notice;
 
   @override
   void dispose() {
@@ -51,26 +59,53 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
   Future<void> _search() async {
     final from = parseUiDate(_fromController.text.trim());
     final to = parseUiDate(_toController.text.trim());
-    if (_doctorId == null || _specialtyId == null || from == null || to == null) {
+    if (_doctorId == null ||
+        _specialtyId == null ||
+        from == null ||
+        to == null) {
+      setState(() {
+        _loading = false;
+        _shifts = const [];
+        _selected.clear();
+        _notice = _missingSearchFields;
+      });
       return;
     }
-    final repository = await ref.read(shiftRepositoryProvider.future);
-    final page = await repository.listShifts(
-      ShiftFilters(
-        doctorId: _doctorId,
-        specialtyId: _specialtyId,
-        fromDate: from,
-        toDate: to,
-        state: ShiftState.suspended,
-      ),
-    );
-    if (!mounted) return;
     setState(() {
-      _fromDate = from;
-      _toDate = to;
-      _shifts = page.items;
-      _selected.removeWhere((id) => !_shifts.any((shift) => shift.id == id));
+      _loading = true;
+      _notice = null;
+      _shifts = const [];
+      _selected.clear();
     });
+    try {
+      final repository = await ref.read(shiftRepositoryProvider.future);
+      final page = await repository.listShifts(
+        ShiftFilters(
+          doctorId: _doctorId,
+          specialtyId: _specialtyId,
+          fromDate: from,
+          toDate: to,
+          state: ShiftState.suspended,
+        ),
+      );
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _fromDate = from;
+        _toDate = to;
+        _shifts = page.items;
+        _notice = page.items.isEmpty ? _emptySuspendedSearch : null;
+        _selected.removeWhere((id) => !_shifts.any((shift) => shift.id == id));
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _shifts = const [];
+        _selected.clear();
+        _notice = apiMessageOf(error);
+      });
+    }
   }
 
   void _toggle(int id, bool selected) {
@@ -209,16 +244,24 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
             const SizedBox(height: 16),
             FilledButton(onPressed: _search, child: const Text('Buscar')),
             const SizedBox(height: 16),
-            for (final shift in _shifts)
-              Row(
-                children: [
-                  Checkbox(
-                    value: _selected.contains(shift.id),
-                    onChanged: (value) => _toggle(shift.id, value ?? false),
-                  ),
-                  Text(formatUiDate(shift.date)),
-                ],
-              ),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_notice != null)
+              Text(_notice!)
+            else
+              for (final shift in _shifts)
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _selected.contains(shift.id),
+                      onChanged: (value) => _toggle(shift.id, value ?? false),
+                    ),
+                    Text(formatUiDate(shift.date)),
+                  ],
+                ),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _selected.isEmpty ? null : _openDialog,

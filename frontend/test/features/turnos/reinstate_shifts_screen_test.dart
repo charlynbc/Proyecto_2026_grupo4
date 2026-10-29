@@ -1,13 +1,21 @@
+import 'dart:async';
+
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/core/fakes/fake_shift_database.dart';
+import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialty_repository_provider.dart';
 import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_repository.dart';
+import 'package:agenda_medica/features/turnos/models/doctor.dart';
 import 'package:agenda_medica/features/turnos/models/new_weekly_shift.dart';
+import 'package:agenda_medica/features/turnos/models/shift_filters.dart';
 import 'package:agenda_medica/features/turnos/models/shift_number.dart';
+import 'package:agenda_medica/features/turnos/models/shift_page.dart';
+import 'package:agenda_medica/features/turnos/models/weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/providers/reinstatement_repository_provider.dart';
 import 'package:agenda_medica/features/turnos/providers/shift_repository_provider.dart';
 import 'package:agenda_medica/features/turnos/repositories/fake_shift_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/shift_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/shift_reinstatement_repository.dart';
 import 'package:agenda_medica/features/turnos/screens/reinstate_shifts_screen.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +31,66 @@ const String _warning =
 const String _notReinstatable =
     'Ese turno no se puede volver a habilitar: no está suspendido o la '
     'fecha ya pasó. Elegí otros turnos de la lista.';
+
+const String _missingFields =
+    'Elegí el médico, la especialidad y las dos fechas, y volvé a buscar.';
+
+const String _emptySearch =
+    'No hay turnos suspendidos en ese rango. Probá con otras fechas.';
+
+const String _searchFailure =
+    'No pudimos conectarnos con el servidor. Revisá tu conexión a internet e '
+    'intentá de nuevo.';
+
+class _GateListRepository implements ShiftRepository {
+  _GateListRepository(this._inner);
+
+  final ShiftRepository _inner;
+  final Completer<void> _gate = Completer<void>();
+
+  void release() {
+    if (!_gate.isCompleted) _gate.complete();
+  }
+
+  @override
+  Future<ShiftPage> listShifts(ShiftFilters filters) async {
+    await _gate.future;
+    return _inner.listShifts(filters);
+  }
+
+  @override
+  Future<List<Doctor>> listDoctors({int? specialtyId}) =>
+      _inner.listDoctors(specialtyId: specialtyId);
+
+  @override
+  Future<WeeklyShift> createWeeklyShift(NewWeeklyShift data) =>
+      _inner.createWeeklyShift(data);
+
+  @override
+  Future<WeeklyShift> getWeeklyShift(int id) => _inner.getWeeklyShift(id);
+}
+
+class _BrokenListRepository implements ShiftRepository {
+  _BrokenListRepository(this._inner);
+
+  final ShiftRepository _inner;
+
+  @override
+  Future<ShiftPage> listShifts(ShiftFilters filters) async {
+    throw const ApiException(_searchFailure);
+  }
+
+  @override
+  Future<List<Doctor>> listDoctors({int? specialtyId}) =>
+      _inner.listDoctors(specialtyId: specialtyId);
+
+  @override
+  Future<WeeklyShift> createWeeklyShift(NewWeeklyShift data) =>
+      _inner.createWeeklyShift(data);
+
+  @override
+  Future<WeeklyShift> getWeeklyShift(int id) => _inner.getWeeklyShift(id);
+}
 
 class _FailingReinstatementRepository
     implements ShiftReinstatementRepository {
@@ -63,6 +131,7 @@ class _RecordingReinstatementRepository
 Future<_RecordingReinstatementRepository> _pump(
   WidgetTester tester, {
   ShiftReinstatementRepository? reinstatement,
+  ShiftRepository Function(FakeShiftDatabase db)? shifts,
 }) async {
   final admin = FakeAdminDatabase();
   final db = FakeShiftDatabase(admin, seed: false);
@@ -102,7 +171,9 @@ Future<_RecordingReinstatementRepository> _pump(
     ],
     overrides: [
       shiftRepositoryProvider.overrideWith(
-        (ref) async => FakeShiftRepository(db, latency: Duration.zero),
+        (ref) async =>
+            shifts?.call(db) ??
+            FakeShiftRepository(db, latency: Duration.zero),
       ),
       specialtyRepositoryProvider.overrideWith(
         (ref) async => FakeSpecialtyRepository(admin, latency: Duration.zero),
@@ -243,4 +314,96 @@ void main() {
       expect(find.text(_warning), findsNothing);
     },
   );
+
+  testWidgets('sin médico, especialidad o fechas, buscar avisa', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_missingFields), findsOneWidget);
+    expect(find.byType(Checkbox), findsNothing);
+  });
+
+  testWidgets('un rango sin suspendidos avisa que no hay turnos', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await _choose(tester, const Key('reinstate-doctor'), 'Carla Méndez');
+    await _choose(
+      tester,
+      const Key('reinstate-specialty'),
+      'Medicina General',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Desde'),
+      '03/11/2026',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Hasta'),
+      '03/11/2026',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_emptySearch), findsOneWidget);
+    expect(find.byType(Checkbox), findsNothing);
+  });
+
+  testWidgets('mientras busca se ve el indicador y después las fechas', (
+    tester,
+  ) async {
+    final gate = Completer<_GateListRepository>();
+    await _pump(
+      tester,
+      shifts: (db) {
+        final repository = _GateListRepository(
+          FakeShiftRepository(db, latency: Duration.zero),
+        );
+        gate.complete(repository);
+        return repository;
+      },
+    );
+    await _choose(tester, const Key('reinstate-doctor'), 'Carla Méndez');
+    await _choose(
+      tester,
+      const Key('reinstate-specialty'),
+      'Medicina General',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Desde'),
+      '20/10/2026',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Hasta'),
+      '03/11/2026',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    gate.future.then((repository) => repository.release());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(_shown('20/10/2026'), findsOneWidget);
+  });
+
+  testWidgets('si la búsqueda falla se ve el mensaje de la red', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      shifts: (db) => _BrokenListRepository(
+        FakeShiftRepository(db, latency: Duration.zero),
+      ),
+    );
+    await _search(tester);
+
+    expect(find.text(_searchFailure), findsOneWidget);
+    expect(find.byType(Checkbox), findsNothing);
+  });
 }
