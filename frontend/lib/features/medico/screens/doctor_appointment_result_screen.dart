@@ -75,6 +75,16 @@ class _DoctorAppointmentResultScreenState
   Future<void> _register() async {
     if (!_controller.validate()) return;
     final form = ref.read(doctorResultControllerProvider);
+    // Con No se presentó los pases no se ven ni se envían.
+    if (form.outcome == ConsultationOutcome.attended &&
+        _selectedSpecialty != null) {
+      setState(
+        () => _pickError =
+            'Tocá Agregar pase para incluir esa especialidad o quitá la '
+            'selección.',
+      );
+      return;
+    }
     // Un doble toque en Confirmar no cierra dos veces el diálogo.
     var answered = false;
     final confirmed = await showDialog<bool>(

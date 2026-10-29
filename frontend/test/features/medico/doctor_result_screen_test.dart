@@ -302,6 +302,26 @@ void main() {
       expect(find.text(_missingCondition), findsOneWidget);
     });
 
+    testWidgets('con una especialidad elegida y sin agregar, registrar avisa '
+        'y no abre el diálogo ni llama al repositorio', (tester) async {
+      final repository = _FixedRepository();
+      await _pump(tester, repository);
+      await _enter(tester, 'result-condition', 'gripe');
+      await _pickSpecialty(tester, 'Dermatología');
+
+      await _tap(tester, _key('result-submit'));
+
+      expect(
+        find.text(
+          'Tocá Agregar pase para incluir esa especialidad o quitá la '
+          'selección.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(repository.calls, 0);
+    });
+
     testWidgets('una afección de solo espacios tampoco abre el diálogo', (
       tester,
     ) async {
