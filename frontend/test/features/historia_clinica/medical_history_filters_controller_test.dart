@@ -58,11 +58,7 @@ void main() {
       direction: MedicalHistoryDirection.ascending,
     );
 
-    controller().apply(
-      specialtyId: 5,
-      doctorId: 8,
-      text: 'control',
-    );
+    controller().apply(specialtyId: 5, doctorId: 8, text: 'control');
 
     final query = filters();
 

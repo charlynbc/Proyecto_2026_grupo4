@@ -109,115 +109,144 @@ void main() {
     await container.pump();
   }
 
-  test('en Fake deduplica médicos y conserva los IDs de las atenciones',
-      () async {
-    mount();
+  test(
+    'en Fake deduplica médicos y conserva los IDs de las atenciones',
+    () async {
+      mount();
 
-    final options = await container.read(medicalHistoryOptionsProvider.future);
+      final options = await container.read(
+        medicalHistoryOptionsProvider.future,
+      );
 
-    expect(options.doctors, {
-      4: 'Diego Viera',
-      8: 'Laura Pérez',
-      9: 'Ana Silva',
-    });
-    expect(options.doctors, hasLength(3));
-    expect(history.queries, hasLength(1));
-  });
+      expect(options.doctors, {
+        4: 'Diego Viera',
+        8: 'Laura Pérez',
+        9: 'Ana Silva',
+      });
+      expect(options.doctors, hasLength(3));
+      expect(history.queries, hasLength(1));
+    },
+  );
 
-  test('en Fake obtiene especialidades propias sin evaluar el catálogo',
-      () async {
-    mount();
+  test(
+    'en Fake obtiene especialidades propias sin evaluar el catálogo',
+    () async {
+      mount();
 
-    final options = await container.read(medicalHistoryOptionsProvider.future);
+      final options = await container.read(
+        medicalHistoryOptionsProvider.future,
+      );
 
-    expect(
-      {for (final specialty in options.specialties) specialty.id: specialty.name},
-      {3: 'Cardiología', 5: 'Traumatología', 6: 'Dermatología'},
-    );
-    expect(options.specialties, hasLength(3));
-    expect(catalogEvaluations, 0);
-    expect(catalog.listCalls, 0);
-  });
-
-  test('en API reutiliza el catálogo y obtiene médicos desde la historia',
-      () async {
-    mount(useFakes: false);
-
-    final options = await container.read(medicalHistoryOptionsProvider.future);
-
-    expect(
-      {for (final specialty in options.specialties) specialty.id: specialty.name},
-      {20: 'Cardiología', 30: 'Neurología'},
-    );
-    expect(options.specialties, hasLength(2));
-    expect(options.doctors, {
-      4: 'Diego Viera',
-      8: 'Laura Pérez',
-      9: 'Ana Silva',
-    });
-    expect(catalogEvaluations, 1);
-    expect(catalog.listCalls, 1);
-    expect(history.queries, hasLength(1));
-  });
-
-  test('los filtros aplicados no restringen ni recargan las opciones', () async {
-    mount();
-    container.listen(medicalHistoryFiltersProvider, (_, _) {});
-    final filters = container.read(medicalHistoryFiltersProvider.notifier);
-    filters.apply(specialtyId: 5, doctorId: 8, text: 'reposo');
-
-    final initial = await container.read(medicalHistoryOptionsProvider.future);
-
-    expect(initial.doctors, hasLength(3));
-    expect(initial.specialties, hasLength(3));
-    final query = history.queries.single;
-    expect(query.from, isNull);
-    expect(query.to, isNull);
-    expect(query.specialtyId, isNull);
-    expect(query.doctorId, isNull);
-    expect(query.text, isNull);
-
-    filters.apply(doctorId: 4);
-    filters.sortBy(
-      MedicalHistoryOrder.specialty,
-      direction: MedicalHistoryDirection.ascending,
-    );
-    await settleProviders();
-    final updated = await container.read(medicalHistoryOptionsProvider.future);
-
-    expect(updated.doctors, {
-      4: 'Diego Viera',
-      8: 'Laura Pérez',
-      9: 'Ana Silva',
-    });
-    expect(
-      updated.specialties.map((specialty) => specialty.id),
-      unorderedEquals([3, 5, 6]),
-    );
-    expect(history.queries, hasLength(1));
-  });
-
-  test('sin sesión de socio no publica opciones ni consulta repositorios',
-      () async {
-    for (final initial in const [
-      SessionState(),
-      SessionState(
-        status: SessionStatus.authenticated,
-        accessToken: 'prueba-empleado',
-        role: UserRole.funcionario,
-      ),
-    ]) {
-      mount(useFakes: false, initialSession: initial);
-
-      final options = await container.read(medicalHistoryOptionsProvider.future);
-
-      expect(options.doctors, isEmpty);
-      expect(options.specialties, isEmpty);
-      expect(history.queries, isEmpty);
+      expect(
+        {
+          for (final specialty in options.specialties)
+            specialty.id: specialty.name,
+        },
+        {3: 'Cardiología', 5: 'Traumatología', 6: 'Dermatología'},
+      );
+      expect(options.specialties, hasLength(3));
       expect(catalogEvaluations, 0);
       expect(catalog.listCalls, 0);
-    }
-  });
+    },
+  );
+
+  test(
+    'en API reutiliza el catálogo y obtiene médicos desde la historia',
+    () async {
+      mount(useFakes: false);
+
+      final options = await container.read(
+        medicalHistoryOptionsProvider.future,
+      );
+
+      expect(
+        {
+          for (final specialty in options.specialties)
+            specialty.id: specialty.name,
+        },
+        {20: 'Cardiología', 30: 'Neurología'},
+      );
+      expect(options.specialties, hasLength(2));
+      expect(options.doctors, {
+        4: 'Diego Viera',
+        8: 'Laura Pérez',
+        9: 'Ana Silva',
+      });
+      expect(catalogEvaluations, 1);
+      expect(catalog.listCalls, 1);
+      expect(history.queries, hasLength(1));
+    },
+  );
+
+  test(
+    'los filtros aplicados no restringen ni recargan las opciones',
+    () async {
+      mount();
+      container.listen(medicalHistoryFiltersProvider, (_, _) {});
+      final filters = container.read(medicalHistoryFiltersProvider.notifier);
+      filters.apply(specialtyId: 5, doctorId: 8, text: 'reposo');
+
+      final initial = await container.read(
+        medicalHistoryOptionsProvider.future,
+      );
+
+      expect(initial.doctors, hasLength(3));
+      expect(initial.specialties, hasLength(3));
+      final query = history.queries.single;
+      expect(query.from, isNull);
+      expect(query.to, isNull);
+      expect(query.specialtyId, isNull);
+      expect(query.doctorId, isNull);
+      expect(query.text, isNull);
+
+      filters.apply(doctorId: 4);
+      filters.sortBy(
+        MedicalHistoryOrder.specialty,
+        direction: MedicalHistoryDirection.ascending,
+      );
+      await settleProviders();
+      final updated = await container.read(
+        medicalHistoryOptionsProvider.future,
+      );
+
+      expect(updated.doctors, {
+        4: 'Diego Viera',
+        8: 'Laura Pérez',
+        9: 'Ana Silva',
+      });
+      expect(
+        updated.specialties.map((specialty) => specialty.id),
+        unorderedEquals([3, 5, 6]),
+      );
+      expect(history.queries, hasLength(1));
+    },
+  );
+
+  test(
+    'sin sesión de socio no publica opciones ni consulta repositorios',
+    () async {
+      for (final initial in const [
+        SessionState(),
+        SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: 'prueba-empleado',
+          role: UserRole.funcionario,
+        ),
+      ]) {
+        mount(useFakes: false, initialSession: initial);
+
+        final options = await container.read(
+          medicalHistoryOptionsProvider.future,
+        );
+
+        expect(options.doctors, isEmpty);
+        expect(options.specialties, isEmpty);
+        expect(history.queries, isEmpty);
+        expect(catalogEvaluations, 0);
+        expect(catalog.listCalls, 0);
+      }
+    },
+  );
 
   test('cerrar sesión retira las opciones ya cargadas', () async {
     mount();
@@ -238,41 +267,39 @@ void main() {
     expect(history.queries, hasLength(1));
   });
 
-  test('cambiar token retira opciones y descarta respuestas de la sesión anterior',
-      () async {
-    mount();
-    await container.read(medicalHistoryOptionsProvider.future);
-    final oldResponse = Completer<List<MedicalHistoryEntry>>();
-    history.response = () => oldResponse.future;
+  test(
+    'cambiar token retira opciones y descarta respuestas de la sesión anterior',
+    () async {
+      mount();
+      await container.read(medicalHistoryOptionsProvider.future);
+      final oldResponse = Completer<List<MedicalHistoryEntry>>();
+      history.response = () => oldResponse.future;
 
-    session.setAuthenticated(
-      accessToken: 'prueba-b',
-      role: UserRole.socio,
-    );
-    await settleProviders();
+      session.setAuthenticated(accessToken: 'prueba-b', role: UserRole.socio);
+      await settleProviders();
 
-    expect(container.read(medicalHistoryOptionsProvider).hasValue, isFalse);
-    expect(history.queries, hasLength(2));
+      expect(container.read(medicalHistoryOptionsProvider).hasValue, isFalse);
+      expect(history.queries, hasLength(2));
 
-    history.response = () async => <MedicalHistoryEntry>[];
-    session.setAuthenticated(
-      accessToken: 'prueba-c',
-      role: UserRole.socio,
-    );
-    await settleProviders();
-    final latest = await container.read(medicalHistoryOptionsProvider.future);
-    expect(latest.doctors, isEmpty);
-    expect(latest.specialties, isEmpty);
+      history.response = () async => <MedicalHistoryEntry>[];
+      session.setAuthenticated(accessToken: 'prueba-c', role: UserRole.socio);
+      await settleProviders();
+      final latest = await container.read(medicalHistoryOptionsProvider.future);
+      expect(latest.doctors, isEmpty);
+      expect(latest.specialties, isEmpty);
 
-    oldResponse.complete(
-      await FakeMedicalHistoryRepository(latency: Duration.zero)
-          .list(const MedicalHistoryQuery()),
-    );
-    await settleProviders();
+      oldResponse.complete(
+        await FakeMedicalHistoryRepository(latency: Duration.zero)
+            .list(const MedicalHistoryQuery()),
+      );
+      await settleProviders();
 
-    final current = container.read(medicalHistoryOptionsProvider).requireValue;
-    expect(current.doctors, isEmpty);
-    expect(current.specialties, isEmpty);
-    expect(history.queries, hasLength(3));
-  });
+      final current = container
+          .read(medicalHistoryOptionsProvider)
+          .requireValue;
+      expect(current.doctors, isEmpty);
+      expect(current.specialties, isEmpty);
+      expect(history.queries, hasLength(3));
+    },
+  );
 }

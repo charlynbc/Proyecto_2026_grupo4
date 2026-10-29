@@ -54,11 +54,7 @@ MedicalHistoryEntry _entry(int id, {String condition = 'gripe'}) =>
       'medicoId': 4,
       'medicoNombre': 'Diego',
       'medicoApellido': 'Viera',
-      'especialidad': {
-        'id': 3,
-        'nombre': 'Cardiología',
-        'requierePase': true,
-      },
+      'especialidad': {'id': 3, 'nombre': 'Cardiología', 'requierePase': true},
       'afeccion': condition,
       'tratamiento': null,
       'observaciones': null,
@@ -199,34 +195,58 @@ void main() {
     expect(container.read(medicalHistoryProvider).isLoading, isFalse);
   });
 
-  test('publica el error sin reintentar y permite reintento explícito', () async {
-    mount();
-    const failure = ApiException('No pudimos cargar la historia clínica.');
-    repository.listResponse = (_) async => throw failure;
-    watchList();
-
-    await expectLater(
-      container.read(medicalHistoryProvider.future),
-      throwsA(same(failure)),
+  testWidgets('publica el error sin reintentar y permite reintento explícito', (
+    tester,
+  ) async {
+    // Este caso dispone el contenedor dentro del reloj simulado, sin registrar
+    // además la limpieza tardía que utiliza mount en los tests comunes.
+    repository = _RecordingRepository();
+    session = _TestSession(
+      const SessionState(
+        status: SessionStatus.authenticated,
+        accessToken: 'prueba-a',
+        role: UserRole.socio,
+      ),
     );
-    await Future<void>.delayed(const Duration(seconds: 2));
+    container = ProviderContainer(
+      overrides: [
+        sessionProvider.overrideWith(() => session),
+        medicalHistoryRepositoryProvider.overrideWith(
+          (ref) async => repository,
+        ),
+      ],
+    );
+    try {
+      const failure = ApiException('No pudimos cargar la historia clínica.');
+      repository.listResponse = (_) async => throw failure;
+      watchList();
 
-    final failed = container.read(medicalHistoryProvider);
-    expect(failed.hasError, isTrue);
-    expect(failed.error, same(failure));
-    expect(failed.hasValue, isFalse);
-    expect(failed.isLoading, isFalse);
-    expect(failed.retrying, isFalse);
-    expect(repository.listQueries, hasLength(1));
+      await expectLater(
+        container.read(medicalHistoryProvider.future),
+        throwsA(same(failure)),
+      );
+      await tester.pump(const Duration(seconds: 2));
 
-    repository.listResponse = (_) async => [_entry(12)];
-    container.invalidate(medicalHistoryProvider);
-    await settleProviders();
-    final entries = await container.read(medicalHistoryProvider.future);
+      final failed = container.read(medicalHistoryProvider);
+      expect(failed.hasError, isTrue);
+      expect(failed.error, same(failure));
+      expect(failed.hasValue, isFalse);
+      expect(failed.isLoading, isFalse);
+      expect(failed.retrying, isFalse);
+      expect(repository.listQueries, hasLength(1));
 
-    expect(repository.listQueries, hasLength(2));
-    expect(entries.map((entry) => entry.id), [12]);
-    expect(container.read(medicalHistoryProvider).hasError, isFalse);
+      repository.listResponse = (_) async => [_entry(12)];
+      container.invalidate(medicalHistoryProvider);
+      await tester.pump(const Duration(milliseconds: 1));
+      final entries = await container.read(medicalHistoryProvider.future);
+
+      expect(repository.listQueries, hasLength(2));
+      expect(entries.map((entry) => entry.id), [12]);
+      expect(container.read(medicalHistoryProvider).hasError, isFalse);
+    } finally {
+      container.dispose();
+      await tester.pump(const Duration(milliseconds: 1));
+    }
   });
 
   test('carga el detalle mediante get sin consultar el listado', () async {
@@ -258,44 +278,43 @@ void main() {
     expect(repository.listQueries, isEmpty);
   });
 
-  test('sin sesión de socio válida no consulta ni publica datos clínicos',
-      () async {
-    const deniedSessions = [
-      SessionState(),
-      SessionState(status: SessionStatus.checking),
-      SessionState(
-        status: SessionStatus.authenticated,
-        accessToken: 'prueba-empleado',
-        role: UserRole.funcionario,
-      ),
-      SessionState(
-        status: SessionStatus.authenticated,
-        role: UserRole.socio,
-      ),
-      SessionState(
-        status: SessionStatus.authenticated,
-        accessToken: '',
-        role: UserRole.socio,
-      ),
-    ];
+  test(
+    'sin sesión de socio válida no consulta ni publica datos clínicos',
+    () async {
+      const deniedSessions = [
+        SessionState(),
+        SessionState(status: SessionStatus.checking),
+        SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: 'prueba-empleado',
+          role: UserRole.funcionario,
+        ),
+        SessionState(status: SessionStatus.authenticated, role: UserRole.socio),
+        SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: '',
+          role: UserRole.socio,
+        ),
+      ];
 
-    for (final initial in deniedSessions) {
-      mount(initialSession: initial);
-      watchList();
-      watchDetail(10);
+      for (final initial in deniedSessions) {
+        mount(initialSession: initial);
+        watchList();
+        watchDetail(10);
 
-      await expectLater(
-        container.read(medicalHistoryDetailProvider(10).future),
-        throwsA(isA<ApiException>()),
-      );
-      final entries = await container.read(medicalHistoryProvider.future);
+        await expectLater(
+          container.read(medicalHistoryDetailProvider(10).future),
+          throwsA(isA<ApiException>()),
+        );
+        final entries = await container.read(medicalHistoryProvider.future);
 
-      expect(entries, isEmpty);
-      expectNoClinicalData();
-      expect(repository.listQueries, isEmpty);
-      expect(repository.detailIds, isEmpty);
-    }
-  });
+        expect(entries, isEmpty);
+        expectNoClinicalData();
+        expect(repository.listQueries, isEmpty);
+        expect(repository.detailIds, isEmpty);
+      }
+    },
+  );
 
   test('cerrar sesión retira los datos previamente cargados', () async {
     mount();
@@ -312,81 +331,89 @@ void main() {
     expect(repository.detailIds, [10]);
   });
 
-  test('cambiar token retira los datos anteriores y carga los nuevos', () async {
-    mount();
-    watchList();
-    watchDetail(10);
-    await container.read(medicalHistoryProvider.future);
-    await container.read(medicalHistoryDetailProvider(10).future);
+  test(
+    'cambiar token retira los datos anteriores y carga los nuevos',
+    () async {
+      mount();
+      watchList();
+      watchDetail(10);
+      await container.read(medicalHistoryProvider.future);
+      await container.read(medicalHistoryDetailProvider(10).future);
 
-    final nextList = Completer<List<MedicalHistoryEntry>>();
-    final nextDetail = Completer<MedicalHistoryEntry>();
-    repository.listResponse = (_) => nextList.future;
-    repository.detailResponse = (_) => nextDetail.future;
+      final nextList = Completer<List<MedicalHistoryEntry>>();
+      final nextDetail = Completer<MedicalHistoryEntry>();
+      repository.listResponse = (_) => nextList.future;
+      repository.detailResponse = (_) => nextDetail.future;
 
-    session.setAuthenticated(
-      accessToken: 'prueba-b',
-      role: UserRole.socio,
-    );
-    await settleProviders();
+      session.setAuthenticated(accessToken: 'prueba-b', role: UserRole.socio);
+      await settleProviders();
 
-    expect(container.read(medicalHistoryProvider).hasValue, isFalse);
-    expect(container.read(medicalHistoryDetailProvider(10)).hasValue, isFalse);
-    expect(repository.listQueries, hasLength(2));
-    expect(repository.detailIds, [10, 10]);
+      expect(container.read(medicalHistoryProvider).hasValue, isFalse);
+      expect(
+        container.read(medicalHistoryDetailProvider(10)).hasValue,
+        isFalse,
+      );
+      expect(repository.listQueries, hasLength(2));
+      expect(repository.detailIds, [10, 10]);
 
-    nextList.complete([_entry(12)]);
-    nextDetail.complete(_entry(10, condition: 'Control cardiovascular'));
-    final entries = await container.read(medicalHistoryProvider.future);
-    final detail = await container.read(medicalHistoryDetailProvider(10).future);
+      nextList.complete([_entry(12)]);
+      nextDetail.complete(_entry(10, condition: 'Control cardiovascular'));
+      final entries = await container.read(medicalHistoryProvider.future);
+      final detail = await container.read(
+        medicalHistoryDetailProvider(10).future,
+      );
 
-    expect(entries.map((entry) => entry.id), [12]);
-    expect(detail.condition, 'Control cardiovascular');
-  });
+      expect(entries.map((entry) => entry.id), [12]);
+      expect(detail.condition, 'Control cardiovascular');
+    },
+  );
 
-  test('respuestas antiguas no publican datos tras cambiar de sesión', () async {
-    mount();
-    final oldList = Completer<List<MedicalHistoryEntry>>();
-    final oldDetail = Completer<MedicalHistoryEntry>();
-    repository.listResponse = (_) => oldList.future;
-    repository.detailResponse = (_) => oldDetail.future;
-    watchList();
-    watchDetail(10);
-    await settleProviders();
+  test(
+    'respuestas antiguas no publican datos tras cambiar de sesión',
+    () async {
+      mount();
+      final oldList = Completer<List<MedicalHistoryEntry>>();
+      final oldDetail = Completer<MedicalHistoryEntry>();
+      repository.listResponse = (_) => oldList.future;
+      repository.detailResponse = (_) => oldDetail.future;
+      watchList();
+      watchDetail(10);
+      await settleProviders();
 
-    expect(repository.listQueries, hasLength(1));
-    expect(repository.detailIds, [10]);
+      expect(repository.listQueries, hasLength(1));
+      expect(repository.detailIds, [10]);
 
-    session.clear();
-    await settleProviders();
-    expectNoClinicalData();
-    expect(repository.listQueries, hasLength(1));
-    expect(repository.detailIds, [10]);
+      session.clear();
+      await settleProviders();
+      expectNoClinicalData();
+      expect(repository.listQueries, hasLength(1));
+      expect(repository.detailIds, [10]);
 
-    repository.listResponse = (_) async => [_entry(12)];
-    repository.detailResponse = (_) async =>
-        _entry(10, condition: 'Control cardiovascular');
-    session.setAuthenticated(
-      accessToken: 'prueba-b',
-      role: UserRole.socio,
-    );
-    await settleProviders();
-    await container.read(medicalHistoryProvider.future);
-    await container.read(medicalHistoryDetailProvider(10).future);
+      repository.listResponse = (_) async => [_entry(12)];
+      repository.detailResponse = (_) async =>
+          _entry(10, condition: 'Control cardiovascular');
+      session.setAuthenticated(accessToken: 'prueba-b', role: UserRole.socio);
+      await settleProviders();
+      await container.read(medicalHistoryProvider.future);
+      await container.read(medicalHistoryDetailProvider(10).future);
 
-    oldList.complete([_entry(10)]);
-    oldDetail.complete(_entry(10));
-    await settleProviders();
+      oldList.complete([_entry(10)]);
+      oldDetail.complete(_entry(10));
+      await settleProviders();
 
-    expect(
-      container.read(medicalHistoryProvider).requireValue.map((entry) => entry.id),
-      [12],
-    );
-    expect(
-      container.read(medicalHistoryDetailProvider(10)).requireValue.condition,
-      'Control cardiovascular',
-    );
-    expect(repository.listQueries, hasLength(2));
-    expect(repository.detailIds, [10, 10]);
-  });
+      expect(
+        container
+            .read(medicalHistoryProvider)
+            .requireValue
+            .map((entry) => entry.id),
+        [12],
+      );
+      expect(
+        container.read(medicalHistoryDetailProvider(10)).requireValue.condition,
+        'Control cardiovascular',
+      );
+      expect(repository.listQueries, hasLength(2));
+      expect(repository.detailIds, [10, 10]);
+    },
+  );
 }

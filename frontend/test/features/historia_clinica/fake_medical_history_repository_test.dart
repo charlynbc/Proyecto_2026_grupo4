@@ -8,19 +8,13 @@ void main() {
   late FakeMedicalHistoryRepository repository;
 
   setUp(() {
-    repository = FakeMedicalHistoryRepository(
-      latency: Duration.zero,
-    );
+    repository = FakeMedicalHistoryRepository(latency: Duration.zero);
   });
 
   group('datos propios del fake', () {
     test('contiene las cuatro atenciones acordadas', () async {
-      final entries = await repository.list(
-        const MedicalHistoryQuery(),
-      );
-      final byId = {
-        for (final entry in entries) entry.id: entry,
-      };
+      final entries = await repository.list(const MedicalHistoryQuery());
+      final byId = {for (final entry in entries) entry.id: entry};
 
       expect(entries, hasLength(4));
       expect(byId.keys, unorderedEquals([10, 11, 12, 13]));
@@ -53,10 +47,7 @@ void main() {
       expect(byId[13]!.specialty.name, 'Dermatología');
       expect(byId[13]!.condition, 'Reposo mencionado en afección');
       expect(byId[13]!.treatment, 'Crema por la noche');
-      expect(
-        byId[13]!.observations,
-        'Reposo mencionado en observaciones',
-      );
+      expect(byId[13]!.observations, 'Reposo mencionado en observaciones');
       expect(byId[13]!.referrals, isEmpty);
     });
 
@@ -125,17 +116,14 @@ void main() {
       expect(entries.map((entry) => entry.id), [11]);
     });
 
-    test(
-      'busca solo en tratamiento, sin distinguir mayúsculas '
-      'y recortando espacios',
-      () async {
-        final entries = await repository.list(
-          const MedicalHistoryQuery(text: '  rEpOsO  '),
-        );
+    test('busca solo en tratamiento, sin distinguir mayúsculas '
+        'y recortando espacios', () async {
+      final entries = await repository.list(
+        const MedicalHistoryQuery(text: '  rEpOsO  '),
+      );
 
-        expect(entries.map((entry) => entry.id), [12, 11]);
-      },
-    );
+      expect(entries.map((entry) => entry.id), [12, 11]);
+    });
 
     test('texto compuesto solo por espacios no filtra', () async {
       final entries = await repository.list(
@@ -161,10 +149,7 @@ void main() {
 
     test('devuelve vacío si especialidad y médico no coinciden', () async {
       final entries = await repository.list(
-        const MedicalHistoryQuery(
-          specialtyId: 3,
-          doctorId: 8,
-        ),
+        const MedicalHistoryQuery(specialtyId: 3, doctorId: 8),
       );
 
       expect(entries, isEmpty);
@@ -181,18 +166,14 @@ void main() {
 
   group('orden', () {
     test('por defecto ordena por fecha descendente', () async {
-      final entries = await repository.list(
-        const MedicalHistoryQuery(),
-      );
+      final entries = await repository.list(const MedicalHistoryQuery());
 
       expect(entries.map((entry) => entry.id), [12, 10, 11, 13]);
     });
 
     test('permite ordenar por fecha ascendente', () async {
       final entries = await repository.list(
-        const MedicalHistoryQuery(
-          direction: MedicalHistoryDirection.ascending,
-        ),
+        const MedicalHistoryQuery(direction: MedicalHistoryDirection.ascending),
       );
 
       expect(entries.map((entry) => entry.id), [13, 11, 10, 12]);
@@ -224,9 +205,7 @@ void main() {
 
   group('detalle', () {
     test('obtiene por ID una atención aunque antes se haya filtrado', () async {
-      await repository.list(
-        const MedicalHistoryQuery(specialtyId: 5),
-      );
+      await repository.list(const MedicalHistoryQuery(specialtyId: 5));
 
       final entry = await repository.get(10);
 
@@ -245,24 +224,25 @@ void main() {
     });
   });
 
-  test('filtrar y ordenar no altera los datos de consultas posteriores', () async {
-    await repository.list(
-      const MedicalHistoryQuery(
-        specialtyId: 5,
-        direction: MedicalHistoryDirection.ascending,
-      ),
-    );
-    await repository.list(
-      const MedicalHistoryQuery(
-        order: MedicalHistoryOrder.specialty,
-        direction: MedicalHistoryDirection.ascending,
-      ),
-    );
+  test(
+    'filtrar y ordenar no altera los datos de consultas posteriores',
+    () async {
+      await repository.list(
+        const MedicalHistoryQuery(
+          specialtyId: 5,
+          direction: MedicalHistoryDirection.ascending,
+        ),
+      );
+      await repository.list(
+        const MedicalHistoryQuery(
+          order: MedicalHistoryOrder.specialty,
+          direction: MedicalHistoryDirection.ascending,
+        ),
+      );
 
-    final entries = await repository.list(
-      const MedicalHistoryQuery(),
-    );
+      final entries = await repository.list(const MedicalHistoryQuery());
 
-    expect(entries.map((entry) => entry.id), [12, 10, 11, 13]);
-  });
+      expect(entries.map((entry) => entry.id), [12, 10, 11, 13]);
+    },
+  );
 }

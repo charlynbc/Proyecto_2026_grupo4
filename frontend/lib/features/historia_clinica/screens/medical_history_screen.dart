@@ -191,36 +191,44 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                                 ),
                               ],
                               onChanged: (value) {
-                                if (value != null) setState(() => _order = value);
+                                if (value != null) {
+                                  setState(() => _order = value);
+                                }
                               },
                             ),
                           ),
                           SizedBox(
                             width: width,
                             key: const Key('medical-history-direction'),
-                            child: DropdownButtonFormField<MedicalHistoryDirection>(
-                              key: ValueKey(('medical-history-direction', _direction)),
-                              initialValue: _direction,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Sentido',
-                              ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: MedicalHistoryDirection.ascending,
-                                  child: Text('Ascendente'),
+                            child:
+                                DropdownButtonFormField<
+                                  MedicalHistoryDirection
+                                >(
+                                  key: ValueKey((
+                                    'medical-history-direction',
+                                    _direction,
+                                  )),
+                                  initialValue: _direction,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Sentido',
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: MedicalHistoryDirection.ascending,
+                                      child: Text('Ascendente'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: MedicalHistoryDirection.descending,
+                                      child: Text('Descendente'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() => _direction = value);
+                                    }
+                                  },
                                 ),
-                                DropdownMenuItem(
-                                  value: MedicalHistoryDirection.descending,
-                                  child: Text('Descendente'),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                if (value != null) {
-                                  setState(() => _direction = value);
-                                }
-                              },
-                            ),
                           ),
                         ],
                       );
@@ -230,7 +238,9 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                     const SizedBox(height: 12),
                     Text(
                       _rangeError!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
                   if (options.hasError) ...[
@@ -245,8 +255,14 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      FilledButton(onPressed: _apply, child: const Text('Aplicar filtros')),
-                      OutlinedButton(onPressed: _clear, child: const Text('Limpiar')),
+                      FilledButton(
+                        onPressed: _apply,
+                        child: const Text('Aplicar filtros'),
+                      ),
+                      OutlinedButton(
+                        onPressed: _clear,
+                        child: const Text('Limpiar'),
+                      ),
                     ],
                   ),
                 ],
@@ -257,12 +273,12 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
               skipLoadingOnRefresh: false,
               skipLoadingOnReload: false,
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => _error(
-                error,
-                () => ref.invalidate(medicalHistoryProvider),
-              ),
+              error: (error, _) =>
+                  _error(error, () => ref.invalidate(medicalHistoryProvider)),
               data: (entries) => entries.isEmpty
-                  ? const Text('No hay atenciones para mostrar con estos filtros.')
+                  ? const Text(
+                      'No hay atenciones para mostrar con estos filtros.',
+                    )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [for (final entry in entries) _card(entry)],
@@ -278,7 +294,9 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
     final items = options.asData?.value.specialties ?? [];
     return DropdownButtonFormField<int>(
       key: ValueKey(('medical-history-specialty', _specialtyId, items.length)),
-      initialValue: items.any((item) => item.id == _specialtyId) ? _specialtyId : null,
+      initialValue: items.any((item) => item.id == _specialtyId)
+          ? _specialtyId
+          : null,
       isExpanded: true,
       decoration: const InputDecoration(labelText: 'Especialidad'),
       items: [
@@ -286,7 +304,9 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
         for (final item in items)
           DropdownMenuItem(value: item.id, child: Text(item.name)),
       ],
-      onChanged: options.isLoading ? null : (value) => setState(() => _specialtyId = value),
+      onChanged: options.isLoading
+          ? null
+          : (value) => setState(() => _specialtyId = value),
     );
   }
 
@@ -302,7 +322,9 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
         for (final item in items.entries)
           DropdownMenuItem(value: item.key, child: Text(item.value)),
       ],
-      onChanged: options.isLoading ? null : (value) => setState(() => _doctorId = value),
+      onChanged: options.isLoading
+          ? null
+          : (value) => setState(() => _doctorId = value),
     );
   }
 
@@ -314,7 +336,10 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(formatUiDate(entry.attendedOn), style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            formatUiDate(entry.attendedOn),
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Text(entry.doctorFullName),
           Text(entry.specialty.name),
@@ -333,7 +358,10 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
   Widget _error(Object error, VoidCallback retry) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(apiMessageOf(error), style: TextStyle(color: Theme.of(context).colorScheme.error)),
+      Text(
+        apiMessageOf(error),
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      ),
       const SizedBox(height: 8),
       OutlinedButton(onPressed: retry, child: const Text('Reintentar')),
     ],

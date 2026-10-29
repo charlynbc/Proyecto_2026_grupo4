@@ -84,44 +84,44 @@ void main() {
     expect(adapter.requests, isEmpty);
   });
 
-  test('el repositorio API utiliza el Dio compartido y sus interceptores',
-      () async {
-    final adapter = _StubAdapter();
-    final dio = Dio()..httpClientAdapter = adapter;
-    var interceptorCalls = 0;
+  test(
+    'el repositorio API utiliza el Dio compartido y sus interceptores',
+    () async {
+      final adapter = _StubAdapter();
+      final dio = Dio()..httpClientAdapter = adapter;
+      var interceptorCalls = 0;
 
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) {
-          interceptorCalls++;
-          options.headers['X-Prueba-Compartida'] = 'rf12';
-          handler.next(options);
-        },
-      ),
-    );
-    addTearDown(() => dio.close(force: true));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            interceptorCalls++;
+            options.headers['X-Prueba-Compartida'] = 'rf12';
+            handler.next(options);
+          },
+        ),
+      );
+      addTearDown(() => dio.close(force: true));
 
-    final container = ProviderContainer(
-      overrides: [
-        useFakesProvider.overrideWithValue(false),
-        dioProvider.overrideWith((ref) async => dio),
-      ],
-    );
-    addTearDown(container.dispose);
+      final container = ProviderContainer(
+        overrides: [
+          useFakesProvider.overrideWithValue(false),
+          dioProvider.overrideWith((ref) async => dio),
+        ],
+      );
+      addTearDown(container.dispose);
 
-    final repository = await container.read(
-      medicalHistoryRepositoryProvider.future,
-    );
-    final entries = await repository.list(
-      const MedicalHistoryQuery(),
-    );
+      final repository = await container.read(
+        medicalHistoryRepositoryProvider.future,
+      );
+      final entries = await repository.list(const MedicalHistoryQuery());
 
-    expect(entries, isEmpty);
-    expect(interceptorCalls, 1);
+      expect(entries, isEmpty);
+      expect(interceptorCalls, 1);
 
-    final request = adapter.requests.single;
-    expect(request.method, 'GET');
-    expect(request.path, '/api/historia-clinica');
-    expect(request.headers['X-Prueba-Compartida'], 'rf12');
-  });
+      final request = adapter.requests.single;
+      expect(request.method, 'GET');
+      expect(request.path, '/api/historia-clinica');
+      expect(request.headers['X-Prueba-Compartida'], 'rf12');
+    },
+  );
 }

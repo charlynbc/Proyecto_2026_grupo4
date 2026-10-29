@@ -106,7 +106,8 @@ Future<void> _select(WidgetTester tester, String key, String label) async {
   final menuItem = find.ancestor(
     of: find.text(label),
     matching: find.byWidgetPredicate(
-      (widget) => widget is Semantics &&
+      (widget) =>
+          widget is Semantics &&
           widget.properties.role == SemanticsRole.menuItem,
     ),
   );
@@ -116,20 +117,25 @@ Future<void> _select(WidgetTester tester, String key, String label) async {
     matching: find.byWidgetPredicate((widget) => widget is DropdownMenuItem),
   );
   final expectedValue = tester.widget<DropdownMenuItem<dynamic>>(item).value;
-  final option = find.descendant(
-    of: menuItem,
-    matching: find.byType(InkWell),
-  ).hitTestable();
+  final option = find
+      .descendant(of: menuItem, matching: find.byType(InkWell))
+      .hitTestable();
   expect(option, findsOneWidget);
   await tester.tap(option);
   // Procesa el pop y el inicio de la animación inversa antes de esperar reposo.
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
   await tester.pumpAndSettle();
-  expect(menuItem, findsNothing, reason: 'La opción elegida debe cerrar su menú');
+  expect(
+    menuItem,
+    findsNothing,
+    reason: 'La opción elegida debe cerrar su menú',
+  );
   final field = find.descendant(
     of: find.byKey(ValueKey(key)),
-    matching: find.byWidgetPredicate((widget) => widget is DropdownButtonFormField),
+    matching: find.byWidgetPredicate(
+      (widget) => widget is DropdownButtonFormField,
+    ),
   );
   expect(
     tester.state<FormFieldState<dynamic>>(field).value,
@@ -137,10 +143,9 @@ Future<void> _select(WidgetTester tester, String key, String label) async {
     reason: 'El selector $key debe conservar el valor de "$label"',
   );
   expect(
-    find.descendant(
-      of: find.byKey(ValueKey(key)),
-      matching: find.text(label),
-    ).hitTestable(),
+    find
+        .descendant(of: find.byKey(ValueKey(key)), matching: find.text(label))
+        .hitTestable(),
     findsOneWidget,
     reason: 'El selector $key debe mostrar la selección "$label"',
   );
@@ -150,36 +155,66 @@ Future<void> _apply(WidgetTester tester) =>
     _tap(tester, find.widgetWithText(FilledButton, 'Aplicar filtros'));
 
 void main() {
-  testWidgets('muestra las cuatro atenciones con sus datos y fecha descendente',
-      (tester) async {
-    await _pump(tester, _RecordingRepository());
+  testWidgets(
+    'muestra las cuatro atenciones con sus datos y fecha descendente',
+    (tester) async {
+      await _pump(tester, _RecordingRepository());
 
-    _expectCards([12, 10, 11, 13]);
-    const expected = {
-      12: ['02/10/2026', 'Diego Viera', 'Cardiología', 'Control cardiovascular'],
-      10: ['24/09/2026', 'Diego Viera', 'Cardiología', 'gripe'],
-      11: ['10/09/2026', 'Laura Pérez', 'Traumatología', 'Dolor lumbar'],
-      13: ['20/08/2026', 'Ana Silva', 'Dermatología', 'Reposo mencionado en afección'],
-    };
-    for (final entry in expected.entries) {
-      for (final text in entry.value) {
-        expect(
-          find.descendant(of: _card(entry.key), matching: find.textContaining(text)),
-          findsOneWidget,
-        );
+      _expectCards([12, 10, 11, 13]);
+      const expected = {
+        12: [
+          '02/10/2026',
+          'Diego Viera',
+          'Cardiología',
+          'Control cardiovascular',
+        ],
+        10: ['24/09/2026', 'Diego Viera', 'Cardiología', 'gripe'],
+        11: ['10/09/2026', 'Laura Pérez', 'Traumatología', 'Dolor lumbar'],
+        13: [
+          '20/08/2026',
+          'Ana Silva',
+          'Dermatología',
+          'Reposo mencionado en afección',
+        ],
+      };
+      for (final entry in expected.entries) {
+        for (final text in entry.value) {
+          expect(
+            find.descendant(
+              of: _card(entry.key),
+              matching: find.textContaining(text),
+            ),
+            findsOneWidget,
+          );
+        }
       }
-    }
-    expect(tester.getTopLeft(_card(12)).dy, lessThan(tester.getTopLeft(_card(10)).dy));
-    expect(tester.getTopLeft(_card(10)).dy, lessThan(tester.getTopLeft(_card(11)).dy));
-    expect(tester.getTopLeft(_card(11)).dy, lessThan(tester.getTopLeft(_card(13)).dy));
-  });
+      expect(
+        tester.getTopLeft(_card(12)).dy,
+        lessThan(tester.getTopLeft(_card(10)).dy),
+      );
+      expect(
+        tester.getTopLeft(_card(10)).dy,
+        lessThan(tester.getTopLeft(_card(11)).dy),
+      );
+      expect(
+        tester.getTopLeft(_card(11)).dy,
+        lessThan(tester.getTopLeft(_card(13)).dy),
+      );
+    },
+  );
 
   testWidgets('aplica rango de fechas inclusivo', (tester) async {
     final repository = _RecordingRepository();
     await _pump(tester, repository);
 
-    await tester.enterText(find.byKey(const Key('medical-history-from')), '10/09/2026');
-    await tester.enterText(find.byKey(const Key('medical-history-to')), '24/09/2026');
+    await tester.enterText(
+      find.byKey(const Key('medical-history-from')),
+      '10/09/2026',
+    );
+    await tester.enterText(
+      find.byKey(const Key('medical-history-to')),
+      '24/09/2026',
+    );
     await _apply(tester);
 
     expect(repository.queries.last.from, DateTime.utc(2026, 9, 10));
@@ -187,8 +222,9 @@ void main() {
     _expectCards([10, 11]);
   });
 
-  testWidgets('filtra por especialidad usando el ID propio del fake',
-      (tester) async {
+  testWidgets('filtra por especialidad usando el ID propio del fake', (
+    tester,
+  ) async {
     final repository = _RecordingRepository();
     await _pump(tester, repository);
 
@@ -214,104 +250,136 @@ void main() {
     final repository = _RecordingRepository();
     await _pump(tester, repository);
 
-    await tester.enterText(find.byKey(const Key('medical-history-text')), 'reposo');
+    await tester.enterText(
+      find.byKey(const Key('medical-history-text')),
+      'reposo',
+    );
     await _apply(tester);
 
     expect(repository.queries.last.text, 'reposo');
     _expectCards([12, 11]);
   });
 
-  testWidgets('cambia el orden y limpiar restaura filtros y fecha descendente',
-      (tester) async {
-    final repository = _RecordingRepository();
-    await _pump(tester, repository);
-    await _select(tester, 'medical-history-specialty', 'Cardiología');
-    await _select(tester, 'medical-history-doctor', 'Diego Viera');
-    await tester.enterText(find.byKey(const Key('medical-history-from')), '01/09/2026');
-    await tester.enterText(find.byKey(const Key('medical-history-to')), '02/10/2026');
-    await tester.enterText(find.byKey(const Key('medical-history-text')), 'reposo');
-    await _apply(tester);
-    _expectCards([12]);
-
-    await _select(tester, 'medical-history-order', 'Especialidad');
-    await _select(tester, 'medical-history-direction', 'Ascendente');
-    await _apply(tester);
-
-    expect(repository.queries.last.order, MedicalHistoryOrder.specialty);
-    expect(repository.queries.last.direction, MedicalHistoryDirection.ascending);
-    expect(repository.queries.last.specialtyId, 3);
-    expect(repository.queries.last.text, 'reposo');
-
-    await _tap(tester, find.widgetWithText(OutlinedButton, 'Limpiar'));
-
-    final query = repository.queries.last;
-    expect(query.from, isNull);
-    expect(query.to, isNull);
-    expect(query.specialtyId, isNull);
-    expect(query.doctorId, isNull);
-    expect(query.text ?? '', isEmpty);
-    expect(query.order, MedicalHistoryOrder.date);
-    expect(query.direction, MedicalHistoryDirection.descending);
-    expect(
-      tester.widget<TextFormField>(find.byKey(const Key('medical-history-text')))
-          .controller!.text,
-      isEmpty,
-    );
-    _expectCards([12, 10, 11, 13]);
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(MedicalHistoryScreen)),
-    );
-    final applied = container.read(medicalHistoryFiltersProvider);
-    expect(applied.from, isNull);
-    expect(applied.to, isNull);
-    expect(applied.specialtyId, isNull);
-    expect(applied.doctorId, isNull);
-    expect(applied.text, isNull);
-    expect(applied.order, MedicalHistoryOrder.date);
-    expect(applied.direction, MedicalHistoryDirection.descending);
-
-    for (final entry in const {
-      'medical-history-specialty': 'Todas',
-      'medical-history-doctor': 'Todos',
-      'medical-history-order': 'Fecha',
-      'medical-history-direction': 'Descendente',
-    }.entries) {
-      expect(
-        find.descendant(
-          of: find.byKey(ValueKey(entry.key)),
-          matching: find.text(entry.value),
-        ),
-        findsOneWidget,
+  testWidgets(
+    'cambia el orden y limpiar restaura filtros y fecha descendente',
+    (tester) async {
+      final repository = _RecordingRepository();
+      await _pump(tester, repository);
+      await _select(tester, 'medical-history-specialty', 'Cardiología');
+      await _select(tester, 'medical-history-doctor', 'Diego Viera');
+      await tester.enterText(
+        find.byKey(const Key('medical-history-from')),
+        '01/09/2026',
       );
-    }
-    expect(
-      tester.state<FormFieldState<int>>(
-        find.descendant(
-          of: find.byKey(const Key('medical-history-specialty')),
-          matching: find.byType(DropdownButtonFormField<int>),
-        ),
-      ).value,
-      isNull,
-    );
-    expect(
-      tester.state<FormFieldState<int>>(
-        find.descendant(
-          of: find.byKey(const Key('medical-history-doctor')),
-          matching: find.byType(DropdownButtonFormField<int>),
-        ),
-      ).value,
-      isNull,
-    );
-  });
+      await tester.enterText(
+        find.byKey(const Key('medical-history-to')),
+        '02/10/2026',
+      );
+      await tester.enterText(
+        find.byKey(const Key('medical-history-text')),
+        'reposo',
+      );
+      await _apply(tester);
+      _expectCards([12]);
 
-  testWidgets('rango invertido muestra validación y no consulta de nuevo',
-      (tester) async {
+      await _select(tester, 'medical-history-order', 'Especialidad');
+      await _select(tester, 'medical-history-direction', 'Ascendente');
+      await _apply(tester);
+
+      expect(repository.queries.last.order, MedicalHistoryOrder.specialty);
+      expect(
+        repository.queries.last.direction,
+        MedicalHistoryDirection.ascending,
+      );
+      expect(repository.queries.last.specialtyId, 3);
+      expect(repository.queries.last.text, 'reposo');
+
+      await _tap(tester, find.widgetWithText(OutlinedButton, 'Limpiar'));
+
+      final query = repository.queries.last;
+      expect(query.from, isNull);
+      expect(query.to, isNull);
+      expect(query.specialtyId, isNull);
+      expect(query.doctorId, isNull);
+      expect(query.text ?? '', isEmpty);
+      expect(query.order, MedicalHistoryOrder.date);
+      expect(query.direction, MedicalHistoryDirection.descending);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('medical-history-text')),
+            )
+            .controller!
+            .text,
+        isEmpty,
+      );
+      _expectCards([12, 10, 11, 13]);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MedicalHistoryScreen)),
+      );
+      final applied = container.read(medicalHistoryFiltersProvider);
+      expect(applied.from, isNull);
+      expect(applied.to, isNull);
+      expect(applied.specialtyId, isNull);
+      expect(applied.doctorId, isNull);
+      expect(applied.text, isNull);
+      expect(applied.order, MedicalHistoryOrder.date);
+      expect(applied.direction, MedicalHistoryDirection.descending);
+
+      for (final entry in const {
+        'medical-history-specialty': 'Todas',
+        'medical-history-doctor': 'Todos',
+        'medical-history-order': 'Fecha',
+        'medical-history-direction': 'Descendente',
+      }.entries) {
+        expect(
+          find.descendant(
+            of: find.byKey(ValueKey(entry.key)),
+            matching: find.text(entry.value),
+          ),
+          findsOneWidget,
+        );
+      }
+      expect(
+        tester
+            .state<FormFieldState<int>>(
+              find.descendant(
+                of: find.byKey(const Key('medical-history-specialty')),
+                matching: find.byType(DropdownButtonFormField<int>),
+              ),
+            )
+            .value,
+        isNull,
+      );
+      expect(
+        tester
+            .state<FormFieldState<int>>(
+              find.descendant(
+                of: find.byKey(const Key('medical-history-doctor')),
+                matching: find.byType(DropdownButtonFormField<int>),
+              ),
+            )
+            .value,
+        isNull,
+      );
+    },
+  );
+
+  testWidgets('rango invertido muestra validación y no consulta de nuevo', (
+    tester,
+  ) async {
     final repository = _RecordingRepository();
     await _pump(tester, repository);
     final initialCalls = repository.queries.length;
 
-    await tester.enterText(find.byKey(const Key('medical-history-from')), '02/10/2026');
-    await tester.enterText(find.byKey(const Key('medical-history-to')), '01/09/2026');
+    await tester.enterText(
+      find.byKey(const Key('medical-history-from')),
+      '02/10/2026',
+    );
+    await tester.enterText(
+      find.byKey(const Key('medical-history-to')),
+      '01/09/2026',
+    );
     await _apply(tester);
 
     expect(
@@ -322,8 +390,9 @@ void main() {
     _expectCards([12, 10, 11, 13]);
   });
 
-  testWidgets('muestra carga mientras las atenciones están pendientes',
-      (tester) async {
+  testWidgets('muestra carga mientras las atenciones están pendientes', (
+    tester,
+  ) async {
     final repository = _RecordingRepository();
     final pending = Completer<List<MedicalHistoryEntry>>();
     repository.response = (_) => pending.future;
@@ -356,17 +425,26 @@ void main() {
       }
       return repository.fake.list(query);
     };
-    await tester.enterText(find.byKey(const Key('medical-history-text')), 'reposo');
+    await tester.enterText(
+      find.byKey(const Key('medical-history-text')),
+      'reposo',
+    );
     await _apply(tester);
 
-    expect(find.text('No pudimos cargar las atenciones de prueba.'), findsOneWidget);
+    expect(
+      find.text('No pudimos cargar las atenciones de prueba.'),
+      findsOneWidget,
+    );
     final failedCalls = repository.queries.length;
     repository.response = null;
     await _tap(tester, find.text('Reintentar').last);
 
     expect(repository.queries.length, greaterThan(failedCalls));
     _expectCards([12, 11]);
-    expect(find.text('No pudimos cargar las atenciones de prueba.'), findsNothing);
+    expect(
+      find.text('No pudimos cargar las atenciones de prueba.'),
+      findsNothing,
+    );
   });
 
   testWidgets('muestra un mensaje cuando la lista está vacía', (tester) async {
@@ -379,31 +457,33 @@ void main() {
   });
 
   for (final size in [const Size(390, 844), const Size(1280, 900)]) {
-    testWidgets('controles accesibles sin desbordes en ${size.width.toInt()} px',
-        (tester) async {
-      await _pump(tester, _RecordingRepository(), size: size);
+    testWidgets(
+      'controles accesibles sin desbordes en ${size.width.toInt()} px',
+      (tester) async {
+        await _pump(tester, _RecordingRepository(), size: size);
 
-      expect(tester.takeException(), isNull);
-      for (final key in [
-        'medical-history-from',
-        'medical-history-to',
-        'medical-history-specialty',
-        'medical-history-doctor',
-        'medical-history-text',
-        'medical-history-order',
-        'medical-history-direction',
-      ]) {
-        final control = find.byKey(ValueKey(key));
-        expect(control, findsOneWidget);
-        await tester.ensureVisible(control);
-        await tester.pumpAndSettle();
-        expect(control.hitTestable(), findsOneWidget);
         expect(tester.takeException(), isNull);
-      }
-      await tester.ensureVisible(_card(13));
-      await tester.pumpAndSettle();
-      expect(_card(13).hitTestable(), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
+        for (final key in [
+          'medical-history-from',
+          'medical-history-to',
+          'medical-history-specialty',
+          'medical-history-doctor',
+          'medical-history-text',
+          'medical-history-order',
+          'medical-history-direction',
+        ]) {
+          final control = find.byKey(ValueKey(key));
+          expect(control, findsOneWidget);
+          await tester.ensureVisible(control);
+          await tester.pumpAndSettle();
+          expect(control.hitTestable(), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        }
+        await tester.ensureVisible(_card(13));
+        await tester.pumpAndSettle();
+        expect(_card(13).hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 }

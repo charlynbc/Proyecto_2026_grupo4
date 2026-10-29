@@ -100,15 +100,16 @@ class MedicalHistoryDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _section(BuildContext context, String label, String content) => Padding(
-    padding: const EdgeInsets.only(bottom: 16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 4),
-        Text(content),
-      ],
-    ),
-  );
+  Widget _section(BuildContext context, String label, String content) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(content),
+          ],
+        ),
+      );
 }

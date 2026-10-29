@@ -62,9 +62,7 @@ _Harness _createHarness(SessionState session) {
     overrides: [
       useFakesProvider.overrideWithValue(true),
       sessionProvider.overrideWith(() => _TestSession(session)),
-      medicalHistoryRepositoryProvider.overrideWith(
-        (ref) async => repository,
-      ),
+      medicalHistoryRepositoryProvider.overrideWith((ref) async => repository),
     ],
   );
 
@@ -148,8 +146,29 @@ Future<void> _openDetail(WidgetTester tester, int id) async {
 }
 
 void main() {
-  testWidgets('la tarjeta 12 abre su ruta y solicita exactamente get(12)',
-      (tester) async {
+  testWidgets('IDs inválidos redirigen al listado sin consultar el detalle', (
+    tester,
+  ) async {
+    final harness = await _pumpHistory(tester);
+
+    for (final path in ['/socio/historia/0', '/socio/historia/abc']) {
+      harness.router.go(path);
+      await _settle(tester);
+
+      expect(_pathOf(tester), '/socio/historia', reason: path);
+      expect(find.byType(MedicalHistoryScreen), findsOneWidget, reason: path);
+      expect(
+        find.byType(MedicalHistoryDetailScreen),
+        findsNothing,
+        reason: path,
+      );
+      expect(harness.repository.requestedIds, isEmpty, reason: path);
+    }
+  });
+
+  testWidgets('la tarjeta 12 abre su ruta y solicita exactamente get(12)', (
+    tester,
+  ) async {
     final harness = await _pumpHistory(tester);
 
     expect(_pathOf(tester), '/socio/historia');
@@ -160,9 +179,11 @@ void main() {
     expect(_pathOf(tester), '/socio/historia/12');
     expect(find.byType(MedicalHistoryDetailScreen), findsOneWidget);
     expect(
-      tester.widget<MedicalHistoryDetailScreen>(
-        find.byType(MedicalHistoryDetailScreen),
-      ).id,
+      tester
+          .widget<MedicalHistoryDetailScreen>(
+            find.byType(MedicalHistoryDetailScreen),
+          )
+          .id,
       12,
     );
     expect(harness.repository.requestedIds, [12]);
@@ -171,8 +192,7 @@ void main() {
     expect(find.byKey(const Key('history-referral-8')), findsOneWidget);
   });
 
-  testWidgets('Atrás conserva reposo y las atenciones 12 y 11',
-      (tester) async {
+  testWidgets('Atrás conserva reposo y las atenciones 12 y 11', (tester) async {
     final harness = await _pumpHistory(tester);
 
     await tester.enterText(
@@ -219,68 +239,67 @@ void main() {
     expect(harness.repository.requestedIds, [12]);
   });
 
-  testWidgets('el acceso directo respeta sesión y rol sin consultar el detalle',
-      (tester) async {
-    final cases = <({SessionState session, String destination})>[
-      (
-        session: const SessionState(),
-        destination: '/login',
-      ),
-      for (final role in [
-        UserRole.funcionario,
-        UserRole.medico,
-        UserRole.administrador,
-      ])
-        (
-          session: SessionState(
-            status: SessionStatus.authenticated,
-            accessToken: 'prueba-otro-rol',
-            role: role,
+  testWidgets(
+    'el acceso directo respeta sesión y rol sin consultar el detalle',
+    (tester) async {
+      final cases = <({SessionState session, String destination})>[
+        (session: const SessionState(), destination: '/login'),
+        for (final role in [
+          UserRole.funcionario,
+          UserRole.medico,
+          UserRole.administrador,
+        ])
+          (
+            session: SessionState(
+              status: SessionStatus.authenticated,
+              accessToken: 'prueba-otro-rol',
+              role: role,
+            ),
+            destination: role.homePath,
           ),
-          destination: role.homePath,
-        ),
-    ];
+      ];
 
-    for (final testCase in cases) {
-      final harness = _createHarness(testCase.session);
+      for (final testCase in cases) {
+        final harness = _createHarness(testCase.session);
 
-      try {
-        late BuildContext parserContext;
+        try {
+          late BuildContext parserContext;
 
-        // Ejecuta el parser real sin montar pantallas de otros módulos.
-        await tester.pumpWidget(
-          UncontrolledProviderScope(
-            container: harness.container,
-            child: MaterialApp(
-              home: Builder(
-                builder: (context) {
-                  parserContext = context;
-                  return const SizedBox.shrink();
-                },
+          // Ejecuta el parser real sin montar pantallas de otros módulos.
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: harness.container,
+              child: MaterialApp(
+                home: Builder(
+                  builder: (context) {
+                    parserContext = context;
+                    return const SizedBox.shrink();
+                  },
+                ),
               ),
             ),
-          ),
-        );
+          );
 
-        final matches = await harness.router.routeInformationParser
-            .parseRouteInformationWithDependencies(
-          RouteInformation(uri: Uri.parse('/socio/historia/12')),
-          parserContext,
-        );
+          final matches = await harness.router.routeInformationParser
+              .parseRouteInformationWithDependencies(
+                RouteInformation(uri: Uri.parse('/socio/historia/12')),
+                parserContext,
+              );
 
-        expect(
-          matches.uri.path,
-          testCase.destination,
-          reason: 'Acceso desde ${testCase.session.role}',
-        );
-        expect(find.byType(MedicalHistoryDetailScreen), findsNothing);
-        expect(harness.repository.requestedIds, isEmpty);
-      } finally {
-        await tester.pumpWidget(const SizedBox.shrink());
-        harness.router.dispose();
-        harness.container.dispose();
-        await tester.pump(const Duration(milliseconds: 1));
+          expect(
+            matches.uri.path,
+            testCase.destination,
+            reason: 'Acceso desde ${testCase.session.role}',
+          );
+          expect(find.byType(MedicalHistoryDetailScreen), findsNothing);
+          expect(harness.repository.requestedIds, isEmpty);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          harness.router.dispose();
+          harness.container.dispose();
+          await tester.pump(const Duration(milliseconds: 1));
+        }
       }
-    }
-  });
+    },
+  );
 }

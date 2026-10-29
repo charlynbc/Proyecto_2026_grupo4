@@ -55,11 +55,7 @@ Map<String, dynamic> _entryJson(int id) => {
   'medicoId': 4,
   'medicoNombre': 'Diego',
   'medicoApellido': 'Viera',
-  'especialidad': {
-    'id': 3,
-    'nombre': 'Cardiología',
-    'requierePase': true,
-  },
+  'especialidad': {'id': 3, 'nombre': 'Cardiología', 'requierePase': true},
   'afeccion': 'gripe',
   'tratamiento': null,
   'observaciones': null,
@@ -139,20 +135,23 @@ void main() {
       });
     });
 
-    test('interpreta un arreglo de tres elementos como tres atenciones', () async {
-      final (repository, _) = _repository(200, [
-        _entryJson(10),
-        _entryJson(11),
-        _entryJson(12),
-      ]);
+    test(
+      'interpreta un arreglo de tres elementos como tres atenciones',
+      () async {
+        final (repository, _) = _repository(200, [
+          _entryJson(10),
+          _entryJson(11),
+          _entryJson(12),
+        ]);
 
-      final entries = await repository.list(const MedicalHistoryQuery());
+        final entries = await repository.list(const MedicalHistoryQuery());
 
-      expect(entries, hasLength(3));
-      expect(entries.map((entry) => entry.id), [10, 11, 12]);
-      expect(entries.first.doctorFullName, 'Diego Viera');
-      expect(entries.first.specialty.name, 'Cardiología');
-    });
+        expect(entries, hasLength(3));
+        expect(entries.map((entry) => entry.id), [10, 11, 12]);
+        expect(entries.first.doctorFullName, 'Diego Viera');
+        expect(entries.first.specialty.name, 'Cardiología');
+      },
+    );
 
     test('interpreta un arreglo vacío como cero atenciones', () async {
       final (repository, _) = _repository(200, <Object>[]);
@@ -189,37 +188,34 @@ void main() {
       expect(entry.referrals, hasLength(0));
     });
 
-    test(
-      'HISTORIA_NO_ENCONTRADA se convierte en un error tipado '
-      'con mensaje comprensible',
-      () async {
-        final (repository, adapter) = _repository(404, {
-          'code': 'HISTORIA_NO_ENCONTRADA',
-          'message': 'La atención no existe o no pertenece a este socio.',
-        });
+    test('HISTORIA_NO_ENCONTRADA se convierte en un error tipado '
+        'con mensaje comprensible', () async {
+      final (repository, adapter) = _repository(404, {
+        'code': 'HISTORIA_NO_ENCONTRADA',
+        'message': 'La atención no existe o no pertenece a este socio.',
+      });
 
-        await expectLater(
-          repository.get(10),
-          throwsA(
-            isA<MedicalHistoryNotFoundException>()
-                .having(
-                  (error) => error.message.trim(),
-                  'mensaje no vacío',
-                  isNotEmpty,
-                )
-                .having(
-                  (error) => error.message,
-                  'no expone el código',
-                  isNot(contains('HISTORIA_NO_ENCONTRADA')),
-                ),
-          ),
-        );
+      await expectLater(
+        repository.get(10),
+        throwsA(
+          isA<MedicalHistoryNotFoundException>()
+              .having(
+                (error) => error.message.trim(),
+                'mensaje no vacío',
+                isNotEmpty,
+              )
+              .having(
+                (error) => error.message,
+                'no expone el código',
+                isNot(contains('HISTORIA_NO_ENCONTRADA')),
+              ),
+        ),
+      );
 
-        final request = adapter.requests.single;
-        expect(request.method, 'GET');
-        expect(request.path, '/api/historia-clinica/10');
-        expect(request.queryParameters, isEmpty);
-      },
-    );
+      final request = adapter.requests.single;
+      expect(request.method, 'GET');
+      expect(request.path, '/api/historia-clinica/10');
+      expect(request.queryParameters, isEmpty);
+    });
   });
 }

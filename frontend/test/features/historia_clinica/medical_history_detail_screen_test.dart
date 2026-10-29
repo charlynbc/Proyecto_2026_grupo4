@@ -35,11 +35,7 @@ MedicalHistoryEntry _entry({
   'medicoId': 4,
   'medicoNombre': 'Diego',
   'medicoApellido': 'Viera',
-  'especialidad': {
-    'id': 3,
-    'nombre': 'Cardiología',
-    'requierePase': true,
-  },
+  'especialidad': {'id': 3, 'nombre': 'Cardiología', 'requierePase': true},
   'afeccion': condition,
   'tratamiento': treatment,
   'observaciones': observations,
@@ -102,9 +98,7 @@ Future<_TestSession> _pump(
   final container = ProviderContainer(
     overrides: [
       sessionProvider.overrideWith(() => session),
-      medicalHistoryRepositoryProvider.overrideWith(
-        (ref) async => repository,
-      ),
+      medicalHistoryRepositoryProvider.overrideWith((ref) async => repository),
     ],
   );
 
@@ -186,8 +180,9 @@ void main() {
     expect(find.text('null'), findsNothing);
   });
 
-  testWidgets('omite tratamiento vacío y observaciones con espacios',
-      (tester) async {
+  testWidgets('omite tratamiento vacío y observaciones con espacios', (
+    tester,
+  ) async {
     final repository = _DetailRepository(
       (_) async => _entry(treatment: '', observations: '   '),
     );
@@ -199,8 +194,9 @@ void main() {
     expect(find.text('Observaciones'), findsNothing);
   });
 
-  testWidgets('muestra los dos pases con sus vencimientos originales',
-      (tester) async {
+  testWidgets('muestra los dos pases con sus vencimientos originales', (
+    tester,
+  ) async {
     final repository = _DetailRepository(
       (_) async => _entry(withReferrals: true),
     );
@@ -220,10 +216,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(
-        of: first,
-        matching: find.textContaining('23/12/2026'),
-      ),
+      find.descendant(of: first, matching: find.textContaining('23/12/2026')),
       findsOneWidget,
     );
     expect(
@@ -234,10 +227,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(
-        of: second,
-        matching: find.textContaining('01/11/2026'),
-      ),
+      find.descendant(of: second, matching: find.textContaining('01/11/2026')),
       findsOneWidget,
     );
 
@@ -256,8 +246,9 @@ void main() {
     );
   });
 
-  testWidgets('muestra carga sin datos clínicos hasta recibir la atención',
-      (tester) async {
+  testWidgets('muestra carga sin datos clínicos hasta recibir la atención', (
+    tester,
+  ) async {
     final pending = Completer<MedicalHistoryEntry>();
     final repository = _DetailRepository((_) => pending.future);
 
@@ -278,11 +269,11 @@ void main() {
     expect(find.text('Diego Viera'), findsOneWidget);
   });
 
-  testWidgets('muestra el error y permite reintentar el mismo detalle',
-      (tester) async {
+  testWidgets('muestra el error y permite reintentar el mismo detalle', (
+    tester,
+  ) async {
     final repository = _DetailRepository(
-      (_) async =>
-          throw const ApiException('No pudimos cargar esta atención.'),
+      (_) async => throw const ApiException('No pudimos cargar esta atención.'),
     );
 
     await _pump(tester, repository);
@@ -300,8 +291,9 @@ void main() {
     expect(find.text('No pudimos cargar esta atención.'), findsNothing);
   });
 
-  testWidgets('informa una atención inexistente sin exponer datos ni códigos',
-      (tester) async {
+  testWidgets('informa una atención inexistente sin exponer datos ni códigos', (
+    tester,
+  ) async {
     final repository = _DetailRepository(
       (_) async => throw const MedicalHistoryNotFoundException(),
     );
@@ -318,8 +310,9 @@ void main() {
     expect(find.text('Reposo durante tres días'), findsNothing);
   });
 
-  testWidgets('retira los datos anteriores mientras cambia la sesión',
-      (tester) async {
+  testWidgets('retira los datos anteriores mientras cambia la sesión', (
+    tester,
+  ) async {
     final repository = _DetailRepository((_) async => _entry());
     final session = await _pump(tester, repository);
 
@@ -329,10 +322,7 @@ void main() {
     final next = Completer<MedicalHistoryEntry>();
     repository.response = (_) => next.future;
 
-    session.setAuthenticated(
-      accessToken: 'prueba-b',
-      role: UserRole.socio,
-    );
+    session.setAuthenticated(accessToken: 'prueba-b', role: UserRole.socio);
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump(const Duration(milliseconds: 1));
 
