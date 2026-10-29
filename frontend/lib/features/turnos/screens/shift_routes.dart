@@ -4,6 +4,9 @@ const String kShiftsPath = '/funcionario/turnos';
 /// Alta de turno semanal (RF-13), colgada de la consulta.
 const String kNewWeeklyShiftPath = '/funcionario/turnos/nuevo';
 
+/// Rehabilitar fechas suspendidas (RF-15), colgada de la consulta.
+const String kReinstateShiftsPath = '/funcionario/turnos/rehabilitar';
+
 /// Detalle de una configuración semanal: el patrón de ruta, con `:id`.
 const String kWeeklyShiftDetailPath = '/funcionario/turnos/configuracion/:id';
 

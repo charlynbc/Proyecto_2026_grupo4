@@ -12,6 +12,7 @@ import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller
 import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
 import 'package:agenda_medica/features/especialidades/screens/specialties_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/new_weekly_shift_screen.dart';
+import 'package:agenda_medica/features/turnos/screens/reinstate_shifts_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/shift_routes.dart';
 import 'package:agenda_medica/features/turnos/screens/shifts_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/weekly_shift_detail_screen.dart';
@@ -231,7 +232,11 @@ void main() {
   });
 
   group('área del funcionario: turnos', () {
-    const turnosPaths = [kShiftsPath, kNewWeeklyShiftPath];
+    const turnosPaths = [
+      kShiftsPath,
+      kNewWeeklyShiftPath,
+      kReinstateShiftsPath,
+    ];
 
     String detail(int id) => weeklyShiftDetailLocation(id);
 
@@ -243,6 +248,7 @@ void main() {
       expect(kShiftsPath, UserRole.funcionario.homePath);
       expect(kNewWeeklyShiftPath, startsWith('$kShiftsPath/'));
       expect(kWeeklyShiftDetailPath, startsWith('$kShiftsPath/'));
+      expect(kReinstateShiftsPath, startsWith('$kShiftsPath/'));
     });
 
     testWidgets('al entrar, el funcionario ve la consulta de turnos y "Turnos" '
@@ -257,7 +263,7 @@ void main() {
       expect(find.text('Próximamente'), findsNothing);
     });
 
-    testWidgets('las tres rutas abren su pantalla', (tester) async {
+    testWidgets('las cuatro rutas abren su pantalla', (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.funcionario);
 
@@ -265,6 +271,7 @@ void main() {
         kShiftsPath: find.byType(ShiftsScreen),
         kNewWeeklyShiftPath: find.byType(NewWeeklyShiftScreen),
         detail(1): find.byType(WeeklyShiftDetailScreen),
+        kReinstateShiftsPath: find.byType(ReinstateShiftsScreen),
       };
       for (final entry in screens.entries) {
         await goTo(tester, container, entry.key);
@@ -349,11 +356,15 @@ void main() {
 
       expect(locationOf(container), kShiftsPath);
       expect(find.byType(ShiftsScreen), findsOneWidget);
+      // Al volver, la consulta pide la lista. El repositorio falso tarda
+      // 300 ms, y hay que dejarlo terminar antes de cerrar la pantalla.
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
       await unmountApp(tester);
     });
 
     testWidgets('socio, médico y administrador no entran a ninguna de las '
-        'tres rutas', (tester) async {
+        'cuatro rutas', (tester) async {
       for (final role in [
         UserRole.socio,
         UserRole.medico,
@@ -373,7 +384,7 @@ void main() {
       await unmountApp(tester);
     });
 
-    testWidgets('sin sesión las tres rutas llevan al login', (tester) async {
+    testWidgets('sin sesión las cuatro rutas llevan al login', (tester) async {
       final container = await pumpApp(tester);
 
       for (final path in [...turnosPaths, detail(1)]) {
