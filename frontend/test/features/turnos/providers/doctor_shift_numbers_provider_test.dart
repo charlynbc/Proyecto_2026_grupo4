@@ -20,7 +20,9 @@ void main() {
   });
 
   test('devuelve los números del turno y conserva el detalle del turno', () async {
-    final response = await container.read(doctorShiftNumbersProvider(101).future);
+    final params = DoctorShiftNumbersParams(shiftId: 101);
+
+    final response = await container.read(doctorShiftNumbersProvider(params).future);
 
     expect(response, isA<DoctorShiftNumbersResponse>());
     expect(response.turno.id, 101);

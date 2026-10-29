@@ -9,4 +9,5 @@ final doctorShiftsProvider =
     final repository = await ref.watch(doctorShiftRepositoryProvider.future);
     return repository.getDoctorShifts(date: date);
   },
+  retry: (_, _) => null,
 );
