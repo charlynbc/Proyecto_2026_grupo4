@@ -31,9 +31,28 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
   bool _registering = false;
 
   @override
+  void initState() {
+    super.initState();
+    _ciController.addListener(_clearStaleResult);
+  }
+
+  @override
   void dispose() {
     _ciController.dispose();
     super.dispose();
+  }
+
+  /// Si el campo ya no dice la cédula buscada, el resultado es de otro socio:
+  /// se borra para no registrar la llegada de quien no corresponde. Se compara
+  /// el texto porque el controlador también avisa cuando solo se mueve el
+  /// cursor.
+  void _clearStaleResult() {
+    if (_searchedCi != null && _ciController.text != _searchedCi) {
+      setState(() {
+        _searchedCi = null;
+        _appointments = null;
+      });
+    }
   }
 
   Future<void> _search() async {

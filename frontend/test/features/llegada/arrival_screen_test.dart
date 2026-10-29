@@ -205,6 +205,37 @@ void main() {
     expect(_enabled(tester, _register), isFalse);
   });
 
+  testWidgets('cambiar la CI despues de buscar no deja registrar la anterior', (
+    tester,
+  ) async {
+    await _pump(tester, _RecordingRepository());
+    await _searchCi(tester, '90000046');
+
+    await tester.enterText(_ciField, '90000052');
+    await tester.pump();
+
+    expect(find.textContaining('Alejandro Rivas'), findsNothing);
+    expect(_register, findsNothing);
+  });
+
+  testWidgets('mover el cursor en el campo no borra el resultado', (
+    tester,
+  ) async {
+    await _pump(tester, _RecordingRepository());
+    await _searchCi(tester, '90000046');
+
+    tester
+        .widget<EditableText>(find.byType(EditableText))
+        .controller
+        .selection = const TextSelection.collapsed(
+      offset: 2,
+    );
+    await tester.pump();
+
+    expect(find.textContaining('Alejandro Rivas'), findsOneWidget);
+    expect(_enabled(tester, _register), isTrue);
+  });
+
   testWidgets('201 muestra la llegada registrada con la hora', (tester) async {
     await _pump(tester, _RecordingRepository());
     await _searchCi(tester, '90000046');
