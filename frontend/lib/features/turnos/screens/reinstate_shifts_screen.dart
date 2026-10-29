@@ -153,10 +153,14 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
   }
 
   void _selectAll() {
+    final allSelected =
+        _shifts.isNotEmpty &&
+        _shifts.every((shift) => _selected.contains(shift.id));
     setState(() {
-      _selected
-        ..clear()
-        ..addAll(_shifts.map((shift) => shift.id));
+      _selected.clear();
+      if (!allSelected) {
+        _selected.addAll(_shifts.map((shift) => shift.id));
+      }
     });
   }
 
@@ -307,13 +311,14 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
             else if (_notice != null)
               Text(_notice!)
             else ...[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: _selectAll,
-                  child: const Text('Seleccionar todas'),
+              if (_shifts.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    onPressed: _selectAll,
+                    child: const Text('Seleccionar todas'),
+                  ),
                 ),
-              ),
               for (final shift in _shifts)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

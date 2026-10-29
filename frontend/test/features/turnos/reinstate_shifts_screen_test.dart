@@ -695,8 +695,12 @@ void main() {
 
   testWidgets('seleccionar todas marca los turnos del rango', (tester) async {
     await _pump(tester);
+
+    expect(find.text('Seleccionar todas'), findsNothing);
+
     await _search(tester);
 
+    expect(find.text('Seleccionar todas'), findsOneWidget);
     await tester.tap(find.text('Seleccionar todas'));
     await tester.pumpAndSettle();
 
@@ -704,6 +708,13 @@ void main() {
     expect(boxes, hasLength(2));
     expect(boxes.every((box) => box.value == true), isTrue);
     expect(tester.widget<FilledButton>(_rehabilitate).onPressed, isNotNull);
+
+    await tester.tap(find.text('Seleccionar todas'));
+    await tester.pumpAndSettle();
+
+    final cleared = tester.widgetList<Checkbox>(find.byType(Checkbox));
+    expect(cleared.every((box) => box.value == false), isTrue);
+    expect(tester.widget<FilledButton>(_rehabilitate).onPressed, isNull);
   });
 
   testWidgets('mientras se rehabilita el diálogo no se puede cerrar', (
