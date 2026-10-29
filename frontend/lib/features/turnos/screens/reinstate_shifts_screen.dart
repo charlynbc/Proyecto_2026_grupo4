@@ -79,22 +79,31 @@ class _ReinstateShiftsScreenState extends ConsumerState<ReinstateShiftsScreen> {
     });
     try {
       final repository = await ref.read(shiftRepositoryProvider.future);
-      final page = await repository.listShifts(
-        ShiftFilters(
-          doctorId: _doctorId,
-          specialtyId: _specialtyId,
-          fromDate: from,
-          toDate: to,
-          state: ShiftState.suspended,
-        ),
-      );
+      final shifts = <Shift>[];
+      var pageNumber = 0;
+      while (mounted) {
+        final page = await repository.listShifts(
+          ShiftFilters(
+            doctorId: _doctorId,
+            specialtyId: _specialtyId,
+            fromDate: from,
+            toDate: to,
+            state: ShiftState.suspended,
+            page: pageNumber,
+            size: 100,
+          ),
+        );
+        shifts.addAll(page.items);
+        if (!page.hasNext || page.items.isEmpty) break;
+        pageNumber++;
+      }
       if (!mounted) return;
       setState(() {
         _loading = false;
         _fromDate = from;
         _toDate = to;
-        _shifts = page.items;
-        _notice = page.items.isEmpty ? _emptySuspendedSearch : null;
+        _shifts = shifts;
+        _notice = shifts.isEmpty ? _emptySuspendedSearch : null;
         _selected.removeWhere((id) => !_shifts.any((shift) => shift.id == id));
       });
     } catch (error) {

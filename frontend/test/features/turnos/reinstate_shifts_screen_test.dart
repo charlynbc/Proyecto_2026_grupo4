@@ -42,6 +42,45 @@ const String _searchFailure =
     'No pudimos conectarnos con el servidor. Revisá tu conexión a internet e '
     'intentá de nuevo.';
 
+class _PagedListRepository implements ShiftRepository {
+  _PagedListRepository(this._inner);
+
+  final ShiftRepository _inner;
+
+  @override
+  Future<ShiftPage> listShifts(ShiftFilters filters) async {
+    final all = await _inner.listShifts(
+      ShiftFilters(
+        doctorId: filters.doctorId,
+        specialtyId: filters.specialtyId,
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+        state: filters.state,
+        page: 0,
+        size: 100,
+      ),
+    );
+    final page = filters.page;
+    return ShiftPage(
+      items: page < all.items.length ? [all.items[page]] : const [],
+      page: page,
+      size: 1,
+      total: all.items.length,
+    );
+  }
+
+  @override
+  Future<List<Doctor>> listDoctors({int? specialtyId}) =>
+      _inner.listDoctors(specialtyId: specialtyId);
+
+  @override
+  Future<WeeklyShift> createWeeklyShift(NewWeeklyShift data) =>
+      _inner.createWeeklyShift(data);
+
+  @override
+  Future<WeeklyShift> getWeeklyShift(int id) => _inner.getWeeklyShift(id);
+}
+
 class _GateListRepository implements ShiftRepository {
   _GateListRepository(this._inner);
 
@@ -405,5 +444,20 @@ void main() {
 
     expect(find.text(_searchFailure), findsOneWidget);
     expect(find.byType(Checkbox), findsNothing);
+  });
+
+  testWidgets('la búsqueda trae los suspendidos de todas las páginas', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      shifts: (db) => _PagedListRepository(
+        FakeShiftRepository(db, latency: Duration.zero),
+      ),
+    );
+    await _search(tester);
+
+    expect(_shown('20/10/2026'), findsOneWidget);
+    expect(_shown('27/10/2026'), findsOneWidget);
   });
 }
