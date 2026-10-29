@@ -362,6 +362,24 @@ void main() {
       },
     );
 
+    test('"Volver" tambien borra el error que venia del dialogo', () async {
+      await s.readyToConfirm(observation: 'aviso');
+      s.repository.suspendScript.add(
+        const StaleSuspensionConfirmationException('Cambio la cantidad.'),
+      );
+      await s.notifier.confirm();
+      // La desactualizada deja la vista previa nueva y el aviso a la vista.
+      expect(s.state.error, 'Cambio la cantidad.');
+      expect(s.state.preview, isNotNull);
+
+      s.notifier.dismissPreview();
+
+      expect(s.state.error, isNull);
+      expect(s.state.preview, isNull);
+      expect(s.state.selectedIds, {7, 9});
+      expect(s.state.observation, 'aviso');
+    });
+
     test(
       'TURNO_NO_SUSPENDIBLE: muestra el error y mantiene la seleccion',
       () async {

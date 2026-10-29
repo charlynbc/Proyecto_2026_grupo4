@@ -120,8 +120,10 @@ class SuspendShiftsController extends Notifier<SuspendShiftsState> {
   void setObservation(String text) =>
       state = state.copyWith(observation: text, error: () => null);
 
-  /// "Volver": descarta la vista previa. Conserva selección y observación.
-  void dismissPreview() => state = state.copyWith(preview: () => null);
+  /// "Volver": descarta la vista previa y el error que venía con ella.
+  /// Conserva selección y observación.
+  void dismissPreview() =>
+      state = state.copyWith(preview: () => null, error: () => null);
 
   /// Pide al servidor qué pasaría al suspender lo elegido.
   Future<void> requestPreview() async {
