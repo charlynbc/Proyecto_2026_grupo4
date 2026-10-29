@@ -115,7 +115,7 @@ class FakeDoctorShiftRepository implements DoctorShiftRepository {
         horaInicio: '09:30',
         horaFin: '09:45',
         consulta: appointmentWithArrival,
-        disponible: true,
+        disponible: false,
       ),
       DoctorShiftNumber(
         numeroId: 4,
@@ -123,7 +123,7 @@ class FakeDoctorShiftRepository implements DoctorShiftRepository {
         horaInicio: '09:45',
         horaFin: '10:00',
         consulta: appointmentWithoutArrival,
-        disponible: true,
+        disponible: false,
       ),
       DoctorShiftNumber(
         numeroId: 5,
@@ -131,7 +131,7 @@ class FakeDoctorShiftRepository implements DoctorShiftRepository {
         horaInicio: '10:00',
         horaFin: '10:15',
         consulta: appointmentAttended,
-        disponible: true,
+        disponible: false,
       ),
     ];
 
