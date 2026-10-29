@@ -17,6 +17,7 @@ import '../../features/consultorios/screens/new_clinic_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
+import '../../features/llegada/screens/arrival_screen.dart';
 import '../../features/turnos/screens/new_weekly_shift_screen.dart';
 import '../../features/turnos/screens/shift_routes.dart';
 import '../../features/turnos/screens/shifts_screen.dart';
@@ -36,6 +37,7 @@ bool _isFirstLoginPath(String path) =>
     path == kFirstLoginPath || path == kFirstLoginRequestPath;
 
 const String kDoctorShiftsPath = '/medico/turnos';
+const String kArrivalPath = '/funcionario/llegada';
 
 /// A dónde redirigir según la sesión y la ruta pedida, o `null` si se puede
 /// entrar. Es el guard del router: solo comodidad de navegación, la
@@ -183,6 +185,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
           ],
         );
     }
+  }
+  if (role == UserRole.funcionario && path == kArrivalPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => const ArrivalScreen(),
+    );
   }
   if (role == UserRole.medico && path == kDoctorShiftsPath) {
     return GoRoute(
