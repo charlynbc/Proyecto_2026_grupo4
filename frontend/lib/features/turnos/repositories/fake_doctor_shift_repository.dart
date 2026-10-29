@@ -58,6 +58,16 @@ class FakeDoctorShiftRepository implements DoctorShiftRepository {
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
 
+    final validOrders = {'hora', 'horaLlegada'};
+    final validSentidos = {'asc', 'desc'};
+
+    if (orden != null && !validOrders.contains(orden)) {
+      throw const DoctorShiftValidationException('Orden inválido.');
+    }
+    if (sentido != null && !validSentidos.contains(sentido)) {
+      throw const DoctorShiftValidationException('Sentido inválido.');
+    }
+
     final isSuspendedShift = shiftId == 102;
     final appointmentWithArrival = DoctorShiftAppointment(
       id: 9001,
@@ -150,12 +160,13 @@ class FakeDoctorShiftRepository implements DoctorShiftRepository {
     }
 
     final sorted = [...items];
+    final safeOrden = orden ?? 'hora';
     final ascending = sentido != 'desc';
     sorted.sort((a, b) {
-      final aValue = (orden == 'horaLlegada')
+      final aValue = (safeOrden == 'horaLlegada')
           ? (a.consulta?.llegadaEn ?? DateTime(1970, 1, 1))
           : _timeToDateTime(a.horaInicio);
-      final bValue = (orden == 'horaLlegada')
+      final bValue = (safeOrden == 'horaLlegada')
           ? (b.consulta?.llegadaEn ?? DateTime(1970, 1, 1))
           : _timeToDateTime(b.horaInicio);
       final comparison = aValue.compareTo(bValue);

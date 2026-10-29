@@ -77,6 +77,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
       GoRoute(
+        path: kDoctorShiftConsultationPath,
+        builder: (context, state) =>
+            const ComingSoonScreen(title: 'Consulta'),
+      ),
+      GoRoute(
         path: kLoginPath,
         builder: (context, state) => LoginScreen(
           access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
