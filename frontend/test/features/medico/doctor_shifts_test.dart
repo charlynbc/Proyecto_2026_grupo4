@@ -1,3 +1,5 @@
+import 'package:go_router/go_router.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -133,6 +135,8 @@ DoctorShiftNumber _reserved(int n, {DateTime? arrivedAt}) => DoctorShiftNumber(
   arrivedAt: arrivedAt,
 );
 
+Key _shiftKey(int number) => Key('doctor-shift-$number');
+
 Future<void> _pump(WidgetTester tester, _ScriptedRepository repository) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -264,13 +268,55 @@ void main() {
         ];
       await _pump(tester, repository);
 
-      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.tap(find.byKey(_shiftKey(7)));
       await tester.pump();
       await tester.pump();
 
       expect(find.textContaining('Ana Pérez · CI 12345678'), findsOneWidget);
       expect(find.textContaining('Llegó a las'), findsOneWidget);
       expect(find.text('Sin reserva'), findsOneWidget);
+    });
+
+    testWidgets('solo navega al resultado si está agendada y avisó llegada', (
+      tester,
+    ) async {
+      final repository = _ScriptedRepository()
+        ..numbers = [
+          _reserved(1, arrivedAt: DateTime.utc(2026, 3, 9, 12, 5)),
+        ];
+
+      final router = GoRouter(
+        initialLocation: '/medico/turnos',
+        routes: [
+          GoRoute(
+            path: '/medico/turnos',
+            builder: (_, _) => const DoctorShiftsScreen(),
+          ),
+          GoRoute(
+            path: kDoctorResultPath,
+            builder: (_, state) => const SizedBox(),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            doctorShiftRepositoryProvider.overrideWith((ref) async => repository),
+            doctorPollIntervalProvider.overrideWithValue(
+              const Duration(seconds: 3),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final listTiles = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
+      expect(listTiles.length, equals(1));
+
+      expect(listTiles[0].onTap, isNotNull);
     });
 
     testWidgets('el filtro y el orden se envían al servidor', (tester) async {
@@ -280,7 +326,7 @@ void main() {
           _reserved(2),
         ];
       await _pump(tester, repository);
-      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.tap(find.byKey(_shiftKey(7)));
       await tester.pump();
       await tester.pump();
 
@@ -288,8 +334,8 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(repository.lastArrived, isTrue);
-      expect(find.byKey(const Key('doctor-number-1')), findsOneWidget);
-      expect(find.byKey(const Key('doctor-number-2')), findsNothing);
+      expect(find.byKey(_shiftKey(7)), findsOneWidget);
+      expect(find.byKey(_shiftKey(2)), findsNothing);
 
       await tester.tap(find.text('Hora de llegada'));
       await tester.pump();
@@ -306,7 +352,7 @@ void main() {
     testWidgets('se actualiza solo cuando cambia el servidor', (tester) async {
       final repository = _ScriptedRepository();
       await _pump(tester, repository);
-      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.tap(find.byKey(_shiftKey(7)));
       await tester.pump();
       await tester.pump();
       expect(find.text('Sin reserva'), findsNWidgets(2));
@@ -365,7 +411,7 @@ void main() {
     ) async {
       final repository = _ScriptedRepository();
       await _pump(tester, repository);
-      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.tap(find.byKey(_shiftKey(7)));
       await tester.pump();
       await tester.pump();
 
@@ -374,7 +420,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.byKey(const Key('doctor-refresh-error')), findsOneWidget);
-      expect(find.byKey(const Key('doctor-number-1')), findsOneWidget);
+      expect(find.byKey(_shiftKey(7)), findsOneWidget);
 
       repository.failure = null;
       await tester.pump(const Duration(seconds: 3));
@@ -392,7 +438,7 @@ void main() {
       await tester.tap(find.byKey(const Key('doctor-retry')));
       await tester.pump();
       await tester.pump();
-      expect(find.byKey(const Key('doctor-shift-7')), findsOneWidget);
+      expect(find.byKey(Key('doctor-shift-${7}')), findsOneWidget);
     });
   });
 }

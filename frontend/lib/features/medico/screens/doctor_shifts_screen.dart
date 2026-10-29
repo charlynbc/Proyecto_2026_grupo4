@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../auth/widgets/logout_button.dart';
 import '../models/doctor_shift.dart';
 import '../providers/doctor_agenda_controller.dart';
+import 'doctor_result_routes.dart';
 
 /// "Mis turnos" del médico (RF-21): fecha, turnos propios, números con sus
 /// pacientes, filtro por aviso de llegada y orden. La lista se actualiza sola
@@ -247,12 +249,29 @@ class _NumberTile extends StatelessWidget {
 
   final DoctorShiftNumber item;
 
+  bool get _canOpenResult {
+    return item.appointmentId != null &&
+        item.appointmentStatus == 'AGENDADA' &&
+        item.arrivedAt != null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final patient = item.patient;
     return Card(
-      key: Key('doctor-number-${item.number}'),
+      key: Key('doctor-shift-${item.number}'),
       child: ListTile(
+        enabled: _canOpenResult,
+        onTap: _canOpenResult
+            ? () => context.push(
+                  doctorResultLocation(
+                    item.appointmentId!,
+                    patientName: patient == null
+                        ? null
+                        : '${patient.name} ${patient.lastName}',
+                  ),
+                )
+            : null,
         leading: CircleAvatar(child: Text('${item.number}')),
         title: Text(
           patient == null
