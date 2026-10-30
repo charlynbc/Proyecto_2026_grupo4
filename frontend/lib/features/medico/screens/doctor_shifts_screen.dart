@@ -250,8 +250,9 @@ class _NumberTile extends StatelessWidget {
   final DoctorShiftNumber item;
 
   bool get _canOpenResult {
+    final status = item.appointmentStatus?.toUpperCase();
     return item.appointmentId != null &&
-        item.appointmentStatus == 'AGENDADA' &&
+        status == 'AGENDADA' &&
         item.arrivedAt != null;
   }
 
@@ -259,18 +260,18 @@ class _NumberTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final patient = item.patient;
     return Card(
-      key: Key('doctor-shift-${item.number}'),
       child: ListTile(
+        key: Key('doctor-number-${item.number}'),
         enabled: _canOpenResult,
         onTap: _canOpenResult
             ? () => context.push(
-                  doctorResultLocation(
-                    item.appointmentId!,
-                    patientName: patient == null
-                        ? null
-                        : '${patient.name} ${patient.lastName}',
-                  ),
-                )
+                doctorResultLocation(
+                  item.appointmentId!,
+                  patientName: patient == null
+                      ? null
+                      : '${patient.name} ${patient.lastName}',
+                ),
+              )
             : null,
         leading: CircleAvatar(child: Text('${item.number}')),
         title: Text(

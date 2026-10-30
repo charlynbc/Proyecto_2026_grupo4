@@ -1,7 +1,8 @@
-import 'package:go_router/go_router.dart';
-import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'dart:convert';
 import 'dart:typed_data';
+
+import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:agenda_medica/features/medico/models/doctor_shift.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
@@ -124,20 +125,45 @@ DoctorShiftNumber _free(int n) => DoctorShiftNumber(
   endTime: '09:${n * 20}'.padRight(5, '0'),
 );
 
-DoctorShiftNumber _reserved(int n, {DateTime? arrivedAt}) => DoctorShiftNumber(
+DoctorShiftNumber _reserved(
+  int n, {
+  DateTime? arrivedAt,
+  String appointmentStatus = 'AGENDADA',
+}) => DoctorShiftNumber(
   numberId: n,
   number: n,
   startTime: '09:00',
   endTime: '09:20',
   appointmentId: 100 + n,
-  appointmentStatus: 'AGENDADA',
+  appointmentStatus: appointmentStatus,
   patient: const DoctorPatient(ci: '12345678', name: 'Ana', lastName: 'Pérez'),
   arrivedAt: arrivedAt,
 );
 
 Key _shiftKey(int number) => Key('doctor-shift-$number');
 
+late GoRouter router;
+
 Future<void> _pump(WidgetTester tester, _ScriptedRepository repository) async {
+  router = GoRouter(
+    initialLocation: '/medico/turnos',
+    routes: [
+      GoRoute(
+        path: '/medico/turnos',
+        builder: (_, _) => const DoctorShiftsScreen(),
+      ),
+      GoRoute(
+        path: kDoctorResultPath,
+        builder: (_, state) => Scaffold(
+          body: Center(
+            child: Text('Resultado: ${state.uri}'),
+          ),
+        ),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -146,7 +172,7 @@ Future<void> _pump(WidgetTester tester, _ScriptedRepository repository) async {
           const Duration(seconds: 3),
         ),
       ],
-      child: const MaterialApp(home: DoctorShiftsScreen()),
+      child: MaterialApp.router(routerConfig: router),
     ),
   );
   await tester.pump();
@@ -272,51 +298,100 @@ void main() {
       await tester.pump();
       await tester.pump();
 
+      expect(find.byKey(const Key('doctor-number-1')), findsOneWidget);
       expect(find.textContaining('Ana Pérez · CI 12345678'), findsOneWidget);
       expect(find.textContaining('Llegó a las'), findsOneWidget);
       expect(find.text('Sin reserva'), findsOneWidget);
     });
 
-    testWidgets('solo navega al resultado si está agendada y avisó llegada', (
-      tester,
-    ) async {
+    testWidgets(
+      'navega al resultado cuando está agendada y avisó llegada',
+      (tester) async {
+        final routeResult = doctorResultLocation(101, patientName: 'Ana Pérez');
+
+        final repository = _ScriptedRepository()
+          ..numbers = [
+            DoctorShiftNumber(
+              numberId: 1,
+              number: 1,
+              startTime: '09:00',
+              endTime: '09:20',
+              appointmentId: 101,
+              appointmentStatus: 'AGENDADA',
+              patient: const DoctorPatient(
+                ci: '12345678',
+                name: 'Ana',
+                lastName: 'Pérez',
+              ),
+              arrivedAt: DateTime.utc(2026, 3, 9, 12, 5),
+            ),
+          ];
+
+        await _pump(tester, repository);
+        await tester.tap(find.byKey(const Key('doctor-shift-7')));
+        await tester.pumpAndSettle();
+
+        final numberTile = tester.widget<ListTile>(
+          find.byKey(const Key('doctor-number-1')),
+        );
+        expect(numberTile.enabled, isTrue);
+        expect(numberTile.onTap, isNotNull);
+
+        await tester.tap(find.byKey(const Key('doctor-number-1')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Resultado: $routeResult'), findsOneWidget);
+      },
+    );
+
+    testWidgets('no navega cuando está atendida', (tester) async {
       final repository = _ScriptedRepository()
         ..numbers = [
-          _reserved(1, arrivedAt: DateTime.utc(2026, 3, 9, 12, 5)),
+          _reserved(
+            1,
+            arrivedAt: DateTime.utc(2026, 3, 9, 12, 5),
+            appointmentStatus: 'ATENDIDA',
+          ),
         ];
 
-      final router = GoRouter(
-        initialLocation: '/medico/turnos',
-        routes: [
-          GoRoute(
-            path: '/medico/turnos',
-            builder: (_, _) => const DoctorShiftsScreen(),
-          ),
-          GoRoute(
-            path: kDoctorResultPath,
-            builder: (_, state) => const SizedBox(),
-          ),
-        ],
-      );
-
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            doctorShiftRepositoryProvider.overrideWith((ref) async => repository),
-            doctorPollIntervalProvider.overrideWithValue(
-              const Duration(seconds: 3),
-            ),
-          ],
-          child: MaterialApp.router(routerConfig: router),
-        ),
-      );
-
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('doctor-number-1')));
       await tester.pumpAndSettle();
 
-      final listTiles = tester.widgetList<ListTile>(find.byType(ListTile)).toList();
-      expect(listTiles.length, equals(1));
+      expect(find.textContaining('Resultado:'), findsNothing);
+    });
 
-      expect(listTiles[0].onTap, isNotNull);
+    testWidgets('no navega cuando está cancelada', (tester) async {
+      final repository = _ScriptedRepository()
+        ..numbers = [
+          _reserved(
+            1,
+            arrivedAt: DateTime.utc(2026, 3, 9, 12, 5),
+            appointmentStatus: 'CANCELADA_SOCIO',
+          ),
+        ];
+
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('doctor-number-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Resultado:'), findsNothing);
+    });
+
+    testWidgets('no navega sin aviso de llegada', (tester) async {
+      final repository = _ScriptedRepository()..numbers = [_reserved(1)];
+
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('doctor-number-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Resultado:'), findsNothing);
     });
 
     testWidgets('el filtro y el orden se envían al servidor', (tester) async {
@@ -430,15 +505,21 @@ void main() {
     });
 
     testWidgets('un error de carga ofrece reintentar', (tester) async {
-      final repository = _ScriptedRepository()..failure = Exception('x');
+      final repository = _ScriptedRepository()
+        ..numbers = [_reserved(1)]
+        ..failure = Exception('x');
       await _pump(tester, repository);
 
       expect(find.byKey(const Key('doctor-error')), findsOneWidget);
+
       repository.failure = null;
       await tester.tap(find.byKey(const Key('doctor-retry')));
-      await tester.pump();
-      await tester.pump();
-      expect(find.byKey(Key('doctor-shift-${7}')), findsOneWidget);
+
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('doctor-number-1')), findsOneWidget);
     });
   });
 }
