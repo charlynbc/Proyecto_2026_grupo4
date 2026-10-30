@@ -17,6 +17,8 @@ Lo que no se pudo verificar se marca como **no verificado**.
 > Resend y Railway siguen sin verificar. Las líneas siguientes son historial y pueden citar
 > estados anteriores (por ejemplo 20/22 o RF-40 «pendiente»).
 
+> **Nota del 30/10/2026:** el sondeo de RF-21 pasó de 3 s a 15 s en el PR #43. Los valores de 3 s de este documento corresponden al corte del 27/10 (HEAD 25405b4), y la latencia medida de ~1,8 s se obtuvo con 3 s.
+
 - Backend REST en Java 25 / Spring Boot 4.1.1 con JDBC (`JdbcTemplate`) y PostgreSQL 17.
 - De los 22 RF críticos, con el criterio de la leyenda de la sección 5:
   **20 completos (RF-12 completo en su rama `feat/cierre-historia-clinica`, sin integrar) y 2 parciales (RF-24, RF-35)**; RF-40 completo con la brecha funcional histórica registrada.
