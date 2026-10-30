@@ -1,18 +1,17 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
-import 'package:go_router/go_router.dart';
-
 import 'package:agenda_medica/features/medico/models/doctor_shift.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
 import 'package:agenda_medica/features/medico/repositories/api_doctor_shift_repository.dart';
 import 'package:agenda_medica/features/medico/repositories/doctor_shift_repository.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 class _StubAdapter implements HttpClientAdapter {
   _StubAdapter(this.status, this.body);
@@ -141,11 +140,16 @@ DoctorShiftNumber _reserved(
 );
 
 Key _shiftKey(int number) => Key('doctor-shift-$number');
-
-late GoRouter router;
+Key _numberKey(int number) => Key('doctor-number-$number');
+Key _noShiftsKey() => const Key('doctor-no-shifts');
+Key _errorKey() => const Key('doctor-error');
+Key _retryKey() => const Key('doctor-retry');
+Key _refreshErrorKey() => const Key('doctor-refresh-error');
+Key _arrivedFilterYesKey() => const Key('arrived-filter-yes');
+Key _directionKey() => const Key('doctor-direction');
 
 Future<void> _pump(WidgetTester tester, _ScriptedRepository repository) async {
-  router = GoRouter(
+  final router = GoRouter(
     initialLocation: '/medico/turnos',
     routes: [
       GoRoute(
@@ -154,11 +158,8 @@ Future<void> _pump(WidgetTester tester, _ScriptedRepository repository) async {
       ),
       GoRoute(
         path: kDoctorResultPath,
-        builder: (_, state) => Scaffold(
-          body: Center(
-            child: Text('Resultado: ${state.uri}'),
-          ),
-        ),
+        builder: (_, state) =>
+            Scaffold(body: Center(child: Text('Resultado: ${state.uri}'))),
       ),
     ],
   );
@@ -281,7 +282,7 @@ void main() {
       final repository = _ScriptedRepository()..shifts = [];
       await _pump(tester, repository);
 
-      expect(find.byKey(const Key('doctor-no-shifts')), findsOneWidget);
+      expect(find.byKey(_noShiftsKey()), findsOneWidget);
     });
 
     testWidgets('muestra números, pacientes, sin reserva y llegada', (
@@ -298,51 +299,48 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.byKey(const Key('doctor-number-1')), findsOneWidget);
+      expect(find.byKey(_numberKey(1)), findsOneWidget);
       expect(find.textContaining('Ana Pérez · CI 12345678'), findsOneWidget);
       expect(find.textContaining('Llegó a las'), findsOneWidget);
       expect(find.text('Sin reserva'), findsOneWidget);
     });
 
-    testWidgets(
-      'navega al resultado cuando está agendada y avisó llegada',
-      (tester) async {
-        final routeResult = doctorResultLocation(101, patientName: 'Ana Pérez');
+    testWidgets('navega al resultado cuando está agendada y avisó llegada', (
+      tester,
+    ) async {
+      final routeResult = doctorResultLocation(101, patientName: 'Ana Pérez');
 
-        final repository = _ScriptedRepository()
-          ..numbers = [
-            DoctorShiftNumber(
-              numberId: 1,
-              number: 1,
-              startTime: '09:00',
-              endTime: '09:20',
-              appointmentId: 101,
-              appointmentStatus: 'AGENDADA',
-              patient: const DoctorPatient(
-                ci: '12345678',
-                name: 'Ana',
-                lastName: 'Pérez',
-              ),
-              arrivedAt: DateTime.utc(2026, 3, 9, 12, 5),
+      final repository = _ScriptedRepository()
+        ..numbers = [
+          DoctorShiftNumber(
+            numberId: 1,
+            number: 1,
+            startTime: '09:00',
+            endTime: '09:20',
+            appointmentId: 101,
+            appointmentStatus: 'AGENDADA',
+            patient: const DoctorPatient(
+              ci: '12345678',
+              name: 'Ana',
+              lastName: 'Pérez',
             ),
-          ];
+            arrivedAt: DateTime.utc(2026, 3, 9, 12, 5),
+          ),
+        ];
 
-        await _pump(tester, repository);
-        await tester.tap(find.byKey(const Key('doctor-shift-7')));
-        await tester.pumpAndSettle();
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(_shiftKey(7)));
+      await tester.pumpAndSettle();
 
-        final numberTile = tester.widget<ListTile>(
-          find.byKey(const Key('doctor-number-1')),
-        );
-        expect(numberTile.enabled, isTrue);
-        expect(numberTile.onTap, isNotNull);
+      final numberTile = tester.widget<ListTile>(find.byKey(_numberKey(1)));
+      expect(numberTile.enabled, isTrue);
+      expect(numberTile.onTap, isNotNull);
 
-        await tester.tap(find.byKey(const Key('doctor-number-1')));
-        await tester.pumpAndSettle();
+      await tester.tap(find.byKey(_numberKey(1)));
+      await tester.pumpAndSettle();
 
-        expect(find.text('Resultado: $routeResult'), findsOneWidget);
-      },
-    );
+      expect(find.text('Resultado: $routeResult'), findsOneWidget);
+    });
 
     testWidgets('no navega cuando está atendida', (tester) async {
       final repository = _ScriptedRepository()
@@ -355,11 +353,13 @@ void main() {
         ];
 
       await _pump(tester, repository);
-      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.tap(find.byKey(_shiftKey(7)));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('doctor-number-1')));
+      await tester.tap(find.byKey(_numberKey(1)));
       await tester.pumpAndSettle();
 
+      final numberTile = tester.widget<ListTile>(find.byKey(_numberKey(1)));
+      expect(numberTile.enabled, isFalse);
       expect(find.textContaining('Resultado:'), findsNothing);
     });
 
@@ -374,11 +374,13 @@ void main() {
         ];
 
       await _pump(tester, repository);
-      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.tap(find.byKey(_shiftKey(7)));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('doctor-number-1')));
+      await tester.tap(find.byKey(_numberKey(1)));
       await tester.pumpAndSettle();
 
+      final numberTile = tester.widget<ListTile>(find.byKey(_numberKey(1)));
+      expect(numberTile.enabled, isFalse);
       expect(find.textContaining('Resultado:'), findsNothing);
     });
 
@@ -386,11 +388,13 @@ void main() {
       final repository = _ScriptedRepository()..numbers = [_reserved(1)];
 
       await _pump(tester, repository);
-      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.tap(find.byKey(_shiftKey(7)));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('doctor-number-1')));
+      await tester.tap(find.byKey(_numberKey(1)));
       await tester.pumpAndSettle();
 
+      final numberTile = tester.widget<ListTile>(find.byKey(_numberKey(1)));
+      expect(numberTile.enabled, isFalse);
       expect(find.textContaining('Resultado:'), findsNothing);
     });
 
@@ -405,12 +409,12 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      await tester.tap(find.byKey(const Key('arrived-filter-yes')));
+      await tester.tap(find.byKey(_arrivedFilterYesKey()));
       await tester.pump();
       await tester.pump();
       expect(repository.lastArrived, isTrue);
-      expect(find.byKey(_shiftKey(7)), findsOneWidget);
-      expect(find.byKey(_shiftKey(2)), findsNothing);
+      expect(find.byKey(_numberKey(1)), findsOneWidget);
+      expect(find.byKey(_numberKey(2)), findsNothing);
 
       await tester.tap(find.text('Hora de llegada'));
       await tester.pump();
@@ -418,7 +422,7 @@ void main() {
       expect(repository.lastOrder, DoctorNumbersOrder.arrival);
       expect(repository.lastArrived, isTrue);
 
-      await tester.tap(find.byKey(const Key('doctor-direction')));
+      await tester.tap(find.byKey(_directionKey()));
       await tester.pump();
       await tester.pump();
       expect(repository.lastAscending, isFalse);
@@ -494,14 +498,14 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.pump();
       await tester.pump();
-      expect(find.byKey(const Key('doctor-refresh-error')), findsOneWidget);
-      expect(find.byKey(_shiftKey(7)), findsOneWidget);
+      expect(find.byKey(_refreshErrorKey()), findsOneWidget);
+      expect(find.byKey(_numberKey(1)), findsOneWidget);
 
       repository.failure = null;
       await tester.pump(const Duration(seconds: 3));
       await tester.pump();
       await tester.pump();
-      expect(find.byKey(const Key('doctor-refresh-error')), findsNothing);
+      expect(find.byKey(_refreshErrorKey()), findsNothing);
     });
 
     testWidgets('un error de carga ofrece reintentar', (tester) async {
@@ -510,16 +514,16 @@ void main() {
         ..failure = Exception('x');
       await _pump(tester, repository);
 
-      expect(find.byKey(const Key('doctor-error')), findsOneWidget);
+      expect(find.byKey(_errorKey()), findsOneWidget);
 
       repository.failure = null;
-      await tester.tap(find.byKey(const Key('doctor-retry')));
+      await tester.tap(find.byKey(_retryKey()));
 
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.tap(find.byKey(_shiftKey(7)));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('doctor-number-1')), findsOneWidget);
+      expect(find.byKey(_numberKey(1)), findsOneWidget);
     });
   });
 }
