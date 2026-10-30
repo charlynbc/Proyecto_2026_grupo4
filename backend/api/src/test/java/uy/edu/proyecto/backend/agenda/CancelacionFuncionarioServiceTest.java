@@ -73,7 +73,7 @@ class CancelacionFuncionarioServiceTest {
                 Optional.of(datos("87654321", LocalDate.of(2026, 11, 1), LocalTime.NOON)));
         ApiException error = assertThrows(ApiException.class, () -> service.cancelar(5L, "12"));
         assertEquals("CONFLICTO_INTERES", error.getCode());
-        verify(repository, never()).cancel(any(), any());
+        verify(repository, never()).cancelar(any(), any());
     }
 
     @Test
@@ -82,6 +82,6 @@ class CancelacionFuncionarioServiceTest {
                 Optional.of(datos("12345678", LocalDate.of(2026, 10, 30), LocalTime.of(10, 0))));
         ApiException error = assertThrows(ApiException.class, () -> service.cancelar(5L, "12"));
         assertEquals("CANCELACION_FUERA_DE_PLAZO", error.getCode());
-        verify(repository, never()).cancel(any(), any());
+        verify(repository, never()).cancelar(any(), any());
     }
 }
