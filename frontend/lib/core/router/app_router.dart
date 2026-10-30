@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../features/agenda/screens/appointments_pending_screen.dart';
 import '../../features/agenda/screens/appointment_detail_screen.dart';
 import '../../features/agenda/screens/availability_screen.dart';
+import '../../features/agendas/screens/schedule_routes.dart';
+import '../../features/agendas/screens/schedules_screen.dart';
 import '../../features/auth/models/access_type.dart';
 import '../../features/auth/models/user_role.dart';
 import '../../features/auth/providers/session_provider.dart';
@@ -14,12 +16,20 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/consultorios/screens/clinics_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
+import '../../features/estadisticas/screens/statistics_screen.dart';
+import '../../features/medico/screens/doctor_appointment_result_screen.dart';
+import '../../features/medico/screens/doctor_result_routes.dart';
+import '../../features/historia_clinica/screens/medical_history_screen.dart';
+import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
+import '../../features/llegada/screens/arrival_screen.dart';
 import '../../features/turnos/screens/new_weekly_shift_screen.dart';
+import '../../features/turnos/screens/reinstate_shifts_screen.dart';
 import '../../features/turnos/screens/shift_routes.dart';
 import '../../features/turnos/screens/shifts_screen.dart';
+import '../../features/turnos/screens/suspend_shifts_screen.dart';
 import '../../features/turnos/screens/weekly_shift_detail_screen.dart';
 import '../../features/usuarios/screens/new_user_screen.dart';
 import '../../features/usuarios/screens/user_routes.dart';
@@ -36,6 +46,7 @@ bool _isFirstLoginPath(String path) =>
     path == kFirstLoginPath || path == kFirstLoginRequestPath;
 
 const String kDoctorShiftsPath = '/medico/turnos';
+const String kArrivalPath = '/funcionario/llegada';
 
 /// A dónde redirigir según la sesión y la ruta pedida, o `null` si se puede
 /// entrar. Es el guard del router: solo comodidad de navegación, la
@@ -103,6 +114,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      // El guard de `redirectFor` deja entrar solo al médico: el prefijo
+      // `/medico` es de ese rol.
+      GoRoute(
+        path: kDoctorResultPath,
+        // Un id que no es un número vuelve a "Mis turnos".
+        redirect: (context, state) =>
+            _appointmentId(state) == null ? kDoctorShiftsPath : null,
+        builder: (context, state) => DoctorAppointmentResultScreen(
+          appointmentId: _appointmentId(state)!,
+          patientName: state.uri.queryParameters['paciente'],
+        ),
+      ),
       for (final role in UserRole.values) _roleShell(role),
     ],
   );
@@ -121,9 +144,10 @@ RouteBase _roleShell(UserRole role) {
   );
 }
 
-/// La ruta de una sección. Las del administrador (usuarios, especialidades y
-/// consultorios) y la de turnos del funcionario tienen su pantalla y sus
-/// subrutas; el resto muestra "Próximamente".
+/// La ruta de una sección. Las del administrador (usuarios, especialidades,
+/// consultorios y estadísticas) y las de turnos y agendas del funcionario
+/// tienen su pantalla y, algunas, sus subrutas; el resto muestra
+/// "Próximamente".
 GoRoute _sectionRoute(UserRole role, AppSection section) {
   final path = role.sectionPath(section);
   if (role == UserRole.funcionario && path == kShiftsPath) {
@@ -131,10 +155,19 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
       path: path,
       builder: (context, state) => const ShiftsScreen(),
       routes: [
-        // `nuevo` (un segmento) y `configuracion/:id` (dos) no se pisan.
+        // `nuevo`, `suspender` y `rehabilitar` (un segmento) y
+        // `configuracion/:id` (dos) no se pisan.
+        GoRoute(
+          path: 'rehabilitar',
+          builder: (context, state) => const ReinstateShiftsScreen(),
+        ),
         GoRoute(
           path: 'nuevo',
           builder: (context, state) => const NewWeeklyShiftScreen(),
+        ),
+        GoRoute(
+          path: 'suspender',
+          builder: (context, state) => const SuspendShiftsScreen(),
         ),
         GoRoute(
           path: 'configuracion/:id',
@@ -145,6 +178,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
               WeeklyShiftDetailScreen(id: _weeklyShiftId(state)!),
         ),
       ],
+    );
+  }
+  if (role == UserRole.funcionario && path == kSchedulesPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => const SchedulesScreen(),
     );
   }
   if (role == UserRole.administrador) {
@@ -182,7 +221,18 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
             ),
           ],
         );
+      case kStatisticsPath:
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const StatisticsScreen(),
+        );
     }
+  }
+  if (role == UserRole.funcionario && path == kArrivalPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => const ArrivalScreen(),
+    );
   }
   if (role == UserRole.medico && path == kDoctorShiftsPath) {
     return GoRoute(
@@ -192,6 +242,23 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
   }
   if (role == UserRole.socio) {
     switch (path) {
+      case '/socio/historia':
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const MedicalHistoryScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              redirect: (context, state) {
+                final id = int.tryParse(state.pathParameters['id'] ?? '');
+                return id == null || id <= 0 ? '/socio/historia' : null;
+              },
+              builder: (context, state) => MedicalHistoryDetailScreen(
+                id: int.parse(state.pathParameters['id']!),
+              ),
+            ),
+          ],
+        );
       case kAvailabilityPath:
         return GoRoute(
           path: path,

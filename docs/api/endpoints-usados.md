@@ -50,15 +50,15 @@ PostgreSQL.
 | 20 | `POST /api/consultas/{id}/cancelar` | SOCIO | 10 | Cancelar consulta | CONFIRMADA | rama feat/cierre-cancelaciones-pases | [contrato #20](contrato-v1.md#e20) |
 | 21 | `GET /api/historia-clinica` | SOCIO (solo propias) | 12 | Historia clínica | CONFIRMADA | - | [contrato #21](contrato-v1.md#e21) |
 | 22 | `GET /api/historia-clinica/{idAtencion}` | SOCIO (solo propias) | 12 | Detalle de atención | CONFIRMADA | - | [contrato #22](contrato-v1.md#e22) |
-| 23 | `POST /api/turnos/suspensiones/previsualizar` | FUNCIONARIO | 14 | Confirmación previa | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #23](contrato-v1.md#e23) |
-| 24 | `POST /api/turnos/suspensiones` | FUNCIONARIO | 14 | Suspender fechas | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #24](contrato-v1.md#e24) |
-| 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #25](contrato-v1.md#e25) |
+| 23 | `POST /api/turnos/suspensiones/previsualizar` | FUNCIONARIO | 14 | Confirmación previa (pantalla Flutter `/funcionario/turnos/suspender`) | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter rama feat/front-suspender-turnos 29/10/2026 | [contrato #23](contrato-v1.md#e23) |
+| 24 | `POST /api/turnos/suspensiones` | FUNCIONARIO | 14 | Suspender fechas (pantalla Flutter `/funcionario/turnos/suspender`) | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter rama feat/front-suspender-turnos 29/10/2026 | [contrato #24](contrato-v1.md#e24) |
+| 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | feat/front-rehabilitar-turnos 29/10/2026 | [contrato #25](contrato-v1.md#e25) |
 | 26 | `GET /api/avisos-llegada/consultas-hoy?ci=` | FUNCIONARIO | 16 | Buscar socio | CONFIRMADA | - | [contrato #26](contrato-v1.md#e26) |
 | 27 | `POST /api/avisos-llegada` | FUNCIONARIO | 16 | Registrar llegada | CONFIRMADA | - | [contrato #27](contrato-v1.md#e27) |
 | 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas | CONFIRMADA | Backend en integracion/proyecto-2026-avances 23/10/2026; Flutter pendiente | [contrato #28](contrato-v1.md#e28) |
 | 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos (pantalla Flutter `/medico/turnos`, sondeo cada 15 s, PR #39) | CONFIRMADA | - | [contrato #29](contrato-v1.md#e29) |
 | 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21 | Pacientes del turno (con `llegada`, `orden`, `sentido`; sondeo cada 15 s) | CONFIRMADA | - | [contrato #30](contrato-v1.md#e30) |
-| 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases | CONFIRMADA | - | [contrato #31](contrato-v1.md#e31) |
+| 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases (pantalla Flutter `/medico/consultas/:id/resultado`) | CONFIRMADA | PR #40 | [contrato #31](contrato-v1.md#e31) |
 | 32 | `GET /api/notificaciones` | SOCIO | RNF-23 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
 | 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push | CAMBIADA | - | [contrato #33](contrato-v1.md#e33) |
 | 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | CONFIRMADA (integrada en avances, PR #24) | - | [contrato #34](contrato-v1.md#e34) |

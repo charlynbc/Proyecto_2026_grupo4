@@ -101,6 +101,18 @@ class EspecialidadControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMINISTRADOR")
+    void aplicaFiltros() throws Exception {
+        when(service.listar("cardio", "true", "nombre"))
+                .thenReturn(List.of(new Especialidad(2L, "Cardiología", true)));
+        mockMvc.perform(get("/api/especialidades").param("nombre", "cardio")
+                        .param("requierePase", "true").param("orden", "nombre"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(2));
+        verify(service).listar("cardio", "true", "nombre");
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRADOR")
     void listarDevuelveItems() throws Exception {
         when(service.listar())
                 .thenReturn(List.of(

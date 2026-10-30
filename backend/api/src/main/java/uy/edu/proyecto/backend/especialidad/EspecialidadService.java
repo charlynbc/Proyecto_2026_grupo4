@@ -21,6 +21,29 @@ public class EspecialidadService {
         return repository.listar();
     }
 
+    public List<Especialidad> listar(String nombre, String requierePase, String orden) {
+        if (nombre != null && nombre.length() > 120) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "El filtro nombre no puede superar 120 caracteres");
+        }
+        Boolean filtroPase = null;
+        if (requierePase != null) {
+            if (!"true".equalsIgnoreCase(requierePase.trim())
+                    && !"false".equalsIgnoreCase(requierePase.trim())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                        "requierePase debe ser true o false");
+            }
+            filtroPase = Boolean.parseBoolean(requierePase.trim());
+        }
+        String ordenFinal = orden == null || orden.isBlank() ? "nombre" : orden.trim();
+        if (!List.of("nombre", "fechaAlta").contains(ordenFinal)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "orden debe ser nombre o fechaAlta");
+        }
+        return repository.listarFiltradas(nombre == null ? null : nombre.trim(),
+                filtroPase, ordenFinal);
+    }
+
     public Especialidad crear(String nombre, boolean requierePase) {
         if (nombre == null || nombre.isBlank()) {
             throw new ApiException(
