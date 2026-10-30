@@ -56,8 +56,8 @@ PostgreSQL.
 | 26 | `GET /api/avisos-llegada/consultas-hoy?ci=` | FUNCIONARIO | 16 | Buscar socio | CONFIRMADA | - | [contrato #26](contrato-v1.md#e26) |
 | 27 | `POST /api/avisos-llegada` | FUNCIONARIO | 16 | Registrar llegada | CONFIRMADA | - | [contrato #27](contrato-v1.md#e27) |
 | 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas | CONFIRMADA | Backend en integracion/proyecto-2026-avances 23/10/2026; Flutter pendiente | [contrato #28](contrato-v1.md#e28) |
-| 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos (pantalla Flutter `/medico/turnos`, sondeo cada 3 s, PR #39) | CONFIRMADA | - | [contrato #29](contrato-v1.md#e29) |
-| 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21 | Pacientes del turno (con `llegada`, `orden`, `sentido`; sondeo cada 3 s) | CONFIRMADA | - | [contrato #30](contrato-v1.md#e30) |
+| 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos (pantalla Flutter `/medico/turnos`, sondeo cada 15 s, PR #39) | CONFIRMADA | - | [contrato #29](contrato-v1.md#e29) |
+| 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21 | Pacientes del turno (con `llegada`, `orden`, `sentido`; sondeo cada 15 s) | CONFIRMADA | - | [contrato #30](contrato-v1.md#e30) |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases (pantalla Flutter `/medico/consultas/:id/resultado`) | CONFIRMADA | PR #40 | [contrato #31](contrato-v1.md#e31) |
 | 32 | `GET /api/notificaciones` | SOCIO | RNF-23 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
 | 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push | CAMBIADA | - | [contrato #33](contrato-v1.md#e33) |

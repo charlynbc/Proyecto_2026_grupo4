@@ -5,6 +5,8 @@ Pruebas HTTP reales del backend (Spring Boot en puerto aleatorio, cliente
 `backend/api/src/test/java/uy/edu/proyecto/backend/integracion/` y se llaman
 `*IT`, por lo que `./mvnw verify` normal no las ejecuta.
 
+> **Nota del 30/10/2026:** el cliente Flutter sondea cada 15 s desde el PR #43. `MedicoTurnosTiempoRealIT` usa su propio intervalo de 3 s (`SONDEO_MS`), y la latencia medida de ~1,8 s corresponde a ese valor.
+
 ## Aislamiento
 
 - `GuardaBaseE2E` valida todo **antes** de conectar: host `localhost`/`127.0.0.1`, nombre en minúsculas `[a-z][a-z0-9_]*` terminado en `_e2e` o `_test` (sin mayúsculas, dígito inicial, guiones, parámetros ni `;`) y la variable `E2E_ALLOW_DESTRUCTIVE=true`. Cualquier otra combinación aborta sin tocar nada.

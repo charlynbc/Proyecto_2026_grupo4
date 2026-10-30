@@ -5,6 +5,8 @@ Fecha de corte: 27/10/2026. Documento de cierre de la integración; complementa 
 Todo lo que figura como verificado salió de ejecuciones reales citadas; lo demás está marcado
 **no verificado**.
 
+> **Nota del 30/10/2026:** el sondeo de RF-21 pasó de 3 s a 15 s en el PR #43. Los valores de 3 s de este documento corresponden al corte del 27/10 (HEAD 25405b4), y la latencia medida de ~1,8 s se obtuvo con 3 s.
+
 ## 1. Resumen ejecutivo
 
 - **Arquitectura**: backend REST (Java 25, Spring Boot 4.1.1, JDBC `JdbcTemplate`, PostgreSQL 17,
