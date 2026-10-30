@@ -923,7 +923,7 @@ positivo y los registros inexistentes o ajenos producen la misma respuesta
 #### #20 · `POST /api/consultas/{id}/cancelar`
 
 - **Roles:** SOCIO (solo las propias). La cancelación a pedido del socio por funcionario (RF-19) se documenta en la sección 3.10.
-- **RF:** RF-10. **Diseño:** `cancelarPorSocio(socioId, consultaId): CancelacionDTO` (S23). **Estado:** CONFIRMADA (rama `feat/cierre-cancelaciones-pases`; vigente al fusionarse). Un id no numérico o ≤ 0 devuelve 400 `VALIDACION`.
+- **RF:** RF-10. **Diseño:** `cancelarPorSocio(socioId, consultaId): CancelacionDTO` (S23). **Estado:** CONFIRMADA (implementada e integrada en `integracion/proyecto-2026-avances`). Un id no numérico o ≤ 0 devuelve 400 `VALIDACION`.
 
 Sin cuerpo. Pasa la consulta a `CANCELADA_SOCIO`, la conserva en el histórico, libera el número y devuelve el pase usado si sigue vigente, con su vencimiento original (RF-09, RF-10).
 
@@ -1612,7 +1612,7 @@ La segunda fila muestra "Sin datos" (no hubo números ofrecidos en fechas activa
 #### #36 · `GET /api/estadisticas/consultas`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-41. **Diseño:** `calcularConsultas(filtro): EstadisticaConsultaDTO` (S22). **Estado:** CONFIRMADA en `feat/rf-41-estadisticas-consultas` (no integrada en avances hasta fusionar su PR). Diferencias con la propuesta: los conteos van en `estados` (no `porEstado`), el total en `totalConsultas`, y se agregan `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`.
+- **RF:** RF-41. **Diseño:** `calcularConsultas(filtro): EstadisticaConsultaDTO` (S22). **Estado:** CONFIRMADA (implementada e integrada en `integracion/proyecto-2026-avances`). Diferencias con la propuesta: los conteos van en `estados` (no `porEstado`), el total en `totalConsultas`, y se agregan `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`.
 
 Consultas del período por estado, según la **fecha de la consulta** (`turno.fecha`), nunca la fecha en que se agendó. Siempre devuelve los siete estados, incluso en cero. `NO_ASISTIO` y `NO_ATENDIDA` son derivados: una consulta `AGENDADA` sin resultado cuyo día terminó (zona `America/Montevideo`) es `NO_ATENDIDA` si el socio tiene aviso de llegada ese día y `NO_ASISTIO` si no. Tasa de cancelación: `canceladasPorSocio / totalConsultas * 100` (2 decimales); las canceladas por la institución no entran en el numerador.
 
