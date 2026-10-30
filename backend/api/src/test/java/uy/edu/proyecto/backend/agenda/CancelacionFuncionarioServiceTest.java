@@ -64,7 +64,7 @@ class CancelacionFuncionarioServiceTest {
         assertEquals("CANCELADA_SOCIO", respuesta.estado());
         assertEquals(true, respuesta.paseDevuelto());
         verify(repository).cancelar(12L, 5L);
-        verify(events).publishEvent(any());
+        verify(events).publishEvent(any(uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicitados.class));
     }
 
     @Test
