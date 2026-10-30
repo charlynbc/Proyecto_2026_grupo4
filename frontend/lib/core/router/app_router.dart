@@ -28,6 +28,7 @@ import '../../features/turnos/screens/new_weekly_shift_screen.dart';
 import '../../features/turnos/screens/reinstate_shifts_screen.dart';
 import '../../features/turnos/screens/shift_routes.dart';
 import '../../features/turnos/screens/shifts_screen.dart';
+import '../../features/turnos/screens/suspend_shifts_screen.dart';
 import '../../features/turnos/screens/weekly_shift_detail_screen.dart';
 import '../../features/usuarios/screens/new_user_screen.dart';
 import '../../features/usuarios/screens/user_routes.dart';
@@ -152,8 +153,8 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
       path: path,
       builder: (context, state) => const ShiftsScreen(),
       routes: [
-        // `nuevo` y `rehabilitar` (un segmento) y `configuracion/:id` (dos)
-        // no se pisan.
+        // `nuevo`, `suspender` y `rehabilitar` (un segmento) y
+        // `configuracion/:id` (dos) no se pisan.
         GoRoute(
           path: 'rehabilitar',
           builder: (context, state) => const ReinstateShiftsScreen(),
@@ -161,6 +162,10 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
         GoRoute(
           path: 'nuevo',
           builder: (context, state) => const NewWeeklyShiftScreen(),
+        ),
+        GoRoute(
+          path: 'suspender',
+          builder: (context, state) => const SuspendShiftsScreen(),
         ),
         GoRoute(
           path: 'configuracion/:id',
