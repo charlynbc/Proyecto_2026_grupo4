@@ -5,11 +5,13 @@ import 'package:agenda_medica/features/medico/models/doctor_shift.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
 import 'package:agenda_medica/features/medico/repositories/api_doctor_shift_repository.dart';
 import 'package:agenda_medica/features/medico/repositories/doctor_shift_repository.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 class _StubAdapter implements HttpClientAdapter {
   _StubAdapter(this.status, this.body);
@@ -122,18 +124,38 @@ DoctorShiftNumber _free(int n) => DoctorShiftNumber(
   endTime: '09:${n * 20}'.padRight(5, '0'),
 );
 
-DoctorShiftNumber _reserved(int n, {DateTime? arrivedAt}) => DoctorShiftNumber(
+DoctorShiftNumber _reserved(
+  int n, {
+  DateTime? arrivedAt,
+  String appointmentStatus = 'AGENDADA',
+}) => DoctorShiftNumber(
   numberId: n,
   number: n,
   startTime: '09:00',
   endTime: '09:20',
   appointmentId: 100 + n,
-  appointmentStatus: 'AGENDADA',
+  appointmentStatus: appointmentStatus,
   patient: const DoctorPatient(ci: '12345678', name: 'Ana', lastName: 'Pérez'),
   arrivedAt: arrivedAt,
 );
 
 Future<void> _pump(WidgetTester tester, _ScriptedRepository repository) async {
+  final router = GoRouter(
+    initialLocation: '/medico/turnos',
+    routes: [
+      GoRoute(
+        path: '/medico/turnos',
+        builder: (_, _) => const DoctorShiftsScreen(),
+      ),
+      GoRoute(
+        path: kDoctorResultPath,
+        builder: (_, state) =>
+            Scaffold(body: Center(child: Text('Resultado: ${state.uri}'))),
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -142,7 +164,7 @@ Future<void> _pump(WidgetTester tester, _ScriptedRepository repository) async {
           const Duration(seconds: 3),
         ),
       ],
-      child: const MaterialApp(home: DoctorShiftsScreen()),
+      child: MaterialApp.router(routerConfig: router),
     ),
   );
   await tester.pump();
@@ -271,6 +293,107 @@ void main() {
       expect(find.textContaining('Ana Pérez · CI 12345678'), findsOneWidget);
       expect(find.textContaining('Llegó a las'), findsOneWidget);
       expect(find.text('Sin reserva'), findsOneWidget);
+    });
+
+    testWidgets('navega al resultado cuando está agendada y avisó llegada', (
+      tester,
+    ) async {
+      final routeResult = doctorResultLocation(101, patientName: 'Ana Pérez');
+
+      final repository = _ScriptedRepository()
+        ..numbers = [
+          DoctorShiftNumber(
+            numberId: 1,
+            number: 1,
+            startTime: '09:00',
+            endTime: '09:20',
+            appointmentId: 101,
+            appointmentStatus: 'AGENDADA',
+            patient: const DoctorPatient(
+              ci: '12345678',
+              name: 'Ana',
+              lastName: 'Pérez',
+            ),
+            arrivedAt: DateTime.utc(2026, 3, 9, 12, 5),
+          ),
+        ];
+
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pumpAndSettle();
+
+      final numberTile = tester.widget<ListTile>(
+        find.byKey(const Key('doctor-number-1')),
+      );
+      expect(numberTile.enabled, isTrue);
+      expect(numberTile.onTap, isNotNull);
+
+      await tester.tap(find.byKey(const Key('doctor-number-1')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Resultado: $routeResult'), findsOneWidget);
+    });
+
+    testWidgets('no navega cuando está atendida', (tester) async {
+      final repository = _ScriptedRepository()
+        ..numbers = [
+          _reserved(
+            1,
+            arrivedAt: DateTime.utc(2026, 3, 9, 12, 5),
+            appointmentStatus: 'ATENDIDA',
+          ),
+        ];
+
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('doctor-number-1')));
+      await tester.pumpAndSettle();
+
+      final numberTile = tester.widget<ListTile>(
+        find.byKey(const Key('doctor-number-1')),
+      );
+      expect(numberTile.enabled, isFalse);
+      expect(find.textContaining('Resultado:'), findsNothing);
+    });
+
+    testWidgets('no navega cuando está cancelada', (tester) async {
+      final repository = _ScriptedRepository()
+        ..numbers = [
+          _reserved(
+            1,
+            arrivedAt: DateTime.utc(2026, 3, 9, 12, 5),
+            appointmentStatus: 'CANCELADA_SOCIO',
+          ),
+        ];
+
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('doctor-number-1')));
+      await tester.pumpAndSettle();
+
+      final numberTile = tester.widget<ListTile>(
+        find.byKey(const Key('doctor-number-1')),
+      );
+      expect(numberTile.enabled, isFalse);
+      expect(find.textContaining('Resultado:'), findsNothing);
+    });
+
+    testWidgets('no navega sin aviso de llegada', (tester) async {
+      final repository = _ScriptedRepository()..numbers = [_reserved(1)];
+
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('doctor-number-1')));
+      await tester.pumpAndSettle();
+
+      final numberTile = tester.widget<ListTile>(
+        find.byKey(const Key('doctor-number-1')),
+      );
+      expect(numberTile.enabled, isFalse);
+      expect(find.textContaining('Resultado:'), findsNothing);
     });
 
     testWidgets('el filtro y el orden se envían al servidor', (tester) async {
