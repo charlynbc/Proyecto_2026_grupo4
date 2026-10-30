@@ -8,6 +8,8 @@ import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart';
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
 import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_appointment_result_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
 import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
@@ -169,6 +171,101 @@ void main() {
       expect(locationOf(container), role.sectionPath(last));
     }
     await unmountApp(tester);
+  });
+
+  group('área del médico: resultado de la consulta', () {
+    test('la ruta del resultado la arma con el nombre codificado', () {
+      expect(
+        doctorResultLocation(15, patientName: 'Carlos Rodríguez'),
+        '/medico/consultas/15/resultado?paciente=Carlos%20Rodr%C3%ADguez',
+      );
+      expect(doctorResultLocation(15), '/medico/consultas/15/resultado');
+    });
+
+    test('sin sesión va a login y con otro rol a su home', () {
+      const socio = SessionState(
+        status: SessionStatus.authenticated,
+        accessToken: 't',
+        role: UserRole.socio,
+      );
+      const medico = SessionState(
+        status: SessionStatus.authenticated,
+        accessToken: 't',
+        role: UserRole.medico,
+      );
+      final uri = Uri.parse('/medico/consultas/15/resultado');
+
+      expect(redirectFor(const SessionState(), uri), '/login');
+      expect(redirectFor(socio, uri), UserRole.socio.homePath);
+      expect(redirectFor(medico, uri), null);
+    });
+
+    testWidgets('un médico llega a la pantalla con el id y el paciente', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      await goTo(
+        tester,
+        container,
+        '/medico/consultas/15/resultado?paciente=Carlos%20Rodr%C3%ADguez',
+      );
+
+      expect(find.byType(DoctorAppointmentResultScreen), findsOneWidget);
+      final screen = tester.widget<DoctorAppointmentResultScreen>(
+        find.byType(DoctorAppointmentResultScreen),
+      );
+      expect(screen.appointmentId, 15);
+      expect(screen.patientName, 'Carlos Rodríguez');
+      expect(find.text('Paciente: Carlos Rodríguez'), findsOneWidget);
+      expect(find.text('Página no encontrada'), findsNothing);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('sin ?paciente= la pantalla abre sin nombre', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      await goTo(tester, container, '/medico/consultas/15/resultado');
+
+      final screen = tester.widget<DoctorAppointmentResultScreen>(
+        find.byType(DoctorAppointmentResultScreen),
+      );
+      expect(screen.patientName, isNull);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('un socio que entra a la ruta vuelve a su home', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.socio);
+
+      await goTo(tester, container, '/medico/consultas/15/resultado');
+
+      expect(locationOf(container), UserRole.socio.homePath);
+      expect(find.byType(DoctorAppointmentResultScreen), findsNothing);
+      await unmountApp(tester);
+    });
+
+    testWidgets('un id que no es un número vuelve a "Mis turnos"', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      for (final bad in ['abc', '0', '1x', '-']) {
+        await goTo(tester, container, '/medico/consultas/$bad/resultado');
+        expect(locationOf(container), '/medico/turnos', reason: bad);
+        expect(find.byType(DoctorShiftsScreen), findsOneWidget, reason: bad);
+        expect(find.byType(DoctorAppointmentResultScreen), findsNothing);
+      }
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
   });
 
   group('área del administrador', () {

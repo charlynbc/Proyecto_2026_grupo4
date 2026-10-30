@@ -34,6 +34,11 @@ class ShiftsScreen extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 12,
                   children: [
+                    FilledButton.icon(
+                      onPressed: () => context.go(kSuspendShiftsPath),
+                      icon: const Icon(Icons.event_busy),
+                      label: const Text('Suspender fechas'),
+                    ),
                     FilledButton(
                       onPressed: () => context.go(kReinstateShiftsPath),
                       child: const Text('Rehabilitar fechas'),
