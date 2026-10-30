@@ -58,6 +58,18 @@ class ConsultorioControllerTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMINISTRADOR")
+    void aplicaFiltros() throws Exception {
+        when(service.listar("7", "Piso 3", "ubicacion"))
+                .thenReturn(List.of(new Consultorio(7L, "Consultorio 7", "Piso 3")));
+        mockMvc.perform(get("/api/consultorios").param("nombre", "7")
+                        .param("ubicacion", "Piso 3").param("orden", "ubicacion"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(7));
+        verify(service).listar("7", "Piso 3", "ubicacion");
+    }
+
+    @Test
     @WithMockUser(roles = "SOCIO")
     void listarDevuelveItems() throws Exception {
         when(service.listar()).thenReturn(List.of(

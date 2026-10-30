@@ -195,7 +195,7 @@ La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`.
 
 ## 3. Endpoints
 
-Cada endpoint indica: roles, RF, operación del Diseño, parámetros, respuesta con ejemplo y errores. Todos los errores usan la forma de la sección 5. **Los errores `400 VALIDACION`, `401 NO_AUTENTICADO` y `403 SIN_PERMISO` aplican a todo endpoint protegido y no se repiten en cada tabla**, salvo que tengan un significado particular. Un `500 ERROR_INTERNO` puede ocurrir en cualquiera.
+Cada endpoint indica: roles, RF, operación del Diseño, parámetros, respuesta con ejemplo y errores. Todos los errores usan la forma de la sección 5. **Los errores `400 VALIDACION`, `401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican a todo endpoint protegido y no se repiten en cada tabla**, salvo que tengan un significado particular. Un `500 ERROR_INTERNO` puede ocurrir en cualquiera.
 
 ### 3.1 Sesión y primer ingreso
 
@@ -379,7 +379,8 @@ Preguntas relacionadas: P-04, P-05, P-06, P-18.
 - **Roles:** cualquier rol autenticado.
 - **RF:** RF-29 (catálogo), y los formularios de RF-08, RF-13, RF-14, RF-17, RF-24 y RF-31. **Diseño:** `EspecialidadDTO`. **Estado:** PROPUESTA.
 
-Sin parámetros. Devuelve todas las especialidades, sin paginar, ordenadas por `nombre`. Los filtros y el orden de RF-36 (consulta de especialidades por el administrador) no están en este contrato.
+Sin parámetros devuelve todas las especialidades, sin paginar, ordenadas por `nombre`.
+**RF-36 implementado:** filtros opcionales `nombre` (contiene texto, sin distinguir mayúsculas, máximo 120 caracteres), `requierePase` (`true` o `false`). Orden opcional `orden=nombre` (predeterminado) o `orden=fechaAlta` (ascendente). Se pueden combinar los filtros. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva exactamente la respuesta original.
 
 **Respuesta 200**
 
@@ -427,7 +428,8 @@ Sin parámetros. Devuelve todas las especialidades, sin paginar, ordenadas por `
 - **Roles:** cualquier rol autenticado.
 - **RF:** RF-33 (catálogo) y el formulario de RF-13. **Diseño:** `ConsultorioDTO`. **Estado:** PROPUESTA.
 
-Sin parámetros. Todos los consultorios, sin paginar, ordenados por `nombre`. Los filtros de RF-37 no están en este contrato.
+Sin parámetros devuelve todos los consultorios, sin paginar, ordenados por `nombre`.
+**RF-37 implementado:** filtros opcionales `nombre` (contiene nombre o número textual, sin distinguir mayúsculas, máximo 120 caracteres), `ubicacion` (contiene texto sin distinguir mayúsculas, máximo 200 caracteres). Orden opcional `orden=nombre` (predeterminado) o `orden=ubicacion` (ascendente). Los filtros se pueden combinar. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva la respuesta original.
 
 **Respuesta 200**
 
@@ -920,7 +922,7 @@ positivo y los registros inexistentes o ajenos producen la misma respuesta
 <a id="e20"></a>
 #### #20 · `POST /api/consultas/{id}/cancelar`
 
-- **Roles:** SOCIO (solo las propias). La cancelación a pedido del socio por un funcionario (RF-19) no está en este contrato.
+- **Roles:** SOCIO (solo las propias). La cancelación a pedido del socio por funcionario (RF-19) se documenta en la sección 3.10.
 - **RF:** RF-10. **Diseño:** `cancelarPorSocio(socioId, consultaId): CancelacionDTO` (S23). **Estado:** CONFIRMADA (rama `feat/cierre-cancelaciones-pases`; vigente al fusionarse). Un id no numérico o ≤ 0 devuelve 400 `VALIDACION`.
 
 Sin cuerpo. Pasa la consulta a `CANCELADA_SOCIO`, la conserva en el histórico, libera el número y devuelve el pase usado si sigue vigente, con su vencimiento original (RF-09, RF-10).
@@ -1548,6 +1550,8 @@ Errores comunes: `400 VALIDACION` (fecha mal formada o rango invertido).
 
 Consultas agendadas en el período, **contadas por la fecha en que se agendaron** (`agendadaEn`), incluidas las que luego se cancelaron.
 
+**Parámetros opcionales:** `desde` y `hasta`, en formato `YYYY-MM-DD`, inclusivos. Sin ambos filtros se utiliza el mes actual en `America/Montevideo`; si falta un extremo, se completa con el primer o último día del mes actual, respectivamente. Si el formato no es válido o `desde` es posterior a `hasta`: `400 VALIDACION` (`{"code":"VALIDACION","message":"..."}`).
+
 **Respuesta 200**
 
 ```json
@@ -1568,6 +1572,8 @@ Consultas agendadas en el período, **contadas por la fecha en que se agendaron*
 - **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** CONFIRMADA (integrada en avances, PR #25 y corrección JWT PR #26). Diferencias con la propuesta: agrega `fechasActivas` y `utilizacion` (texto, `"Sin datos"` cuando `porcentajeUtilizacion` es `null`); `consultorio` incluye `ubicacion`; el porcentaje lleva 2 decimales.
 
 Porcentaje de números ocupados sobre los ofrecidos, en las fechas del período en que la fecha del turno estuvo activa (interpretación histórica, PR #38: se evalúa con `turno_evento` al cierre de cada día en `America/Montevideo`; sin eventos se usa el estado actual; el JSON no cambió). Ocupado: consulta `AGENDADA`, `ATENDIDA`, `NO_ASISTIO`, `NO_ATENDIDA` o `NO_SE_PRESENTO`; las canceladas lo dejan libre. Qué es "cada turno" (el patrón semanal o la fecha concreta): P-13. **PROPUESTA:** una fila por patrón semanal.
+
+**Parámetros opcionales:** `desde` y `hasta`, en formato `YYYY-MM-DD`, inclusivos. Sin ambos filtros se utiliza el mes actual en `America/Montevideo`; si falta un extremo, se completa con el primer o último día del mes actual, respectivamente. Si el formato no es válido o `desde` es posterior a `hasta`: `400 VALIDACION` (`{"code":"VALIDACION","message":"..."}`).
 
 **Respuesta 200**
 
@@ -1638,9 +1644,43 @@ Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, 
 
 ---
 
+### 3.10 Cancelación por funcionario (RF-19)
+
+<a id="e37"></a>
+#### #37 · `POST /api/funcionario/consultas/{id}/cancelar`
+
+- **Roles:** FUNCIONARIO exclusivamente.
+- **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración.
+- **Ruta:** `id`, identificador entero positivo de consulta.
+- **Cuerpo:** ninguno.
+- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio; la cancela el funcionario a pedido del socio, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO`. Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales.
+
+**Respuesta 200**
+
+```json
+{
+  "consultaId": 9001,
+  "estado": "CANCELADA_SOCIO",
+  "canceladaEn": "2026-10-30T09:03:10-03:00",
+  "paseDevuelto": true
+}
+```
+
+**Errores**
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 400 | `VALIDACION` | Identificador inválido o no positivo. |
+| 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es funcionario o la cuenta no tiene permiso. |
+| 403 | `CONFLICTO_INTERES` | El funcionario intenta cancelar su propia consulta. |
+| 404 | `NO_ENCONTRADO` | La consulta no existe o su socio no está habilitado. |
+| 409 | `CONSULTA_NO_AGENDADA` | Ya no está agendada. |
+| 409 | `CANCELACION_FUERA_DE_PLAZO` | Faltan menos de 2 horas. |
+
 ## 4. Matriz de roles por endpoint
 
-✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 SIN_PERMISO` (o `401` si no hay sesión válida).
+✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
 
 | # | Endpoint | Público | SOCIO | FUNCIONARIO | MEDICO | ADMINISTRADOR |
 |---|---|:-:|:-:|:-:|:-:|:-:|
@@ -1680,6 +1720,7 @@ Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, 
 | 34 | `GET /api/estadisticas/especialidades` | | | | | ✔ |
 | 35 | `GET /api/estadisticas/turnos` | | | | | ✔ |
 | 36 | `GET /api/estadisticas/consultas` | | | | | ✔ |
+| 37 | `POST /api/funcionario/consultas/{id}/cancelar` | | | ✔ | | |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31).
 
@@ -1710,7 +1751,7 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 |---|---|---|
 | 400 | `VALIDACION` | Pedido mal formado o dato inválido (falta un campo, formato, rango, orden desconocido). El `message` dice cuál. |
 | 401 | `NO_AUTENTICADO` | Falta el token, está vencido o es inválido, la sesión fue revocada o la cuenta fue inactivada (RNF-05, RNF-08). |
-| 403 | `SIN_PERMISO` | El rol no puede usar este endpoint. |
+| 403 | `ACCESO_DENEGADO` | El rol no puede usar este endpoint. |
 | 404 | `NO_ENCONTRADO` | El recurso no existe, o existe pero es de otra persona (P-10). |
 | 500 | `ERROR_INTERNO` | Falla inesperada. Mensaje fijo: "Ocurrió un problema de nuestro lado. Intentá de nuevo en unos minutos." |
 
@@ -1928,14 +1969,14 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 | # | Contradicción | Cómo se resolvió |
 |---|---|---|
 | C1 | CU 3.1.1 (flujo 6.A) muestra un mensaje distinto cuando la cuenta está inactiva. RF-01, RNF-10 y S01 exigen que la respuesta no revele qué dato falló ni confirme la existencia de la cuenta. | Gana RF-01 / RNF-10: cuenta inactiva, inexistente o pendiente reciben el mismo `401 CREDENCIALES_INVALIDAS`. |
-| C2 | Arquitectura 7.4 dice `404` para un recurso "inexistente o ajeno". Diseño 4.5 dice `403` para "propiedad del recurso no autorizado" y `404` solo si procede. S14 dice `403` para "médico no autorizado". Ningún RF fija el status. | Sin requerimiento que decida, se adopta lo más conservador (no confirmar que el recurso existe, RNF-10): `404 NO_ENCONTRADO` para recursos ajenos. `403` queda para el rol (`SIN_PERMISO`) y el conflicto de interés. Pasa a Preguntas abiertas (P-10). |
+| C2 | Arquitectura 7.4 dice `404` para un recurso "inexistente o ajeno". Diseño 4.5 dice `403` para "propiedad del recurso no autorizado" y `404` solo si procede. S14 dice `403` para "médico no autorizado". Ningún RF fija el status. | Sin requerimiento que decida, se adopta lo más conservador (no confirmar que el recurso existe, RNF-10): `404 NO_ENCONTRADO` para recursos ajenos. `403` queda para el rol (`ACCESO_DENEGADO`) y el conflicto de interés. Pasa a Preguntas abiertas (P-10). |
 | C3 | S16 dice que se recibe "el identificador de especialidad"; la firma del Diseño (figuras 1 a 7) es `crear(nombre, requierePase)`. | Gana esa firma (nombre y `requierePase`); el `id` lo genera el servidor. |
 
 ## 8. Fuera de este contrato
 
-No están acá porque quedan fuera de los RF pedidos para las semanas 1 y 2. Cada uno necesitará su propio endpoint cuando se agende.
+Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
 
-RF-04 cambio de contraseña, RF-05 recuperación de contraseña (el correo de RF-02 para una cuenta ya activa remite a ella), RF-06 edición de datos personales, RF-07 y RF-28 cartelera de novedades, RF-19 cancelación por el funcionario (`cancelarPorFuncionario`, S24), RF-20 modificación de turno semanal, RF-22 historia clínica previa del médico, RF-25 y RF-26 atenciones y pases del médico, RF-27 cancelación por el médico (`cancelarPorMedico`, S25), RF-30, RF-32 y RF-34 cargas masivas, RF-36 y RF-37 consulta de especialidades y consultorios con filtros, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+RF-04 cambio de contraseña, RF-05 recuperación de contraseña (el correo de RF-02 para una cuenta ya activa remite a ella), RF-06 edición de datos personales, RF-07 y RF-28 cartelera de novedades, RF-20 modificación de turno semanal, RF-22 historia clínica previa del médico, RF-25 y RF-26 atenciones y pases del médico, RF-27 cancelación por el médico (`cancelarPorMedico`, S25), RF-30, RF-32 y RF-34 cargas masivas, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
 
 ## 9. Preguntas abiertas
 

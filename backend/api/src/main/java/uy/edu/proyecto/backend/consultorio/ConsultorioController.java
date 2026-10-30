@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -22,8 +23,15 @@ public class ConsultorioController {
     }
 
     @GetMapping
-    public Map<String, List<Consultorio>> listar() {
-        return Map.of("items", service.listar());
+    public Map<String, List<Consultorio>> listar(
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String ubicacion,
+            @RequestParam(required = false) String orden
+    ) {
+        if (nombre == null && ubicacion == null && orden == null) {
+            return Map.of("items", service.listar());
+        }
+        return Map.of("items", service.listar(nombre, ubicacion, orden));
     }
 
     @PostMapping
