@@ -1310,7 +1310,7 @@ registrados, incluidas las cancelaciones por institución, se conservan.
 #### #29 · `GET /api/medico/turnos`
 
 - **Roles:** MEDICO (solo los propios).
-- **RF:** RF-21. **Diseño:** `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO` (S13). **Estado:** CONFIRMADA (implementada; pantalla Flutter `/medico/turnos` con sondeo cada 3 s, PR #39; no es push).
+- **RF:** RF-21. **Diseño:** `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO` (S13). **Estado:** CONFIRMADA (implementada; pantalla Flutter `/medico/turnos` con sondeo cada 15 s, PR #43; no es push).
 
 El Diseño devuelve turnos y pacientes en un solo DTO. **PROPUESTA:** se parte en dos pedidos para seguir el flujo del CU 3.4.1 (elegir fecha, ver sus turnos, elegir un turno, ver sus números): este endpoint trae los turnos del día y #30 el detalle de un turno.
 
@@ -1344,7 +1344,7 @@ Sin turnos ese día: `{ "items": [] }`.
 #### #30 · `GET /api/medico/turnos/{id}/numeros`
 
 - **Roles:** MEDICO (solo turnos propios).
-- **RF:** RF-21. **Diseño:** S13. **Estado:** CONFIRMADA (el cliente refresca cada 3 s; latencia medida ~1,8 s).
+- **RF:** RF-21. **Diseño:** S13. **Estado:** CONFIRMADA (el cliente refresca cada 15 s; latencia medida ~1,8 s).
 
 Todos los números del turno, con el paciente y el aviso de llegada de los reservados. El número no impone una cola: el médico decide a quién llamar (RF-21).
 
