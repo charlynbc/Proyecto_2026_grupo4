@@ -71,6 +71,7 @@ PostgreSQL.
 | 41 | `GET /api/medico/atenciones` | MEDICO | 25 | Consultas atendidas por el médico (`fechaDesde`/`fechaHasta` obligatorias; `paciente`, `especialidadId`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #41](contrato-v1.md#e41) |
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | MEDICO | 25 | Detalle de una atención propia | CONFIRMADA | - | [contrato #42](contrato-v1.md#e42) |
 | 43 | `GET /api/medico/pases` | MEDICO | 26 | Pases emitidos por el médico (`situacion`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #43](contrato-v1.md#e43) |
+| 44 | `POST /api/funcionario/consultas/{id}/cancelar` | FUNCIONARIO | 19 | Cancelar consulta a pedido del socio | CONFIRMADA | - | [contrato #44](contrato-v1.md#e44) |
 
 ## Rutas de la prueba de concepto
 
@@ -117,6 +118,4 @@ arriba para el contrato real y ejemplos.
 
 - 31/10/2026, #30: `consulta.paciente` agrega `id` (entero, identificador de cuenta del socio) sin eliminar `ci`, `nombre` ni `apellido`. El frontend debe usar `consulta.paciente.id` como `{socioId}` en #40 para RF-22. Los números libres conservan `consulta: null`.
 
-(Vacío. Cada vez que Carlos confirme o cambie algo, una línea: fecha, # de ruta, qué cambió.)
-
-- 25/10/2026, #37: la ruta no está en el contrato. El backend (`PaseController`, rama de integración) responde una lista de `PaseDTO` con `{id, especialidadDestino: {id, nombre, requierePase}, emitidoEn, venceEl}`; `emitidoEn` es fecha y hora con offset y `venceEl` es una fecha `aaaa-mm-dd`. Responde 401 `TOKEN_INVALIDO` si el identificador del token no es válido.
+- 25/10/2026, #37: la ruta de pases disponibles no tiene sección propia en el contrato. El backend (`PaseController`, rama de integración) responde una lista de `PaseDTO` con `{id, especialidadDestino: {id, nombre, requierePase}, emitidoEn, venceEl}`; `emitidoEn` es fecha y hora con offset y `venceEl` es una fecha `aaaa-mm-dd`. Responde 401 `TOKEN_INVALIDO` si el identificador del token no es válido.
