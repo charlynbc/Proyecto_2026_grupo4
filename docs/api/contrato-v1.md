@@ -195,7 +195,7 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | detalle de una atención propia | `AtencionMedicaDTO` | - | 25 |
 | 43 | `GET /api/medico/pases` | consulta de los pases emitidos por el médico (sin operación propia en 2.1 a 2.7) | `PaseEmitidoDTO` | - | 26 |
 
-La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`; del #37 en adelante se numeran en este documento y se reflejan allí.
+La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`; los números posteriores al #36 se reflejan en ambos documentos (el #37 es pases disponibles; el #44 es cancelación por funcionario).
 
 ---
 
@@ -1654,8 +1654,8 @@ Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, 
 
 ### 3.10 Cancelación por funcionario (RF-19)
 
-<a id="e37"></a>
-#### #37 · `POST /api/funcionario/consultas/{id}/cancelar`
+<a id="e44"></a>
+#### #44 · `POST /api/funcionario/consultas/{id}/cancelar`
 
 - **Roles:** FUNCIONARIO exclusivamente.
 - **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración.
@@ -1706,7 +1706,7 @@ Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, 
 
 - **Reglas:** la consulta debe estar `AGENDADA`, pertenecer a un turno del médico autenticado y faltar al menos 2 horas para la hora del número. La consulta pasa a `CANCELADA_INSTITUCION` con `cancelada_por`, `cancelada_en` y `motivo_cancelacion` registrados. El pase utilizado vuelve a estar disponible si conserva su vigencia (RF-09) y el número vuelve a ofrecerse si todavía cumple la anticipación mínima. No suspende la fecha del turno. Genera notificación `CANCELACION` con el motivo. Aplica el conflicto de interés de 3.1.5: el médico no puede cancelar una consulta en la que él mismo es el socio.
 
-**Respuesta 200** (`CancelacionDTO`, la misma forma de #20 y #37)
+**Respuesta 200** (`CancelacionDTO`, la misma forma de #20 y #44)
 
 ```json
 {
@@ -1958,7 +1958,7 @@ La `situacion` se calcula al consultar (no se guarda): `UTILIZADO` si alguna con
 | 34 | `GET /api/estadisticas/especialidades` | | | | | ✔ |
 | 35 | `GET /api/estadisticas/turnos` | | | | | ✔ |
 | 36 | `GET /api/estadisticas/consultas` | | | | | ✔ |
-| 37 | `POST /api/funcionario/consultas/{id}/cancelar` | | | ✔ | | |
+| 44 | `POST /api/funcionario/consultas/{id}/cancelar` | | | ✔ | | |
 | 38 | `POST /api/medico/consultas/{id}/cancelar` | | | | ✔ | |
 | 39 | `POST /api/medico/turnos/{id}/cancelar` | | | | ✔ | |
 | 40 | `GET /api/medico/pacientes/{socioId}/historia-clinica` | | | | ✔ | |
@@ -1994,7 +1994,8 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | Status | `code` | Cuándo |
 |---|---|---|
 | 400 | `VALIDACION` | Pedido mal formado o dato inválido (falta un campo, formato, rango, orden desconocido). El `message` dice cuál. |
-| 401 | `NO_AUTENTICADO` | Falta el token, está vencido o es inválido, la sesión fue revocada o la cuenta fue inactivada (RNF-05, RNF-08). |
+| 401 | `NO_AUTENTICADO` | Falta autenticación o la sesión no es válida (RNF-05, RNF-08). |
+| 401 | `TOKEN_INVALIDO` | El token proporcionado no se puede validar o contiene un identificador inválido; el cliente debe descartar las credenciales. |
 | 403 | `ACCESO_DENEGADO` | El rol no puede usar este endpoint. |
 | 404 | `NO_ENCONTRADO` | El recurso no existe, o existe pero es de otra persona (P-10). |
 | 500 | `ERROR_INTERNO` | Falla inesperada. Mensaje fijo: "Ocurrió un problema de nuestro lado. Intentá de nuevo en unos minutos." |
