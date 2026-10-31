@@ -4,8 +4,36 @@ import 'package:agenda_medica/features/estadisticas/tabs/appointment_statistics_
 import 'package:agenda_medica/features/estadisticas/tabs/shift_statistics_tab.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/specialty_statistics_tab.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../../helpers/load_roboto.dart';
+
+/// Las keys y los textos de las tres pestañas de la barra, en orden.
+const _tabKeys = [
+  'stats-tab-specialties',
+  'stats-tab-shifts',
+  'stats-tab-appointments',
+];
+const _tabTexts = [
+  'Demanda por especialidad',
+  'Utilización por turno',
+  'Consultas por estado',
+];
+
+/// El `Text` de la etiqueta de la pestaña [key].
+Finder _tabLabel(String key) =>
+    find.descendant(of: find.byKey(Key(key)), matching: find.byType(Text));
+
+/// En cuántas líneas se dibuja el tramo `[start, end)` del texto: las cajas
+/// de la selección se agrupan por su borde superior, una altura por línea.
+int _lineCount(RenderParagraph paragraph, int start, int end) => {
+  for (final box in paragraph.getBoxesForSelection(
+    TextSelection(baseOffset: start, extentOffset: end),
+  ))
+    box.top.round(),
+}.length;
 
 /// Lo que cada pestaña muestra se busca por el tipo del widget y nunca por su
 /// texto: quien arma cada pestaña reemplaza el contenido, y esos cambios no
@@ -70,15 +98,10 @@ void main() {
     testWidgets('son tres, en este orden y con estos textos', (tester) async {
       await _pump(tester);
 
-      final tabs = tester.widget<TabBar>(find.byType(TabBar)).tabs;
-      expect(
-        [for (final tab in tabs) (tab as Tab).text],
-        [
-          'Demanda por especialidad',
-          'Utilización por turno',
-          'Consultas por estado',
-        ],
-      );
+      expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(3));
+      expect([
+        for (final key in _tabKeys) tester.widget<Text>(_tabLabel(key)).data,
+      ], _tabTexts);
     });
 
     testWidgets('cada pestaña tiene su key', (tester) async {
@@ -137,7 +160,7 @@ void main() {
       expect(find.byType(SpecialtyStatisticsTab), findsOneWidget);
     });
 
-    for (final width in [400.0, 320.0]) {
+    for (final width in [400.0, 360.0, 320.0]) {
       testWidgets('con $width px de ancho no hay desbordes y se llega a las '
           'tres', (tester) async {
         await _pump(tester, size: Size(width, 800));
@@ -154,6 +177,117 @@ void main() {
         expect(tester.takeException(), isNull);
       });
     }
+  });
+
+  group('las tres pestañas se ven siempre enteras', () {
+    setUpAll(loadRoboto);
+
+    for (final width in [320.0, 360.0, 400.0, 900.0]) {
+      group('con $width px de ancho', () {
+        testWidgets('cada pestaña queda completa dentro de la pantalla', (
+          tester,
+        ) async {
+          await _pump(tester, size: Size(width, 800));
+
+          for (final key in _tabKeys) {
+            final rect = tester.getRect(find.byKey(Key(key)));
+            expect(rect.left, greaterThanOrEqualTo(0), reason: key);
+            expect(rect.right, lessThanOrEqualTo(width), reason: key);
+          }
+          expect(tester.takeException(), isNull);
+        });
+
+        testWidgets('la barra no se desplaza', (tester) async {
+          await _pump(tester, size: Size(width, 800));
+
+          expect(
+            find.descendant(
+              of: find.byType(TabBar),
+              matching: find.byType(Scrollable),
+            ),
+            findsNothing,
+          );
+        });
+
+        testWidgets('ninguna palabra se parte ni se recorta', (tester) async {
+          await _pump(tester, size: Size(width, 800));
+
+          for (var i = 0; i < _tabKeys.length; i++) {
+            final label = _tabTexts[i];
+            final paragraph = tester.renderObject<RenderParagraph>(
+              find
+                  .descendant(
+                    of: find.byKey(Key(_tabKeys[i])),
+                    matching: find.byType(RichText),
+                  )
+                  .first,
+            );
+            expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+            var offset = 0;
+            for (final word in label.split(' ')) {
+              final end = offset + word.length;
+              // Cada palabra ocupa una sola línea...
+              expect(
+                _lineCount(paragraph, offset, end),
+                1,
+                reason: '"$word" dentro de "$label"',
+              );
+              // ...y entra dentro de la caja del texto. Se mide palabra por
+              // palabra y no el texto entero: el espacio que queda al final de
+              // un renglón sobresale de la caja sin recortar nada.
+              for (final box in paragraph.getBoxesForSelection(
+                TextSelection(baseOffset: offset, extentOffset: end),
+              )) {
+                expect(
+                  box.right,
+                  lessThanOrEqualTo(paragraph.size.width),
+                  reason: '"$word" dentro de "$label"',
+                );
+              }
+              offset = end + 1;
+            }
+          }
+        });
+
+        testWidgets('tocar la tercera la abre sin desplazar la barra', (
+          tester,
+        ) async {
+          await _pump(tester, size: Size(width, 800));
+
+          await tester.tap(find.byKey(const Key('stats-tab-appointments')));
+          await tester.pumpAndSettle();
+
+          expect(find.byType(AppointmentStatisticsTab), findsOneWidget);
+        });
+      });
+    }
+
+    testWidgets('a 360 px la tercera pestaña empieza dentro de la pantalla', (
+      tester,
+    ) async {
+      await _pump(tester, size: const Size(360, 800));
+
+      final third = tester.getRect(
+        find.byKey(const Key('stats-tab-appointments')),
+      );
+      expect(third.left, lessThan(360));
+    });
+
+    testWidgets('las tres pestañas se reparten el ancho de la barra', (
+      tester,
+    ) async {
+      await _pump(tester, size: const Size(900, 800));
+
+      final centers = [
+        for (final key in _tabKeys) tester.getCenter(find.byKey(Key(key))).dx,
+      ];
+      expect(centers[0], lessThan(centers[1]));
+      expect(centers[1], lessThan(centers[2]));
+      // Cada una en su tercio de la pantalla.
+      expect(centers[0], lessThan(300));
+      expect(centers[1], inInclusiveRange(300, 600));
+      expect(centers[2], greaterThan(600));
+    });
   });
 
   group('widgets de las pestañas', () {
