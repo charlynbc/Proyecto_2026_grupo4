@@ -80,6 +80,7 @@ class TurnoMedicoRepositoryTest {
         assertTrue(sql.getValue().contains("aviso.id_aviso_llegada IS NOT NULL"));
         assertTrue(sql.getValue().contains("ORDER BY aviso.registrada_en DESC NULLS LAST"));
         assertTrue(sql.getValue().contains("AT TIME ZONE 'America/Montevideo'"));
+        assertTrue(sql.getValue().contains("paciente.id_cuenta AS paciente_id"));
         assertEquals(LocalDate.of(2026, 10, 20), parametros.getValue()[0]);
         assertEquals(LocalDate.of(2026, 11, 19), parametros.getValue()[1]);
         assertEquals(17L, parametros.getValue()[3]);

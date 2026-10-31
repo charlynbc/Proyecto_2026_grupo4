@@ -57,7 +57,7 @@ PostgreSQL.
 | 27 | `POST /api/avisos-llegada` | FUNCIONARIO | 16 | Registrar llegada | CONFIRMADA | - | [contrato #27](contrato-v1.md#e27) |
 | 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas | CONFIRMADA | Backend en integracion/proyecto-2026-avances 23/10/2026; Flutter pendiente | [contrato #28](contrato-v1.md#e28) |
 | 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos (pantalla Flutter `/medico/turnos`, sondeo cada 15 s, PR #39) | CONFIRMADA | - | [contrato #29](contrato-v1.md#e29) |
-| 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21 | Pacientes del turno (con `llegada`, `orden`, `sentido`; sondeo cada 15 s) | CONFIRMADA | - | [contrato #30](contrato-v1.md#e30) |
+| 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21, 22 | Pacientes del turno (`consulta.paciente.id` para abrir historia #40; con `llegada`, `orden`, `sentido`; sondeo cada 15 s) | CONFIRMADA | - | [contrato #30](contrato-v1.md#e30) |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases (pantalla Flutter `/medico/consultas/:id/resultado`) | CONFIRMADA | PR #40 | [contrato #31](contrato-v1.md#e31) |
 | 32 | `GET /api/notificaciones` | SOCIO | RNF-23 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
 | 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push | CAMBIADA | - | [contrato #33](contrato-v1.md#e33) |
@@ -71,6 +71,7 @@ PostgreSQL.
 | 41 | `GET /api/medico/atenciones` | MEDICO | 25 | Consultas atendidas por el médico (`fechaDesde`/`fechaHasta` obligatorias; `paciente`, `especialidadId`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #41](contrato-v1.md#e41) |
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | MEDICO | 25 | Detalle de una atención propia | CONFIRMADA | - | [contrato #42](contrato-v1.md#e42) |
 | 43 | `GET /api/medico/pases` | MEDICO | 26 | Pases emitidos por el médico (`situacion`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #43](contrato-v1.md#e43) |
+| 44 | `POST /api/funcionario/consultas/{id}/cancelar` | FUNCIONARIO | 19 | Cancelar consulta a pedido del socio | CONFIRMADA | - | [contrato #44](contrato-v1.md#e44) |
 
 ## Rutas de la prueba de concepto
 
@@ -115,6 +116,6 @@ arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
 
-(Vacío. Cada vez que Carlos confirme o cambie algo, una línea: fecha, # de ruta, qué cambió.)
+- 31/10/2026, #30: `consulta.paciente` agrega `id` (entero, identificador de cuenta del socio) sin eliminar `ci`, `nombre` ni `apellido`. El frontend debe usar `consulta.paciente.id` como `{socioId}` en #40 para RF-22. Los números libres conservan `consulta: null`.
 
-- 25/10/2026, #37: la ruta no está en el contrato. El backend (`PaseController`, rama de integración) responde una lista de `PaseDTO` con `{id, especialidadDestino: {id, nombre, requierePase}, emitidoEn, venceEl}`; `emitidoEn` es fecha y hora con offset y `venceEl` es una fecha `aaaa-mm-dd`. Responde 401 `TOKEN_INVALIDO` si el identificador del token no es válido.
+- 25/10/2026, #37: la ruta de pases disponibles no tiene sección propia en el contrato. El backend (`PaseController`, rama de integración) responde una lista de `PaseDTO` con `{id, especialidadDestino: {id, nombre, requierePase}, emitidoEn, venceEl}`; `emitidoEn` es fecha y hora con offset y `venceEl` es una fecha `aaaa-mm-dd`. Responde 401 `TOKEN_INVALIDO` si el identificador del token no es válido.
