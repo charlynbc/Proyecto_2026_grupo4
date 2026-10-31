@@ -21,7 +21,8 @@ class AppointmentSummaryCards extends StatelessWidget {
       title: 'Tasa de cancelación por el socio',
       valueKey: const Key('stats-rate-value'),
       value: statistics.percentageText,
-      note: 'Sin datos si el total es cero',
+      noteKey: const Key('stats-rate-subtitle'),
+      note: '${statistics.cancelledBySocio} de ${statistics.total} consultas',
     );
     return LayoutBuilder(
       builder: (context, constraints) => constraints.maxWidth >= 480
@@ -50,12 +51,14 @@ class _SummaryCard extends StatelessWidget {
     required this.title,
     required this.valueKey,
     required this.value,
+    this.noteKey,
     this.note,
   });
 
   final String title;
   final Key valueKey;
   final String value;
+  final Key? noteKey;
   final String? note;
 
   @override
@@ -75,6 +78,7 @@ class _SummaryCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 note!,
+                key: noteKey,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

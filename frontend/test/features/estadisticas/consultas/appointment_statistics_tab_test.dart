@@ -121,9 +121,19 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Tasa de cancelación por el socio'), findsOneWidget);
-      expect(find.text('Sin datos si el total es cero'), findsOneWidget);
       expect(_textOf(tester, 'stats-total-value'), '200');
       expect(_textOf(tester, 'stats-rate-value'), '10 %');
+    });
+
+    testWidgets('el subtítulo de la tasa dice cuántas de cuántas', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository());
+      await tester.pumpAndSettle();
+
+      expect(_textOf(tester, 'stats-rate-subtitle'), '20 de 200 consultas');
+      expect(find.text('20 de 200 consultas'), findsOneWidget);
+      expect(find.text('Sin datos si el total es cero'), findsNothing);
     });
 
     testWidgets('el total es el que manda el servidor, no la suma', (
@@ -134,6 +144,28 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_textOf(tester, 'stats-total-value'), '201');
+    });
+
+    testWidgets('el subtítulo usa el total del servidor, no la suma', (
+      tester,
+    ) async {
+      final repository = _Repository((_) async => statisticsOf(total: 201));
+      await _pump(tester, repository);
+      await tester.pumpAndSettle();
+
+      expect(_textOf(tester, 'stats-rate-subtitle'), '20 de 201 consultas');
+    });
+
+    testWidgets('el subtítulo usa las canceladas por el socio del servidor', (
+      tester,
+    ) async {
+      final repository = _Repository(
+        (_) async => statisticsOf(cancelled: 7, total: 90),
+      );
+      await _pump(tester, repository);
+      await tester.pumpAndSettle();
+
+      expect(_textOf(tester, 'stats-rate-subtitle'), '7 de 90 consultas');
     });
 
     testWidgets('el texto de la tasa se muestra tal cual', (tester) async {
@@ -189,6 +221,7 @@ void main() {
 
       expect(_textOf(tester, 'stats-total-value'), '0');
       expect(_textOf(tester, 'stats-rate-value'), 'Sin datos');
+      expect(_textOf(tester, 'stats-rate-subtitle'), '0 de 0 consultas');
       expect(_barHeights(tester), [0, 0, 0, 0, 0, 0, 0]);
       for (var i = 0; i < 7; i++) {
         expect(_in(_row(i), '0'), findsOneWidget, reason: '$i');
