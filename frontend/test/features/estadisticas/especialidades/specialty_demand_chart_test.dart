@@ -54,8 +54,62 @@ int _lineCount(RenderParagraph paragraph, int start, int end) => {
     box.top.round(),
 }.length;
 
+const _hintKey = Key('stats-chart-scroll-hint');
+const _hintText =
+    'Deslizá hacia los costados para ver todas las especialidades';
+
 void main() {
   setUpAll(loadRoboto);
+
+  group('indicador de desplazamiento', () {
+    testWidgets('a 360 px hay una barra visible y el texto de ayuda', (
+      tester,
+    ) async {
+      await _pump(tester, 360);
+
+      expect(
+        find.ancestor(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byWidgetPredicate(
+            (w) => w is Scrollbar && w.thumbVisibility == true,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(_hintKey), findsOneWidget);
+      expect(find.text(_hintText), findsOneWidget);
+    });
+
+    testWidgets('a 1200 px el gráfico entra completo y no hay ayuda', (
+      tester,
+    ) async {
+      await _pump(tester, 1200);
+
+      expect(find.byKey(_hintKey), findsNothing);
+      expect(find.text(_hintText), findsNothing);
+    });
+
+    testWidgets('a 360 px la etiqueta más alta del eje Y no queda recortada', (
+      tester,
+    ) async {
+      await _pump(tester, 360);
+
+      final chartTop = tester.getTopLeft(find.byType(SpecialtyDemandChart)).dy;
+      final yLabels = find.descendant(
+        of: find.byType(BarChart),
+        matching: find.byWidgetPredicate(
+          (w) => w is Text && int.tryParse(w.data ?? '') != null,
+        ),
+      );
+      expect(yLabels, findsWidgets);
+      final topmost = [
+        for (final label in yLabels.evaluate())
+          tester.getTopLeft(find.byWidget(label.widget)).dy,
+      ].reduce((a, b) => a < b ? a : b);
+
+      expect(topmost, greaterThanOrEqualTo(chartTop));
+    });
+  });
 
   for (final width in [1200.0, 360.0]) {
     group('con $width px de ancho', () {

@@ -5,22 +5,41 @@ import 'package:flutter/material.dart';
 
 import '../models/specialty_demand.dart';
 
-/// Una barra por especialidad, en el orden en que llegan.
-class SpecialtyDemandChart extends StatelessWidget {
+/// Una barra por especialidad, en el orden en que llegan. Si no entran en el
+/// ancho disponible, el gráfico se desplaza en horizontal y lo avisa con una
+/// barra siempre visible y un texto de ayuda.
+class SpecialtyDemandChart extends StatefulWidget {
   const SpecialtyDemandChart({super.key, required this.items});
 
   final List<SpecialtyDemandItem> items;
 
+  @override
+  State<SpecialtyDemandChart> createState() => _SpecialtyDemandChartState();
+}
+
+class _SpecialtyDemandChartState extends State<SpecialtyDemandChart> {
   static const double _minSlotWidth = 72;
   static const double _slotPadding = 8;
   static const double _height = 240;
+
+  /// Aire arriba, para que la etiqueta más alta del eje Y no se recorte, y
+  /// abajo, para que la barra de desplazamiento no tape los nombres.
+  static const double _verticalPadding = 12;
+
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   /// El ancho de la palabra más larga de los nombres con [style]. La ranura
   /// de cada barra tiene que alcanzar para ella: si no, el texto se parte a
   /// mitad de palabra. Los espacios sí pueden cortar la línea.
   double _longestWordWidth(TextStyle? style, TextScaler textScaler) {
     var widest = 0.0;
-    for (final item in items) {
+    for (final item in widget.items) {
       for (final word in item.specialty.name.split(' ')) {
         final painter = TextPainter(
           text: TextSpan(text: word, style: style),
@@ -36,6 +55,7 @@ class SpecialtyDemandChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final items = widget.items;
     final theme = Theme.of(context);
     final labelStyle = theme.textTheme.labelSmall;
     final slotWidth = math.max(
@@ -133,14 +153,44 @@ class SpecialtyDemandChart extends StatelessWidget {
       builder: (context, constraints) {
         final needed = items.length * slotWidth + 36;
         final width = math.max(constraints.maxWidth, needed);
-        return SizedBox(
-          height: _height,
-          child: width > constraints.maxWidth
-              ? SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(width: width, child: chart),
-                )
-              : chart,
+        final scrolls = width > constraints.maxWidth;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: _height,
+              child: scrolls
+                  ? Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: true,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: _verticalPadding,
+                        ),
+                        child: SizedBox(width: width, child: chart),
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.only(top: _verticalPadding),
+                      child: chart,
+                    ),
+            ),
+            if (scrolls)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Deslizá hacia los costados para ver todas las '
+                  'especialidades',
+                  key: const Key('stats-chart-scroll-hint'),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
