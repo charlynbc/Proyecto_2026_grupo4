@@ -47,6 +47,18 @@ class ApiRoutes {
       '/api/medico/turnos/$shiftId/numeros';
   static String doctorAppointmentResult(int appointmentId) =>
       '/api/medico/consultas/$appointmentId/resultado';
+  static String doctorAppointmentCancel(int appointmentId) =>
+      '/api/medico/consultas/$appointmentId/cancelar';
+  static String doctorShiftCancel(int shiftId) =>
+      '/api/medico/turnos/$shiftId/cancelar';
+  static String doctorPatientMedicalHistory(int memberId) =>
+      '/api/medico/pacientes/$memberId/historia-clinica';
+  static const String doctorAttentions = '/api/medico/atenciones';
+  static String doctorAttention(int attentionId) =>
+      '/api/medico/atenciones/$attentionId';
+  static const String doctorReferrals = '/api/medico/pases';
+  static String staffAppointmentCancel(int appointmentId) =>
+      '/api/funcionario/consultas/$appointmentId/cancelar';
   static const String notifications = '/api/notificaciones';
   static const String devices = '/api/dispositivos';
   static const String statsSpecialties = '/api/estadisticas/especialidades';
@@ -86,6 +98,13 @@ class ApiRoutes {
     doctorShifts,
     doctorShiftNumbers(1),
     doctorAppointmentResult(1),
+    doctorAppointmentCancel(1),
+    doctorShiftCancel(1),
+    doctorPatientMedicalHistory(1),
+    doctorAttentions,
+    doctorAttention(1),
+    doctorReferrals,
+    staffAppointmentCancel(1),
     notifications,
     devices,
     statsSpecialties,
