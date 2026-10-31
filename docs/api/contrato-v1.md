@@ -195,7 +195,7 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | detalle de una atención propia | `AtencionMedicaDTO` | - | 25 |
 | 43 | `GET /api/medico/pases` | consulta de los pases emitidos por el médico (sin operación propia en 2.1 a 2.7) | `PaseEmitidoDTO` | - | 26 |
 
-La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`; del #37 en adelante se numeran en este documento y se reflejan allí.
+La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`; los números posteriores al #36 se reflejan en ambos documentos (el #37 es pases disponibles; el #44 es cancelación por funcionario).
 
 ---
 
@@ -1380,7 +1380,7 @@ Todos los números del turno, con el paciente y el aviso de llegada de los reser
       "consulta": {
         "id": 9000,
         "estado": "AGENDADA",
-        "paciente": { "ci": "34567894", "nombre": "Carlos", "apellido": "Silva" },
+        "paciente": { "id": 21, "ci": "34567894", "nombre": "Carlos", "apellido": "Silva" },
         "llegadaEn": "2026-10-20T08:40:30-03:00"
       },
       "disponible": false
@@ -1397,11 +1397,13 @@ Todos los números del turno, con el paciente y el aviso de llegada de los reser
 }
 ```
 
+`consulta.paciente.id` es el identificador de cuenta del socio (no su CI), para abrir `GET /api/medico/pacientes/{socioId}/historia-clinica` (#40, RF-22). Se conserva `ci`, `nombre` y `apellido`; el paciente es `null` cuando no hay consulta.
+
 Un número sin consulta (o con la consulta cancelada) trae `consulta: null` y se muestra "Sin reserva"; `disponible` es `true` solo si todavía puede agendarse (anticipación). Un número reservado trae `disponible: false`. `consulta.llegadaEn` es `null` si no hubo aviso de llegada. `consulta.id` es el que se usa en #31.
 
 **Errores:** `404 NO_ENCONTRADO` si el turno no existe o no es del médico (P-10).
 
-Preguntas relacionadas: P-25, P-28.
+Preguntas relacionadas: P-25.
 
 <a id="e31"></a>
 #### #31 · `POST /api/medico/consultas/{id}/resultado`
@@ -1652,8 +1654,8 @@ Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, 
 
 ### 3.10 Cancelación por funcionario (RF-19)
 
-<a id="e37"></a>
-#### #37 · `POST /api/funcionario/consultas/{id}/cancelar`
+<a id="e44"></a>
+#### #44 · `POST /api/funcionario/consultas/{id}/cancelar`
 
 - **Roles:** FUNCIONARIO exclusivamente.
 - **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración.
@@ -1704,7 +1706,7 @@ Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, 
 
 - **Reglas:** la consulta debe estar `AGENDADA`, pertenecer a un turno del médico autenticado y faltar al menos 2 horas para la hora del número. La consulta pasa a `CANCELADA_INSTITUCION` con `cancelada_por`, `cancelada_en` y `motivo_cancelacion` registrados. El pase utilizado vuelve a estar disponible si conserva su vigencia (RF-09) y el número vuelve a ofrecerse si todavía cumple la anticipación mínima. No suspende la fecha del turno. Genera notificación `CANCELACION` con el motivo. Aplica el conflicto de interés de 3.1.5: el médico no puede cancelar una consulta en la que él mismo es el socio.
 
-**Respuesta 200** (`CancelacionDTO`, la misma forma de #20 y #37)
+**Respuesta 200** (`CancelacionDTO`, la misma forma de #20 y #44)
 
 ```json
 {
@@ -1956,7 +1958,7 @@ La `situacion` se calcula al consultar (no se guarda): `UTILIZADO` si alguna con
 | 34 | `GET /api/estadisticas/especialidades` | | | | | ✔ |
 | 35 | `GET /api/estadisticas/turnos` | | | | | ✔ |
 | 36 | `GET /api/estadisticas/consultas` | | | | | ✔ |
-| 37 | `POST /api/funcionario/consultas/{id}/cancelar` | | | ✔ | | |
+| 44 | `POST /api/funcionario/consultas/{id}/cancelar` | | | ✔ | | |
 | 38 | `POST /api/medico/consultas/{id}/cancelar` | | | | ✔ | |
 | 39 | `POST /api/medico/turnos/{id}/cancelar` | | | | ✔ | |
 | 40 | `GET /api/medico/pacientes/{socioId}/historia-clinica` | | | | ✔ | |
@@ -1992,7 +1994,8 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | Status | `code` | Cuándo |
 |---|---|---|
 | 400 | `VALIDACION` | Pedido mal formado o dato inválido (falta un campo, formato, rango, orden desconocido). El `message` dice cuál. |
-| 401 | `NO_AUTENTICADO` | Falta el token, está vencido o es inválido, la sesión fue revocada o la cuenta fue inactivada (RNF-05, RNF-08). |
+| 401 | `NO_AUTENTICADO` | Falta autenticación o la sesión no es válida (RNF-05, RNF-08). |
+| 401 | `TOKEN_INVALIDO` | El token proporcionado no se puede validar o contiene un identificador inválido; el cliente debe descartar las credenciales. |
 | 403 | `ACCESO_DENEGADO` | El rol no puede usar este endpoint. |
 | 404 | `NO_ENCONTRADO` | El recurso no existe, o existe pero es de otra persona (P-10). |
 | 500 | `ERROR_INTERNO` | Falla inesperada. Mensaje fijo: "Ocurrió un problema de nuestro lado. Intentá de nuevo en unos minutos." |
@@ -2105,7 +2108,7 @@ Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2"
 - **Se ve:** menú "Turnos y pacientes" (en el encabezado, "Dra. Nombre Apellido"). Filtros "Fecha" (13/10/2026), "Turno" (selector con "Cardiología · 09:00 – 10:00 · Consultorio") y "Filtro" ("Todos"). "Se actualiza en tiempo real · Orden: hora del número ▾" y "El médico decide a quién llamar". Tabla: N.º, Hora ("09:00 – 09:20"), Paciente ("Apellido, Nombre"), CI, Estado ("Agendada", "Atendida"), Llegada ("Llegó 08:55", "Sin aviso", "—"), y acciones: botón "Registrar atención" y enlace "Ver atención". Número libre: "Sin reserva", y "—" en CI, Estado y Llegada. Las filas con llegada tienen fondo gris. Nota: "Fila con fondo gris: el socio registró su llegada hoy. Solo esas filas permiten registrar atención."
 - **Endpoints:** la fecha y el selector de turno → #29. La tabla → #30 (`consulta.paciente`, `consulta.estado`, `consulta.llegadaEn`, `disponible`). "Registrar atención" → pantalla 6.1.7. Refresco cada 15 s.
 - **Brechas:**
-  - "Ver atención" en una consulta `ATENDIDA` no tiene endpoint en este contrato (P-28).
+  - "Ver atención" en una consulta `ATENDIDA` puede usar #42 para consultar la atención registrada por el médico.
   - La pantalla no distingue visualmente "Sin reserva" disponible de no disponible; el contrato sí trae `disponible` (el cliente lo puede usar o ignorar).
   - Los títulos "Dra./Dr." no tienen dato de origen (P-25).
 
@@ -2255,7 +2258,6 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-25 | Los mockups escriben "Dra. Apellido" y "Dr. Apellido" para los médicos (6.1.2, 6.1.4, 6.1.5, 6.1.6, 6.2.2 a 6.2.5). El modelo de datos no tiene ningún dato que indique el tratamiento (Persona solo tiene nombre, apellido y fecha de nacimiento). | #10, #16, #18, #21, #28, #29, #30 | muestra "nombre apellido" sin título. |
 | P-26 | Suspender y rehabilitar (6.1.4): la pantalla permite marcar filas de médicos y especialidades distintos, con los filtros en "Todos" y fechas vacías, y no tiene "seleccionar todos". `FiltroFechasDTO` (`medicoId`, `especialidadId`, `fechaDesde`, `fechaHasta`, los cuatro obligatorios en #24 y #25; #23 ya no lleva filtro) supone una sola combinación. ¿El filtro es opcional, o el cliente debe agrupar la selección y hacer un pedido por médico y especialidad? Complementa P-12. | #23, #24, #25 | exige que la selección sea de un solo médico y una sola especialidad, y envía como rango el menor y el mayor `fecha` seleccionados. |
 | P-27 | Registrar atención (6.1.7): la pantalla muestra "vence 11/01/2027" **antes de guardar** el pase, y el contrato solo envía `vigenciaDias`. ¿Desde cuándo cuenta la vigencia y el día de emisión entra o no? Además, la regla "no se puede emitir un pase si el socio ya tiene uno vigente o una consulta agendada en esa especialidad" no se puede comprobar antes de guardar: no hay endpoint para eso, y el `409 PASE_DUPLICADO` llega al finalizar. | #31 | calcula el vencimiento como hoy más `vigenciaDias` solo para mostrarlo, y deja la validación al servidor. |
-| P-28 | La tabla de pacientes (6.1.6) tiene "Ver atención" para consultas `ATENDIDA`. RF-25 (consultas atendidas por el médico) y RF-22 (historia clínica previa) quedaron fuera del contrato (sección 8) y no hay endpoint que devuelva una atención a un médico. | #30 | no muestra "Ver atención". |
 | P-29 | Confirmar consulta (6.2.3): "En total: 1 de 3. En Cardiología: 0 de 1." necesita el conteo de consultas activas y los **límites** (3 y 1), que son parámetros del servidor (3.1.3) y no viajan en ningún endpoint. "Se usará el pase a Cardiología, vigente hasta 12/12/2026" necesita el pase y su vencimiento antes de confirmar (ver P-07 y P-08). | #17, #18, #22 | cuenta las consultas `AGENDADA` de #18 cuyo día no terminó, no muestra los límites y no muestra el recuadro de pase si no conoce uno. |
 | P-30 | Mis consultas (6.2.4) tiene: búsqueda libre "especialidad o médico"; el chip "Canceladas", que agrupa `CANCELADA_SOCIO` y `CANCELADA_INSTITUCION`; chips para `AGENDADA`, `ATENDIDA` y `NO_ASISTIO` pero ninguno para `NO_ATENDIDA` ni `NO_SE_PRESENTO`; y tarjetas canceladas sin consultorio ni número. #18 solo admite un estado exacto, ids de especialidad y médico y devuelve siempre consultorio y número. ¿Se agrega búsqueda por texto y un filtro de varios estados? ¿La tarjeta cancelada oculta consultorio y número a propósito? Tampoco se dibuja cómo se cancela una consulta (RF-10). | #18, #20 | pide cada estado por separado y junta las dos canceladas en el cliente; filtra por texto en el cliente sobre la página recibida; ofrece cancelar solo desde la tarjeta de una `AGENDADA`. |
 | P-31 | Historia clínica (6.2.5): la tarjeta se despliega en la lista con afección, tratamiento, observaciones y pases. #21 no trae el contenido clínico, así que desplegar una tarjeta es un pedido a #22 y la lista de N atenciones puede hacer N pedidos. ¿La lista debe traer el contenido? ¿Qué se muestra si `tratamiento` u `observaciones` vienen vacíos? | #21, #22 | pide #22 al desplegar cada tarjeta, una vez, y oculta la sección vacía. |
