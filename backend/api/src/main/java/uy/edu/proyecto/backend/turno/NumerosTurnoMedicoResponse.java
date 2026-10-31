@@ -39,6 +39,7 @@ public record NumerosTurnoMedicoResponse(
     }
 
     public record Paciente(
+            Long id,
             String ci,
             String nombre,
             String apellido
