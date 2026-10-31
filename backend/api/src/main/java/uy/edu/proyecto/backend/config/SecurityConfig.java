@@ -261,6 +261,39 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
+                                                "/api/medico/turnos/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/medico/pacientes/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/medico/atenciones",
+                                                "/api/medico/atenciones/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/medico/pases"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
                                                 "/api/medico/consultas/**"
                                         )
                                         .hasRole(

@@ -65,6 +65,12 @@ PostgreSQL.
 | 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | CONFIRMADA (integrada en avances, PR #25; agrega `fechasActivas` y `utilizacion`; interpretación histórica desde `turno_evento` en el PR #38, JSON sin cambios) | - | [contrato #35](contrato-v1.md#e35) |
 | 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | CONFIRMADA (integrada en avances; usa `estados`, `totalConsultas`, `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`) | - | [contrato #36](contrato-v1.md#e36) |
 | 37 | `GET /api/socios/me/pases/disponibles` | SOCIO | 09 | Confirmar agenda (pase que se usará) | CONFIRMADA | feat/front-socio-sobre-integracion 25/10/2026 | Sin sección en el contrato (P-08 sigue diciendo que no hay endpoint). Ver "Cambios de campos acordados". |
+| 38 | `POST /api/medico/consultas/{id}/cancelar` | MEDICO | 27 | Cancelar una consulta del médico (motivo obligatorio) | CONFIRMADA | - | [contrato #38](contrato-v1.md#e38) |
+| 39 | `POST /api/medico/turnos/{id}/cancelar` | MEDICO | 27 | Cancelar todo el turno de una fecha y suspenderla (motivo obligatorio) | CONFIRMADA | - | [contrato #39](contrato-v1.md#e39) |
+| 40 | `GET /api/medico/pacientes/{socioId}/historia-clinica` | MEDICO | 22 | Historia clínica previa del paciente (requiere consulta AGENDADA vigente con él) | CONFIRMADA | - | [contrato #40](contrato-v1.md#e40) |
+| 41 | `GET /api/medico/atenciones` | MEDICO | 25 | Consultas atendidas por el médico (`fechaDesde`/`fechaHasta` obligatorias; `paciente`, `especialidadId`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #41](contrato-v1.md#e41) |
+| 42 | `GET /api/medico/atenciones/{idAtencion}` | MEDICO | 25 | Detalle de una atención propia | CONFIRMADA | - | [contrato #42](contrato-v1.md#e42) |
+| 43 | `GET /api/medico/pases` | MEDICO | 26 | Pases emitidos por el médico (`situacion`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #43](contrato-v1.md#e43) |
 
 ## Rutas de la prueba de concepto
 
