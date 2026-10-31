@@ -11,12 +11,38 @@ class SpecialtyDemandChart extends StatelessWidget {
 
   final List<SpecialtyDemandItem> items;
 
-  static const double _barSlotWidth = 72;
+  static const double _minSlotWidth = 72;
+  static const double _slotPadding = 8;
   static const double _height = 240;
+
+  /// El ancho de la palabra más larga de los nombres con [style]. La ranura
+  /// de cada barra tiene que alcanzar para ella: si no, el texto se parte a
+  /// mitad de palabra. Los espacios sí pueden cortar la línea.
+  double _longestWordWidth(TextStyle? style, TextScaler textScaler) {
+    var widest = 0.0;
+    for (final item in items) {
+      for (final word in item.specialty.name.split(' ')) {
+        final painter = TextPainter(
+          text: TextSpan(text: word, style: style),
+          textDirection: TextDirection.ltr,
+          textScaler: textScaler,
+        )..layout();
+        widest = math.max(widest, painter.width);
+        painter.dispose();
+      }
+    }
+    return widest;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final labelStyle = theme.textTheme.labelSmall;
+    final slotWidth = math.max(
+      _minSlotWidth,
+      _longestWordWidth(labelStyle, MediaQuery.textScalerOf(context)).ceil() +
+          _slotPadding,
+    );
     final maxCount = items.fold<int>(
       0,
       (max, item) => math.max(max, item.count),
@@ -59,13 +85,13 @@ class SpecialtyDemandChart extends StatelessWidget {
                 return SideTitleWidget(
                   meta: meta,
                   child: SizedBox(
-                    width: _barSlotWidth - 8,
+                    width: slotWidth - _slotPadding,
                     child: Text(
                       items[index].specialty.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.labelSmall,
+                      style: labelStyle,
                     ),
                   ),
                 );
@@ -105,7 +131,7 @@ class SpecialtyDemandChart extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final needed = items.length * _barSlotWidth + 36;
+        final needed = items.length * slotWidth + 36;
         final width = math.max(constraints.maxWidth, needed);
         return SizedBox(
           height: _height,
