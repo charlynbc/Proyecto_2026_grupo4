@@ -1,8 +1,10 @@
 package uy.edu.proyecto.backend.turno;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -21,17 +23,27 @@ import uy.edu.proyecto.backend.exception.ApiException;
 import uy.edu.proyecto.backend.turno.TurnoSemanalRepository.CuentaMedica;
 import uy.edu.proyecto.backend.turno.TurnoSemanalRepository.NumeroExistente;
 import uy.edu.proyecto.backend.turno.TurnoSemanalRepository.NumeroInstancia;
+import uy.edu.proyecto.backend.turno.TurnoSemanalRepository.PatronSemanal;
 
 @Service
 public class TurnoSemanalService {
 
     private static final DateTimeFormatter HORA_FORMATO =
             DateTimeFormatter.ofPattern("HH:mm");
+    private static final ZoneId ZONA = ZoneId.of("America/Montevideo");
 
     private final TurnoSemanalRepository repository;
+    private final TurnoConsultaRepository consultaRepository;
+    private final Clock clock;
 
-    public TurnoSemanalService(TurnoSemanalRepository repository) {
+    public TurnoSemanalService(
+            TurnoSemanalRepository repository,
+            TurnoConsultaRepository consultaRepository,
+            Clock clock
+    ) {
         this.repository = repository;
+        this.consultaRepository = consultaRepository;
+        this.clock = clock;
     }
 
     @Transactional
@@ -134,6 +146,146 @@ public class TurnoSemanalService {
                 List.copyOf(respuestaNumeros),
                 fechas.size()
         );
+    }
+
+    /**
+     * RF-20: modifica el consultorio de una configuracion semanal. Solo se
+     * permite si ninguna fecha cuyo dia todavia no termino tiene consultas
+     * Agendadas; la configuracion resultante se revalida como en el alta
+     * (RF-13), incluido el solapamiento con otros turnos activos del medico
+     * o del consultorio nuevo. La modificacion afecta unicamente las fechas
+     * actuales y futuras, conserva los turnos suspendidos y no altera las
+     * consultas ni las fechas anteriores.
+     */
+    @Transactional
+    public TurnoSemanalResponse modificarConsultorio(
+            Long idPatron,
+            ModificarTurnoSemanalRequest request
+    ) {
+        if (idPatron == null || idPatron <= 0
+                || request == null || request.consultorioId() == null
+                || request.consultorioId() <= 0) {
+            throw validacion("Faltan datos obligatorios o no son válidos");
+        }
+
+        PatronSemanal patron = repository.bloquearPatron(idPatron)
+                .orElseThrow(() -> noEncontrado(
+                        "No existe el turno semanal indicado"
+                ));
+
+        if (patron.idConsultorio().equals(request.consultorioId())) {
+            // Sin cambios: responde el estado actual (operacion idempotente).
+            return consultaRepository.obtenerPatron(idPatron)
+                    .orElseThrow(() -> noEncontrado(
+                            "No existe el turno semanal indicado"
+                    ));
+        }
+
+        Consultorio consultorioNuevo = repository
+                .bloquearConsultorio(request.consultorioId())
+                .orElseThrow(() -> noEncontrado(
+                        "No existe el consultorio indicado"
+                ));
+
+        LocalDate hoy = LocalDate.now(clock.withZone(ZONA));
+
+        // Bloquea las filas de turno vigentes: la agenda toma el mismo
+        // bloqueo al reservar, asi que ninguna consulta nueva puede
+        // colarse entre la verificacion y la modificacion.
+        List<LocalDate> fechasActivas = repository.bloquearFechasActivasDesde(
+                idPatron, hoy
+        );
+        if (fechasActivas.isEmpty()) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "TURNO_NO_MODIFICABLE",
+                    "El turno semanal ya finalizó; no tiene fechas actuales"
+                            + " ni futuras por modificar"
+            );
+        }
+
+        int agendadas = repository.contarConsultasAgendadasDesde(
+                idPatron, hoy
+        );
+        if (agendadas > 0) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "TURNO_NO_MODIFICABLE",
+                    "El turno tiene " + agendadas
+                            + " consulta(s) agendada(s) en fechas vigentes."
+                            + " Suspenda las fechas correspondientes (RF-14)"
+                            + " y dé de alta otro turno."
+            );
+        }
+
+        validarSolapamientosDeModificacion(patron, consultorioNuevo,
+                fechasActivas);
+
+        repository.actualizarConsultorio(
+                idPatron, consultorioNuevo.id(), hoy
+        );
+
+        return consultaRepository.obtenerPatron(idPatron)
+                .orElseThrow(() -> noEncontrado(
+                        "No existe el turno semanal indicado"
+                ));
+    }
+
+    /**
+     * Revalida RF-13 sobre la configuracion resultante: los numeros del
+     * patron (que no cambian) no pueden solaparse, en las fechas activas
+     * vigentes, con numeros de otros turnos activos del mismo medico o del
+     * consultorio nuevo.
+     */
+    private void validarSolapamientosDeModificacion(
+            PatronSemanal patron,
+            Consultorio consultorioNuevo,
+            List<LocalDate> fechasActivas
+    ) {
+        List<NumeroInstancia> numeros = repository.numerosDelPatron(patron.id());
+        List<NumeroExistente> existentes =
+                repository.buscarNumerosActivosDeOtrosPatrones(
+                        patron.idMedico(),
+                        consultorioNuevo.id(),
+                        fechasActivas.getFirst(),
+                        fechasActivas.getLast(),
+                        patron.id()
+                );
+        Set<LocalDate> fechasPropias = new HashSet<>(fechasActivas);
+        Set<String> conflictos = new java.util.LinkedHashSet<>();
+
+        for (NumeroExistente existente : existentes) {
+            if (!fechasPropias.contains(existente.fecha())) {
+                continue;
+            }
+            boolean mismoRecurso = existente.idMedico().equals(patron.idMedico())
+                    || existente.idConsultorio().equals(consultorioNuevo.id());
+            if (!mismoRecurso) {
+                continue;
+            }
+            for (NumeroInstancia propio : numeros) {
+                boolean seSolapan = propio.horaInicio()
+                        .isBefore(existente.horaFin())
+                        && existente.horaInicio().isBefore(propio.horaFin());
+                if (seSolapan) {
+                    conflictos.add(
+                            "fecha " + existente.fecha()
+                                    + ", número " + propio.numero()
+                                    + " con número existente "
+                                    + existente.numero()
+                    );
+                }
+            }
+        }
+        if (!conflictos.isEmpty()) {
+            String detalle = conflictos.stream()
+                    .collect(Collectors.joining("; "));
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "SOLAPAMIENTO_TURNO",
+                    "Se encontraron solapamientos: " + detalle
+            );
+        }
     }
 
     private void validarSolicitud(
