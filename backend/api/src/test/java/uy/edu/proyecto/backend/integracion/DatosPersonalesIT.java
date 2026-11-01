@@ -129,7 +129,10 @@ class DatosPersonalesIT extends BaseIntegracionIT {
         enviar("PATCH", "/api/cuentas/me", token, null,
                 "{\"correo\":\"vencido@ejemplo.invalid\"}");
         String tokenCorreo = capturaEnlaces.ultimoCambioCorreo().token();
-        jdbc.update("UPDATE enlace_cuenta SET vence_en = CURRENT_TIMESTAMP - interval '1 hour'"
+        // El CHECK ck_enlace_cuenta_vencimiento exige vence_en > creado_en:
+        // para simular un enlace vencido se retroceden ambas marcas.
+        jdbc.update("UPDATE enlace_cuenta SET creado_en = CURRENT_TIMESTAMP - interval '25 hours',"
+                + " vence_en = CURRENT_TIMESTAMP - interval '1 hour'"
                 + " WHERE id_cuenta = ? AND tipo = 'CAMBIO_CORREO'", idSocio1);
 
         Respuesta r = post("/api/auth/cambio-correo/confirmar", null,
@@ -203,8 +206,8 @@ class DatosPersonalesIT extends BaseIntegracionIT {
         Respuesta r = get("/api/cuentas/me", token2);
         assertEquals(ciSocio2, r.json().path("ci").asString());
         assertEquals("Calle Falsa 123", r.json().path("direccion").asString());
-        assertNull(jdbc.queryForObject(
+        assertTrue(jdbc.queryForList(
                 "SELECT 1 FROM cuenta WHERE id_cuenta = ? AND direccion = 'Solo de socio 1'",
-                Integer.class, idSocio2));
+                idSocio2).isEmpty());
     }
 }

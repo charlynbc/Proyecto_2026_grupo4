@@ -114,7 +114,10 @@ class RecuperacionIT extends BaseIntegracionIT {
         // Vencido: mismo codigo y mensaje.
         solicitar(ciSocio2, "SOCIO");
         String token2 = capturaEnlaces.ultimaRecuperacion().token();
-        jdbc.update("UPDATE enlace_cuenta SET vence_en = CURRENT_TIMESTAMP - interval '1 hour'"
+        // El CHECK ck_enlace_cuenta_vencimiento exige vence_en > creado_en:
+        // para simular un enlace vencido se retroceden ambas marcas.
+        jdbc.update("UPDATE enlace_cuenta SET creado_en = CURRENT_TIMESTAMP - interval '25 hours',"
+                + " vence_en = CURRENT_TIMESTAMP - interval '1 hour'"
                 + " WHERE id_cuenta = ? AND tipo = 'RECUPERACION'", idSocio2);
         Respuesta vencido = post("/api/auth/recuperacion/completar", null,
                 "{\"token\":\"" + token2 + "\",\"password\":\"Otra-Clave-99\"}");

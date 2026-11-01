@@ -113,17 +113,17 @@ class ModificacionTurnoSemanalIT extends BaseIntegracionIT {
                         + " VALUES (?, ?, ?) RETURNING id_turno",
                 Long.class, patron, idConsultorio, futura);
         for (long t : new long[]{turnoPasado, turnoFuturo}) {
-            long ns = jdbc.queryForObject(
-                    "INSERT INTO numero_semanal (id_turno_semanal, numero, hora_inicio, hora_fin)"
+            // INSERT ... ON CONFLICT DO NOTHING RETURNING no devuelve fila si ya
+            // existe, y queryForObject lanzaria EmptyResultDataAccessException:
+            // se inserta una sola vez y luego se consulta el id.
+            jdbc.update("INSERT INTO numero_semanal (id_turno_semanal, numero, hora_inicio, hora_fin)"
                             + " VALUES (?, 1, TIME '09:00', TIME '09:20')"
-                            + " ON CONFLICT DO NOTHING RETURNING id_numero_semanal",
+                            + " ON CONFLICT DO NOTHING",
+                    patron);
+            long ns = jdbc.queryForObject(
+                    "SELECT id_numero_semanal FROM numero_semanal"
+                            + " WHERE id_turno_semanal = ? AND numero = 1",
                     Long.class, patron);
-            if (ns == 0L) {
-                ns = jdbc.queryForObject(
-                        "SELECT id_numero_semanal FROM numero_semanal"
-                                + " WHERE id_turno_semanal = ? AND numero = 1",
-                        Long.class, patron);
-            }
             jdbc.update("INSERT INTO numero (id_turno, id_numero_semanal, numero,"
                             + " hora_inicio, hora_fin) VALUES (?, ?, 1, TIME '09:00', TIME '09:20')",
                     t, ns);
