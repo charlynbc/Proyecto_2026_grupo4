@@ -87,7 +87,8 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
-                                                "/api/auth/logout"
+                                                "/api/auth/logout",
+                                                "/api/auth/cambiar-contrasena"
                                         )
                                         .authenticated()
 
