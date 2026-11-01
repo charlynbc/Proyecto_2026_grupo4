@@ -332,8 +332,8 @@ try {
 Para probar un correo de cuenta ya activa, enviá la solicitud con una cuenta
 ficticia activa. La respuesta HTTP no permite distinguirla de una CI
 inexistente; el mensaje de recuperación se verifica únicamente en el buzón de
-prueba. El flujo de recuperación completo corresponde a RF-05 y no se
-implementa en este cambio de RF-02.
+prueba. El flujo de recuperación (RF-05) está implementado: ver
+"Recuperación de contraseña" más abajo.
 
 #### Validación de RF-02 en esta revisión
 
@@ -369,6 +369,95 @@ curl.exe -i -b cookies.txt -c cookies.txt -X POST http://localhost:8080/api/auth
 ```powershell
 curl.exe -i -b cookies.txt -c cookies.txt -X POST http://localhost:8080/api/auth/logout
 ```
+
+#### Cambio de contraseña — RF-04
+
+`POST /api/auth/cambiar-contrasena`, cualquier rol autenticado. La cuenta es
+siempre la del JWT. Responde `204` sin cuerpo; revoca las demás sesiones de la
+cuenta y conserva la actual (la cookie de renovación adjunta). Errores:
+`400 VALIDACION` (falta un campo o la nueva no cumple la longitud mínima),
+`400 CONTRASENA_ACTUAL_INCORRECTA`, `401 NO_AUTENTICADO` (sin sesión o cuenta
+inactivada).
+
+```powershell
+$cambio = @{
+  passwordActual = "Clave-Ficticia-2026"
+  passwordNueva  = "Clave-Nueva-Ficticia-2026"
+} | ConvertTo-Json
+
+curl.exe -i -b cookies.txt -c cookies.txt `
+  -H "Content-Type: application/json" `
+  -H "Authorization: Bearer $env:SOCIO_TOKEN" `
+  -d $cambio http://localhost:8080/api/auth/cambiar-contrasena
+```
+
+#### Recuperación de contraseña — RF-05
+
+Las dos rutas son públicas y replican el mecanismo del primer ingreso con
+enlaces de tipo `RECUPERACION` (24 h, un solo uso, solo hash en base):
+
+- `POST /api/auth/recuperacion/solicitar` recibe `ci` y `acceso` y responde
+  `202` con el mismo mensaje genérico del primer ingreso, exista o no la
+  cuenta. Si la cuenta existe y está activa, envía el enlace al correo de la
+  cuenta; si todavía no completó el primer ingreso, el correo le indica usar
+  «Es mi primera vez»; si está inactivada, no se envía nada. Anti-abuso: un
+  enlace vigente creado hace menos de 60 segundos frena el reenvío.
+- `POST /api/auth/recuperacion/completar` recibe `token` y `password`.
+  Responde `200` con un mensaje, registra la contraseña con BCrypt y revoca
+  **todas** las sesiones de la cuenta. Enlace inexistente, vencido, usado o
+  de cuenta inactivada: `400 ENLACE_INVALIDO` con el mismo mensaje. Un
+  `400 VALIDACION` no consume el enlace.
+
+```powershell
+$solicitud = @{ ci = "67890127"; acceso = "SOCIO" } | ConvertTo-Json
+Invoke-RestMethod -Method Post `
+  -Uri "$base/api/auth/recuperacion/solicitar" `
+  -ContentType "application/json" -Body $solicitud
+
+# El token llega al correo (Mailpit local o buzón de prueba); no lo guardes:
+$completar = @{
+  token = "<token del correo>"
+  password = "Clave-Nueva-Ficticia-2026"
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post `
+  -Uri "$base/api/auth/recuperacion/completar" `
+  -ContentType "application/json" -Body $completar
+```
+
+Con `MAIL_PROVIDER=none` no se envía nada: el `202` solo acredita que el
+pedido fue aceptado. La entrega real con Resend sigue pendiente de la
+configuración descrita en `docs/api/railway-correo.md`.
+
+#### Datos personales — RF-06
+
+`GET /api/cuentas/me` devuelve los datos de la cuenta autenticada, incluido
+`correoPendiente` si hay un cambio de correo sin confirmar.
+
+`PATCH /api/cuentas/me` edita `direccion`, `telefono1`, `telefono2` (efecto
+inmediato) y `correo` (queda pendiente hasta confirmar el enlace enviado al
+correo nuevo). Los campos ausentes no se modifican; `telefono2` con `""` o
+`null` explícito se borra. Cualquier otro campo (`ci`, `nombre`, `apellido`,
+`fechaNacimiento`, `rol`, `estado`, ...) se rechaza con `400 VALIDACION`:
+solo los corrige el Administrador (RF-38).
+
+```powershell
+curl.exe -H "Authorization: Bearer $env:SOCIO_TOKEN" http://localhost:8080/api/cuentas/me
+
+$edicion = @{
+  direccion = "Av. Italia 1234"
+  telefono1 = "099000111"
+  correo    = "nuevo-correo@ejemplo.invalid"
+} | ConvertTo-Json
+curl.exe -i -X PATCH `
+  -H "Content-Type: application/json" `
+  -H "Authorization: Bearer $env:SOCIO_TOKEN" `
+  -d $edicion http://localhost:8080/api/cuentas/me
+```
+
+La confirmación del correo nuevo es pública por token
+(`POST /api/auth/cambio-correo/confirmar` con `{"token": "..."}`) y responde
+`200` con un mensaje; el enlace vence a las 24 h, es de un solo uso y pedir
+otro cambio invalida el anterior.
 
 ### 5.2. Disponibilidad y agenda del socio
 
@@ -421,6 +510,28 @@ curl.exe -H "Authorization: Bearer $env:FUNCIONARIO_TOKEN" "http://localhost:808
 
 ```powershell
 curl.exe -H "Authorization: Bearer $env:FUNCIONARIO_TOKEN" "http://localhost:8080/api/turnos-semanales/1"
+```
+
+#### Modificar el consultorio de un turno semanal — RF-20
+
+`PATCH /api/turnos-semanales/{id}` con rol FUNCIONARIO. Solo cambia el
+consultorio: el médico, la especialidad, el día y los horarios no se
+modifican (para eso se da de alta otro turno). Responde `200` con el
+`TurnoSemanalDTO` resultante.
+
+Reglas: rechaza con `409 TURNO_NO_MODIFICABLE` si hay consultas `AGENDADA` en
+fechas cuyo día no terminó o si no quedan fechas activas vigentes; revalida
+los solapamientos del alta (RF-13) contra los turnos activos del médico y del
+consultorio nuevo (`409 SOLAPAMIENTO_TURNO`). Las fechas pasadas conservan su
+consultorio, las suspendidas se mueven manteniendo su estado y las consultas
+existentes no se tocan.
+
+```powershell
+$modificacion = @{ consultorioId = 7 } | ConvertTo-Json
+curl.exe -i -X PATCH `
+  -H "Content-Type: application/json" `
+  -H "Authorization: Bearer $env:FUNCIONARIO_TOKEN" `
+  -d $modificacion http://localhost:8080/api/turnos-semanales/1
 ```
 
 #### Suspender fechas
