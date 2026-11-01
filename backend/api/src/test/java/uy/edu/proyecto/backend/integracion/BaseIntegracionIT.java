@@ -41,7 +41,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import uy.edu.proyecto.backend.auth.CuentaActivaPrimerIngresoSolicitada;
+import uy.edu.proyecto.backend.auth.CuentaPendienteRecuperacionSolicitada;
 import uy.edu.proyecto.backend.auth.PrimerIngresoLinkSolicitado;
+import uy.edu.proyecto.backend.auth.RecuperacionLinkSolicitado;
 import uy.edu.proyecto.backend.usuario.CambioCorreoSolicitado;
 
 /**
@@ -120,10 +122,26 @@ abstract class BaseIntegracionIT {
                 new CopyOnWriteArrayList<>();
         private final List<CambioCorreoSolicitado> cambiosCorreo =
                 new CopyOnWriteArrayList<>();
+        private final List<RecuperacionLinkSolicitado> recuperaciones =
+                new CopyOnWriteArrayList<>();
+        private final List<CuentaPendienteRecuperacionSolicitada>
+                avisosCuentaPendiente = new CopyOnWriteArrayList<>();
 
         @EventListener
         void alSolicitar(PrimerIngresoLinkSolicitado evento) {
             eventos.add(evento);
+        }
+
+        @EventListener
+        void alSolicitarRecuperacion(RecuperacionLinkSolicitado evento) {
+            recuperaciones.add(evento);
+        }
+
+        @EventListener
+        void alAvisarCuentaPendiente(
+                CuentaPendienteRecuperacionSolicitada evento
+        ) {
+            avisosCuentaPendiente.add(evento);
         }
 
         @EventListener
@@ -150,10 +168,26 @@ abstract class BaseIntegracionIT {
             return cambiosCorreo.size();
         }
 
+        RecuperacionLinkSolicitado ultimaRecuperacion() {
+            return recuperaciones.isEmpty()
+                    ? null
+                    : recuperaciones.get(recuperaciones.size() - 1);
+        }
+
+        int cantidadRecuperaciones() {
+            return recuperaciones.size();
+        }
+
+        int cantidadAvisosCuentaPendiente() {
+            return avisosCuentaPendiente.size();
+        }
+
         void limpiar() {
             eventos.clear();
             avisosCuentaActiva.clear();
             cambiosCorreo.clear();
+            recuperaciones.clear();
+            avisosCuentaPendiente.clear();
         }
 
         int cantidad() {
