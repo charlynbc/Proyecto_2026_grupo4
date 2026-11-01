@@ -81,7 +81,8 @@ public class SecurityConfig {
                                                 "/api/auth/login",
                                                 "/api/auth/refresh",
                                                 "/api/auth/primer-ingreso/solicitar",
-                                                "/api/auth/primer-ingreso/completar"
+                                                "/api/auth/primer-ingreso/completar",
+                                                "/api/auth/cambio-correo/confirmar"
                                         )
                                         .permitAll()
 
@@ -89,6 +90,18 @@ public class SecurityConfig {
                                                 HttpMethod.POST,
                                                 "/api/auth/logout",
                                                 "/api/auth/cambiar-contrasena"
+                                        )
+                                        .authenticated()
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/cuentas/me"
+                                        )
+                                        .authenticated()
+
+                                        .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/cuentas/me"
                                         )
                                         .authenticated()
 
