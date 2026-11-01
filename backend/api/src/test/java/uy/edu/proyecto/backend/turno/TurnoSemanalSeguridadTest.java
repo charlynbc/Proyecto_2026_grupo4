@@ -20,6 +20,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -125,5 +126,79 @@ class TurnoSemanalSeguridadTest {
                 .andExpect(jsonPath("$.cantidadTurnos").value(2));
 
         verify(service).crear(any(), eq(91L));
+    }
+
+    @Test
+    void modificarTurnoSemanalSinAutenticacionDevuelve401() throws Exception {
+        mockMvc.perform(patch("/api/turnos-semanales/41")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consultorioId\":7}"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void socioNoPuedeModificarTurnosSemanales() throws Exception {
+        mockMvc.perform(patch("/api/turnos-semanales/41")
+                        .with(jwt().jwt(token -> token.subject("91"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_SOCIO")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consultorioId\":7}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void administradorNoPuedeModificarTurnosSemanales() throws Exception {
+        mockMvc.perform(patch("/api/turnos-semanales/41")
+                        .with(jwt().jwt(token -> token.subject("91"))
+                                .authorities(
+                                        new SimpleGrantedAuthority("ROLE_ADMINISTRADOR")
+                                ))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consultorioId\":7}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void funcionarioPuedeModificarElConsultorio() throws Exception {
+        when(service.modificarConsultorio(eq(41L), any())).thenReturn(
+                new TurnoSemanalResponse(
+                        41L,
+                        new TurnoSemanalResponse.MedicoRef(17L, "Ana", "Pérez"),
+                        new uy.edu.proyecto.backend.especialidad.Especialidad(
+                                3L, "Cardiología", true
+                        ),
+                        new uy.edu.proyecto.backend.consultorio.Consultorio(
+                                7L, "Consultorio 7", "Piso 2"
+                        ),
+                        2,
+                        java.time.LocalDate.of(2026, 10, 20),
+                        java.time.LocalDate.of(2026, 10, 27),
+                        java.util.List.of(
+                                new TurnoSemanalResponse.NumeroSemanalResponse(
+                                        1, "09:00", "09:20"
+                                )
+                        ),
+                        2
+                )
+        );
+
+        mockMvc.perform(patch("/api/turnos-semanales/41")
+                        .with(jwt().jwt(token -> token.subject("91"))
+                                .authorities(
+                                        new SimpleGrantedAuthority("ROLE_FUNCIONARIO")
+                                ))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consultorioId\":7}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(41))
+                .andExpect(jsonPath("$.consultorio.id").value(7));
+
+        verify(service).modificarConsultorio(eq(41L), any());
     }
 }
