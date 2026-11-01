@@ -191,4 +191,42 @@ void main() {
     );
     expect(adapter.last, isNull);
   });
+
+  test('un estado desconocido en el listado es el error genérico', () async {
+    final (repository, _) = _repository(200, {
+      'items': [_appointment()..['estado'] = 'REPROGRAMADA'],
+      'page': 0,
+      'size': 20,
+      'total': 1,
+    });
+
+    await expectLater(
+      repository.list(const AppointmentHistoryQuery()),
+      throwsA(
+        isA<ApiException>().having(
+          (e) => e.message,
+          'message',
+          kApiGenericMessage,
+        ),
+      ),
+    );
+  });
+
+  test('un estado desconocido en el detalle es el error genérico', () async {
+    final (repository, _) = _repository(
+      200,
+      _appointment()..['estado'] = 'REPROGRAMADA',
+    );
+
+    await expectLater(
+      repository.get(9001),
+      throwsA(
+        isA<ApiException>().having(
+          (e) => e.message,
+          'message',
+          kApiGenericMessage,
+        ),
+      ),
+    );
+  });
 }

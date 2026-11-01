@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import uy.edu.proyecto.backend.correo.CorreoException;
 import uy.edu.proyecto.backend.correo.CorreoMensaje;
 import uy.edu.proyecto.backend.correo.CorreoSender;
 
@@ -37,16 +38,44 @@ public class PrimerIngresoMailListener {
                 "Hola " + event.nombre() + ":\n\n"
                         + "Para completar tu primer ingreso, abre este enlace:\n\n"
                         + activationUrl + "?token=" + event.token()
-                        + "\n\nEl enlace vence en 24 horas y solo puede usarse una vez."
+                        + "\n\nEl enlace vence en " + event.validezHoras()
+                        + " horas y solo puede usarse una vez."
         );
 
+        enviar(event.idCuenta(), mensaje);
+    }
+
+    @Async
+    @TransactionalEventListener
+    public void informarCuentaActiva(CuentaActivaPrimerIngresoSolicitada event) {
+        CorreoMensaje mensaje = new CorreoMensaje(
+                event.correo(),
+                "Tu cuenta ya está activa",
+                "Hola " + event.nombre() + ":\n\n"
+                        + "Tu cuenta ya está activa. Para recuperar tu contraseña, "
+                        + "ingresá a la pantalla de acceso correspondiente y seguí "
+                        + "la opción de recuperación de contraseña (RF-05).\n\n"
+                        + "Este correo no modifica tu contraseña ni el estado de tu cuenta."
+        );
+
+        enviar(event.idCuenta(), mensaje);
+    }
+
+    private void enviar(Long idCuenta, CorreoMensaje mensaje) {
         try {
             correoSender.enviar(mensaje);
-        } catch (RuntimeException exception) {
-            // Nunca se registra el token ni el correo: solo la cuenta y el tipo de fallo.
+        } catch (CorreoException exception) {
+            // Los mensajes de CorreoException son propios (sin datos del correo) y orientan el diagnostico.
             LOGGER.error(
-                    "No se pudo enviar el enlace de primer ingreso para la cuenta {}: {}",
-                    event.idCuenta(),
+                    "No se pudo enviar un correo de primer ingreso para la cuenta {}: {}",
+                    idCuenta,
+                    exception.getMessage()
+            );
+        } catch (RuntimeException exception) {
+            // Nunca se registra el contenido ni el destinatario del correo.
+            LOGGER.error(
+                    "No se pudo enviar un correo de primer ingreso para la cuenta {}: {}",
+                    idCuenta,
                     exception.getClass().getSimpleName()
             );
         }

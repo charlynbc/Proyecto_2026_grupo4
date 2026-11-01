@@ -27,25 +27,30 @@ public class PrimerIngresoService {
             "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.";
     private static final Set<String> ACCESOS = Set.of("SOCIO", "EMPLEADO");
     private static final int TOKEN_BYTES = 32;
-    private static final int TOKEN_LIFETIME_HOURS = 24;
     private static final int MAX_BCRYPT_PASSWORD_BYTES = 72;
 
     private final PrimerIngresoRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
     private final int minimumPasswordLength;
+    private final int tokenValidityHours;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PrimerIngresoService(
             PrimerIngresoRepository repository,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher eventPublisher,
-            @Value("${app.auth.password-min-length:8}") int minimumPasswordLength
+            @Value("${app.auth.password-min-length:8}") int minimumPasswordLength,
+            @Value("${app.auth.first-login-token-validity-hours:24}") int tokenValidityHours
     ) {
+        if (tokenValidityHours <= 0) {
+            throw new IllegalArgumentException("La validez del enlace debe ser positiva");
+        }
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.eventPublisher = eventPublisher;
         this.minimumPasswordLength = minimumPasswordLength;
+        this.tokenValidityHours = tokenValidityHours;
     }
 
     @Transactional
@@ -58,23 +63,33 @@ public class PrimerIngresoService {
                 .orElseThrow(() -> validacion("La CI no es valida"));
         String acceso = request.acceso().trim();
 
-        repository.buscarCuentaPendiente(ci, acceso)
-                .ifPresent(cuenta -> {
-                    repository.invalidarEnlacesPendientes(cuenta.id());
-                    String token = generarToken();
-                    repository.crearEnlace(
-                            cuenta.id(),
-                            TokenHash.sha256(token),
-                            OffsetDateTime.now(ZoneOffset.UTC)
-                                    .plusHours(TOKEN_LIFETIME_HOURS)
-                    );
-                    eventPublisher.publishEvent(new PrimerIngresoLinkSolicitado(
-                            cuenta.id(),
-                            cuenta.correo(),
-                            cuenta.nombre(),
-                            token
+        var cuentaPendiente = repository.buscarCuentaPendiente(ci, acceso);
+        if (cuentaPendiente.isPresent()) {
+            var cuenta = cuentaPendiente.get();
+            repository.invalidarEnlacesPendientes(cuenta.id());
+            String token = generarToken();
+            repository.crearEnlace(
+                    cuenta.id(),
+                    TokenHash.sha256(token),
+                    OffsetDateTime.now(ZoneOffset.UTC).plusHours(tokenValidityHours)
+            );
+            eventPublisher.publishEvent(new PrimerIngresoLinkSolicitado(
+                    cuenta.id(),
+                    cuenta.correo(),
+                    cuenta.nombre(),
+                    token,
+                    tokenValidityHours
+            ));
+        } else {
+            repository.buscarCuentaActiva(ci, acceso)
+                    .ifPresent(cuenta -> eventPublisher.publishEvent(
+                            new CuentaActivaPrimerIngresoSolicitada(
+                                    cuenta.id(),
+                                    cuenta.correo(),
+                                    cuenta.nombre()
+                            )
                     ));
-                });
+        }
 
         return new SolicitudPrimerIngresoResponse(MENSAJE_SOLICITUD);
     }

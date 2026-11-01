@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -14,11 +13,14 @@ import '../providers/appointment_history_provider.dart';
 import 'appointments_pending_screen.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialties_provider.dart';
+import '../models/agenda_time.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
+import '../models/referral.dart';
 import '../providers/agenda_repository_provider.dart';
 import '../providers/availability_provider.dart';
+import '../providers/available_referrals_provider.dart';
 import '../repositories/agenda_repository.dart';
 
 const String _invalidRangeMessage =
@@ -125,10 +127,12 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       ref.read(appointmentHistoryRefreshProvider.notifier).refresh();
       await showDialog<void>(
         context: context,
-        builder: (_) => _BookedDialog(
+        builder: (dialogContext) => _BookedDialog(
           appointment: appointment,
           onViewAppointments: () {
-            Navigator.of(context).pop();
+            // El diálogo está en el navegador raíz; el de la pantalla es el
+            // de su rama del shell, y un pop ahí sacaría la pantalla misma.
+            Navigator.of(dialogContext).pop();
             context.go(kAppointmentsPath);
           },
         ),
@@ -270,7 +274,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
             pickerHelpText: 'Fecha desde',
             pickerTooltip: 'Elegir la fecha desde',
             firstDate: today,
-            lastDate: today.add(const Duration(days: 365)),
+            lastDate: today.add(const Duration(days: kMaxAdvanceDays)),
             textInputAction: TextInputAction.search,
             onChanged: (_) {
               if (_rangeError != null) setState(() => _rangeError = null);
@@ -286,7 +290,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
             pickerHelpText: 'Fecha hasta',
             pickerTooltip: 'Elegir la fecha hasta',
             firstDate: today,
-            lastDate: today.add(const Duration(days: 365)),
+            lastDate: today.add(const Duration(days: kMaxAdvanceDays)),
             initialPickerDate: () => parseUiDate(_fromController.text),
             errorText: _rangeError,
             textInputAction: TextInputAction.search,
@@ -412,10 +416,20 @@ class _Results extends ConsumerWidget {
                   title: Text(
                     '${formatUiDate(number.date)} · ${number.timeRange}',
                   ),
-                  subtitle: Text(
-                    '${number.doctor.fullName} · ${number.specialty.name}\n'
-                    '${number.clinic.name} (${number.clinic.location}) · '
-                    'Número ${number.number}',
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${number.doctor.fullName} · ${number.specialty.name}\n'
+                        '${number.clinic.name} (${number.clinic.location}) · '
+                        'Número ${number.number}',
+                      ),
+                      if (number.specialty.requiresReferral)
+                        const Text(
+                          'Requiere pase',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                    ],
                   ),
                   isThreeLine: true,
                   trailing: bookingNumberId == number.numberId
@@ -445,75 +459,74 @@ class _Confirmation {
   final int? referralId;
 }
 
-/// Pide confirmar el número elegido. Si la especialidad exige pase, pide
-/// también su identificador: el servidor no ofrece todavía un listado de
-/// pases para elegir uno, y valida que sea propio, vigente y sin usar.
-class _ConfirmBookingDialog extends StatefulWidget {
+/// Pide confirmar el número elegido. Si la especialidad exige pase, pide al
+/// servidor los pases del socio y muestra el que se va a usar: el primero que
+/// sea de la especialidad y no venza antes de la consulta (el servidor los
+/// ordena por vencimiento). Mientras carga, si falla o si no hay un pase
+/// utilizable no deja confirmar: el servidor rechazaría el pedido con
+/// `PASE_NO_VALIDO`. Si la lista estaba vieja y lo rechaza igual, el mensaje
+/// llega por el SnackBar y al reabrir se vuelve a pedir la lista.
+class _ConfirmBookingDialog extends ConsumerWidget {
   const _ConfirmBookingDialog({required this.number});
 
   final AvailableNumber number;
 
-  @override
-  State<_ConfirmBookingDialog> createState() => _ConfirmBookingDialogState();
-}
-
-class _ConfirmBookingDialogState extends State<_ConfirmBookingDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _referralController = TextEditingController();
-
-  @override
-  void dispose() {
-    _referralController.dispose();
-    super.dispose();
-  }
-
-  void _confirm() {
-    if (!_formKey.currentState!.validate()) return;
-    final text = _referralController.text.trim();
-    Navigator.pop(
-      context,
-      _Confirmation(referralId: text.isEmpty ? null : int.parse(text)),
-    );
+  Referral? _usableReferral(List<Referral> referrals) {
+    for (final referral in referrals) {
+      if (referral.specialty.id == number.specialty.id &&
+          !referral.expiresOn.isBefore(number.date)) {
+        return referral;
+      }
+    }
+    return null;
   }
 
   @override
-  Widget build(BuildContext context) {
-    final number = widget.number;
-    final needsReferral = number.specialty.requiresReferral;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final referrals = number.specialty.requiresReferral
+        ? ref.watch(availableReferralsProvider)
+        : null;
+    final referral = referrals?.hasValue == true && !referrals!.isLoading
+        ? _usableReferral(referrals.requireValue)
+        : null;
+    final canConfirm =
+        referrals == null ||
+        (referrals.hasValue && !referrals.isLoading && referral != null);
     return AlertDialog(
+      scrollable: true,
       title: const Text('Confirmar consulta'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '¿Agendás la consulta de ${number.specialty.name} con '
-              '${number.doctor.fullName} el ${formatUiDate(number.date)}, de '
-              '${number.timeRange}?',
-            ),
-            if (needsReferral) ...[
-              const SizedBox(height: 16),
-              const Text('Esta especialidad requiere un pase vigente.'),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('referral-id'),
-                controller: _referralController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(labelText: 'Número de pase'),
-                validator: (value) {
-                  final id = int.tryParse((value ?? '').trim());
-                  return id == null || id <= 0
-                      ? 'Ingresá el número de tu pase.'
-                      : null;
-                },
-                onFieldSubmitted: (_) => _confirm(),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '¿Agendás la consulta de ${number.specialty.name} con '
+            '${number.doctor.fullName} el ${formatUiDate(number.date)}, de '
+            '${number.timeRange}?',
+          ),
+          if (referrals != null) ...[
+            const SizedBox(height: 16),
+            referrals.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => _ReferralsError(
+                message: error is ApiException
+                    ? error.message
+                    : 'No pudimos cargar tus pases.',
+                onRetry: () => ref.invalidate(availableReferralsProvider),
               ),
-            ],
+              data: (_) => Text(
+                referral == null
+                    ? 'No encontramos un pase a ${number.specialty.name} '
+                          'vigente para el ${formatUiDate(number.date)}. El '
+                          'médico que te atienda puede emitirte uno.'
+                    : 'Esta especialidad requiere pase. Se usará el pase a '
+                          '${referral.specialty.name}, vigente hasta '
+                          '${formatUiDate(referral.expiresOn)}. Se consume al '
+                          'confirmar.',
+              ),
+            ),
           ],
-        ),
+        ],
       ),
       actions: [
         TextButton(
@@ -522,9 +535,36 @@ class _ConfirmBookingDialogState extends State<_ConfirmBookingDialog> {
         ),
         FilledButton(
           key: const Key('confirm-booking'),
-          onPressed: _confirm,
+          onPressed: canConfirm
+              ? () => Navigator.pop(
+                  context,
+                  _Confirmation(referralId: referral?.id),
+                )
+              : null,
           child: const Text('Confirmar'),
         ),
+      ],
+    );
+  }
+}
+
+/// El error de carga de los pases, con su "Reintentar".
+class _ReferralsError extends StatelessWidget {
+  const _ReferralsError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          message,
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
+        TextButton(onPressed: onRetry, child: const Text('Reintentar')),
       ],
     );
   }
@@ -553,10 +593,10 @@ class _BookedDialog extends StatelessWidget {
       ('Horario', a.timeRange),
       ('Consultorio', '${a.clinic.name} (${a.clinic.location})'),
       ('Número', '${a.number}'),
-      if (a.referralId != null) ('Pase', '${a.referralId}'),
       ('Agendada el', bookedAt),
     ];
     return AlertDialog(
+      scrollable: true,
       title: const Text('Consulta agendada'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

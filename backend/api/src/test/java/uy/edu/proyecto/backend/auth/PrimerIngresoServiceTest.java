@@ -1,7 +1,9 @@
 package uy.edu.proyecto.backend.auth;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -10,6 +12,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -32,11 +36,13 @@ class PrimerIngresoServiceTest {
             repository,
             passwordEncoder,
             eventPublisher,
-            8
+            8,
+            24
     );
 
     @Test
     void solicitudRespondeIgualConCuentaPendienteYPublicaCorreoTrasCommit() {
+        OffsetDateTime antes = OffsetDateTime.now(ZoneOffset.UTC);
         when(repository.buscarCuentaPendiente("67890127", "SOCIO"))
                 .thenReturn(Optional.of(new CuentaPendiente(
                         12L,
@@ -56,17 +62,54 @@ class PrimerIngresoServiceTest {
         ArgumentCaptor<PrimerIngresoLinkSolicitado> event =
                 ArgumentCaptor.forClass(PrimerIngresoLinkSolicitado.class);
         ArgumentCaptor<String> hash = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<OffsetDateTime> expiry =
+                ArgumentCaptor.forClass(OffsetDateTime.class);
         verify(repository).invalidarEnlacesPendientes(12L);
-        verify(repository).crearEnlace(eq(12L), hash.capture(), any());
+        verify(repository).crearEnlace(eq(12L), hash.capture(), expiry.capture());
         verify(eventPublisher).publishEvent(event.capture());
         assertEquals("ana@example.org", event.getValue().correo());
         assertEquals(12L, event.getValue().idCuenta());
         assertEquals(TokenHash.sha256(event.getValue().token()), hash.getValue());
+        assertTrue(expiry.getValue().isAfter(antes.plusHours(24).minusSeconds(1)));
+        assertTrue(expiry.getValue().isBefore(
+                OffsetDateTime.now(ZoneOffset.UTC).plusHours(24).plusSeconds(1)
+        ));
+    }
+
+    @Test
+    void cuentaActivaRecibeInstruccionesDeRecuperacionSinCrearEnlace() {
+        when(repository.buscarCuentaPendiente("67890127", "SOCIO"))
+                .thenReturn(Optional.empty());
+        when(repository.buscarCuentaActiva("67890127", "SOCIO"))
+                .thenReturn(Optional.of(new CuentaPendiente(
+                        12L,
+                        "ana@example.org",
+                        "Ana"
+                )));
+
+        SolicitudPrimerIngresoResponse response = service.solicitar(
+                new SolicitarPrimerIngresoRequest("67890127", "SOCIO")
+        );
+
+        assertEquals(
+                "Si su cédula se encuentra registrada, se le ha enviado un correo electrónico con las instrucciones.",
+                response.message()
+        );
+        ArgumentCaptor<CuentaActivaPrimerIngresoSolicitada> event =
+                ArgumentCaptor.forClass(CuentaActivaPrimerIngresoSolicitada.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertEquals("ana@example.org", event.getValue().correo());
+        assertEquals(12L, event.getValue().idCuenta());
+        assertFalse(event.getValue().toString().contains("ana@example.org"));
+        verify(repository, never()).invalidarEnlacesPendientes(any());
+        verify(repository, never()).crearEnlace(any(), any(), any());
     }
 
     @Test
     void solicitudSinCuentaDevuelveElMismoMensajeSinPublicarCorreo() {
         when(repository.buscarCuentaPendiente("67890127", "EMPLEADO"))
+                .thenReturn(Optional.empty());
+        when(repository.buscarCuentaActiva("67890127", "EMPLEADO"))
                 .thenReturn(Optional.empty());
 
         SolicitudPrimerIngresoResponse response = service.solicitar(
@@ -182,6 +225,42 @@ class PrimerIngresoServiceTest {
                 any(),
                 any()
         );
+        verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void rechazaDireccionAusenteAntesDeConsultarElEnlace() {
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.completar(new CompletarPrimerIngresoRequest(
+                        "token-valido",
+                        " ",
+                        "099111222",
+                        null,
+                        "claveSegura1"
+                ))
+        );
+
+        assertEquals("VALIDACION", error.getCode());
+        verify(repository, never()).activarConEnlace(any(), any(), any(), any(), any());
+        verifyNoInteractions(passwordEncoder);
+    }
+
+    @Test
+    void rechazaTelefonoAusenteAntesDeConsultarElEnlace() {
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.completar(new CompletarPrimerIngresoRequest(
+                        "token-valido",
+                        "Direccion",
+                        " ",
+                        null,
+                        "claveSegura1"
+                ))
+        );
+
+        assertEquals("VALIDACION", error.getCode());
+        verify(repository, never()).activarConEnlace(any(), any(), any(), any(), any());
         verifyNoInteractions(passwordEncoder);
     }
 }

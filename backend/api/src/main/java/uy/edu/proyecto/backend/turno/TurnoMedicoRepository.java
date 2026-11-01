@@ -116,6 +116,7 @@ public class TurnoMedicoRepository {
                        n.id_numero, n.numero,
                        n.hora_inicio, n.hora_fin,
                        consulta.id_consulta, consulta.estado AS consulta_estado,
+                       paciente.id_cuenta AS paciente_id,
                        paciente.ci AS paciente_ci,
                        persona.nombre AS paciente_nombre,
                        persona.apellido AS paciente_apellido,
@@ -162,6 +163,7 @@ public class TurnoMedicoRepository {
                                             rs.getString("consulta_estado"),
                                             new NumerosTurnoMedicoResponse
                                                     .Paciente(
+                                                    rs.getObject("paciente_id", Long.class),
                                                     rs.getString("paciente_ci"),
                                                     rs.getString(
                                                             "paciente_nombre"

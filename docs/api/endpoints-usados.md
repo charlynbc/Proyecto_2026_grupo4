@@ -47,23 +47,31 @@ PostgreSQL.
 |---|---|---|---|---|---|---|---|
 | 18 | `GET /api/consultas` | SOCIO | 11 | Mis consultas | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026 | [contrato #18](contrato-v1.md#e18) |
 | 19 | `GET /api/consultas/{id}` | SOCIO | 11 | Detalle de consulta | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026 | [contrato #19](contrato-v1.md#e19) |
-| 20 | `POST /api/consultas/{id}/cancelar` | SOCIO | 10 | Cancelar consulta | PROPUESTA | - | [contrato #20](contrato-v1.md#e20) |
+| 20 | `POST /api/consultas/{id}/cancelar` | SOCIO | 10 | Cancelar consulta | CONFIRMADA | rama feat/cierre-cancelaciones-pases | [contrato #20](contrato-v1.md#e20) |
 | 21 | `GET /api/historia-clinica` | SOCIO (solo propias) | 12 | Historia clínica | CONFIRMADA | - | [contrato #21](contrato-v1.md#e21) |
 | 22 | `GET /api/historia-clinica/{idAtencion}` | SOCIO (solo propias) | 12 | Detalle de atención | CONFIRMADA | - | [contrato #22](contrato-v1.md#e22) |
-| 23 | `POST /api/turnos/suspensiones/previsualizar` | FUNCIONARIO | 14 | Confirmación previa | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #23](contrato-v1.md#e23) |
-| 24 | `POST /api/turnos/suspensiones` | FUNCIONARIO | 14 | Suspender fechas | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #24](contrato-v1.md#e24) |
-| 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter pendiente | [contrato #25](contrato-v1.md#e25) |
+| 23 | `POST /api/turnos/suspensiones/previsualizar` | FUNCIONARIO | 14 | Confirmación previa (pantalla Flutter `/funcionario/turnos/suspender`) | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter rama feat/front-suspender-turnos 29/10/2026 | [contrato #23](contrato-v1.md#e23) |
+| 24 | `POST /api/turnos/suspensiones` | FUNCIONARIO | 14 | Suspender fechas (pantalla Flutter `/funcionario/turnos/suspender`) | CONFIRMADA | Backend en integracion/proyecto-2026-avances; Flutter rama feat/front-suspender-turnos 29/10/2026 | [contrato #24](contrato-v1.md#e24) |
+| 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | feat/front-rehabilitar-turnos 29/10/2026 | [contrato #25](contrato-v1.md#e25) |
 | 26 | `GET /api/avisos-llegada/consultas-hoy?ci=` | FUNCIONARIO | 16 | Buscar socio | CONFIRMADA | - | [contrato #26](contrato-v1.md#e26) |
 | 27 | `POST /api/avisos-llegada` | FUNCIONARIO | 16 | Registrar llegada | CONFIRMADA | - | [contrato #27](contrato-v1.md#e27) |
 | 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas | CONFIRMADA | Backend en integracion/proyecto-2026-avances 23/10/2026; Flutter pendiente | [contrato #28](contrato-v1.md#e28) |
-| 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos | CONFIRMADA | - | [contrato #29](contrato-v1.md#e29) |
-| 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21 | Pacientes del turno | CONFIRMADA | - | [contrato #30](contrato-v1.md#e30) |
-| 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases | CONFIRMADA | - | [contrato #31](contrato-v1.md#e31) |
+| 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos (pantalla Flutter `/medico/turnos`, sondeo cada 15 s, PR #39) | CONFIRMADA | - | [contrato #29](contrato-v1.md#e29) |
+| 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21, 22 | Pacientes del turno (`consulta.paciente.id` para abrir historia #40; con `llegada`, `orden`, `sentido`; sondeo cada 15 s) | CONFIRMADA | - | [contrato #30](contrato-v1.md#e30) |
+| 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases (pantalla Flutter `/medico/consultas/:id/resultado`) | CONFIRMADA | PR #40 | [contrato #31](contrato-v1.md#e31) |
 | 32 | `GET /api/notificaciones` | SOCIO | RNF-23 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
 | 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push | CAMBIADA | - | [contrato #33](contrato-v1.md#e33) |
-| 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | PROPUESTA | - | [contrato #34](contrato-v1.md#e34) |
-| 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | PROPUESTA | - | [contrato #35](contrato-v1.md#e35) |
-| 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | PROPUESTA | - | [contrato #36](contrato-v1.md#e36) |
+| 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | CONFIRMADA (integrada en avances, PR #24) | - | [contrato #34](contrato-v1.md#e34) |
+| 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | CONFIRMADA (integrada en avances, PR #25; agrega `fechasActivas` y `utilizacion`; interpretación histórica desde `turno_evento` en el PR #38, JSON sin cambios) | - | [contrato #35](contrato-v1.md#e35) |
+| 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | CONFIRMADA (integrada en avances; usa `estados`, `totalConsultas`, `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`) | - | [contrato #36](contrato-v1.md#e36) |
+| 37 | `GET /api/socios/me/pases/disponibles` | SOCIO | 09 | Confirmar agenda (pase que se usará) | CONFIRMADA | feat/front-socio-sobre-integracion 25/10/2026 | Sin sección en el contrato (P-08 sigue diciendo que no hay endpoint). Ver "Cambios de campos acordados". |
+| 38 | `POST /api/medico/consultas/{id}/cancelar` | MEDICO | 27 | Cancelar una consulta del médico (motivo obligatorio) | CONFIRMADA | - | [contrato #38](contrato-v1.md#e38) |
+| 39 | `POST /api/medico/turnos/{id}/cancelar` | MEDICO | 27 | Cancelar todo el turno de una fecha y suspenderla (motivo obligatorio) | CONFIRMADA | - | [contrato #39](contrato-v1.md#e39) |
+| 40 | `GET /api/medico/pacientes/{socioId}/historia-clinica` | MEDICO | 22 | Historia clínica previa del paciente (requiere consulta AGENDADA vigente con él) | CONFIRMADA | - | [contrato #40](contrato-v1.md#e40) |
+| 41 | `GET /api/medico/atenciones` | MEDICO | 25 | Consultas atendidas por el médico (`fechaDesde`/`fechaHasta` obligatorias; `paciente`, `especialidadId`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #41](contrato-v1.md#e41) |
+| 42 | `GET /api/medico/atenciones/{idAtencion}` | MEDICO | 25 | Detalle de una atención propia | CONFIRMADA | - | [contrato #42](contrato-v1.md#e42) |
+| 43 | `GET /api/medico/pases` | MEDICO | 26 | Pases emitidos por el médico (`situacion`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #43](contrato-v1.md#e43) |
+| 44 | `POST /api/funcionario/consultas/{id}/cancelar` | FUNCIONARIO | 19 | Cancelar consulta a pedido del socio | CONFIRMADA | - | [contrato #44](contrato-v1.md#e44) |
 
 ## Rutas de la prueba de concepto
 
@@ -82,7 +90,7 @@ migran: se usa solo el modelo del Proyecto 2026.
 | GET /api/profesionales/{id}/horarios | #16 `GET /api/disponibilidad` | migrado en Flutter |
 | POST /api/reservas | #17 `POST /api/consultas` | migrado en Flutter (reserva por `numeroId`) |
 | GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | migrado en backend y Flutter; usa filtros y paginación del contrato |
-| PATCH /api/reservas/{id}/cancelacion | #20 `POST /api/consultas/{id}/cancelar` | **Pendiente de implementación**; acción deshabilitada |
+| PATCH /api/reservas/{id}/cancelacion | #20 `POST /api/consultas/{id}/cancelar` | Implementado en backend; el frontend debe habilitar la acción |
 | `POST /api/notificaciones/registro` | #33 | se mantiene (no usa el esquema `"POC"`) |
 
 La ruta de registro de notificaciones que existe en el backend es
@@ -103,9 +111,11 @@ Al 26/10/2026, el backend implementa las rutas #10, #12, #18, #21, #22, #28 y
 de verdad para las consultas de consola y puede diferir de propuestas previas
 en `contrato-v1.md`: por ejemplo, `GET /api/usuarios` usa `texto` (no `q`), y
 `GET /api/historia-clinica` devuelve una lista sin paginar con los campos
-clínicos permitidos (no el resumen paginado propuesto). Ver el manual enlazado
+clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige paginación). Ver el manual enlazado
 arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
 
-(Vacío. Cada vez que Carlos confirme o cambie algo, una línea: fecha, # de ruta, qué cambió.)
+- 31/10/2026, #30: `consulta.paciente` agrega `id` (entero, identificador de cuenta del socio) sin eliminar `ci`, `nombre` ni `apellido`. El frontend debe usar `consulta.paciente.id` como `{socioId}` en #40 para RF-22. Los números libres conservan `consulta: null`.
+
+- 25/10/2026, #37: la ruta de pases disponibles no tiene sección propia en el contrato. El backend (`PaseController`, rama de integración) responde una lista de `PaseDTO` con `{id, especialidadDestino: {id, nombre, requierePase}, emitidoEn, venceEl}`; `emitidoEn` es fecha y hora con offset y `venceEl` es una fecha `aaaa-mm-dd`. Responde 401 `TOKEN_INVALIDO` si el identificador del token no es válido.

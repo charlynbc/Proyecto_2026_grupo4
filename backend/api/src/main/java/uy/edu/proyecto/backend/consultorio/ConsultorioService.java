@@ -21,6 +21,21 @@ public class ConsultorioService {
         return repository.listar();
     }
 
+    public List<Consultorio> listar(String nombre, String ubicacion, String orden) {
+        if ((nombre != null && nombre.length() > 120)
+                || (ubicacion != null && ubicacion.length() > 200)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "Los filtros superan la longitud permitida");
+        }
+        String ordenFinal = orden == null || orden.isBlank() ? "nombre" : orden.trim();
+        if (!List.of("nombre", "ubicacion").contains(ordenFinal)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "orden debe ser nombre o ubicacion");
+        }
+        return repository.listarFiltrados(nombre == null ? null : nombre.trim(),
+                ubicacion == null ? null : ubicacion.trim(), ordenFinal);
+    }
+
     public Consultorio crear(String nombre, String ubicacion) {
         if (nombre == null || nombre.isBlank()) {
             throw new ApiException(

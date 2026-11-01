@@ -16,7 +16,15 @@ import uy.edu.proyecto.backend.especialidad.Especialidad;
 @Repository
 public class HistoriaClinicaRepository {
 
+    // La fecha de atención es el día calendario de Montevideo, independiente de la zona de la sesión.
+    private static final String FECHA_ATENCION =
+            "(a.registrada_en AT TIME ZONE 'America/Montevideo')::date";
+
     private final JdbcTemplate jdbcTemplate;
+
+    private static String escaparLike(String texto) {
+        return texto.replace("!", "!!").replace("%", "!%").replace("_", "!_");
+    }
 
     public HistoriaClinicaRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -35,7 +43,7 @@ public class HistoriaClinicaRepository {
         StringBuilder sql = new StringBuilder(
                 """
                 SELECT a.id_atencion,
-                       a.registrada_en::date AS fecha_atencion,
+                       (a.registrada_en AT TIME ZONE 'America/Montevideo')::date AS fecha_atencion,
                        medico.id_cuenta AS medico_id,
                        medico_persona.nombre AS medico_nombre,
                        medico_persona.apellido AS medico_apellido,
@@ -61,11 +69,11 @@ public class HistoriaClinicaRepository {
         parametros.add(socioId);
 
         if (fechaDesde != null) {
-            sql.append(" AND a.registrada_en::date >= ?");
+            sql.append(" AND " + FECHA_ATENCION + " >= ?");
             parametros.add(fechaDesde);
         }
         if (fechaHasta != null) {
-            sql.append(" AND a.registrada_en::date <= ?");
+            sql.append(" AND " + FECHA_ATENCION + " <= ?");
             parametros.add(fechaHasta);
         }
         if (especialidadId != null) {
@@ -77,12 +85,12 @@ public class HistoriaClinicaRepository {
             parametros.add(medicoId);
         }
         if (texto != null && !texto.isBlank()) {
-            sql.append(" AND LOWER(COALESCE(a.tratamiento, '')) LIKE LOWER(?)");
-            parametros.add("%" + texto.trim() + "%");
+            sql.append(" AND LOWER(COALESCE(a.tratamiento, '')) LIKE LOWER(?) ESCAPE '!'");
+                        parametros.add("%" + escaparLike(texto.trim()) + "%");
         }
 
         String campoOrden = "fecha_atencion".equals(orden)
-                ? "a.registrada_en::date"
+                ? FECHA_ATENCION
                 : "especialidad.nombre";
         sql.append(" ORDER BY ")
                 .append(campoOrden)
@@ -139,7 +147,7 @@ public class HistoriaClinicaRepository {
         List<HistoriaClinicaDTO> items = jdbcTemplate.query(
                 """
                 SELECT a.id_atencion,
-                       a.registrada_en::date AS fecha_atencion,
+                       (a.registrada_en AT TIME ZONE 'America/Montevideo')::date AS fecha_atencion,
                        medico.id_cuenta AS medico_id,
                        medico_persona.nombre AS medico_nombre,
                        medico_persona.apellido AS medico_apellido,

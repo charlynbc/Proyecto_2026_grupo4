@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/config/app_config.dart';
+import '../../../core/fakes/fake_database.dart';
 import '../../../core/network/dio_client.dart';
 import '../models/appointment.dart';
 import '../models/appointment_history_page.dart';
 import '../models/appointment_history_query.dart';
 import '../repositories/api_appointment_history_repository.dart';
 import '../repositories/appointment_history_repository.dart';
+import '../repositories/fake_appointment_history_repository.dart';
 
 class AppointmentHistoryRefresh extends Notifier<int> {
   @override
@@ -21,10 +24,20 @@ final appointmentHistoryRefreshProvider =
 
 final appointmentHistoryRepositoryProvider =
     FutureProvider<AppointmentHistoryRepository>((ref) async {
+      if (ref.watch(useFakesProvider)) {
+        return FakeAppointmentHistoryRepository(
+          ref.watch(fakeDatabaseProvider),
+        );
+      }
       final dio = await ref.watch(dioProvider.future);
       return ApiAppointmentHistoryRepository(dio);
     });
 
+/// La página de consultas que corresponde a [AppointmentHistoryQuery].
+///
+/// Sin reintento automático (`retry` en `null`): Riverpod 3 reintenta solo
+/// hasta 10 veces, con esperas de 0,2 a 6,4 s, y durante ese tiempo la
+/// pantalla seguiría mostrando el cargando en vez del aviso con "Reintentar".
 final appointmentHistoryProvider =
     FutureProvider.family<AppointmentHistoryPage, AppointmentHistoryQuery>((
       ref,
@@ -35,8 +48,12 @@ final appointmentHistoryProvider =
         appointmentHistoryRepositoryProvider.future,
       );
       return repository.list(query);
-    });
+    }, retry: (_, _) => null);
 
+/// El detalle de la consulta [id].
+///
+/// Sin reintento automático (`retry` en `null`), por lo mismo que el
+/// historial: el aviso con "Reintentar" tiene que verse apenas falla.
 final appointmentDetailProvider = FutureProvider.family<Appointment, int>((
   ref,
   id,
@@ -46,4 +63,4 @@ final appointmentDetailProvider = FutureProvider.family<Appointment, int>((
     appointmentHistoryRepositoryProvider.future,
   );
   return repository.get(id);
-});
+}, retry: (_, _) => null);

@@ -40,11 +40,11 @@ class HistoriaClinicaRepositoryTest {
         verify(jdbc).query(sql.capture(), any(RowMapper.class), parametros.capture());
 
         assertTrue(sql.getValue().contains("WHERE consulta.id_socio = ?"));
-        assertTrue(sql.getValue().contains("a.registrada_en::date >= ?"));
-        assertTrue(sql.getValue().contains("a.registrada_en::date <= ?"));
+        assertTrue(sql.getValue().contains("(a.registrada_en AT TIME ZONE 'America/Montevideo')::date >= ?"));
+        assertTrue(sql.getValue().contains("(a.registrada_en AT TIME ZONE 'America/Montevideo')::date <= ?"));
         assertTrue(sql.getValue().contains("especialidad.id_especialidad = ?"));
         assertTrue(sql.getValue().contains("medico.id_cuenta = ?"));
-        assertTrue(sql.getValue().contains("LOWER(COALESCE(a.tratamiento, '')) LIKE LOWER(?)"));
+        assertTrue(sql.getValue().contains("LOWER(COALESCE(a.tratamiento, '')) LIKE LOWER(?) ESCAPE '!'"));
         assertTrue(sql.getValue().contains("ORDER BY especialidad.nombre asc, a.id_atencion asc"));
         assertTrue(java.util.Arrays.equals(
                 new Object[] {
@@ -57,6 +57,19 @@ class HistoriaClinicaRepositoryTest {
                 },
                 parametros.getValue()
         ));
+    }
+
+    @Test
+    void escapaComodinesLikeDelTextoParaBuscarLiteralmente() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.query(anyString(), any(RowMapper.class), any(Object[].class)))
+                .thenReturn(List.of());
+
+        new HistoriaClinicaRepository(jdbc).listar(91L, null, null, null, null, "100%_a!", "fecha_atencion", "desc");
+
+        ArgumentCaptor<Object[]> parametros = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbc).query(anyString(), any(RowMapper.class), parametros.capture());
+        assertTrue(java.util.Arrays.equals(new Object[] {91L, "%100!%!_a!!%"}, parametros.getValue()));
     }
 
     @Test

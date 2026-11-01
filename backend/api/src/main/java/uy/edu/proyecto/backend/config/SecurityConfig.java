@@ -167,6 +167,15 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.GET,
+                                                "/api/estadisticas",
+                                                "/api/estadisticas/**"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
                                                 "/api/historia-clinica",
                                                 "/api/historia-clinica/**"
                                         )
@@ -209,7 +218,16 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
-                                                "/api/consultas"
+                                                "/api/funcionario/consultas/*/cancelar"
+                                        )
+                                        .hasRole(
+                                                "FUNCIONARIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/consultas",
+                                                "/api/consultas/*/cancelar"
                                         )
                                         .hasRole(
                                                 "SOCIO"
@@ -236,6 +254,39 @@ public class SecurityConfig {
                                                 HttpMethod.GET,
                                                 "/api/medico/turnos",
                                                 "/api/medico/turnos/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/medico/turnos/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/medico/pacientes/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/medico/atenciones",
+                                                "/api/medico/atenciones/**"
+                                        )
+                                        .hasRole(
+                                                "MEDICO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/medico/pases"
                                         )
                                         .hasRole(
                                                 "MEDICO"

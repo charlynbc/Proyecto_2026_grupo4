@@ -40,6 +40,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+import uy.edu.proyecto.backend.auth.CuentaActivaPrimerIngresoSolicitada;
 import uy.edu.proyecto.backend.auth.PrimerIngresoLinkSolicitado;
 
 /**
@@ -114,10 +115,17 @@ abstract class BaseIntegracionIT {
     /** Sustituye al correo: guarda el enlace de primer ingreso sin enviar nada. */
     static class CapturaEnlaces {
         private final List<PrimerIngresoLinkSolicitado> eventos = new CopyOnWriteArrayList<>();
+        private final List<CuentaActivaPrimerIngresoSolicitada> avisosCuentaActiva =
+                new CopyOnWriteArrayList<>();
 
         @EventListener
         void alSolicitar(PrimerIngresoLinkSolicitado evento) {
             eventos.add(evento);
+        }
+
+        @EventListener
+        void alInformarCuentaActiva(CuentaActivaPrimerIngresoSolicitada evento) {
+            avisosCuentaActiva.add(evento);
         }
 
         PrimerIngresoLinkSolicitado ultimo() {
@@ -126,10 +134,21 @@ abstract class BaseIntegracionIT {
 
         void limpiar() {
             eventos.clear();
+            avisosCuentaActiva.clear();
         }
 
         int cantidad() {
             return eventos.size();
+        }
+
+        CuentaActivaPrimerIngresoSolicitada ultimoAvisoCuentaActiva() {
+            return avisosCuentaActiva.isEmpty()
+                    ? null
+                    : avisosCuentaActiva.get(avisosCuentaActiva.size() - 1);
+        }
+
+        int cantidadAvisosCuentaActiva() {
+            return avisosCuentaActiva.size();
         }
     }
 

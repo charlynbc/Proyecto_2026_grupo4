@@ -188,14 +188,20 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 34 | `GET /api/estadisticas/especialidades` | `EstadisticaService.calcularPorEspecialidad(filtro)` | `FiltroEstadisticaDTO`, `EstadisticaEspecialidadDTO` | S20 | 39 |
 | 35 | `GET /api/estadisticas/turnos` | `EstadisticaService.calcularPorTurno(filtro)` | `FiltroEstadisticaDTO`, `EstadisticaTurnoDTO` | S21 | 40 |
 | 36 | `GET /api/estadisticas/consultas` | `EstadisticaService.calcularConsultas(filtro)` | `FiltroEstadisticaDTO`, `EstadisticaConsultaDTO` | S22 | 41 |
+| 38 | `POST /api/medico/consultas/{id}/cancelar` | `CancelacionService.cancelarPorMedico(medicoId, consultaId, motivo)` (S25) | `CancelacionMedicoDTO`, `CancelacionDTO` | S25 | 27 |
+| 39 | `POST /api/medico/turnos/{id}/cancelar` | ídem con alcance de turno completo (S25) | `CancelacionMedicoDTO`, `CancelacionTurnoDTO` | S25 | 27 |
+| 40 | `GET /api/medico/pacientes/{socioId}/historia-clinica` | lectura de la historia del paciente con consulta habilitante (sin operación propia en 2.1 a 2.7) | `HistoriaDTO`, `AtencionDTO` | - | 22 |
+| 41 | `GET /api/medico/atenciones` | consulta de las atenciones registradas por el médico (sin operación propia en 2.1 a 2.7) | `AtencionMedicaDTO` | - | 25 |
+| 42 | `GET /api/medico/atenciones/{idAtencion}` | detalle de una atención propia | `AtencionMedicaDTO` | - | 25 |
+| 43 | `GET /api/medico/pases` | consulta de los pases emitidos por el médico (sin operación propia en 2.1 a 2.7) | `PaseEmitidoDTO` | - | 26 |
 
-La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`.
+La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`; los números posteriores al #36 se reflejan en ambos documentos (el #37 es pases disponibles; el #44 es cancelación por funcionario).
 
 ---
 
 ## 3. Endpoints
 
-Cada endpoint indica: roles, RF, operación del Diseño, parámetros, respuesta con ejemplo y errores. Todos los errores usan la forma de la sección 5. **Los errores `400 VALIDACION`, `401 NO_AUTENTICADO` y `403 SIN_PERMISO` aplican a todo endpoint protegido y no se repiten en cada tabla**, salvo que tengan un significado particular. Un `500 ERROR_INTERNO` puede ocurrir en cualquiera.
+Cada endpoint indica: roles, RF, operación del Diseño, parámetros, respuesta con ejemplo y errores. Todos los errores usan la forma de la sección 5. **Los errores `400 VALIDACION`, `401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican a todo endpoint protegido y no se repiten en cada tabla**, salvo que tengan un significado particular. Un `500 ERROR_INTERNO` puede ocurrir en cualquiera.
 
 ### 3.1 Sesión y primer ingreso
 
@@ -308,11 +314,13 @@ Sin cuerpo. Revoca la sesión en el servidor y borra la cookie de renovación. E
 
 Lo que pase después (enviar el enlace de un solo uso válido por 24 horas, enviar el correo de "ya está activa" o no enviar nada) es interno y asíncrono; no cambia la respuesta ni su tiempo apreciable. No se puede enumerar CI con este endpoint.
 
+**Implementación y correo (verificado 27/10/2026).** El `202` solo significa que el pedido fue aceptado: el correo sale después del commit, en segundo plano, y su fallo no cambia la respuesta. El enlace es `FIRST_LOGIN_URL + "?token=<token>"`, con `FIRST_LOGIN_URL=https://<host>/#/primer-ingreso` (Flutter web usa `#`), de modo que el cliente recibe `/#/primer-ingreso?token=…` (resuelve P-34). El token es aleatorio de 256 bits, solo se guarda su hash SHA-256, vence a las 24 horas y pedir uno nuevo invalida los anteriores. Un acceso que no corresponde al rol (por ejemplo `SOCIO` para un médico) responde igual y no envía enlace. Proveedores: ver `docs/api/railway-correo.md`.
+
 **Errores**
 
 | Status | `code` | Cuándo |
 |---|---|---|
-| 400 | `VALIDACION` | Falta un campo o `acceso` inválido. Solo por forma del pedido; nunca depende de si la CI existe. |
+| 400 | `VALIDACION` | Falta un campo, `acceso` inválido o CI con dígito verificador inválido. Solo por forma del pedido; nunca depende de si la CI existe. |
 
 <a id="e05"></a>
 #### #5 · `POST /api/auth/primer-ingreso/completar`
@@ -358,6 +366,8 @@ El correo **no** se envía ni se puede modificar en el primer ingreso (RF-02).
 
 La cuenta queda activa y el usuario inicia sesión por #1. No devuelve token: no inicia sesión sola.
 
+Errores: `400 ENLACE_INVALIDO` (mismo código y mensaje si el enlace no existe, venció, ya se usó, fue reemplazado por uno más nuevo o la cuenta fue inactivada) y `400 VALIDACION` (falta `direccion`/`telefono1`/`password`, `password` de menos de 8 caracteres o de más de 72 bytes, teléfonos de más de 30 caracteres). Un `400 VALIDACION` no consume el enlace. El empleado inicia sesión con `acceso: "EMPLEADO"` y `plataforma: "WEB"`.
+
 **Errores**
 
 | Status | `code` | Cuándo |
@@ -375,7 +385,8 @@ Preguntas relacionadas: P-04, P-05, P-06, P-18.
 - **Roles:** cualquier rol autenticado.
 - **RF:** RF-29 (catálogo), y los formularios de RF-08, RF-13, RF-14, RF-17, RF-24 y RF-31. **Diseño:** `EspecialidadDTO`. **Estado:** PROPUESTA.
 
-Sin parámetros. Devuelve todas las especialidades, sin paginar, ordenadas por `nombre`. Los filtros y el orden de RF-36 (consulta de especialidades por el administrador) no están en este contrato.
+Sin parámetros devuelve todas las especialidades, sin paginar, ordenadas por `nombre`.
+**RF-36 implementado:** filtros opcionales `nombre` (contiene texto, sin distinguir mayúsculas, máximo 120 caracteres), `requierePase` (`true` o `false`). Orden opcional `orden=nombre` (predeterminado) o `orden=fechaAlta` (ascendente). Se pueden combinar los filtros. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva exactamente la respuesta original.
 
 **Respuesta 200**
 
@@ -423,7 +434,8 @@ Sin parámetros. Devuelve todas las especialidades, sin paginar, ordenadas por `
 - **Roles:** cualquier rol autenticado.
 - **RF:** RF-33 (catálogo) y el formulario de RF-13. **Diseño:** `ConsultorioDTO`. **Estado:** PROPUESTA.
 
-Sin parámetros. Todos los consultorios, sin paginar, ordenados por `nombre`. Los filtros de RF-37 no están en este contrato.
+Sin parámetros devuelve todos los consultorios, sin paginar, ordenados por `nombre`.
+**RF-37 implementado:** filtros opcionales `nombre` (contiene nombre o número textual, sin distinguir mayúsculas, máximo 120 caracteres), `ubicacion` (contiene texto sin distinguir mayúsculas, máximo 200 caracteres). Orden opcional `orden=nombre` (predeterminado) o `orden=ubicacion` (ascendente). Los filtros se pueden combinar. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva la respuesta original.
 
 **Respuesta 200**
 
@@ -468,8 +480,8 @@ Sin parámetros. Todos los consultorios, sin paginar, ordenados por `nombre`. Lo
 <a id="e10"></a>
 #### #10 · `GET /api/medicos`
 
-- **Roles:** cualquier rol autenticado.
-- **RF:** RF-13, RF-08, RF-14, RF-15, RF-17, RF-18 (selectores de médico). **Diseño:** sin operación en 2.1 a 2.7. **Estado:** PROPUESTA.
+- **Roles:** FUNCIONARIO (así está implementado y protegido en `SecurityConfig`; el alta de turno es de FUNCIONARIO).
+- **RF:** RF-13, RF-08, RF-14, RF-15, RF-17, RF-18 (selectores de médico). **Diseño:** sin operación en 2.1 a 2.7. **Estado:** IMPLEMENTADO.
 
 | Parámetro | Tipo | Obligatorio | Notas |
 |---|---|---|---|
@@ -477,22 +489,20 @@ Sin parámetros. Todos los consultorios, sin paginar, ordenados por `nombre`. Lo
 
 Devuelve médicos **activos**, sin paginar, ordenados por `apellido` y `nombre`. Cada médico trae sus especialidades, porque el alta de turno exige "una de las del médico" (RF-13). No expone CI, correo ni teléfonos.
 
-**Respuesta 200**
+**Respuesta 200** (una lista JSON, sin envoltorio `items`; el cliente Flutter también tolera `{"items": [...]}`)
 
 ```json
-{
-  "items": [
-    {
-      "id": 17,
-      "nombre": "Marta",
-      "apellido": "Rodríguez",
-      "especialidades": [
-        { "id": 1, "nombre": "Medicina General", "requierePase": false },
-        { "id": 3, "nombre": "Cardiología", "requierePase": true }
-      ]
-    }
-  ]
-}
+[
+  {
+    "id": 17,
+    "nombre": "Marta",
+    "apellido": "Rodríguez",
+    "especialidades": [
+      { "id": 1, "nombre": "Medicina General", "requierePase": false },
+      { "id": 3, "nombre": "Cardiología", "requierePase": true }
+    ]
+  }
+]
 ```
 
 Preguntas relacionadas: P-16.
@@ -575,9 +585,9 @@ Una fila por cuenta. Una persona con varias cuentas (incluidas las de empleado a
 |---|---|---|
 | `rol` | `Rol` | |
 | `estado` | `EstadoCuenta` | `ACTIVA` o `INACTIVA`. |
-| `q` | texto | **PROPUESTA:** coincidencia parcial, sin distinguir mayúsculas, con CI o apellido. |
-| `orden` | `apellido` o `fechaAlta` | Por defecto `apellido`. |
-| `sentido` | `asc` o `desc` | Por defecto `asc`. |
+| `q` | texto | Coincidencia parcial, sin distinguir mayúsculas, con CI o apellido. `%` y `_` se buscan literalmente. `texto` se acepta como alias; si ambos llegan con valores distintos, `400 VALIDACION`. |
+| `orden` | `apellido` o `fechaAlta` | Por defecto `apellido`. Otro valor: `400 VALIDACION`. Desempate estable por `id`. |
+| `sentido` | `asc` o `desc` | Por defecto `asc`. Otro valor: `400 VALIDACION`. |
 | `page`, `size` | | Sección 1.3. |
 
 **Respuesta 200** (`UsuarioDTO`)
@@ -828,9 +838,8 @@ El `socioId` sale del token. Toda la validación y la inserción ocurren en una 
 | 409 | `TURNO_SUSPENDIDO` | La fecha se suspendió mientras tanto (S04, concurrencia adicional). |
 | 409 | `ANTICIPACION_MAXIMA` | La fecha está a más de 30 días. |
 | 409 | `ANTICIPACION_MINIMA` | Faltan menos de 2 horas para el inicio del número. |
-| 409 | `LIMITE_ESPECIALIDAD` | Ya tiene una consulta activa en esa especialidad. |
-| 409 | `LIMITE_TOTAL` | Ya tiene 3 consultas activas. |
-| 409 | `SUPERPOSICION_CONSULTA` | Se solapa en el tiempo con otra consulta agendada del socio. |
+| 409 | `LIMITE_ESPECIALIDAD` | Ya tiene una consulta activa en esa especialidad. «Activa» = `AGENDADA` cuyo día (America/Montevideo) es hoy o futuro; una `AGENDADA` sin resultado de un día ya terminado es la inasistencia derivada (`NO_ASISTIO`/`NO_ATENDIDA`) y no cuenta. |
+| 409 | `LIMITE_TOTAL` | Ya tiene 3 consultas activas (misma definición de «activa»). || 409 | `SUPERPOSICION_CONSULTA` | Se solapa en el tiempo con otra consulta agendada del socio. |
 | 409 | `PASE_NO_VALIDO` | La especialidad requiere pase y no hay uno utilizable: no existe, es de otro socio o de otra especialidad, ya se usó (también si lo usó una reserva simultánea) o vence antes de la fecha de la consulta. |
 
 Preguntas relacionadas: P-07, P-08.
@@ -919,8 +928,8 @@ positivo y los registros inexistentes o ajenos producen la misma respuesta
 <a id="e20"></a>
 #### #20 · `POST /api/consultas/{id}/cancelar`
 
-- **Roles:** SOCIO (solo las propias). La cancelación a pedido del socio por un funcionario (RF-19) no está en este contrato.
-- **RF:** RF-10. **Diseño:** `cancelarPorSocio(socioId, consultaId): CancelacionDTO` (S23). **Estado:** PROPUESTA.
+- **Roles:** SOCIO (solo las propias). La cancelación a pedido del socio por funcionario (RF-19) se documenta en la sección 3.10.
+- **RF:** RF-10. **Diseño:** `cancelarPorSocio(socioId, consultaId): CancelacionDTO` (S23). **Estado:** CONFIRMADA (implementada e integrada en `integracion/proyecto-2026-avances`). Un id no numérico o ≤ 0 devuelve 400 `VALIDACION`.
 
 Sin cuerpo. Pasa la consulta a `CANCELADA_SOCIO`, la conserva en el histórico, libera el número y devuelve el pase usado si sigue vigente, con su vencimiento original (RF-09, RF-10).
 
@@ -948,74 +957,58 @@ Sin cuerpo. Pasa la consulta a `CANCELADA_SOCIO`, la conserva en el histórico, 
 #### #21 · `GET /api/historia-clinica`
 
 - **Roles:** SOCIO (solo la propia).
-- **RF:** RF-12. **Diseño:** `AtencionService.obtenerHistoria(socioId, filtros: FiltroHistoriaDTO): HistoriaDTO` (S06). **Estado:** PROPUESTA.
+- **RF:** RF-12. **Clase:** `HistoriaClinicaController` → `HistoriaClinicaService` → `HistoriaClinicaRepository`. **Estado:** CONFIRMADA (implementada y probada con PostgreSQL real en `HistoriaClinicaIT`).
 
-El servidor autoriza la identidad del socio con el token. **No existe parámetro para consultar la historia de otra persona** (S06).
+El servidor toma la identidad del socio del JWT validado. **No existe parámetro para consultar la historia de otra persona**: un `socioId` enviado por el cliente se ignora.
 
 | Parámetro | Tipo | Notas |
 |---|---|---|
-| `fechaDesde`, `fechaHasta` | fecha | |
+| `fechaDesde`, `fechaHasta` | fecha `YYYY-MM-DD` | Inclusivas. Se aplican a la fecha de atención en `America/Montevideo`. |
 | `especialidadId` | entero | |
 | `medicoId` | entero | |
-| `texto` | texto | Búsqueda opcional en el tratamiento (RF-12). |
-| `orden` | `fecha` o `especialidad` | Por defecto `fecha`. |
+| `texto` | texto | Contenido en el tratamiento, sin distinguir mayúsculas. `%` y `_` se buscan literalmente. |
+| `orden` | `fecha` (alias de `fecha_atencion`), `fecha_atencion` o `especialidad` | Por defecto `fecha_atencion`. |
 | `sentido` | `asc` o `desc` | Por defecto `desc`. |
-| `page`, `size` | | Sección 1.3. Los filtros se combinan. |
 
-**Respuesta 200** (`HistoriaDTO` con `AtencionDTO` en `items`; **PROPUESTA:** paginada, P-11). La lista no trae el contenido clínico: afección, tratamiento y observaciones solo viajan en #22.
+Los filtros se combinan con AND. **Decisión sobre paginación:** RF-12 no la exige y el frontend aún no consume este endpoint, así que la respuesta es una **lista sin paginar** (la propuesta paginada `{items,page,size,total}` queda descartada). Si el volumen lo justifica, se acordará un contrato nuevo.
+
+**Respuesta 200** (`List<HistoriaClinicaDTO>`; vacía `[]` si no hay atenciones). Incluye el contenido clínico y los pases, resueltos con una sola consulta adicional (sin N+1).
 
 ```json
-{
-  "items": [
-    {
-      "id": 5530,
-      "consultaId": 9001,
-      "fecha": "2026-10-20",
-      "medico": { "id": 17, "nombre": "Marta", "apellido": "Rodríguez" },
-      "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
-      "cantidadPases": 1
-    }
-  ],
-  "page": 0,
-  "size": 20,
-  "total": 1
-}
+[
+  {
+    "idAtencion": 5530,
+    "fechaAtencion": "2026-10-20",
+    "medicoId": 17,
+    "medicoNombre": "Marta",
+    "medicoApellido": "Rodríguez",
+    "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
+    "afeccion": "Hipertensión arterial leve",
+    "tratamiento": "Control de dieta y medicación indicada",
+    "observaciones": null,
+    "pases": [
+      {
+        "id": 78,
+        "especialidad": { "id": 4, "nombre": "Nutrición", "requierePase": true },
+        "emitidoEn": "2026-10-20T09:41:00-03:00",
+        "venceEl": "2027-01-18"
+      }
+    ]
+  }
+]
 ```
+
+**Errores:** `400 VALIDACION` (fecha o id inválido, rango invertido), `400 ORDEN_INVALIDO`, `400 SENTIDO_INVALIDO`, `401` sin JWT o cuenta inactivada, `403` rol distinto de SOCIO.
 
 <a id="e22"></a>
 #### #22 · `GET /api/historia-clinica/{idAtencion}`
 
 - **Roles:** SOCIO (solo la propia).
-- **RF:** RF-12. **Diseño:** S06. **Estado:** PROPUESTA.
+- **RF:** RF-12. **Estado:** CONFIRMADA (probada con PostgreSQL real en `HistoriaClinicaIT`).
 
-**Respuesta 200** (`AtencionDTO` con `PaseDTO`)
+**Respuesta 200**: un `HistoriaClinicaDTO` con la misma forma que cada elemento de #21 (`idAtencion`, `fechaAtencion`, `medicoId`, `medicoNombre`, `medicoApellido`, `especialidad`, `afeccion`, `tratamiento`, `observaciones`, `pases[]`). `pases` son los emitidos en esa atención con su vigencia original (`venceEl`); no incluyen una `situacion`. `pases[].id` es el que el socio envía como `paseId` en #17. Orden de los pases: `venceEl` descendente.
 
-```json
-{
-  "id": 5530,
-  "consultaId": 9001,
-  "fecha": "2026-10-20",
-  "medico": { "id": 17, "nombre": "Marta", "apellido": "Rodríguez" },
-  "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
-  "afeccion": "Hipertensión arterial leve",
-  "tratamiento": "Control de dieta y medicación indicada",
-  "observaciones": null,
-  "registradaEn": "2026-10-20T09:41:00-03:00",
-  "pases": [
-    {
-      "id": 78,
-      "especialidadDestino": { "id": 4, "nombre": "Nutrición", "requierePase": true },
-      "emitidoEn": "2026-10-20T09:41:00-03:00",
-      "venceEl": "2027-01-18",
-      "situacion": "DISPONIBLE"
-    }
-  ]
-}
-```
-
-`pases` son los emitidos en esa atención, con su vigencia (RF-12). `situacion` (**PROPUESTA** para el socio; RF-26 la define para el médico) se calcula de uso y vencimiento. `id` del pase es el que el socio envía como `paseId` en #17.
-
-**Errores:** `404 NO_ENCONTRADO` si no existe o es de otra persona (P-10).
+**Errores:** `404 HISTORIA_NO_ENCONTRADA` si la atención no existe **o** es de otra persona (mismo mensaje y mismo status, para no revelar su existencia); `400 VALIDACION` si el id no es numérico; `401`; `403` rol distinto de SOCIO.
 
 ### 3.6 Funcionario: suspensión, rehabilitación, llegada y agendas
 
@@ -1323,7 +1316,7 @@ registrados, incluidas las cancelaciones por institución, se conservan.
 #### #29 · `GET /api/medico/turnos`
 
 - **Roles:** MEDICO (solo los propios).
-- **RF:** RF-21. **Diseño:** `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO` (S13). **Estado:** PROPUESTA.
+- **RF:** RF-21. **Diseño:** `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO` (S13). **Estado:** CONFIRMADA (implementada; pantalla Flutter `/medico/turnos` con sondeo cada 15 s, PR #43; no es push).
 
 El Diseño devuelve turnos y pacientes en un solo DTO. **PROPUESTA:** se parte en dos pedidos para seguir el flujo del CU 3.4.1 (elegir fecha, ver sus turnos, elegir un turno, ver sus números): este endpoint trae los turnos del día y #30 el detalle de un turno.
 
@@ -1357,7 +1350,7 @@ Sin turnos ese día: `{ "items": [] }`.
 #### #30 · `GET /api/medico/turnos/{id}/numeros`
 
 - **Roles:** MEDICO (solo turnos propios).
-- **RF:** RF-21. **Diseño:** S13. **Estado:** PROPUESTA.
+- **RF:** RF-21. **Diseño:** S13. **Estado:** CONFIRMADA (el cliente refresca cada 15 s; latencia medida ~1,8 s).
 
 Todos los números del turno, con el paciente y el aviso de llegada de los reservados. El número no impone una cola: el médico decide a quién llamar (RF-21).
 
@@ -1387,7 +1380,7 @@ Todos los números del turno, con el paciente y el aviso de llegada de los reser
       "consulta": {
         "id": 9000,
         "estado": "AGENDADA",
-        "paciente": { "ci": "34567894", "nombre": "Carlos", "apellido": "Silva" },
+        "paciente": { "id": 21, "ci": "34567894", "nombre": "Carlos", "apellido": "Silva" },
         "llegadaEn": "2026-10-20T08:40:30-03:00"
       },
       "disponible": false
@@ -1404,11 +1397,13 @@ Todos los números del turno, con el paciente y el aviso de llegada de los reser
 }
 ```
 
+`consulta.paciente.id` es el identificador de cuenta del socio (no su CI), para abrir `GET /api/medico/pacientes/{socioId}/historia-clinica` (#40, RF-22). Se conserva `ci`, `nombre` y `apellido`; el paciente es `null` cuando no hay consulta.
+
 Un número sin consulta (o con la consulta cancelada) trae `consulta: null` y se muestra "Sin reserva"; `disponible` es `true` solo si todavía puede agendarse (anticipación). Un número reservado trae `disponible: false`. `consulta.llegadaEn` es `null` si no hubo aviso de llegada. `consulta.id` es el que se usa en #31.
 
 **Errores:** `404 NO_ENCONTRADO` si el turno no existe o no es del médico (P-10).
 
-Preguntas relacionadas: P-25, P-28.
+Preguntas relacionadas: P-25.
 
 <a id="e31"></a>
 #### #31 · `POST /api/medico/consultas/{id}/resultado`
@@ -1559,9 +1554,11 @@ Errores comunes: `400 VALIDACION` (fecha mal formada o rango invertido).
 #### #34 · `GET /api/estadisticas/especialidades`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-39. **Diseño:** `calcularPorEspecialidad(filtro): List<EstadisticaEspecialidadDTO>` (S20). **Estado:** PROPUESTA.
+- **RF:** RF-39. **Diseño:** `calcularPorEspecialidad(filtro): List<EstadisticaEspecialidadDTO>` (S20). **Estado:** CONFIRMADA (integrada en avances, PR #24, `a22eef9`).
 
 Consultas agendadas en el período, **contadas por la fecha en que se agendaron** (`agendadaEn`), incluidas las que luego se cancelaron.
+
+**Parámetros opcionales:** `desde` y `hasta`, en formato `YYYY-MM-DD`, inclusivos. Sin ambos filtros se utiliza el mes actual en `America/Montevideo`; si falta un extremo, se completa con el primer o último día del mes actual, respectivamente. Si el formato no es válido o `desde` es posterior a `hasta`: `400 VALIDACION` (`{"code":"VALIDACION","message":"..."}`).
 
 **Respuesta 200**
 
@@ -1580,9 +1577,11 @@ Consultas agendadas en el período, **contadas por la fecha en que se agendaron*
 #### #35 · `GET /api/estadisticas/turnos`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** PROPUESTA.
+- **RF:** RF-40. **Diseño:** `calcularPorTurno(filtro): List<EstadisticaTurnoDTO>` (S21). **Estado:** CONFIRMADA (integrada en avances, PR #25 y corrección JWT PR #26). Diferencias con la propuesta: agrega `fechasActivas` y `utilizacion` (texto, `"Sin datos"` cuando `porcentajeUtilizacion` es `null`); `consultorio` incluye `ubicacion`; el porcentaje lleva 2 decimales.
 
-Porcentaje de números ocupados sobre los ofrecidos, en las fechas del período en que la fecha del turno estuvo activa. Ocupado: consulta `AGENDADA`, `ATENDIDA`, `NO_ASISTIO`, `NO_ATENDIDA` o `NO_SE_PRESENTO`; las canceladas lo dejan libre. Qué es "cada turno" (el patrón semanal o la fecha concreta): P-13. **PROPUESTA:** una fila por patrón semanal.
+Porcentaje de números ocupados sobre los ofrecidos, en las fechas del período en que la fecha del turno estuvo activa (interpretación histórica, PR #38: se evalúa con `turno_evento` al cierre de cada día en `America/Montevideo`; sin eventos se usa el estado actual; el JSON no cambió). Ocupado: consulta `AGENDADA`, `ATENDIDA`, `NO_ASISTIO`, `NO_ATENDIDA` o `NO_SE_PRESENTO`; las canceladas lo dejan libre. Qué es "cada turno" (el patrón semanal o la fecha concreta): P-13. **PROPUESTA:** una fila por patrón semanal.
+
+**Parámetros opcionales:** `desde` y `hasta`, en formato `YYYY-MM-DD`, inclusivos. Sin ambos filtros se utiliza el mes actual en `America/Montevideo`; si falta un extremo, se completa con el primer o último día del mes actual, respectivamente. Si el formato no es válido o `desde` es posterior a `hasta`: `400 VALIDACION` (`{"code":"VALIDACION","message":"..."}`).
 
 **Respuesta 200**
 
@@ -1621,9 +1620,11 @@ La segunda fila muestra "Sin datos" (no hubo números ofrecidos en fechas activa
 #### #36 · `GET /api/estadisticas/consultas`
 
 - **Roles:** ADMINISTRADOR.
-- **RF:** RF-41. **Diseño:** `calcularConsultas(filtro): EstadisticaConsultaDTO` (S22). **Estado:** PROPUESTA.
+- **RF:** RF-41. **Diseño:** `calcularConsultas(filtro): EstadisticaConsultaDTO` (S22). **Estado:** CONFIRMADA (implementada e integrada en `integracion/proyecto-2026-avances`). Diferencias con la propuesta: los conteos van en `estados` (no `porEstado`), el total en `totalConsultas`, y se agregan `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`.
 
-Consultas del período por estado, según la **fecha de la consulta**, con los siete estados (los calculados incluidos), y la tasa de cancelación por el socio: canceladas por el socio sobre el total.
+Consultas del período por estado, según la **fecha de la consulta** (`turno.fecha`), nunca la fecha en que se agendó. Siempre devuelve los siete estados, incluso en cero. `NO_ASISTIO` y `NO_ATENDIDA` son derivados: una consulta `AGENDADA` sin resultado cuyo día terminó (zona `America/Montevideo`) es `NO_ATENDIDA` si el socio tiene aviso de llegada ese día y `NO_ASISTIO` si no. Tasa de cancelación: `canceladasPorSocio / totalConsultas * 100` (2 decimales); las canceladas por la institución no entran en el numerador.
+
+Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, el mes en curso. Fechas inválidas o `desde > hasta`: `400 VALIDACION`.
 
 **Respuesta 200**
 
@@ -1631,8 +1632,7 @@ Consultas del período por estado, según la **fecha de la consulta**, con los s
 {
   "desde": "2026-10-01",
   "hasta": "2026-10-31",
-  "total": 200,
-  "porEstado": {
+  "estados": {
     "AGENDADA": 40,
     "ATENDIDA": 110,
     "CANCELADA_SOCIO": 20,
@@ -1641,17 +1641,284 @@ Consultas del período por estado, según la **fecha de la consulta**, con los s
     "NO_ATENDIDA": 5,
     "NO_SE_PRESENTO": 3
   },
-  "tasaCancelacionSocio": 10.0
+  "totalConsultas": 200,
+  "canceladasPorSocio": 20,
+  "porcentajeCancelacion": 10.0,
+  "porcentajeCancelacionTexto": "10 %"
 }
 ```
 
-`total` cero: `tasaCancelacionSocio` es `null` ("Sin datos"). Con consultas y ninguna cancelada por el socio: `0`.
+`totalConsultas` cero: `porcentajeCancelacion` es `null` y `porcentajeCancelacionTexto` es `"Sin datos"`. Con consultas y ninguna cancelada por el socio: `0` y `"0 %"`. No incluye datos de pacientes.
 
 ---
 
+### 3.10 Cancelación por funcionario (RF-19)
+
+<a id="e44"></a>
+#### #44 · `POST /api/funcionario/consultas/{id}/cancelar`
+
+- **Roles:** FUNCIONARIO exclusivamente.
+- **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración.
+- **Ruta:** `id`, identificador entero positivo de consulta.
+- **Cuerpo:** ninguno.
+- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio; la cancela el funcionario a pedido del socio, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO`. Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales.
+
+**Respuesta 200**
+
+```json
+{
+  "consultaId": 9001,
+  "estado": "CANCELADA_SOCIO",
+  "canceladaEn": "2026-10-30T09:03:10-03:00",
+  "paseDevuelto": true
+}
+```
+
+**Errores**
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 400 | `VALIDACION` | Identificador inválido o no positivo. |
+| 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es funcionario o la cuenta no tiene permiso. |
+| 403 | `CONFLICTO_INTERES` | El funcionario intenta cancelar su propia consulta. |
+| 404 | `NO_ENCONTRADO` | La consulta no existe o su socio no está habilitado. |
+| 409 | `CONSULTA_NO_AGENDADA` | Ya no está agendada. |
+| 409 | `CANCELACION_FUERA_DE_PLAZO` | Faltan menos de 2 horas. |
+
+### 3.11 Médico: cancelación, historia previa, atenciones y pases (RF-27, RF-22, RF-25, RF-26)
+
+<a id="e38"></a>
+#### #38 · `POST /api/medico/consultas/{id}/cancelar`
+
+- **Roles:** MEDICO exclusivamente (solo consultas de sus propios turnos).
+- **RF:** RF-27 (cancelación individual). **Diseño:** `cancelarPorMedico` (S25). **Estado:** CONFIRMADA.
+- **Ruta:** `id`, identificador entero positivo de la consulta.
+- **Cuerpo** (`CancelacionMedicoDTO`, entrada)
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `motivo` | texto | sí | Se recorta; máximo 1000 caracteres. Se envía al socio en la notificación. |
+
+```json
+{ "motivo": "Imprevisto de guardia" }
+```
+
+- **Reglas:** la consulta debe estar `AGENDADA`, pertenecer a un turno del médico autenticado y faltar al menos 2 horas para la hora del número. La consulta pasa a `CANCELADA_INSTITUCION` con `cancelada_por`, `cancelada_en` y `motivo_cancelacion` registrados. El pase utilizado vuelve a estar disponible si conserva su vigencia (RF-09) y el número vuelve a ofrecerse si todavía cumple la anticipación mínima. No suspende la fecha del turno. Genera notificación `CANCELACION` con el motivo. Aplica el conflicto de interés de 3.1.5: el médico no puede cancelar una consulta en la que él mismo es el socio.
+
+**Respuesta 200** (`CancelacionDTO`, la misma forma de #20 y #44)
+
+```json
+{
+  "consultaId": 9001,
+  "estado": "CANCELADA_INSTITUCION",
+  "canceladaEn": "2026-10-30T09:03:10-03:00",
+  "paseDevuelto": true
+}
+```
+
+**Errores**
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 400 | `VALIDACION` | Identificador inválido; `motivo` ausente, vacío o de más de 1000 caracteres. |
+| 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es médico o la cuenta no está habilitada. |
+| 403 | `CONFLICTO_DE_INTERES` | El médico es el propio socio de la consulta (3.1.5). |
+| 404 | `NO_ENCONTRADO` | La consulta no existe o no es de un turno del médico (P-10). |
+| 409 | `CONSULTA_NO_AGENDADA` | Ya no está agendada. |
+| 409 | `CANCELACION_FUERA_DE_PLAZO` | Faltan menos de 2 horas para la hora del número. |
+
+<a id="e39"></a>
+#### #39 · `POST /api/medico/turnos/{id}/cancelar`
+
+- **Roles:** MEDICO exclusivamente (solo turnos propios).
+- **RF:** RF-27 (cancelación de todo el turno de una fecha). **Diseño:** S25. **Estado:** CONFIRMADA.
+- **Ruta:** `id`, identificador entero positivo del turno (la fecha concreta, como en #29 y #30).
+- **Cuerpo:** igual que #38 (`motivo` obligatorio).
+- **Reglas:** el turno debe ser del médico, estar `ACTIVO` y ser de hoy o una fecha futura. Se verifica la anticipación de 2 horas para **todas** las consultas `AGENDADA` afectadas antes de modificar cualquier dato: si alguna no la cumple, se rechaza la operación completa. En una misma transacción se registra el evento `SUSPENSION` en `turno_evento` con el motivo, la fecha queda `SUSPENDIDO` (deja de ofrecer números, sin afectar las demás fechas del turno semanal) y cada consulta pasa a `CANCELADA_INSTITUCION` con el motivo y el evento asociado. Los pases utilizados se devuelven según RF-09. Cada socio recibe una notificación `SUSPENSION` con el motivo. Rehabilitar la fecha (#25) no restaura las consultas canceladas. Si alguna consulta afectada es del propio médico como socio, se rechaza toda la operación con `CONFLICTO_DE_INTERES`.
+
+**Respuesta 200**
+
+```json
+{
+  "turnoId": 301,
+  "fecha": "2026-10-30",
+  "estado": "SUSPENDIDO",
+  "consultasCanceladas": 2,
+  "pasesDevueltos": 1
+}
+```
+
+`pasesDevueltos` cuenta los pases utilizados por las consultas canceladas que conservan vigencia (vuelven a estar disponibles, RF-09).
+
+**Errores**
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 400 | `VALIDACION` | Identificador inválido; `motivo` ausente, vacío o de más de 1000 caracteres. |
+| 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es médico o la cuenta no está habilitada. |
+| 403 | `CONFLICTO_DE_INTERES` | Una de las consultas afectadas es del propio médico como socio (3.1.5). |
+| 404 | `NO_ENCONTRADO` | El turno no existe o no es del médico (P-10). |
+| 409 | `TURNO_NO_SUSPENDIBLE` | El turno no está activo o es de una fecha pasada. |
+| 409 | `CANCELACION_FUERA_DE_PLAZO` | Alguna consulta afectada está a menos de 2 horas de su hora del número; no se modificó nada. |
+
+<a id="e40"></a>
+#### #40 · `GET /api/medico/pacientes/{socioId}/historia-clinica`
+
+- **Roles:** MEDICO exclusivamente.
+- **RF:** RF-22. **Estado:** CONFIRMADA.
+- **Ruta:** `socioId`, identificador entero positivo de la cuenta de socio del paciente.
+- **Reglas:** el acceso se habilita solo si el médico autenticado tiene con ese paciente una consulta `AGENDADA` cuyo día todavía no terminó (fecha de hoy o futura, zona `America/Montevideo`). Puede ser una consulta futura y no se exige aviso de llegada. Cuando deja de existir esa consulta habilitante, el acceso se cierra. La lectura es completa y de solo lectura: nunca modifica información clínica. Un paciente inexistente, sin consulta habilitante o de otro médico responden igual (`404`), sin revelar si existe historia clínica (RNF-10). El médico no puede consultar por esta vía su propia historia (3.1.5).
+
+**Respuesta 200:** lista de `HistoriaDTO` (la misma forma de #21), ordenada por fecha de atención descendente. Sin atenciones registradas: `[]`.
+
+```json
+[
+  {
+    "idAtencion": 5530,
+    "fechaAtencion": "2026-10-20",
+    "medicoId": 17,
+    "medicoNombre": "Marta",
+    "medicoApellido": "Rodríguez",
+    "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
+    "afeccion": "Hipertensión arterial leve",
+    "tratamiento": "Control de dieta y medicación indicada",
+    "observaciones": null,
+    "pases": [
+      {
+        "id": 78,
+        "especialidad": { "id": 4, "nombre": "Nutrición", "requierePase": true },
+        "emitidoEn": "2026-10-20T09:41:00-03:00",
+        "venceEl": "2027-01-18"
+      }
+    ]
+  }
+]
+```
+
+**Errores**
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 400 | `VALIDACION` | `socioId` inválido o no positivo. |
+| 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es médico o la cuenta no está habilitada. |
+| 403 | `CONFLICTO_DE_INTERES` | El paciente es el propio médico (3.1.5). |
+| 404 | `NO_ENCONTRADO` | No existe el paciente o no hay una consulta que habilite el acceso. |
+
+<a id="e41"></a>
+#### #41 · `GET /api/medico/atenciones`
+
+- **Roles:** MEDICO exclusivamente (solo las atenciones que él mismo registró, `atencion.id_medico`).
+- **RF:** RF-25. **Estado:** CONFIRMADA.
+
+| Parámetro | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `fechaDesde` | fecha | sí | Inclusiva. Sobre la fecha de atención en `America/Montevideo`. |
+| `fechaHasta` | fecha | sí | Inclusiva. `fechaDesde` posterior a `fechaHasta` → `400 VALIDACION`. |
+| `paciente` | texto | no | CI o apellido del paciente (contiene, sin distinguir mayúsculas). Máximo 100 caracteres. |
+| `especialidadId` | entero | no | Especialidad del turno en que se atendió. |
+| `orden` | `fecha` o `apellido` | no | Por defecto `fecha` (la más reciente primero). |
+| `sentido` | `asc` o `desc` | no | Por defecto `desc` con `fecha` y `asc` con `apellido`. |
+
+**Respuesta 200:** lista de `AtencionMedicaDTO`. Sin resultados: `[]`.
+
+```json
+[
+  {
+    "idAtencion": 5530,
+    "fechaAtencion": "2026-10-20",
+    "paciente": { "id": 21, "ci": "45678911", "nombre": "Lucía", "apellido": "Fernández" },
+    "especialidad": { "id": 3, "nombre": "Cardiología", "requierePase": true },
+    "afeccion": "Hipertensión arterial leve",
+    "tratamiento": "Control de dieta y medicación indicada",
+    "observaciones": null,
+    "pases": [
+      {
+        "id": 78,
+        "especialidad": { "id": 4, "nombre": "Nutrición", "requierePase": true },
+        "emitidoEn": "2026-10-20T09:41:00-03:00",
+        "venceEl": "2027-01-18"
+      }
+    ]
+  }
+]
+```
+
+`paciente.id` es el identificador de la cuenta de socio; sirve para #40. No incluye consultas agendadas sin atención registrada ni atenciones registradas por otra persona.
+
+**Errores**
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 400 | `VALIDACION` | Falta `fechaDesde` o `fechaHasta`, formato inválido, rango invertido, `especialidadId` o `paciente` inválidos. |
+| 400 | `ORDEN_INVALIDO` | `orden` desconocido. |
+| 400 | `SENTIDO_INVALIDO` | `sentido` distinto de `asc`/`desc`. |
+| 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es médico. |
+
+<a id="e42"></a>
+#### #42 · `GET /api/medico/atenciones/{idAtencion}`
+
+- **Roles:** MEDICO exclusivamente (solo atenciones propias).
+- **RF:** RF-25 (detalle). **Estado:** CONFIRMADA.
+- **Ruta:** `idAtencion`, identificador entero positivo de la atención.
+
+**Respuesta 200:** un `AtencionMedicaDTO` (la misma forma de #41), con sus pases.
+
+**Errores**
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 400 | `VALIDACION` | Identificador inválido o no positivo. |
+| 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es médico. |
+| 404 | `NO_ENCONTRADO` | La atención no existe o la registró otra persona (P-10). |
+
+<a id="e43"></a>
+#### #43 · `GET /api/medico/pases`
+
+- **Roles:** MEDICO exclusivamente (solo pases emitidos a través de sus propias atenciones).
+- **RF:** RF-26. **Estado:** CONFIRMADA.
+
+| Parámetro | Tipo | Notas |
+|---|---|---|
+| `situacion` | `DISPONIBLE`, `UTILIZADO` o `VENCIDO` | Filtro opcional. Otro valor → `400 VALIDACION`. |
+| `orden` | `vencimiento` o `emision` | Por defecto `vencimiento`. |
+| `sentido` | `asc` o `desc` | Por defecto `asc`. |
+
+**Respuesta 200:** lista de `PaseEmitidoDTO`. Sin resultados: `[]`.
+
+```json
+[
+  {
+    "id": 78,
+    "paciente": { "id": 21, "ci": "45678911", "nombre": "Lucía", "apellido": "Fernández" },
+    "especialidadDestino": { "id": 4, "nombre": "Nutrición", "requierePase": true },
+    "emitidoEn": "2026-10-20T09:41:00-03:00",
+    "venceEl": "2027-01-18",
+    "situacion": "DISPONIBLE"
+  }
+]
+```
+
+La `situacion` se calcula al consultar (no se guarda): `UTILIZADO` si alguna consulta lo usa sin estar cancelada; si no, `VENCIDO` cuando `venceEl` es anterior a hoy; si no, `DISPONIBLE`. Una cancelación devuelve el pase vigente (RF-09) y una reutilización posterior vuelve a marcarlo `UTILIZADO`.
+
+**Errores**
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 400 | `VALIDACION` | `situacion` desconocida. |
+| 400 | `ORDEN_INVALIDO` | `orden` desconocido. |
+| 400 | `SENTIDO_INVALIDO` | `sentido` distinto de `asc`/`desc`. |
+| 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es médico. |
+
 ## 4. Matriz de roles por endpoint
 
-✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 SIN_PERMISO` (o `401` si no hay sesión válida).
+✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
 
 | # | Endpoint | Público | SOCIO | FUNCIONARIO | MEDICO | ADMINISTRADOR |
 |---|---|:-:|:-:|:-:|:-:|:-:|
@@ -1691,8 +1958,15 @@ Consultas del período por estado, según la **fecha de la consulta**, con los s
 | 34 | `GET /api/estadisticas/especialidades` | | | | | ✔ |
 | 35 | `GET /api/estadisticas/turnos` | | | | | ✔ |
 | 36 | `GET /api/estadisticas/consultas` | | | | | ✔ |
+| 44 | `POST /api/funcionario/consultas/{id}/cancelar` | | | ✔ | | |
+| 38 | `POST /api/medico/consultas/{id}/cancelar` | | | | ✔ | |
+| 39 | `POST /api/medico/turnos/{id}/cancelar` | | | | ✔ | |
+| 40 | `GET /api/medico/pacientes/{socioId}/historia-clinica` | | | | ✔ | |
+| 41 | `GET /api/medico/atenciones` | | | | ✔ | |
+| 42 | `GET /api/medico/atenciones/{idAtencion}` | | | | ✔ | |
+| 43 | `GET /api/medico/pases` | | | | ✔ | |
 
-Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31).
+Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40).
 
 ## 5. Error uniforme y catálogo de códigos
 
@@ -1720,8 +1994,9 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | Status | `code` | Cuándo |
 |---|---|---|
 | 400 | `VALIDACION` | Pedido mal formado o dato inválido (falta un campo, formato, rango, orden desconocido). El `message` dice cuál. |
-| 401 | `NO_AUTENTICADO` | Falta el token, está vencido o es inválido, la sesión fue revocada o la cuenta fue inactivada (RNF-05, RNF-08). |
-| 403 | `SIN_PERMISO` | El rol no puede usar este endpoint. |
+| 401 | `NO_AUTENTICADO` | Falta autenticación o la sesión no es válida (RNF-05, RNF-08). |
+| 401 | `TOKEN_INVALIDO` | El token proporcionado no se puede validar o contiene un identificador inválido; el cliente debe descartar las credenciales. |
+| 403 | `ACCESO_DENEGADO` | El rol no puede usar este endpoint. |
 | 404 | `NO_ENCONTRADO` | El recurso no existe, o existe pero es de otra persona (P-10). |
 | 500 | `ERROR_INTERNO` | Falla inesperada. Mensaje fijo: "Ocurrió un problema de nuestro lado. Intentá de nuevo en unos minutos." |
 
@@ -1752,7 +2027,7 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 400 | `ESPECIALIDAD_NO_DEL_MEDICO` | #13 | La especialidad no es de ese médico. |
 | 409 | `MEDICO_INACTIVO` | #13, #25 | El médico no está activo. |
 | 409 | `SOLAPAMIENTO_TURNO` | #13, #25 | Cruce de horarios con otro turno activo del médico o del consultorio. |
-| 409 | `TURNO_NO_SUSPENDIBLE` | #23, #24 | Turno no activo o de fecha pasada. |
+| 409 | `TURNO_NO_SUSPENDIBLE` | #23, #24, #39 | Turno no activo o de fecha pasada. |
 | 409 | `TURNO_NO_REHABILITABLE` | #25 | Turno no suspendido o de fecha pasada. |
 | 409 | `CONFIRMACION_DESACTUALIZADA` | #24 | La cantidad de consultas afectadas cambió desde la previsualización. |
 
@@ -1768,15 +2043,15 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 409 | `LIMITE_TOTAL` | #17 | Ya hay 3 consultas activas. |
 | 409 | `SUPERPOSICION_CONSULTA` | #17 | Se solapa con otra consulta del socio. |
 | 409 | `PASE_NO_VALIDO` | #17 | No hay pase utilizable para la especialidad y la fecha. |
-| 409 | `CONSULTA_NO_AGENDADA` | #20, #31 | La consulta no está en `AGENDADA`. |
-| 409 | `CANCELACION_FUERA_DE_PLAZO` | #20 | A menos de 2 horas de la hora del número. |
+| 409 | `CONSULTA_NO_AGENDADA` | #20, #31, #38 | La consulta no está en `AGENDADA`. |
+| 409 | `CANCELACION_FUERA_DE_PLAZO` | #20, #38, #39 | A menos de 2 horas de la hora del número. En #39 rechaza la operación completa. |
 | 409 | `LLEGADA_YA_REGISTRADA` | #20 | El socio ya registró llegada ese día. |
 
 ### 5.7 Códigos de llegada y atención
 
 | Status | `code` | Endpoint | Cuándo |
 |---|---|---|---|
-| 403 | `CONFLICTO_DE_INTERES` | #26, #27, #31 | El empleado opera sobre su propia cuenta de socio (3.1.5). |
+| 403 | `CONFLICTO_DE_INTERES` | #26, #27, #31, #38, #39, #40 | El empleado opera sobre su propia cuenta de socio (3.1.5). |
 | 409 | `SIN_CONSULTAS_HOY` | #27 | El socio no tiene consultas `AGENDADA` hoy. |
 | 409 | `SIN_AVISO_LLEGADA` | #31 | El socio no registró llegada hoy. |
 | 409 | `CONSULTA_NO_ES_DE_HOY` | #31 | La consulta no es de hoy. |
@@ -1833,7 +2108,7 @@ Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2"
 - **Se ve:** menú "Turnos y pacientes" (en el encabezado, "Dra. Nombre Apellido"). Filtros "Fecha" (13/10/2026), "Turno" (selector con "Cardiología · 09:00 – 10:00 · Consultorio") y "Filtro" ("Todos"). "Se actualiza en tiempo real · Orden: hora del número ▾" y "El médico decide a quién llamar". Tabla: N.º, Hora ("09:00 – 09:20"), Paciente ("Apellido, Nombre"), CI, Estado ("Agendada", "Atendida"), Llegada ("Llegó 08:55", "Sin aviso", "—"), y acciones: botón "Registrar atención" y enlace "Ver atención". Número libre: "Sin reserva", y "—" en CI, Estado y Llegada. Las filas con llegada tienen fondo gris. Nota: "Fila con fondo gris: el socio registró su llegada hoy. Solo esas filas permiten registrar atención."
 - **Endpoints:** la fecha y el selector de turno → #29. La tabla → #30 (`consulta.paciente`, `consulta.estado`, `consulta.llegadaEn`, `disponible`). "Registrar atención" → pantalla 6.1.7. Refresco cada 15 s.
 - **Brechas:**
-  - "Ver atención" en una consulta `ATENDIDA` no tiene endpoint en este contrato (P-28).
+  - "Ver atención" en una consulta `ATENDIDA` puede usar #42 para consultar la atención registrada por el médico.
   - La pantalla no distingue visualmente "Sin reserva" disponible de no disponible; el contrato sí trae `disponible` (el cliente lo puede usar o ignorar).
   - Los títulos "Dra./Dr." no tienen dato de origen (P-25).
 
@@ -1939,14 +2214,16 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 | # | Contradicción | Cómo se resolvió |
 |---|---|---|
 | C1 | CU 3.1.1 (flujo 6.A) muestra un mensaje distinto cuando la cuenta está inactiva. RF-01, RNF-10 y S01 exigen que la respuesta no revele qué dato falló ni confirme la existencia de la cuenta. | Gana RF-01 / RNF-10: cuenta inactiva, inexistente o pendiente reciben el mismo `401 CREDENCIALES_INVALIDAS`. |
-| C2 | Arquitectura 7.4 dice `404` para un recurso "inexistente o ajeno". Diseño 4.5 dice `403` para "propiedad del recurso no autorizado" y `404` solo si procede. S14 dice `403` para "médico no autorizado". Ningún RF fija el status. | Sin requerimiento que decida, se adopta lo más conservador (no confirmar que el recurso existe, RNF-10): `404 NO_ENCONTRADO` para recursos ajenos. `403` queda para el rol (`SIN_PERMISO`) y el conflicto de interés. Pasa a Preguntas abiertas (P-10). |
+| C2 | Arquitectura 7.4 dice `404` para un recurso "inexistente o ajeno". Diseño 4.5 dice `403` para "propiedad del recurso no autorizado" y `404` solo si procede. S14 dice `403` para "médico no autorizado". Ningún RF fija el status. | Sin requerimiento que decida, se adopta lo más conservador (no confirmar que el recurso existe, RNF-10): `404 NO_ENCONTRADO` para recursos ajenos. `403` queda para el rol (`ACCESO_DENEGADO`) y el conflicto de interés. Pasa a Preguntas abiertas (P-10). |
 | C3 | S16 dice que se recibe "el identificador de especialidad"; la firma del Diseño (figuras 1 a 7) es `crear(nombre, requierePase)`. | Gana esa firma (nombre y `requierePase`); el `id` lo genera el servidor. |
 
 ## 8. Fuera de este contrato
 
-No están acá porque quedan fuera de los RF pedidos para las semanas 1 y 2. Cada uno necesitará su propio endpoint cuando se agende.
+Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
 
-RF-04 cambio de contraseña, RF-05 recuperación de contraseña (el correo de RF-02 para una cuenta ya activa remite a ella), RF-06 edición de datos personales, RF-07 y RF-28 cartelera de novedades, RF-19 cancelación por el funcionario (`cancelarPorFuncionario`, S24), RF-20 modificación de turno semanal, RF-22 historia clínica previa del médico, RF-25 y RF-26 atenciones y pases del médico, RF-27 cancelación por el médico (`cancelarPorMedico`, S25), RF-30, RF-32 y RF-34 cargas masivas, RF-36 y RF-37 consulta de especialidades y consultorios con filtros, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+RF-04 cambio de contraseña, RF-05 recuperación de contraseña (el correo de RF-02 para una cuenta ya activa remite a ella), RF-06 edición de datos personales, RF-07 y RF-28 cartelera de novedades, RF-20 modificación de turno semanal, RF-30, RF-32 y RF-34 cargas masivas, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+
+RF-22, RF-25, RF-26 y RF-27 salieron de esta lista: tienen contrato confirmado en los endpoints #38 a #43 (sección 3.11).
 
 ## 9. Preguntas abiertas
 
@@ -1981,7 +2258,6 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-25 | Los mockups escriben "Dra. Apellido" y "Dr. Apellido" para los médicos (6.1.2, 6.1.4, 6.1.5, 6.1.6, 6.2.2 a 6.2.5). El modelo de datos no tiene ningún dato que indique el tratamiento (Persona solo tiene nombre, apellido y fecha de nacimiento). | #10, #16, #18, #21, #28, #29, #30 | muestra "nombre apellido" sin título. |
 | P-26 | Suspender y rehabilitar (6.1.4): la pantalla permite marcar filas de médicos y especialidades distintos, con los filtros en "Todos" y fechas vacías, y no tiene "seleccionar todos". `FiltroFechasDTO` (`medicoId`, `especialidadId`, `fechaDesde`, `fechaHasta`, los cuatro obligatorios en #24 y #25; #23 ya no lleva filtro) supone una sola combinación. ¿El filtro es opcional, o el cliente debe agrupar la selección y hacer un pedido por médico y especialidad? Complementa P-12. | #23, #24, #25 | exige que la selección sea de un solo médico y una sola especialidad, y envía como rango el menor y el mayor `fecha` seleccionados. |
 | P-27 | Registrar atención (6.1.7): la pantalla muestra "vence 11/01/2027" **antes de guardar** el pase, y el contrato solo envía `vigenciaDias`. ¿Desde cuándo cuenta la vigencia y el día de emisión entra o no? Además, la regla "no se puede emitir un pase si el socio ya tiene uno vigente o una consulta agendada en esa especialidad" no se puede comprobar antes de guardar: no hay endpoint para eso, y el `409 PASE_DUPLICADO` llega al finalizar. | #31 | calcula el vencimiento como hoy más `vigenciaDias` solo para mostrarlo, y deja la validación al servidor. |
-| P-28 | La tabla de pacientes (6.1.6) tiene "Ver atención" para consultas `ATENDIDA`. RF-25 (consultas atendidas por el médico) y RF-22 (historia clínica previa) quedaron fuera del contrato (sección 8) y no hay endpoint que devuelva una atención a un médico. | #30 | no muestra "Ver atención". |
 | P-29 | Confirmar consulta (6.2.3): "En total: 1 de 3. En Cardiología: 0 de 1." necesita el conteo de consultas activas y los **límites** (3 y 1), que son parámetros del servidor (3.1.3) y no viajan en ningún endpoint. "Se usará el pase a Cardiología, vigente hasta 12/12/2026" necesita el pase y su vencimiento antes de confirmar (ver P-07 y P-08). | #17, #18, #22 | cuenta las consultas `AGENDADA` de #18 cuyo día no terminó, no muestra los límites y no muestra el recuadro de pase si no conoce uno. |
 | P-30 | Mis consultas (6.2.4) tiene: búsqueda libre "especialidad o médico"; el chip "Canceladas", que agrupa `CANCELADA_SOCIO` y `CANCELADA_INSTITUCION`; chips para `AGENDADA`, `ATENDIDA` y `NO_ASISTIO` pero ninguno para `NO_ATENDIDA` ni `NO_SE_PRESENTO`; y tarjetas canceladas sin consultorio ni número. #18 solo admite un estado exacto, ids de especialidad y médico y devuelve siempre consultorio y número. ¿Se agrega búsqueda por texto y un filtro de varios estados? ¿La tarjeta cancelada oculta consultorio y número a propósito? Tampoco se dibuja cómo se cancela una consulta (RF-10). | #18, #20 | pide cada estado por separado y junta las dos canceladas en el cliente; filtra por texto en el cliente sobre la página recibida; ofrece cancelar solo desde la tarjeta de una `AGENDADA`. |
 | P-31 | Historia clínica (6.2.5): la tarjeta se despliega en la lista con afección, tratamiento, observaciones y pases. #21 no trae el contenido clínico, así que desplegar una tarjeta es un pedido a #22 y la lista de N atenciones puede hacer N pedidos. ¿La lista debe traer el contenido? ¿Qué se muestra si `tratamiento` u `observaciones` vienen vacíos? | #21, #22 | pide #22 al desplegar cada tarjeta, una vez, y oculta la sección vacía. |

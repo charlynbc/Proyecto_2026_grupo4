@@ -1,6 +1,7 @@
 package uy.edu.proyecto.backend.consultorio;
 
 import java.util.List;
+import java.util.ArrayList;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -29,6 +30,31 @@ public class ConsultorioRepository {
                         rs.getString("ubicacion")
                 )
         );
+    }
+
+    public List<Consultorio> listarFiltrados(String nombre, String ubicacion, String orden) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT id_consultorio, nombre, ubicacion
+                FROM public.consultorio
+                WHERE TRUE
+                """);
+        List<Object> params = new ArrayList<>();
+        if (nombre != null && !nombre.isBlank()) {
+            sql.append(" AND nombre ILIKE ?");
+            params.add("%" + nombre + "%");
+        }
+        if (ubicacion != null && !ubicacion.isBlank()) {
+            sql.append(" AND ubicacion ILIKE ?");
+            params.add("%" + ubicacion + "%");
+        }
+        sql.append(" ORDER BY ");
+        sql.append("ubicacion".equals(orden) ? "ubicacion" : "nombre");
+        sql.append(", id_consultorio");
+        return jdbcTemplate.query(sql.toString(), (rs, rowNum) -> new Consultorio(
+                rs.getLong("id_consultorio"),
+                rs.getString("nombre"),
+                rs.getString("ubicacion")
+        ), params.toArray());
     }
 
     public Consultorio crear(String nombre, String ubicacion) {

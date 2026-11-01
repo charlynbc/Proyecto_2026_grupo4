@@ -200,13 +200,26 @@ public class ConsultaRepository {
         ));
     }
 
+    // Una consulta bloquea nuevas reservas solo mientras esta efectivamente pendiente: AGENDADA y con el dia
+    // de su turno sin terminar (hoy, America/Montevideo). Una AGENDADA sin resultado de un dia pasado es el
+    // estado derivado NO_ASISTIO o NO_ATENDIDA (ver HISTORIAL_CTE) y deja de contar. No se modifica nada.
+    private static final String CONSULTA_ACTIVA = """
+            consulta.estado = 'AGENDADA'
+            AND (turno.fecha >= (CURRENT_TIMESTAMP AT TIME ZONE 'America/Montevideo')::date
+                 OR consulta.fecha_resultado IS NOT NULL)
+            """;
+
     public long contarConsultasAgendadas(Long socioId) {
         Long cantidad = jdbcTemplate.queryForObject(
                 """
                 SELECT COUNT(*)
-                FROM public.consulta
-                WHERE id_socio = ? AND estado = 'AGENDADA'
-                """,
+                FROM public.consulta consulta
+                JOIN public.numero numero
+                  ON numero.id_numero = consulta.id_numero
+                JOIN public.turno turno ON turno.id_turno = numero.id_turno
+                WHERE consulta.id_socio = ?
+                  AND
+                """ + CONSULTA_ACTIVA,
                 Long.class,
                 socioId
         );
@@ -228,7 +241,8 @@ public class ConsultaRepository {
                     JOIN public.turno_semanal semanal
                       ON semanal.id_turno_semanal = turno.id_turno_semanal
                     WHERE consulta.id_socio = ?
-                      AND consulta.estado = 'AGENDADA'
+                      AND
+                """ + CONSULTA_ACTIVA + """
                       AND semanal.id_especialidad = ?
                 )
                 """,
@@ -350,6 +364,76 @@ public class ConsultaRepository {
                         socioId,
                         numero.idNumero(),
                         paseId
+                )
+                .stream()
+                .findFirst();
+    }
+
+    public Optional<ConsultaParaCancelar> bloquearConsultaDelSocio(
+            Long socioId,
+            Long consultaId
+    ) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT consulta.estado, t.fecha, n.hora_inicio,
+                               pase.vence_el
+                        FROM public.consulta consulta
+                        JOIN public.numero n ON n.id_numero = consulta.id_numero
+                        JOIN public.turno t ON t.id_turno = n.id_turno
+                        LEFT JOIN public.pase pase
+                          ON pase.id_pase = consulta.id_pase
+                        WHERE consulta.id_consulta = ?
+                          AND consulta.id_socio = ?
+                        FOR UPDATE OF consulta
+                        """,
+                        (rs, rowNum) -> new ConsultaParaCancelar(
+                                rs.getString("estado"),
+                                rs.getObject("fecha", LocalDate.class),
+                                rs.getObject("hora_inicio", LocalTime.class),
+                                rs.getObject("vence_el", LocalDate.class)
+                        ),
+                        consultaId,
+                        socioId
+                )
+                .stream()
+                .findFirst();
+    }
+
+    // Consulta separada del bloqueo: en READ COMMITTED ve un aviso confirmado mientras se esperaba el bloqueo.
+    public boolean existeAvisoLlegada(Long socioId, LocalDate fecha) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM public.aviso_llegada
+                    WHERE id_socio = ? AND fecha = ?
+                )
+                """,
+                Boolean.class,
+                socioId,
+                fecha
+        ));
+    }
+
+    public Optional<OffsetDateTime> cancelarPorSocio(
+            Long consultaId,
+            Long socioId
+    ) {
+        return jdbcTemplate.query(
+                        """
+                        UPDATE public.consulta
+                        SET estado = 'CANCELADA_SOCIO',
+                            cancelada_por = ?,
+                            cancelada_en = CURRENT_TIMESTAMP
+                        WHERE id_consulta = ?
+                          AND id_socio = ?
+                          AND estado = 'AGENDADA'
+                        RETURNING cancelada_en
+                        """,
+                        (rs, rowNum) -> rs.getObject("cancelada_en", OffsetDateTime.class),
+                        socioId,
+                        consultaId,
+                        socioId
                 )
                 .stream()
                 .findFirst();
@@ -487,6 +571,14 @@ public class ConsultaRepository {
             Consultorio consultorio,
             boolean medicoHabilitado,
             boolean ventanaValida
+    ) {
+    }
+
+    public record ConsultaParaCancelar(
+            String estado,
+            LocalDate fecha,
+            LocalTime horaInicio,
+            LocalDate venceElPase
     ) {
     }
 
