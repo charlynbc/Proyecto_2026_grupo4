@@ -98,4 +98,7 @@ final medicalHistoryDetailProvider =
       _MedicalHistoryDetail,
       MedicalHistoryEntry,
       int
-    >(_MedicalHistoryDetail.new, retry: (_, _) => null);
+    >(
+      _MedicalHistoryDetail.new,
+      retry: (_, _) => null,
+    );

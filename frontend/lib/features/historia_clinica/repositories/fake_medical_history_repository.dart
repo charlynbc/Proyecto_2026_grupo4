@@ -17,7 +17,11 @@ class FakeMedicalHistoryRepository implements MedicalHistoryRepository {
       'medicoId': 4,
       'medicoNombre': 'Diego',
       'medicoApellido': 'Viera',
-      'especialidad': {'id': 3, 'nombre': 'Cardiología', 'requierePase': true},
+      'especialidad': {
+        'id': 3,
+        'nombre': 'Cardiología',
+        'requierePase': true,
+      },
       'afeccion': 'gripe',
       'tratamiento': null,
       'observaciones': null,
@@ -45,7 +49,11 @@ class FakeMedicalHistoryRepository implements MedicalHistoryRepository {
       'medicoId': 4,
       'medicoNombre': 'Diego',
       'medicoApellido': 'Viera',
-      'especialidad': {'id': 3, 'nombre': 'Cardiología', 'requierePase': true},
+      'especialidad': {
+        'id': 3,
+        'nombre': 'Cardiología',
+        'requierePase': true,
+      },
       'afeccion': 'Control cardiovascular',
       'tratamiento': 'Reposo relativo y control',
       'observaciones': 'Continuar seguimiento',
@@ -78,7 +86,11 @@ class FakeMedicalHistoryRepository implements MedicalHistoryRepository {
       'medicoId': 9,
       'medicoNombre': 'Ana',
       'medicoApellido': 'Silva',
-      'especialidad': {'id': 6, 'nombre': 'Dermatología', 'requierePase': true},
+      'especialidad': {
+        'id': 6,
+        'nombre': 'Dermatología',
+        'requierePase': true,
+      },
       'afeccion': 'Reposo mencionado en afección',
       'tratamiento': 'Crema por la noche',
       'observaciones': 'Reposo mencionado en observaciones',
@@ -108,9 +120,8 @@ class FakeMedicalHistoryRepository implements MedicalHistoryRepository {
     matches.sort((a, b) {
       final primary = switch (query.order) {
         MedicalHistoryOrder.date => a.attendedOn.compareTo(b.attendedOn),
-        MedicalHistoryOrder.specialty => a.specialty.name.compareTo(
-          b.specialty.name,
-        ),
+        MedicalHistoryOrder.specialty =>
+          a.specialty.name.compareTo(b.specialty.name),
       };
       final comparison = primary != 0 ? primary : a.id.compareTo(b.id);
       return query.direction == MedicalHistoryDirection.ascending
