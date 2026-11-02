@@ -65,6 +65,20 @@ class ApiRoutes {
   static const String statsShifts = '/api/estadisticas/turnos';
   static const String statsAppointments = '/api/estadisticas/consultas';
 
+  // --- RF-04, RF-05, RF-06 y RF-20: cuenta y recuperación (endpoints 45 a 51) ---
+  // La edición de datos personales (PATCH) y el pedido de cambio de correo
+  // usan `accountMe`; la modificación del consultorio de un turno semanal
+  // (PATCH) usa `weeklyShift`.
+
+  static const String authChangePassword = '/api/auth/cambiar-contrasena';
+  static const String accountMe = '/api/cuentas/me';
+  static const String authPasswordRecoveryRequest =
+      '/api/auth/recuperacion/solicitar';
+  static const String authPasswordRecoveryComplete =
+      '/api/auth/recuperacion/completar';
+  static const String authEmailChangeConfirm =
+      '/api/auth/cambio-correo/confirmar';
+
   static const String pocPushRegistration = '/api/notificaciones/registro';
 
   /// Todas las rutas, con un id de ejemplo (`1`) donde la ruta lo lleva.
@@ -110,6 +124,11 @@ class ApiRoutes {
     statsSpecialties,
     statsShifts,
     statsAppointments,
+    authChangePassword,
+    accountMe,
+    authPasswordRecoveryRequest,
+    authPasswordRecoveryComplete,
+    authEmailChangeConfirm,
     pocPushRegistration,
   ];
 }
