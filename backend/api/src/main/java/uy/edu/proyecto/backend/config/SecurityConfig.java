@@ -117,6 +117,14 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
+                                                "/api/especialidades/importaciones/**"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
                                                 "/api/consultorios"
                                         )
                                         .hasRole(

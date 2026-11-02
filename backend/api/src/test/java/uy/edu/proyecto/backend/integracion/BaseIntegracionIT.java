@@ -421,6 +421,38 @@ abstract class BaseIntegracionIT {
         return enviar("POST", ruta, bearer, null, cuerpo);
     }
 
+    /** Sube un CSV como multipart/form-data (cargas masivas RF-30/32/34). */
+    Respuesta postMultipart(String ruta, String bearer, String nombreArchivo, String contenidoCsv) {
+        String boundary = "----ProyectoE2E" + System.nanoTime();
+        String crlf = "\r\n";
+        String cuerpo = "--" + boundary + crlf
+                + "Content-Disposition: form-data; name=\"archivo\"; filename=\""
+                + nombreArchivo + "\"" + crlf
+                + "Content-Type: text/csv" + crlf + crlf
+                + contenidoCsv + crlf
+                + "--" + boundary + "--" + crlf;
+
+        HttpRequest.Builder peticion = HttpRequest.newBuilder(
+                        URI.create("http://localhost:" + puerto + ruta))
+                .timeout(Duration.ofSeconds(30))
+                .header("Content-Type",
+                        "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofString(cuerpo, StandardCharsets.UTF_8));
+        if (bearer != null) {
+            peticion.header("Authorization", "Bearer " + bearer);
+        }
+        try {
+            HttpResponse<String> respuesta = http.send(
+                    peticion.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            return new Respuesta(respuesta.statusCode(), respuesta.body(), respuesta.headers());
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+    }
+
     Respuesta login(String ci, String acceso) {
         return login(ci, CLAVE, acceso);
     }
