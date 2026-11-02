@@ -144,6 +144,30 @@ void main() {
       );
     });
 
+    test('un nombre de 121 caracteres produce validation sin realizar HTTP',
+        () async {
+      final (repository, adapter) = _repository(200, {'items': <Object>[]});
+      final filters = SpecialtyFilters(name: List.filled(121, 'a').join());
+
+      await expectLater(
+        repository.search(filters),
+        throwsA(
+          isA<SpecialtySearchException>()
+              .having(
+                (error) => error.failure,
+                'tipo de error',
+                SpecialtySearchFailure.validation,
+              )
+              .having(
+                (error) => error.message,
+                'mensaje',
+                'El nombre no puede superar los 120 caracteres.',
+              ),
+        ),
+      );
+      expect(adapter.last, isNull);
+    });
+
     test('400 VALIDACION es validation y conserva el mensaje del servidor',
         () async {
       const message = 'El nombre no puede superar los 120 caracteres.';

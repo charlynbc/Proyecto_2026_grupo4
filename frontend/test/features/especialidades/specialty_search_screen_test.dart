@@ -40,8 +40,12 @@ Future<void> _settle(WidgetTester tester) async {
   );
 }
 
-Future<void> _pump(WidgetTester tester, _Repository repository) async {
-  tester.view.physicalSize = const Size(900, 1100);
+Future<void> _pump(
+  WidgetTester tester,
+  _Repository repository, {
+  Size size = const Size(900, 1100),
+}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final container = ProviderContainer(
@@ -104,6 +108,77 @@ Future<void> _enterName(WidgetTester tester, String name) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(loadRoboto);
+
+  group('pantalla completa a 320 px con Roboto', () {
+    const size = Size(320, 640);
+
+    testWidgets('listado con resultados no desborda', (tester) async {
+      final repository = _Repository();
+      await _pump(tester, repository, size: size);
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(Scaffold)).width, 320);
+      expect(repository.queries, hasLength(1));
+      expect(find.byType(ListTile), findsNWidgets(2));
+      for (final name in ['Medicina General', 'Cardiología']) {
+        final item = find.text(name);
+        expect(item, findsOneWidget);
+        await tester.ensureVisible(item);
+        await _settle(tester);
+        expect(tester.takeException(), isNull);
+        expect(item.hitTestable(), findsOneWidget);
+      }
+    });
+
+    testWidgets('búsqueda sin coincidencias no desborda', (tester) async {
+      final repository = _Repository();
+      await _pump(tester, repository, size: size);
+      expect(tester.takeException(), isNull);
+      repository.items = [];
+      await _enterName(tester, 'inexistente');
+      await _tap(tester, 'specialty-filter-search');
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(Scaffold)).width, 320);
+      expect(repository.queries, hasLength(2));
+      expect(repository.queries.last.toQueryParameters(), {
+        'nombre': 'inexistente',
+      });
+      final empty = find.byKey(const Key('specialty-filter-empty'));
+      expect(empty, findsOneWidget);
+      expect(find.text('No hay especialidades que coincidan.'), findsOneWidget);
+      expect(find.byType(ListTile), findsNothing);
+      await tester.ensureVisible(empty);
+      await _settle(tester);
+      expect(tester.takeException(), isNull);
+      expect(empty.hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('error de consulta con Reintentar no desborda', (tester) async {
+      final repository = _Repository()
+        ..error = const SpecialtySearchException(
+          SpecialtySearchFailure.other,
+          'Error de consulta de prueba.',
+        );
+      await _pump(tester, repository, size: size);
+
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(find.byType(Scaffold)).width, 320);
+      expect(repository.queries, hasLength(1));
+      expect(
+        find.text('No pudimos cargar las especialidades. Intentá de nuevo.'),
+        findsOneWidget,
+      );
+      expect(find.byType(ListTile), findsNothing);
+      final retry = find.widgetWithText(OutlinedButton, 'Reintentar');
+      expect(retry, findsOneWidget);
+      await tester.ensureVisible(retry);
+      await _settle(tester);
+      expect(tester.takeException(), isNull);
+      expect(retry.hitTestable(), findsOneWidget);
+      expect(tester.widget<OutlinedButton>(retry).onPressed, isNotNull);
+    });
+  });
 
   testWidgets('al abrir ejecuta una búsqueda con filtros predeterminados',
       (tester) async {
