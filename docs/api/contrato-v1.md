@@ -2142,6 +2142,84 @@ No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P
 | 400 | `VALIDACION` | Falta un campo o la contraseña no cumple la longitud. No consume el enlace. |
 | 400 | `ENLACE_INVALIDO` | El enlace no existe, venció, ya se usó, fue reemplazado por uno más nuevo o la cuenta fue inactivada. Mismo código y mensaje en todos los casos. Mensaje: "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso." |
 
+### 3.14 Cargas masivas (administrador)
+
+Reglas comunes (sección 3.1.4 de Requerimientos). Cada carga masiva tiene **dos pasos**: `previsualizar` analiza el archivo y responde totales y el motivo de cada fila con error **sin modificar la base**; `confirmar` vuelve a validar todo e **importa solo las filas válidas** (éxito parcial: las inválidas se rechazan con su motivo y el administrador puede corregirlas y volver a cargarlas). Ninguna fila existente se actualiza.
+
+**Formato del archivo**
+
+- CSV con codificación **UTF-8** (se acepta la marca BOM inicial) y **encabezados**.
+- Separador: **coma o punto y coma** (se detecta en la línea de encabezado). Los campos entrecomillados pueden contener el separador.
+- Las columnas deben ser **exactamente** las indicadas (ni faltantes ni adicionales, sin repetir); de lo contrario `400 CSV_INVALIDO`.
+- Límites: **1 MB** por archivo y **1000 filas** de datos. Superarlos responde `400 CSV_INVALIDO`.
+- El archivo viaja como `multipart/form-data` en el campo `archivo` y **no se almacena** en el servidor.
+- Una fila con una cantidad distinta de columnas se rechaza con ese motivo; las demás se procesan.
+- Fila repetida dentro del archivo: se conserva la **primera aparición** y las siguientes se rechazan indicando su número de fila.
+- Los números de fila del reporte cuentan desde 2 (la fila 1 es el encabezado).
+
+**Forma de las respuestas**
+
+Previsualizar (`PrevisualizacionDTO`):
+
+```json
+{
+  "total": 3,
+  "validas": 2,
+  "invalidas": 1,
+  "filas": [
+    { "numero": 2, "nombre": "Neurología", "requierePase": true, "error": null },
+    { "numero": 3, "nombre": "Traumatología", "requierePase": null, "error": "requiere_pase debe ser si o no" }
+  ],
+  "errores": [
+    { "numero": 3, "nombre": "Traumatología", "requierePase": null, "error": "requiere_pase debe ser si o no" }
+  ]
+}
+```
+
+Confirmar (`ResultadoImportacionDTO`): igual, pero con `importadas` y `rechazadas` en lugar de `validas` e `invalidas`. Una fila válida en la previsualización puede quedar rechazada al confirmar si otra operación la registró en el medio (la base vuelve a verificar todo).
+
+**Errores comunes a los cuatro endpoints**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `CSV_INVALIDO` | Falta el archivo, está vacío, no es UTF-8, las cabeceras no son las esperadas, supera 1 MB o 1000 filas, o el formato es inválido. |
+| 401 | `NO_AUTENTICADO` | Sin sesión válida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es ADMINISTRADOR. |
+
+<a id="e52"></a>
+#### #52 · `POST /api/especialidades/importaciones/previsualizar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-30. **Estado:** CONFIRMADA (backend, 02/11/2026).
+
+Columnas del CSV: `nombre,requiere_pase`. `requiere_pase` admite `si` (con o sin tilde) o `no`, sin distinguir mayúsculas. Validaciones por fila: nombre obligatorio y de hasta 120 caracteres, `requiere_pase` válido, sin duplicados dentro del archivo (sin distinguir mayúsculas) y nombre no existente en el catálogo. Responde `PrevisualizacionDTO` con filas `{numero, nombre, requierePase, error}`.
+
+<a id="e53"></a>
+#### #53 · `POST /api/especialidades/importaciones/confirmar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-30. **Estado:** CONFIRMADA (backend, 02/11/2026).
+
+Mismo archivo y validaciones que #52. Inserta cada fila válida con las mismas reglas del alta individual #7 (la unicidad sin distinguir mayúsculas la respalda el índice único de la base, también ante importaciones concurrentes). Responde `ResultadoImportacionDTO` con filas `{numero, nombre, requierePase, error}`; las filas rechazadas incluyen el motivo (por ejemplo "Ya existe una especialidad registrada con ese nombre.").
+
+<a id="e54"></a>
+#### #54 · `POST /api/usuarios/importaciones/previsualizar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-32. **Estado:** CONFIRMADA (backend, 02/11/2026).
+
+Columnas del CSV: `ci,nombre,apellido,fecha_nacimiento,correo,telefono_1,telefono_2,direccion,rol,especialidades`. Obligatorias: `ci`, `nombre`, `apellido`, `fecha_nacimiento` (`aaaa-mm-dd`), `correo`, `telefono_1` y `rol`. `especialidades` es obligatoria solo si `rol` es `MEDICO` y sus valores se separan con `|`; deben ser **nombres** de especialidades existentes (sin distinguir mayúsculas). `rol` admite `SOCIO`, `MEDICO`, `FUNCIONARIO` o `ADMINISTRADOR` sin distinguir mayúsculas. La `ci` admite puntos y guion y se valida el dígito verificador.
+
+Cada fila es **una cuenta**: una persona con dos cuentas aparece en dos filas con distinto rol; dos filas con la misma CI y el mismo rol se consideran repetidas. Validaciones por fila: las del alta individual #11 (campos, correo, CI, rol, especialidades) más, contra la base: especialidad desconocida, persona existente con nombre, apellido o fecha de nacimiento discordantes, y cuenta de socio o de empleado duplicada. Responde `PrevisualizacionDTO` con filas `{numero, ci, nombre, apellido, rol, error}`.
+
+<a id="e55"></a>
+#### #55 · `POST /api/usuarios/importaciones/confirmar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-32. **Estado:** CONFIRMADA (backend, 02/11/2026).
+
+Mismo archivo y validaciones que #54. Registra cada fila válida invocando el alta individual #11: cada cuenta queda **pendiente de primer ingreso**, **no se envía ningún correo** y ninguna cuenta se activa automáticamente. Cada fila se procesa en su propia transacción: un rechazo no revierte las demás. Responde `ResultadoImportacionDTO` con filas `{numero, ci, nombre, apellido, rol, error}`; los motivos de rechazo son los mismos códigos del alta individual (`CI_INVALIDA`, `VALIDACION`, `DATOS_PERSONA_DISCORDANTES`, `SOCIO_DUPLICADO`, `EMPLEADO_DUPLICADO`) expresados en el `error` de cada fila.
+
 ## 4. Matriz de roles por endpoint
 
 ✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
@@ -2198,6 +2276,10 @@ No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P
 | 49 | `POST /api/auth/recuperacion/completar` | ✔ (token) | | | | |
 | 50 | `POST /api/auth/cambio-correo/confirmar` | ✔ (token) | | | | |
 | 51 | `PATCH /api/turnos-semanales/{id}` | | | ✔ | | |
+| 52 | `POST /api/especialidades/importaciones/previsualizar` | | | | | ✔ |
+| 53 | `POST /api/especialidades/importaciones/confirmar` | | | | | ✔ |
+| 54 | `POST /api/usuarios/importaciones/previsualizar` | | | | | ✔ |
+| 55 | `POST /api/usuarios/importaciones/confirmar` | | | | | ✔ |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2253,6 +2335,9 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 409 | `DATOS_PERSONA_DISCORDANTES` | #11 | CI existente con nombre, apellido o fecha de nacimiento distintos. |
 | 409 | `SOCIO_DUPLICADO` | #11 | La CI ya tiene cuenta de socio. |
 | 409 | `EMPLEADO_DUPLICADO` | #11 | La CI ya tiene cuenta de empleado habilitada o pendiente. |
+| 400 | `CSV_INVALIDO` | #52 a #55 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
+
+En #53 y #55 los errores por fila viajan en el campo `error` de cada fila del resultado (no como status de la respuesta): la importación es parcial y responde `200` aunque todas las filas se rechacen.
 
 ### 5.5 Códigos de turnos
 
@@ -2460,7 +2545,9 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 
 Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
 
-RF-07 y RF-28 cartelera de novedades, RF-30, RF-32 y RF-34 cargas masivas, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+RF-07 y RF-28 cartelera de novedades, RF-34 carga masiva de consultorios, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+
+RF-30 y RF-32 salieron de esta lista el 02/11/2026: tienen contrato confirmado en los endpoints #52 a #55 (sección 3.14).
 
 RF-22, RF-25, RF-26 y RF-27 salieron de esta lista: tienen contrato confirmado en los endpoints #38 a #43 (sección 3.11).
 

@@ -79,6 +79,10 @@ PostgreSQL.
 | 49 | `POST /api/auth/recuperacion/completar` | público (token) | 05 | Definir contraseña nueva | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #49](contrato-v1.md#e49) |
 | 50 | `POST /api/auth/cambio-correo/confirmar` | público (token) | 06 | Confirmar correo nuevo | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #50](contrato-v1.md#e50) |
 | 51 | `PATCH /api/turnos-semanales/{id}` | FUNCIONARIO | 20 | Modificar el consultorio del turno semanal | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #51](contrato-v1.md#e51) |
+| 52 | `POST /api/especialidades/importaciones/previsualizar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #52](contrato-v1.md#e52) |
+| 53 | `POST /api/especialidades/importaciones/confirmar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #53](contrato-v1.md#e53) |
+| 54 | `POST /api/usuarios/importaciones/previsualizar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #54](contrato-v1.md#e54) |
+| 55 | `POST /api/usuarios/importaciones/confirmar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #55](contrato-v1.md#e55) |
 
 ## Rutas de la prueba de concepto
 

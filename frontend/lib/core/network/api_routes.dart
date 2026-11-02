@@ -79,6 +79,19 @@ class ApiRoutes {
   static const String authEmailChangeConfirm =
       '/api/auth/cambio-correo/confirmar';
 
+  // --- RF-30 y RF-32: cargas masivas (filas 52 a 55) ---
+  // Las cuatro son POST y solo para ADMINISTRADOR: vista previa y confirmación
+  // de la carga de especialidades y de la carga de usuarios.
+
+  static const String specialtiesImportPreview =
+      '/api/especialidades/importaciones/previsualizar';
+  static const String specialtiesImportConfirm =
+      '/api/especialidades/importaciones/confirmar';
+  static const String usersImportPreview =
+      '/api/usuarios/importaciones/previsualizar';
+  static const String usersImportConfirm =
+      '/api/usuarios/importaciones/confirmar';
+
   static const String pocPushRegistration = '/api/notificaciones/registro';
 
   /// Todas las rutas, con un id de ejemplo (`1`) donde la ruta lo lleva.
@@ -129,6 +142,10 @@ class ApiRoutes {
     authPasswordRecoveryRequest,
     authPasswordRecoveryComplete,
     authEmailChangeConfirm,
+    specialtiesImportPreview,
+    specialtiesImportConfirm,
+    usersImportPreview,
+    usersImportConfirm,
     pocPushRegistration,
   ];
 }
