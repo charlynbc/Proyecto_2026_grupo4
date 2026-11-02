@@ -578,6 +578,43 @@ curl.exe -X POST -H "Authorization: Bearer $env:ADMIN_TOKEN" -H "Content-Type: a
 curl.exe -H "Authorization: Bearer $env:ADMIN_TOKEN" http://localhost:8080/api/consultorios
 ```
 
+#### Carga masiva de especialidades — RF-30
+
+Dos pasos (sección 3.1.4 de Requerimientos): `previsualizar` no modifica la
+base; `confirmar` importa solo las filas válidas. El CSV viaja como
+`multipart/form-data` en el campo `archivo` (UTF-8, separador coma o punto y
+coma, columnas exactas `nombre,requiere_pase` con valores `si`/`no`; máximo
+1 MB y 1000 filas).
+
+```powershell
+# Archivo de ejemplo especialidades.csv:
+#   nombre,requiere_pase
+#   Neurología,si
+#   Pediatría,no
+
+curl.exe -X POST -H "Authorization: ******" -F "archivo=@especialidades.csv" http://localhost:8080/api/especialidades/importaciones/previsualizar
+
+curl.exe -X POST -H "Authorization: ******" -F "archivo=@especialidades.csv" http://localhost:8080/api/especialidades/importaciones/confirmar
+```
+
+`previsualizar` responde `{total, validas, invalidas, filas, errores}`;
+`confirmar` responde `{total, importadas, rechazadas, filas, errores}` con el
+motivo de cada fila rechazada.
+
+#### Carga masiva de usuarios — RF-32
+
+Mismo mecanismo en `/api/usuarios/importaciones/...`. Columnas:
+`ci,nombre,apellido,fecha_nacimiento,correo,telefono_1,telefono_2,direccion,rol,especialidades`
+(la fecha es `aaaa-mm-dd`; las especialidades del médico se separan con `|`
+y deben existir). Cada cuenta importada queda pendiente de primer ingreso y
+no se envía ningún correo.
+
+```powershell
+curl.exe -X POST -H "Authorization: ******" -F "archivo=@usuarios.csv" http://localhost:8080/api/usuarios/importaciones/previsualizar
+
+curl.exe -X POST -H "Authorization: ******" -F "archivo=@usuarios.csv" http://localhost:8080/api/usuarios/importaciones/confirmar
+```
+
 ### 5.8. Contratos verificados para frontend y consola
 
 Los siguientes contratos se contrastaron con los controladores, servicios,
