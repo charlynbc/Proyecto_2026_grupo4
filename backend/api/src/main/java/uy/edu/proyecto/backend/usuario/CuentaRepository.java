@@ -56,6 +56,26 @@ public class CuentaRepository {
                 .findFirst();
     }
 
+    /** Lectura sin bloqueo, para la previsualizacion de cargas masivas. */
+    public Optional<PersonaRegistrada> buscarPersona(String ci) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT ci, nombre, apellido, fecha_nacimiento
+                        FROM public.persona
+                        WHERE ci = ?
+                        """,
+                        (rs, rowNum) -> new PersonaRegistrada(
+                                rs.getString("ci"),
+                                rs.getString("nombre"),
+                                rs.getString("apellido"),
+                                rs.getObject("fecha_nacimiento", LocalDate.class)
+                        ),
+                        ci
+                )
+                .stream()
+                .findFirst();
+    }
+
     public boolean existeCuentaSocio(String ci) {
         return existeCuenta(
                 """
