@@ -366,11 +366,21 @@ class CancelacionMedicoIT extends BaseIntegracionIT {
 
     @Test
     void unaConsultaFueraDePlazoRechazaTodaLaOperacion() {
-        // Un número lejano y uno dentro de una hora en el mismo turno de hoy.
-        LocalDateTime base = LocalDateTime.now(ZONA).plusMinutes(60)
-                .withSecond(0).withNano(0);
-        LocalTime inicioCercano = base.toLocalTime().minusMinutes(base.getMinute() % 5);
-        LocalTime inicioLejano = inicioCercano.plusMinutes(150);
+        // Los dos números deben quedar en la misma fecha y nunca cruzar medianoche.
+        // De noche ya no hay espacio para combinar un número cercano y otro a más
+        // de dos horas en el mismo día: usamos dos números vencidos para verificar
+        // igualmente que la cancelación masiva se rechaza sin modificar datos.
+        LocalDateTime ahora = LocalDateTime.now(ZONA);
+        LocalTime inicioCercano;
+        LocalTime inicioLejano;
+        if (ahora.toLocalTime().isAfter(LocalTime.of(20, 59))) {
+            inicioCercano = LocalTime.of(10, 0);
+            inicioLejano = LocalTime.of(13, 0);
+        } else {
+            LocalDateTime base = ahora.plusMinutes(60).withSecond(0).withNano(0);
+            inicioCercano = base.toLocalTime().minusMinutes(base.getMinute() % 5);
+            inicioLejano = inicioCercano.plusMinutes(150);
+        }
         long turno = sembrarTurno(hoy(), 0);
         long semanal = jdbc.queryForObject(
                 "SELECT id_turno_semanal FROM turno WHERE id_turno = ?", Long.class, turno);
