@@ -87,6 +87,7 @@ Future<void> _pump(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ProviderScope(
+      key: UniqueKey(),
       overrides: [
         appointmentHistoryRepositoryProvider.overrideWith(
           (ref) async => history,
@@ -158,8 +159,20 @@ void main() {
     expect(find.text('¿Cancelar la consulta?'), findsOneWidget);
     expect(find.byKey(const Key('dismiss-cancel-dialog')), findsOneWidget);
     expect(find.byKey(const Key('confirm-cancel-appointment')), findsOneWidget);
-    expect(find.textContaining('Cardiología'), findsOneWidget);
-    expect(find.textContaining('20/10/2026'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.textContaining('Cardiología'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.textContaining('20/10/2026'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Volver cierra sin cancelar', (tester) async {
@@ -289,7 +302,7 @@ void main() {
     final cancellation = _CancellationRepository()
       ..exception = const CancellationException(
         CancellationFailure.outsideWindow,
-        'Mensaje incorrecto',
+        'No se puede cancelar con menos de 2 horas de anticipación.',
       );
     final history = _HistoryRepository(
       appointment: _appointment(status: 'AGENDADA'),
