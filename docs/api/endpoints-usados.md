@@ -28,13 +28,13 @@ PostgreSQL.
 | 3 | `POST /api/auth/logout` | autenticado | 03 | Cerrar sesión | CONFIRMADA | feat/front-acceso-roles 14/10/2026 | [contrato #3](contrato-v1.md#e03) |
 | 4 | `POST /api/auth/primer-ingreso/solicitar` | público | 02 | Pedir activación | CONFIRMADA | feat/front-acceso-roles 14/10/2026 | [contrato #4](contrato-v1.md#e04) |
 | 5 | `POST /api/auth/primer-ingreso/completar` | público (token) | 02 | Activar cuenta | CONFIRMADA | feat/front-acceso-roles 14/10/2026 | [contrato #5](contrato-v1.md#e05) |
-| 6 | `GET /api/especialidades` | autenticado | 29 | Formularios y listado | CONFIRMADA | feat/front-admin 19/10/2026; feat/front-funcionario 20/10/2026 | [contrato #6](contrato-v1.md#e06) |
+| 6 | `GET /api/especialidades` | autenticado | 29 | Formularios y listado; consulta con filtros RF-36 (`nombre` hasta 120, `requierePase` true o false, `orden` nombre o fechaAlta, siempre ascendente, sin paginación) | CONFIRMADA | feat/front-admin 19/10/2026; feat/front-funcionario 20/10/2026; feat/front-filtrar-especialidades 02/11/2026 | [contrato #6](contrato-v1.md#e06) |
 | 7 | `POST /api/especialidades` | ADMINISTRADOR | 29 | Alta de especialidad | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #7](contrato-v1.md#e07) |
 | 8 | `GET /api/consultorios` | autenticado | 33 | Formularios y listado; consulta con filtros RF-37 (`nombre` hasta 120, `ubicacion` hasta 200, `orden` nombre o ubicacion, siempre ascendente, sin paginación) | CONFIRMADA | feat/front-admin 19/10/2026; feat/front-funcionario 20/10/2026; feat/front-filtrar-consultorios 03/11/2026 | [contrato #8](contrato-v1.md#e08) |
 | 9 | `POST /api/consultorios` | ADMINISTRADOR | 33 | Alta de consultorio | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #9](contrato-v1.md#e09) |
 | 10 | `GET /api/medicos?especialidadId=` | FUNCIONARIO | 13, 08 | Selector de médico | CONFIRMADA | - | [contrato #10](contrato-v1.md#e10) |
 | 11 | `POST /api/usuarios` | ADMINISTRADOR | 31 | Alta de usuario | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #11](contrato-v1.md#e11) |
-| 12 | `GET /api/usuarios` | ADMINISTRADOR | 35 | Consulta de usuarios | CONFIRMADA | - | [contrato #12](contrato-v1.md#e12) |
+| 12 | `GET /api/usuarios` | ADMINISTRADOR | 35 | Consulta de usuarios (`rol`, `estado` ACTIVA o INACTIVA, `q` CI o apellido, `orden` apellido o fechaAlta, `sentido` asc o desc, `page` desde 0, `size` de 1 a 100, por defecto 20) | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #12](contrato-v1.md#e12) |
 | 13 | `POST /api/turnos-semanales` | FUNCIONARIO | 13 | Alta de turno semanal | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #13](contrato-v1.md#e13) |
 | 14 | `GET /api/turnos-semanales/{id}` | FUNCIONARIO | 17 | Detalle de configuración | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #14](contrato-v1.md#e14) |
 | 15 | `GET /api/turnos` | FUNCIONARIO | 17 | Consulta de turnos | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #15](contrato-v1.md#e15) |
