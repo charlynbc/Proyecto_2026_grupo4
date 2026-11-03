@@ -181,7 +181,7 @@ void main() {
     );
   });
 
-  testWidgets('el detalle muestra la consulta y cancelación deshabilitada', (
+  testWidgets('el detalle muestra la consulta sin acciones de cancelación', (
     tester,
   ) async {
     final repository = _HistoryRepository();
@@ -190,14 +190,10 @@ void main() {
     expect(repository.requestedId, 9001);
     expect(find.text('No atendida'), findsOneWidget);
     expect(find.text('Cardiología'), findsOneWidget);
-    expect(
-      find.byKey(const Key('cancel-appointment-disabled')),
-      findsOneWidget,
-    );
-    final cancel = tester.widget<OutlinedButton>(
-      find.byKey(const Key('cancel-appointment-disabled')),
-    );
-    expect(cancel.onPressed, isNull);
+    expect(find.byKey(const Key('cancel-appointment')), findsNothing);
+    expect(find.byKey(const Key('cancel-appointment-disabled')), findsNothing);
+    expect(find.byKey(const Key('cancellation-pending')), findsNothing);
+    expect(find.text('Cancelar consulta'), findsNothing);
   });
 
   testWidgets('el detalle diferencia una consulta inexistente', (tester) async {
