@@ -19,7 +19,7 @@ import 'package:go_router/go_router.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 
-// Orden distinto del alfabético: la pantalla no debe reordenar.
+// El repositorio los devuelve al revés del orden natural por nombre.
 const _items = [
   Clinic(id: 6, name: 'Consultorio 6', location: 'Piso 2, ala sur'),
   Clinic(id: 5, name: 'Consultorio 5', location: 'Piso 2, ala norte'),
@@ -193,7 +193,7 @@ void main() {
     expect(query.toQueryParameters(), isEmpty);
   });
 
-  testWidgets('muestra las filas en el orden del servidor', (tester) async {
+  testWidgets('ordena el nombre con el numero como cantidad', (tester) async {
     final repository = _Repository();
     await _pump(tester, repository);
 
@@ -202,8 +202,8 @@ void main() {
     expect(find.text('Consultorio 5'), findsOneWidget);
     expect(find.text('Piso 2, ala norte'), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('Consultorio 6')).dy,
-      lessThan(tester.getTopLeft(find.text('Consultorio 5')).dy),
+      tester.getTopLeft(find.text('Consultorio 5')).dy,
+      lessThan(tester.getTopLeft(find.text('Consultorio 6')).dy),
     );
   });
 
