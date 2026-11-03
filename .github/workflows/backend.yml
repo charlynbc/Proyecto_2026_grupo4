@@ -1,17 +1,19 @@
-# Compila y prueba el backend en cada Pull Request que toque backend/api.
-# Si algo falla, el PR queda en rojo antes de mergear. La imagen Docker se
-# construye en el workflow Imagen.
+# Compila y prueba el backend en cada Pull Request que toque backend/api o el
+# esquema de la base. Si algo falla, el PR queda en rojo antes de mergear. La
+# imagen Docker se construye en el workflow Imagen.
 name: Backend
 
 on:
   pull_request:
     paths:
       - "backend/api/**"
+      - "database/schema.sql"
       - ".github/workflows/backend.yml"
   push:
     branches: [main, integracion/proyecto-2026-avances]
     paths:
       - "backend/api/**"
+      - "database/schema.sql"
       - ".github/workflows/backend.yml"
 
 jobs:
@@ -48,6 +50,18 @@ jobs:
           distribution: temurin
           java-version: "25"
           cache: maven
+
+      # Las pruebas que levantan Spring usan esta base. Sin el esquema, lo que
+      # corre en segundo plano (el poller de notificaciones) no encuentra sus
+      # tablas y llena el log de errores, aunque las pruebas pasen.
+      - name: Cargar el esquema
+        working-directory: .
+        env:
+          PGHOST: localhost
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: postgres
+        run: psql -v ON_ERROR_STOP=1 -f database/schema.sql
 
       - name: Compilar y correr las pruebas
         run: ./mvnw -B verify
