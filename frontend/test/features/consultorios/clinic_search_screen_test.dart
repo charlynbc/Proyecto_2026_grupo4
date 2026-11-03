@@ -306,10 +306,7 @@ void main() {
 
     expect(find.byKey(const Key('clinic-filter-empty')), findsOneWidget);
     expect(find.text('No hay consultorios que coincidan.'), findsOneWidget);
-    expect(
-      find.text('Todavía no hay consultorios registrados.'),
-      findsNothing,
-    );
+    expect(find.text('Todavía no hay consultorios registrados.'), findsNothing);
     expect(find.byType(ListTile), findsNothing);
   });
 
@@ -409,57 +406,52 @@ void main() {
     );
   });
 
-  testWidgets(
-    'un consultorio creado desde el formulario aparece al volver',
-    (tester) async {
-      final db = FakeAdminDatabase();
-      final router = await pumpAdminScreens(
-        tester,
-        initialLocation: kClinicsPath,
-        routes: [
-          GoRoute(
-            path: kClinicsPath,
-            builder: (_, _) => const ClinicsScreen(),
-            routes: [
-              GoRoute(
-                path: 'nuevo',
-                builder: (_, _) => const NewClinicScreen(),
-              ),
-            ],
-          ),
-        ],
-        overrides: [
-          clinicRepositoryProvider.overrideWith(
-            (ref) async => FakeClinicRepository(db, latency: Duration.zero),
-          ),
-          clinicSearchRepositoryProvider.overrideWith(
-            (ref) async =>
-                FakeClinicSearchRepository(db, latency: Duration.zero),
-          ),
-        ],
-      );
+  testWidgets('un consultorio creado desde el formulario aparece al volver', (
+    tester,
+  ) async {
+    final db = FakeAdminDatabase();
+    final router = await pumpAdminScreens(
+      tester,
+      initialLocation: kClinicsPath,
+      routes: [
+        GoRoute(
+          path: kClinicsPath,
+          builder: (_, _) => const ClinicsScreen(),
+          routes: [
+            GoRoute(path: 'nuevo', builder: (_, _) => const NewClinicScreen()),
+          ],
+        ),
+      ],
+      overrides: [
+        clinicRepositoryProvider.overrideWith(
+          (ref) async => FakeClinicRepository(db, latency: Duration.zero),
+        ),
+        clinicSearchRepositoryProvider.overrideWith(
+          (ref) async => FakeClinicSearchRepository(db, latency: Duration.zero),
+        ),
+      ],
+    );
 
-      await _enter(tester, 'clinic-filter-location', 'piso 9');
-      await _tap(tester, 'clinic-filter-search');
-      expect(find.byKey(const Key('clinic-filter-empty')), findsOneWidget);
+    await _enter(tester, 'clinic-filter-location', 'piso 9');
+    await _tap(tester, 'clinic-filter-search');
+    expect(find.byKey(const Key('clinic-filter-empty')), findsOneWidget);
 
-      await tester.tap(find.text('Nuevo consultorio'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Nuevo consultorio'));
+    await tester.pumpAndSettle();
 
-      final formFields = find.descendant(
-        of: find.byType(Form),
-        matching: find.byType(TextFormField),
-      );
-      await tester.enterText(formFields.at(0), 'Consultorio 20');
-      await tester.enterText(formFields.at(1), 'Piso 9');
-      await tester.tap(find.widgetWithText(FilledButton, 'Guardar consultorio'));
-      await tester.pumpAndSettle();
+    final formFields = find.descendant(
+      of: find.byType(Form),
+      matching: find.byType(TextFormField),
+    );
+    await tester.enterText(formFields.at(0), 'Consultorio 20');
+    await tester.enterText(formFields.at(1), 'Piso 9');
+    await tester.tap(find.widgetWithText(FilledButton, 'Guardar consultorio'));
+    await tester.pumpAndSettle();
 
-      expect(currentLocation(router), kClinicsPath);
-      expect(find.text('Consultorio registrado.'), findsOneWidget);
-      expect(find.text('Consultorio 20'), findsOneWidget);
-      expect(find.text('Piso 9'), findsOneWidget);
-      expect(find.text('Consultorio 3'), findsNothing);
-    },
-  );
+    expect(currentLocation(router), kClinicsPath);
+    expect(find.text('Consultorio registrado.'), findsOneWidget);
+    expect(find.text('Consultorio 20'), findsOneWidget);
+    expect(find.text('Piso 9'), findsOneWidget);
+    expect(find.text('Consultorio 3'), findsNothing);
+  });
 }

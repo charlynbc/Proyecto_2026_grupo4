@@ -34,9 +34,9 @@ class ClinicFilters {
     }
 
     return {
-     if (search != null && search.isNotEmpty) 'nombre': search,
-     if (place != null && place.isNotEmpty) 'ubicacion': place,
-     if (order == ClinicOrder.location) 'orden': 'ubicacion',
+      if (search != null && search.isNotEmpty) 'nombre': search,
+      if (place != null && place.isNotEmpty) 'ubicacion': place,
+      if (order == ClinicOrder.location) 'orden': 'ubicacion',
     };
   }
 }

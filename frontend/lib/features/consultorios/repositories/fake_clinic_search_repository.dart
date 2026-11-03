@@ -41,12 +41,8 @@ class FakeClinicSearchRepository implements ClinicSearchRepository {
     ];
 
     items.sort((a, b) {
-      final left = filters.order == ClinicOrder.location
-          ? a.location
-          : a.name;
-      final right = filters.order == ClinicOrder.location
-          ? b.location
-          : b.name;
+      final left = filters.order == ClinicOrder.location ? a.location : a.name;
+      final right = filters.order == ClinicOrder.location ? b.location : b.name;
       return left.toLowerCase().compareTo(right.toLowerCase());
     });
     return items;

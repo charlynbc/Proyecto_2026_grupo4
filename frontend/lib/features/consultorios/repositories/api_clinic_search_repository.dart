@@ -21,9 +21,7 @@ class ApiClinicSearchRepository implements ClinicSearchRepository {
       final message = error.message;
       throw ClinicSearchException(
         ClinicSearchFailure.validation,
-        message is String && message.isNotEmpty
-            ? message
-            : kApiGenericMessage,
+        message is String && message.isNotEmpty ? message : kApiGenericMessage,
       );
     }
 
@@ -36,8 +34,7 @@ class ApiClinicSearchRepository implements ClinicSearchRepository {
       if (items is! List) throw const ApiException();
 
       return [
-        for (final item in items)
-          Clinic.fromJson(item as Map<String, dynamic>),
+        for (final item in items) Clinic.fromJson(item as Map<String, dynamic>),
       ];
     } on DioException catch (error) {
       throw _mapError(error);

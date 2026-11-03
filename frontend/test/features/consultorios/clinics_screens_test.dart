@@ -25,8 +25,7 @@ Future<GoRouter> _pump(WidgetTester tester, String initial) {
         (ref) async => FakeClinicRepository(db, latency: Duration.zero),
       ),
       clinicSearchRepositoryProvider.overrideWith(
-        (ref) async =>
-            FakeClinicSearchRepository(db, latency: Duration.zero),
+        (ref) async => FakeClinicSearchRepository(db, latency: Duration.zero),
       ),
     ],
   );
