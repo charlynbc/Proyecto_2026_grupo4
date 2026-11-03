@@ -1,23 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/clinic_filters.dart';
+import '../providers/clinic_filters_controller.dart';
+import '../providers/clinic_search_provider.dart';
 
-/// Controles de RF-37: solo Buscar y Limpiar comunican acciones al listado.
-class ClinicFilterBar extends StatefulWidget {
-  const ClinicFilterBar({
-    required this.onSearch,
-    required this.onClear,
-    super.key,
-  });
-
-  final ValueChanged<ClinicFilters> onSearch;
-  final VoidCallback onClear;
+/// Controles de RF-37. El texto se aplica con Buscar o Enter en ubicación.
+/// El orden y el sentido se aplican al cambiarlos.
+class ClinicFilterBar extends ConsumerStatefulWidget {
+  const ClinicFilterBar({super.key});
 
   @override
-  State<ClinicFilterBar> createState() => _ClinicFilterBarState();
+  ConsumerState<ClinicFilterBar> createState() => _ClinicFilterBarState();
 }
 
-class _ClinicFilterBarState extends State<ClinicFilterBar> {
+class _ClinicFilterBarState extends ConsumerState<ClinicFilterBar> {
   final _nameController = TextEditingController();
   final _locationController = TextEditingController();
   ClinicOrder _order = ClinicOrder.name;
@@ -33,13 +30,14 @@ class _ClinicFilterBarState extends State<ClinicFilterBar> {
     FocusScope.of(context).unfocus();
     final name = _nameController.text.trim();
     final location = _locationController.text.trim();
-    widget.onSearch(
-      ClinicFilters(
-        name: name.isEmpty ? null : name,
-        location: location.isEmpty ? null : location,
-        order: _order,
-      ),
-    );
+    ref
+        .read(clinicFiltersControllerProvider.notifier)
+        .apply(
+          name: name.isEmpty ? null : name,
+          location: location.isEmpty ? null : location,
+          order: _order,
+        );
+    ref.invalidate(clinicSearchProvider);
   }
 
   void _clear() {
@@ -47,11 +45,15 @@ class _ClinicFilterBarState extends State<ClinicFilterBar> {
     _nameController.clear();
     _locationController.clear();
     setState(() => _order = ClinicOrder.name);
-    widget.onClear();
+    ref.read(clinicFiltersControllerProvider.notifier).clear();
+    ref.invalidate(clinicSearchProvider);
   }
 
   @override
   Widget build(BuildContext context) {
+    final ascending = ref.watch(
+      clinicFiltersControllerProvider.select((filters) => filters.ascending),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -85,7 +87,10 @@ class _ClinicFilterBarState extends State<ClinicFilterBar> {
             ),
           ],
           onChanged: (value) {
-            if (value != null) setState(() => _order = value);
+            if (value == null) return;
+            setState(() => _order = value);
+            ref.read(clinicFiltersControllerProvider.notifier).sortBy(value);
+            ref.invalidate(clinicSearchProvider);
           },
         ),
         const SizedBox(height: 16),
@@ -102,6 +107,14 @@ class _ClinicFilterBarState extends State<ClinicFilterBar> {
               key: const Key('clinic-filter-clear'),
               onPressed: _clear,
               child: const Text('Limpiar'),
+            ),
+            TextButton.icon(
+              key: const Key('clinic-filter-direction'),
+              onPressed: () => ref
+                  .read(clinicFiltersControllerProvider.notifier)
+                  .toggleDirection(),
+              icon: Icon(ascending ? Icons.arrow_upward : Icons.arrow_downward),
+              label: Text(ascending ? 'Ascendente' : 'Descendente'),
             ),
           ],
         ),

@@ -236,11 +236,11 @@ void main() {
     await _enter(tester, 'clinic-filter-location', 'norte');
     await _select(tester, 'clinic-filter-order', 'Ubicación');
     await _tap(tester, 'clinic-filter-search');
-    expect(repository.queries, hasLength(2));
+    expect(repository.queries, hasLength(3));
 
     await _tap(tester, 'clinic-filter-clear');
 
-    expect(repository.queries, hasLength(3));
+    expect(repository.queries, hasLength(4));
     expect(repository.queries.last.toQueryParameters(), isEmpty);
     expect(
       tester
@@ -273,11 +273,12 @@ void main() {
     await _pump(tester, repository);
     await _enter(tester, 'clinic-filter-location', 'norte');
     await _select(tester, 'clinic-filter-order', 'Ubicación');
-    expect(repository.queries, hasLength(1));
+    expect(repository.queries, hasLength(2));
+    expect(repository.queries.last.toQueryParameters(), {'orden': 'ubicacion'});
 
     await _tap(tester, 'clinic-filter-search');
 
-    expect(repository.queries, hasLength(2));
+    expect(repository.queries, hasLength(3));
     expect(repository.queries.last.toQueryParameters(), {
       'ubicacion': 'norte',
       'orden': 'ubicacion',
@@ -378,22 +379,21 @@ void main() {
     await _enter(tester, 'clinic-filter-location', 'norte');
     await _select(tester, 'clinic-filter-order', 'Ubicación');
     await _tap(tester, 'clinic-filter-search');
-    expect(repository.queries, hasLength(2));
+    expect(repository.queries, hasLength(3));
     expect(
       find.text('No se pudo completar la búsqueda de prueba.'),
       findsOneWidget,
     );
 
     await _enter(tester, 'clinic-filter-name', '12');
-    await _select(tester, 'clinic-filter-order', 'Nombre');
-    expect(repository.queries, hasLength(2));
+    expect(repository.queries, hasLength(3));
     repository.error = null;
     final retry = find.widgetWithText(OutlinedButton, 'Reintentar');
     await tester.ensureVisible(retry);
     await tester.tap(retry);
     await _settle(tester);
 
-    expect(repository.queries, hasLength(3));
+    expect(repository.queries, hasLength(4));
     expect(repository.queries.last.toQueryParameters(), {
       'nombre': '5',
       'ubicacion': 'norte',
