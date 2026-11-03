@@ -61,17 +61,24 @@ class _NarrowShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: shell.navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: shell.navigationShell.currentIndex,
-        onDestinationSelected: shell._onDestinationSelected,
-        destinations: [
-          for (final section in shell.sections)
-            NavigationDestination(
-              icon: Icon(section.icon),
-              selectedIcon: Icon(section.selectedIcon),
-              label: section.label,
-            ),
-        ],
+      bottomNavigationBar: NavigationBarTheme(
+        data: const NavigationBarThemeData(
+          labelTextStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
+          labelPadding: EdgeInsets.zero,
+        ),
+        child: NavigationBar(
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          selectedIndex: shell.navigationShell.currentIndex,
+          onDestinationSelected: shell._onDestinationSelected,
+          destinations: [
+            for (final section in shell.sections)
+              NavigationDestination(
+                icon: Icon(section.icon),
+                selectedIcon: Icon(section.selectedIcon),
+                label: section.label,
+              ),
+          ],
+        ),
       ),
     );
   }
