@@ -78,8 +78,9 @@ Future<ProviderContainer> pumpApp(
   bool employeeAccess = true,
   AuthRepository? auth,
   FirstLoginRepository? firstLogin,
+  Size size = const Size(900, 1800),
 }) async {
-  tester.view.physicalSize = const Size(900, 1800);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
