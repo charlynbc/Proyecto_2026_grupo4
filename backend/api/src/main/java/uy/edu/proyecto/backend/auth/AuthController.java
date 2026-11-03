@@ -1,13 +1,18 @@
 package uy.edu.proyecto.backend.auth;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import uy.edu.proyecto.backend.exception.ApiException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -15,15 +20,21 @@ public class AuthController {
 
     private final AuthService authService;
 
+    private final CambioContrasenaService cambioContrasenaService;
+
     private final RefreshCookieService
             refreshCookieService;
 
 
     public AuthController(
             AuthService authService,
+            CambioContrasenaService cambioContrasenaService,
             RefreshCookieService refreshCookieService
     ) {
         this.authService = authService;
+
+        this.cambioContrasenaService =
+                cambioContrasenaService;
 
         this.refreshCookieService =
                 refreshCookieService;
@@ -116,5 +127,45 @@ public class AuthController {
                                 .toString()
                 )
                 .build();
+    }
+
+
+    @PostMapping("/cambiar-contrasena")
+    public ResponseEntity<Void> cambiarContrasena(
+            @RequestBody
+            CambiarContrasenaRequest request,
+
+            @AuthenticationPrincipal
+            Jwt jwt,
+
+            @CookieValue(
+                    name = "refresh_token",
+                    required = false
+            )
+            String refreshToken
+    ) {
+
+        cambioContrasenaService.cambiar(
+                idCuenta(jwt),
+                request,
+                refreshToken
+        );
+
+        return ResponseEntity
+                .noContent()
+                .build();
+    }
+
+
+    private static Long idCuenta(Jwt jwt) {
+        try {
+            return Long.parseLong(jwt.getSubject());
+        } catch (NumberFormatException exception) {
+            throw new ApiException(
+                    HttpStatus.UNAUTHORIZED,
+                    "TOKEN_INVALIDO",
+                    "La sesión no es válida"
+            );
+        }
     }
 }

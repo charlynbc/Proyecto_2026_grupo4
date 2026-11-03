@@ -81,19 +81,43 @@ public class SecurityConfig {
                                                 "/api/auth/login",
                                                 "/api/auth/refresh",
                                                 "/api/auth/primer-ingreso/solicitar",
-                                                "/api/auth/primer-ingreso/completar"
+                                                "/api/auth/primer-ingreso/completar",
+                                                "/api/auth/cambio-correo/confirmar",
+                                                "/api/auth/recuperacion/solicitar",
+                                                "/api/auth/recuperacion/completar"
                                         )
                                         .permitAll()
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
-                                                "/api/auth/logout"
+                                                "/api/auth/logout",
+                                                "/api/auth/cambiar-contrasena"
+                                        )
+                                        .authenticated()
+
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/api/cuentas/me"
+                                        )
+                                        .authenticated()
+
+                                        .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/cuentas/me"
                                         )
                                         .authenticated()
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/api/especialidades"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/especialidades/importaciones/**"
                                         )
                                         .hasRole(
                                                 "ADMINISTRADOR"
@@ -125,7 +149,23 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
+                                                "/api/usuarios/importaciones/**"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
                                                 "/api/turnos-semanales"
+                                        )
+                                        .hasRole(
+                                                "FUNCIONARIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/turnos-semanales/*"
                                         )
                                         .hasRole(
                                                 "FUNCIONARIO"

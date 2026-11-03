@@ -6,7 +6,7 @@ máquina o Codespace.
 
 Requisitos previos:
 
-- Java 25 (o al menos Java 21) instalado.
+- Java 25 instalado.
 - Maven instalado (o usar los wrappers `mvnw` de cada proyecto).
 - No hace falta PostgreSQL para estas pruebas, no se usa base de datos real.
 
