@@ -1,6 +1,8 @@
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/features/consultorios/providers/clinic_repository_provider.dart';
+import 'package:agenda_medica/features/consultorios/providers/clinic_search_repository_provider.dart';
 import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_repository.dart';
+import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_search_repository.dart';
 import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart';
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +23,10 @@ Future<GoRouter> _pump(WidgetTester tester, String initial) {
     overrides: [
       clinicRepositoryProvider.overrideWith(
         (ref) async => FakeClinicRepository(db, latency: Duration.zero),
+      ),
+      clinicSearchRepositoryProvider.overrideWith(
+        (ref) async =>
+            FakeClinicSearchRepository(db, latency: Duration.zero),
       ),
     ],
   );
