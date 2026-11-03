@@ -23,6 +23,8 @@ import uy.edu.proyecto.backend.exception.ApiExceptionHandler;
 class AuthControllerTest {
 
     private final AuthService service = mock(AuthService.class);
+    private final CambioContrasenaService cambioContrasenaService =
+            mock(CambioContrasenaService.class);
     private final RefreshCookieService cookieService =
             mock(RefreshCookieService.class);
     private MockMvc mockMvc;
@@ -30,7 +32,8 @@ class AuthControllerTest {
     @BeforeEach
     void configurar() {
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AuthController(service, cookieService))
+                .standaloneSetup(new AuthController(
+                        service, cambioContrasenaService, cookieService))
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
     }

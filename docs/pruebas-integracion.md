@@ -50,6 +50,8 @@ $env:APP_FIREBASE_ENABLED = "false"
 | `ReservasTrasInasistenciaIT` (9) | Reserva tras NO_ASISTIO/NO_ATENDIDA, límites de 3 y por especialidad, cambio de día |
 | `PasesRF24IT` (13), `PasesEscenariosRF24IT` (4, PR #36) | RF-24: emisión, vigencia 90 d y 1–365, duplicados, consumo, devolución, sin devolución por inasistencia, atención repetida, circuito completo, concurrencia |
 | `PadronUsuariosIT` (9) | RF-35: `q`/`texto`, `orden`, `sentido`, paginación, `%`/`_` literales, una fila por cuenta, seguridad |
+| `CargaMasivaEspecialidadesIT` (9) | RF-30: previsualizar sin insertar, confirmar con éxito parcial, duplicados en archivo y en base (sin actualizar), `requiere_pase` inválido, archivo vacío y cabeceras incorrectas, punto y coma y campos entrecomillados, roles, concurrencia sin duplicar, regresión RF-29 |
+| `CargaMasivaUsuariosIT` (14) | RF-32: alta de socio/médico/funcionario, cuenta pendiente sin correo ni activación, CI inválida, cuenta duplicada, persona coincidente y discordante, especialidad inexistente, obligatorias faltantes, rol inválido, empleado habilitado, fila repetida, roles, concurrencia sin duplicar, regresión RF-31 |
 | `Estadistica{Especialidad,Turno,Consulta}IT` | RF-39/40/41 |
 | `DisponibilidadIT` (2) | RF-08: solo médicos habilitados y turnos activos |
 | `EstadisticaTurnoHistoricoIT` (12) | RF-40 histórico desde `turno_evento` |

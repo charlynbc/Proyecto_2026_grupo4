@@ -34,11 +34,19 @@ class TurnoSemanalServiceTest {
     @Mock
     private TurnoSemanalRepository repository;
 
+    @Mock
+    private TurnoConsultaRepository consultaRepository;
+
     private TurnoSemanalService service;
 
     @BeforeEach
     void setUp() {
-        service = new TurnoSemanalService(repository);
+        service = new TurnoSemanalService(
+                repository,
+                consultaRepository,
+                java.time.Clock.system(
+                        java.time.ZoneId.of("America/Montevideo"))
+        );
         lenient().when(repository.bloquearMedico(17L)).thenReturn(Optional.of(
                 new CuentaMedica(17L, "MEDICO", true, "Ana", "Pérez")
         ));

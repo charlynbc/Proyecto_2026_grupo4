@@ -41,7 +41,10 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 import uy.edu.proyecto.backend.auth.CuentaActivaPrimerIngresoSolicitada;
+import uy.edu.proyecto.backend.auth.CuentaPendienteRecuperacionSolicitada;
 import uy.edu.proyecto.backend.auth.PrimerIngresoLinkSolicitado;
+import uy.edu.proyecto.backend.auth.RecuperacionLinkSolicitado;
+import uy.edu.proyecto.backend.usuario.CambioCorreoSolicitado;
 
 /**
  * Base de las pruebas de integracion reales: servidor HTTP real, Spring Security,
@@ -112,11 +115,17 @@ abstract class BaseIntegracionIT {
         }
     }
 
-    /** Sustituye al correo: guarda el enlace de primer ingreso sin enviar nada. */
+    /** Sustituye al correo: guarda los enlaces generados sin enviar nada. */
     static class CapturaEnlaces {
         private final List<PrimerIngresoLinkSolicitado> eventos = new CopyOnWriteArrayList<>();
         private final List<CuentaActivaPrimerIngresoSolicitada> avisosCuentaActiva =
                 new CopyOnWriteArrayList<>();
+        private final List<CambioCorreoSolicitado> cambiosCorreo =
+                new CopyOnWriteArrayList<>();
+        private final List<RecuperacionLinkSolicitado> recuperaciones =
+                new CopyOnWriteArrayList<>();
+        private final List<CuentaPendienteRecuperacionSolicitada>
+                avisosCuentaPendiente = new CopyOnWriteArrayList<>();
 
         @EventListener
         void alSolicitar(PrimerIngresoLinkSolicitado evento) {
@@ -124,17 +133,61 @@ abstract class BaseIntegracionIT {
         }
 
         @EventListener
+        void alSolicitarRecuperacion(RecuperacionLinkSolicitado evento) {
+            recuperaciones.add(evento);
+        }
+
+        @EventListener
+        void alAvisarCuentaPendiente(
+                CuentaPendienteRecuperacionSolicitada evento
+        ) {
+            avisosCuentaPendiente.add(evento);
+        }
+
+        @EventListener
         void alInformarCuentaActiva(CuentaActivaPrimerIngresoSolicitada evento) {
             avisosCuentaActiva.add(evento);
+        }
+
+        @EventListener
+        void alSolicitarCambioCorreo(CambioCorreoSolicitado evento) {
+            cambiosCorreo.add(evento);
         }
 
         PrimerIngresoLinkSolicitado ultimo() {
             return eventos.isEmpty() ? null : eventos.get(eventos.size() - 1);
         }
 
+        CambioCorreoSolicitado ultimoCambioCorreo() {
+            return cambiosCorreo.isEmpty()
+                    ? null
+                    : cambiosCorreo.get(cambiosCorreo.size() - 1);
+        }
+
+        int cantidadCambiosCorreo() {
+            return cambiosCorreo.size();
+        }
+
+        RecuperacionLinkSolicitado ultimaRecuperacion() {
+            return recuperaciones.isEmpty()
+                    ? null
+                    : recuperaciones.get(recuperaciones.size() - 1);
+        }
+
+        int cantidadRecuperaciones() {
+            return recuperaciones.size();
+        }
+
+        int cantidadAvisosCuentaPendiente() {
+            return avisosCuentaPendiente.size();
+        }
+
         void limpiar() {
             eventos.clear();
             avisosCuentaActiva.clear();
+            cambiosCorreo.clear();
+            recuperaciones.clear();
+            avisosCuentaPendiente.clear();
         }
 
         int cantidad() {
@@ -366,6 +419,38 @@ abstract class BaseIntegracionIT {
 
     Respuesta post(String ruta, String bearer, String cuerpo) {
         return enviar("POST", ruta, bearer, null, cuerpo);
+    }
+
+    /** Sube un CSV como multipart/form-data (cargas masivas RF-30/32/34). */
+    Respuesta postMultipart(String ruta, String bearer, String nombreArchivo, String contenidoCsv) {
+        String boundary = "----ProyectoE2E" + System.nanoTime();
+        String crlf = "\r\n";
+        String cuerpo = "--" + boundary + crlf
+                + "Content-Disposition: form-data; name=\"archivo\"; filename=\""
+                + nombreArchivo + "\"" + crlf
+                + "Content-Type: text/csv" + crlf + crlf
+                + contenidoCsv + crlf
+                + "--" + boundary + "--" + crlf;
+
+        HttpRequest.Builder peticion = HttpRequest.newBuilder(
+                        URI.create("http://localhost:" + puerto + ruta))
+                .timeout(Duration.ofSeconds(30))
+                .header("Content-Type",
+                        "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofString(cuerpo, StandardCharsets.UTF_8));
+        if (bearer != null) {
+            peticion.header("Authorization", "Bearer " + bearer);
+        }
+        try {
+            HttpResponse<String> respuesta = http.send(
+                    peticion.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            return new Respuesta(respuesta.statusCode(), respuesta.body(), respuesta.headers());
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
     }
 
     Respuesta login(String ci, String acceso) {

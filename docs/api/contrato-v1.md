@@ -377,6 +377,37 @@ Errores: `400 ENLACE_INVALIDO` (mismo código y mensaje si el enlace no existe, 
 
 Preguntas relacionadas: P-04, P-05, P-06, P-18.
 
+<a id="e45"></a>
+#### #45 · `POST /api/auth/cambiar-contrasena`
+
+- **Roles:** cualquier rol autenticado.
+- **RF:** RF-04. **Estado:** CONFIRMADA (backend, 01/11/2026).
+
+Cambia la contraseña del usuario autenticado. La identidad sale del JWT; el cliente nunca envía un id de cuenta.
+
+**Cuerpo**
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `passwordActual` | texto | sí | Se verifica contra el hash guardado (BCrypt). |
+| `passwordNueva` | texto | sí | Mínimo 8 caracteres (parámetro `PASSWORD_MIN_LENGTH`) y máximo 72 bytes UTF-8 (límite de BCrypt). |
+
+```json
+{ "passwordActual": "claveSegura1", "passwordNueva": "claveNueva9" }
+```
+
+**Respuesta 204**, sin cuerpo.
+
+**Sesiones después del cambio (decisión del backend, el RF no la fija):** se revocan **todas las demás sesiones** de la cuenta; la sesión actual (la cookie de renovación que acompaña el pedido) sobrevive. Si el pedido no trae cookie, se revocan todas y el cliente tendrá que iniciar sesión de nuevo al vencer el access token. Dos cambios concurrentes sobre la misma cuenta se serializan (bloqueo de la fila): el segundo verifica la contraseña ya actualizada por el primero.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Falta un campo o la contraseña nueva no cumple la longitud. |
+| 400 | `CONTRASENA_ACTUAL_INCORRECTA` | La contraseña actual no coincide. No es un `401` para que el cliente no dispare el flujo de refresh (5.1). |
+| 401 | `NO_AUTENTICADO` | Sin sesión válida, o la cuenta fue inactivada. |
+
 ### 3.2 Catálogos de apoyo
 
 <a id="e06"></a>
@@ -701,6 +732,43 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 **Respuesta 200**: la misma forma que la respuesta de #13. `cantidadTurnos` es la cantidad de fechas concretas que tiene el patrón (**PROPUESTA**).
 
 **Errores:** `404 NO_ENCONTRADO` si el id no existe.
+
+<a id="e51"></a>
+#### #51 · `PATCH /api/turnos-semanales/{id}`
+
+- **Roles:** FUNCIONARIO.
+- **RF:** RF-20. **Estado:** CONFIRMADA (backend, 01/11/2026).
+
+Modifica **únicamente el consultorio** de una configuración semanal de turnos. El médico, la especialidad, el día de la semana y los horarios de los números no se modifican: para cambiarlos se da de alta otro turno (#13).
+
+**Cuerpo**
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `consultorioId` | entero | sí | Consultorio destino. |
+
+```json
+{ "consultorioId": 7 }
+```
+
+**Respuesta 200**: el `TurnoSemanalDTO` resultante, con la misma forma que #13/#14. Enviar el consultorio actual es un no-op idempotente: responde `200` con el estado vigente sin tocar nada.
+
+**Reglas (RF-20):**
+
+- Solo se puede modificar si **ninguna** fecha cuyo día todavía no terminó tiene consultas `AGENDADA`. Si las hay, `409 TURNO_NO_MODIFICABLE` y nada cambia; el funcionario puede suspender esas fechas con RF-14 (#24) y dar de alta otro turno.
+- La configuración resultante se revalida como en el alta (RF-13), incluido el solapamiento con números de otros turnos activos del mismo médico o del consultorio nuevo en las fechas activas vigentes (`409 SOLAPAMIENTO_TURNO`).
+- La modificación afecta únicamente las fechas actuales y futuras: las fechas pasadas conservan su consultorio; las fechas suspendidas se mueven al consultorio nuevo **conservando** su estado `SUSPENDIDO`; las consultas existentes no se modifican ni se cancelan.
+- Si no quedan fechas activas actuales ni futuras (vigencia terminada o todo suspendido), `409 TURNO_NO_MODIFICABLE`.
+- Concurrencia: la configuración y sus turnos vigentes se bloquean (`FOR UPDATE`) durante la operación; dos modificaciones o una agenda concurrente se serializan.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Falta `consultorioId` o no es un entero positivo. |
+| 404 | `NO_ENCONTRADO` | El turno semanal o el consultorio no existen. |
+| 409 | `TURNO_NO_MODIFICABLE` | Hay consultas agendadas vigentes, o no quedan fechas activas actuales/futuras. |
+| 409 | `SOLAPAMIENTO_TURNO` | La configuración resultante se solapa con otro turno activo del médico o del consultorio nuevo. |
 
 <a id="e15"></a>
 #### #15 · `GET /api/turnos`
@@ -1916,6 +1984,242 @@ La `situacion` se calcula al consultar (no se guarda): `UTILIZADO` si alguna con
 | 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
 | 403 | `ACCESO_DENEGADO` | El rol no es médico. |
 
+### 3.12 Cuenta del usuario autenticado (RF-06)
+
+<a id="e46"></a>
+#### #46 · `GET /api/cuentas/me`
+
+- **Roles:** cualquier rol autenticado.
+- **RF:** RF-06. **Estado:** CONFIRMADA (backend, 01/11/2026).
+
+Devuelve los datos de la cuenta del usuario autenticado (identidad del JWT). Sirve para precargar el formulario de edición.
+
+**Respuesta 200**
+
+```json
+{
+  "ci": "45678911",
+  "nombre": "Lucía",
+  "apellido": "Fernández",
+  "rol": "SOCIO",
+  "correo": "lucia@example.org",
+  "correoPendiente": null,
+  "telefono1": "099123456",
+  "telefono2": null,
+  "direccion": "Av. 18 de Julio 1234, Montevideo"
+}
+```
+
+`correoPendiente` es el correo nuevo a la espera de confirmación (ver #47), o `null` si no hay cambio pendiente. `ci`, `nombre`, `apellido` y `rol` se muestran pero no se editan por esta vía (los corrige el Administrador, RF-38).
+
+**Errores:** `401 NO_AUTENTICADO` / `TOKEN_INVALIDO` sin sesión válida.
+
+<a id="e47"></a>
+#### #47 · `PATCH /api/cuentas/me`
+
+- **Roles:** cualquier rol autenticado.
+- **RF:** RF-06. **Estado:** CONFIRMADA (backend, 01/11/2026).
+
+Edita los datos personales permitidos. La identidad sale del JWT: nadie edita la cuenta de otro.
+
+**Cuerpo** — al menos uno de estos campos; los ausentes no se modifican:
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `direccion` | texto | no | No puede quedar vacía. |
+| `telefono1` | texto | no | 1 a 30 caracteres, no vacío. |
+| `telefono2` | texto o `null` | no | Hasta 30 caracteres. `""` o `null` explícito lo borra; ausente lo conserva. |
+| `correo` | texto | no | Formato de correo válido, hasta 254 caracteres. **No aplica de inmediato:** se envía un enlace de un solo uso (24 h) al correo **nuevo** y el cambio se aplica al confirmarlo con #50. Mientras tanto el correo actual sigue vigente y la respuesta lo muestra en `correoPendiente`. Si `correo` es igual al actual, no se genera enlace. |
+
+```json
+{ "direccion": "Av. Italia 1234", "telefono1": "099000111", "correo": "nuevo@example.org" }
+```
+
+**Respuesta 200**: la misma forma que #46, con el estado ya aplicado (y `correoPendiente` si se pidió cambio de correo).
+
+**Campos protegidos:** cualquier otro campo en el cuerpo (`ci`, `nombre`, `apellido`, `fechaNacimiento`, `rol`, `estado`, `habilitada`, `id`, ...) se rechaza con `400 VALIDACION` y el mensaje los nombra. Esos datos solo los corrige el Administrador (RF-38); el rol de la cuenta nunca se modifica.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Cuerpo vacío de cambios, campo protegido o desconocido, formato inválido, teléfono de más de 30 caracteres, correo inválido. |
+| 401 | `NO_AUTENTICADO` | Sin sesión válida, o la cuenta fue inactivada. |
+
+<a id="e50"></a>
+#### #50 · `POST /api/auth/cambio-correo/confirmar`
+
+- **Roles:** público; autoriza con el `token` del enlace enviado al correo nuevo.
+- **RF:** RF-06. **Estado:** CONFIRMADA (backend, 01/11/2026).
+
+Aplica el cambio de correo pendiente. El enlace es de un solo uso, válido 24 horas (`EMAIL_CHANGE_TOKEN_VALIDITY_HOURS`); pedir otro cambio de correo invalida el anterior. El enlace apunta a `CHANGE_EMAIL_URL + "?token=<token>"` (por defecto `…/#/cambio-correo`).
+
+**Cuerpo**
+
+```json
+{ "token": "b7f3c1d0a9e84f2c8b1d6e5f4a3b2c1d" }
+```
+
+**Respuesta 200**
+
+```json
+{ "message": "Tu correo se actualizó correctamente." }
+```
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Falta `token`. No consume el enlace. |
+| 400 | `ENLACE_INVALIDO` | El enlace no existe, venció, ya se usó, fue reemplazado por uno más nuevo o la cuenta fue inactivada. Mismo código y mensaje en todos los casos. Mensaje: "El enlace ya no es válido. Pedí uno nuevo desde tu perfil." |
+
+### 3.13 Recuperación de contraseña (RF-05)
+
+<a id="e48"></a>
+#### #48 · `POST /api/auth/recuperacion/solicitar`
+
+- **Roles:** público.
+- **RF:** RF-05. **Estado:** CONFIRMADA (backend, 01/11/2026).
+
+**Cuerpo**
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `ci` | texto | sí | Sección 1.6. |
+| `acceso` | `TipoAcceso` | sí | El sistema identifica la cuenta según el acceso usado. |
+
+```json
+{ "ci": "45678911", "acceso": "SOCIO" }
+```
+
+**Respuesta 202.** Siempre el mismo cuerpo, exista o no la cuenta en ese acceso (RF-05, RNF-10); el mismo texto que #4:
+
+```json
+{
+  "message": "Si su cédula se encuentra registrada, se le ha enviado un correo electrónico con las instrucciones."
+}
+```
+
+**Qué pasa después (interno y asíncrono, igual que #4):** si existe una cuenta habilitada y activada para esa CI en ese acceso, se envía al correo de la cuenta un enlace de un solo uso válido por 24 horas (`RECOVERY_URL + "?token=<token>"`, por defecto `…/#/recuperacion`). El token es aleatorio de 256 bits y solo se guarda su hash SHA-256 (tabla `enlace_cuenta`, tipo `RECUPERACION`, separado de `PRIMER_INGRESO` y `CAMBIO_CORREO`). Si la CI figura en el padrón pero la cuenta todavía no se activó, el correo indica que debe usar "Es mi primera vez" (RF-05). Si la cuenta fue inactivada por un administrador, no se envía nada (mismo criterio que RF-02).
+
+**Anti-abuso (decisión del backend, el RF no lo fija):** si la cuenta ya tiene un enlace vigente creado hace menos de 60 segundos, no se genera ni envía otro; la respuesta es la misma. Pasado ese plazo, pedir uno nuevo invalida los anteriores. Así un pedido repetido no bombardea el correo ni invalida el enlace que ya viaja.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Falta un campo, `acceso` inválido o CI con dígito verificador inválido. Solo por forma del pedido; nunca depende de si la CI existe. |
+
+<a id="e49"></a>
+#### #49 · `POST /api/auth/recuperacion/completar`
+
+- **Roles:** público; autoriza con el `token` del enlace.
+- **RF:** RF-05. **Estado:** CONFIRMADA (backend, 01/11/2026).
+
+**Cuerpo**
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `token` | texto | sí | El del enlace recibido por correo. De un solo uso, válido 24 horas. |
+| `password` | texto | sí | Mínimo 8 caracteres y máximo 72 bytes UTF-8, igual que #5 y #45. |
+
+```json
+{ "token": "b7f3c1d0a9e84f2c8b1d6e5f4a3b2c1d", "password": "claveNueva9" }
+```
+
+**Respuesta 200**
+
+```json
+{ "message": "Tu contraseña se actualizó correctamente. Ya podés iniciar sesión." }
+```
+
+No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P-06). **Al completarse se revocan todas las sesiones de la cuenta** (decisión del backend: la contraseña anterior pudo estar comprometida). Nunca se envía una contraseña por correo.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Falta un campo o la contraseña no cumple la longitud. No consume el enlace. |
+| 400 | `ENLACE_INVALIDO` | El enlace no existe, venció, ya se usó, fue reemplazado por uno más nuevo o la cuenta fue inactivada. Mismo código y mensaje en todos los casos. Mensaje: "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso." |
+
+### 3.14 Cargas masivas (administrador)
+
+Reglas comunes (sección 3.1.4 de Requerimientos). Cada carga masiva tiene **dos pasos**: `previsualizar` analiza el archivo y responde totales y el motivo de cada fila con error **sin modificar la base**; `confirmar` vuelve a validar todo e **importa solo las filas válidas** (éxito parcial: las inválidas se rechazan con su motivo y el administrador puede corregirlas y volver a cargarlas). Ninguna fila existente se actualiza.
+
+**Formato del archivo**
+
+- CSV con codificación **UTF-8** (se acepta la marca BOM inicial) y **encabezados**.
+- Separador: **coma o punto y coma** (se detecta en la línea de encabezado). Los campos entrecomillados pueden contener el separador.
+- Las columnas deben ser **exactamente** las indicadas (ni faltantes ni adicionales, sin repetir); de lo contrario `400 CSV_INVALIDO`.
+- Límites: **1 MB** por archivo y **1000 filas** de datos. Superarlos responde `400 CSV_INVALIDO`.
+- El archivo viaja como `multipart/form-data` en el campo `archivo` y **no se almacena** en el servidor.
+- Una fila con una cantidad distinta de columnas se rechaza con ese motivo; las demás se procesan.
+- Fila repetida dentro del archivo: se conserva la **primera aparición** y las siguientes se rechazan indicando su número de fila.
+- Los números de fila del reporte cuentan desde 2 (la fila 1 es el encabezado).
+
+**Forma de las respuestas**
+
+Previsualizar (`PrevisualizacionDTO`):
+
+```json
+{
+  "total": 3,
+  "validas": 2,
+  "invalidas": 1,
+  "filas": [
+    { "numero": 2, "nombre": "Neurología", "requierePase": true, "error": null },
+    { "numero": 3, "nombre": "Traumatología", "requierePase": null, "error": "requiere_pase debe ser si o no" }
+  ],
+  "errores": [
+    { "numero": 3, "nombre": "Traumatología", "requierePase": null, "error": "requiere_pase debe ser si o no" }
+  ]
+}
+```
+
+Confirmar (`ResultadoImportacionDTO`): igual, pero con `importadas` y `rechazadas` en lugar de `validas` e `invalidas`. Una fila válida en la previsualización puede quedar rechazada al confirmar si otra operación la registró en el medio (la base vuelve a verificar todo).
+
+**Errores comunes a los cuatro endpoints**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `CSV_INVALIDO` | Falta el archivo, está vacío, no es UTF-8, las cabeceras no son las esperadas, supera 1 MB o 1000 filas, o el formato es inválido. |
+| 401 | `NO_AUTENTICADO` | Sin sesión válida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es ADMINISTRADOR. |
+
+<a id="e52"></a>
+#### #52 · `POST /api/especialidades/importaciones/previsualizar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-30. **Estado:** CONFIRMADA (backend, 02/11/2026).
+
+Columnas del CSV: `nombre,requiere_pase`. `requiere_pase` admite `si` (con o sin tilde) o `no`, sin distinguir mayúsculas. Validaciones por fila: nombre obligatorio y de hasta 120 caracteres, `requiere_pase` válido, sin duplicados dentro del archivo (sin distinguir mayúsculas) y nombre no existente en el catálogo. Responde `PrevisualizacionDTO` con filas `{numero, nombre, requierePase, error}`.
+
+<a id="e53"></a>
+#### #53 · `POST /api/especialidades/importaciones/confirmar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-30. **Estado:** CONFIRMADA (backend, 02/11/2026).
+
+Mismo archivo y validaciones que #52. Inserta cada fila válida con las mismas reglas del alta individual #7 (la unicidad sin distinguir mayúsculas la respalda el índice único de la base, también ante importaciones concurrentes). Responde `ResultadoImportacionDTO` con filas `{numero, nombre, requierePase, error}`; las filas rechazadas incluyen el motivo (por ejemplo "Ya existe una especialidad registrada con ese nombre.").
+
+<a id="e54"></a>
+#### #54 · `POST /api/usuarios/importaciones/previsualizar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-32. **Estado:** CONFIRMADA (backend, 02/11/2026).
+
+Columnas del CSV: `ci,nombre,apellido,fecha_nacimiento,correo,telefono_1,telefono_2,direccion,rol,especialidades`. Obligatorias: `ci`, `nombre`, `apellido`, `fecha_nacimiento` (`aaaa-mm-dd`), `correo`, `telefono_1` y `rol`. `especialidades` es obligatoria solo si `rol` es `MEDICO` y sus valores se separan con `|`; deben ser **nombres** de especialidades existentes (sin distinguir mayúsculas). `rol` admite `SOCIO`, `MEDICO`, `FUNCIONARIO` o `ADMINISTRADOR` sin distinguir mayúsculas. La `ci` admite puntos y guion y se valida el dígito verificador.
+
+Cada fila es **una cuenta**: una persona con dos cuentas aparece en dos filas con distinto rol; dos filas con la misma CI y el mismo rol se consideran repetidas. Validaciones por fila: las del alta individual #11 (campos, correo, CI, rol, especialidades) más, contra la base: especialidad desconocida, persona existente con nombre, apellido o fecha de nacimiento discordantes, y cuenta de socio o de empleado duplicada. Responde `PrevisualizacionDTO` con filas `{numero, ci, nombre, apellido, rol, error}`.
+
+<a id="e55"></a>
+#### #55 · `POST /api/usuarios/importaciones/confirmar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-32. **Estado:** CONFIRMADA (backend, 02/11/2026).
+
+Mismo archivo y validaciones que #54. Registra cada fila válida invocando el alta individual #11: cada cuenta queda **pendiente de primer ingreso**, **no se envía ningún correo** y ninguna cuenta se activa automáticamente. Cada fila se procesa en su propia transacción: un rechazo no revierte las demás. Responde `ResultadoImportacionDTO` con filas `{numero, ci, nombre, apellido, rol, error}`; los motivos de rechazo son los mismos códigos del alta individual (`CI_INVALIDA`, `VALIDACION`, `DATOS_PERSONA_DISCORDANTES`, `SOCIO_DUPLICADO`, `EMPLEADO_DUPLICADO`) expresados en el `error` de cada fila.
+
 ## 4. Matriz de roles por endpoint
 
 ✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
@@ -1965,8 +2269,19 @@ La `situacion` se calcula al consultar (no se guarda): `UTILIZADO` si alguna con
 | 41 | `GET /api/medico/atenciones` | | | | ✔ | |
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | | | | ✔ | |
 | 43 | `GET /api/medico/pases` | | | | ✔ | |
+| 45 | `POST /api/auth/cambiar-contrasena` | | ✔ | ✔ | ✔ | ✔ |
+| 46 | `GET /api/cuentas/me` | | ✔ | ✔ | ✔ | ✔ |
+| 47 | `PATCH /api/cuentas/me` | | ✔ | ✔ | ✔ | ✔ |
+| 48 | `POST /api/auth/recuperacion/solicitar` | ✔ | | | | |
+| 49 | `POST /api/auth/recuperacion/completar` | ✔ (token) | | | | |
+| 50 | `POST /api/auth/cambio-correo/confirmar` | ✔ (token) | | | | |
+| 51 | `PATCH /api/turnos-semanales/{id}` | | | ✔ | | |
+| 52 | `POST /api/especialidades/importaciones/previsualizar` | | | | | ✔ |
+| 53 | `POST /api/especialidades/importaciones/confirmar` | | | | | ✔ |
+| 54 | `POST /api/usuarios/importaciones/previsualizar` | | | | | ✔ |
+| 55 | `POST /api/usuarios/importaciones/confirmar` | | | | | ✔ |
 
-Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40).
+Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
 ## 5. Error uniforme y catálogo de códigos
 
@@ -2007,7 +2322,8 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 401 | `CREDENCIALES_INVALIDAS` | #1 | Cualquier rechazo del login, sin distinguir motivo. |
 | 401 | `SESION_INVALIDA` | #2 | Cookie de renovación ausente, vencida o revocada. |
 | 403 | `CSRF_INVALIDO` | #2, #3 | Falla la protección CSRF (P-02). |
-| 400 | `ENLACE_INVALIDO` | #5 | Enlace inexistente, vencido, usado o cuenta inactivada. |
+| 400 | `ENLACE_INVALIDO` | #5, #49, #50 | Enlace inexistente, vencido, usado, reemplazado o cuenta inactivada. |
+| 400 | `CONTRASENA_ACTUAL_INCORRECTA` | #45 | La contraseña actual no coincide. |
 
 ### 5.4 Códigos de administración
 
@@ -2019,6 +2335,9 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 409 | `DATOS_PERSONA_DISCORDANTES` | #11 | CI existente con nombre, apellido o fecha de nacimiento distintos. |
 | 409 | `SOCIO_DUPLICADO` | #11 | La CI ya tiene cuenta de socio. |
 | 409 | `EMPLEADO_DUPLICADO` | #11 | La CI ya tiene cuenta de empleado habilitada o pendiente. |
+| 400 | `CSV_INVALIDO` | #52 a #55 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
+
+En #53 y #55 los errores por fila viajan en el campo `error` de cada fila del resultado (no como status de la respuesta): la importación es parcial y responde `200` aunque todas las filas se rechacen.
 
 ### 5.5 Códigos de turnos
 
@@ -2029,6 +2348,7 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 409 | `SOLAPAMIENTO_TURNO` | #13, #25 | Cruce de horarios con otro turno activo del médico o del consultorio. |
 | 409 | `TURNO_NO_SUSPENDIBLE` | #23, #24, #39 | Turno no activo o de fecha pasada. |
 | 409 | `TURNO_NO_REHABILITABLE` | #25 | Turno no suspendido o de fecha pasada. |
+| 409 | `TURNO_NO_MODIFICABLE` | #51 | Hay consultas agendadas vigentes, o no quedan fechas activas actuales/futuras. |
 | 409 | `CONFIRMACION_DESACTUALIZADA` | #24 | La cantidad de consultas afectadas cambió desde la previsualización. |
 
 ### 5.6 Códigos de agenda y consultas
@@ -2206,6 +2526,10 @@ Las rutas que propone este contrato se detallan en la sección 3. Decisiones sob
 4. **Suspensiones:** el Diseño exige volver a pedir confirmación si la cantidad de consultas cambió entre la previsualización y la confirmación (S08). Por eso #24 lleva `cantidadConfirmada` y puede responder `409 CONFIRMACION_DESACTUALIZADA`.
 5. **Médico:** el Diseño define una sola operación `consultarTurnosDelMedico(medicoId, fecha): TurnosPacientesDTO`. Se parte la operación del Diseño en dos pedidos, #29 y #30, para seguir el flujo del CU 3.4.1.
 6. **Consultas de hoy:** `GET /api/avisos-llegada/consultas-hoy?ci=` devuelve solo `AGENDADA` de hoy. Con la CI del propio funcionario responde `403 CONFLICTO_DE_INTERES` ya en la búsqueda, no recién al marcar (CU 3.3.4, paso 3).
+7. **Cambio de contraseña (#45, RF-04):** el RF no define qué pasa con las sesiones abiertas. Se decidió revocar **las demás** sesiones y conservar la actual (la que adjunta la cookie de renovación), para no expulsar al usuario que acaba de demostrar conocer la contraseña. La contraseña actual incorrecta responde `400 CONTRASENA_ACTUAL_INCORRECTA` (no `401`) para no disparar el flujo de refresh del cliente (5.1).
+8. **Recuperación (#48, #49, RF-05):** réplica exacta del mecanismo de RF-02 con tipo de enlace `RECUPERACION`. Dos decisiones que el RF no fija: (a) anti-abuso de 60 segundos entre envíos a la misma cuenta, con la respuesta pública intacta; (b) al completar se revocan **todas** las sesiones, porque la contraseña anterior pudo estar comprometida. La respuesta de `solicitar` reutiliza el texto de #4.
+9. **Datos personales (#46, #47, #50, RF-06):** dirección y teléfonos aplican de inmediato; el correo se aplica solo tras confirmar el enlace enviado al correo **nuevo** (tipo `CAMBIO_CORREO`, 24 h, un solo uso), como exige el RF. `telefono2` es el único campo anulable: `""` o `null` explícito lo borra y ausente lo conserva. Cualquier campo fuera de los cuatro editables se rechaza con `400 VALIDACION` nombrándolo.
+10. **Modificación de turno semanal (#51, RF-20):** solo el consultorio. "Consultas Agendadas cuyo día todavía no terminó" se interpreta como `fecha >= hoy` (hora de Uruguay). El control de solapamientos de RF-13 se revalida sobre las fechas **activas** vigentes; las suspendidas se mueven sin revalidar (si se rehabilitan, RF-15 revalida en ese momento). Enviar el consultorio actual es un no-op `200`.
 
 ### 7.2 Contradicciones entre documentos
 
@@ -2221,9 +2545,13 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 
 Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
 
-RF-04 cambio de contraseña, RF-05 recuperación de contraseña (el correo de RF-02 para una cuenta ya activa remite a ella), RF-06 edición de datos personales, RF-07 y RF-28 cartelera de novedades, RF-20 modificación de turno semanal, RF-30, RF-32 y RF-34 cargas masivas, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+RF-07 y RF-28 cartelera de novedades, RF-34 carga masiva de consultorios, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+
+RF-30 y RF-32 salieron de esta lista el 02/11/2026: tienen contrato confirmado en los endpoints #52 a #55 (sección 3.14).
 
 RF-22, RF-25, RF-26 y RF-27 salieron de esta lista: tienen contrato confirmado en los endpoints #38 a #43 (sección 3.11).
+
+RF-04, RF-05, RF-06 y RF-20 salieron de esta lista el 01/11/2026: tienen contrato confirmado en los endpoints #45 a #51 (secciones 3.1, 3.4, 3.12 y 3.13).
 
 ## 9. Preguntas abiertas
 

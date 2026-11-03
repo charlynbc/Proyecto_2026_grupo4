@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/forms/submit_state.dart';
 import '../../../core/network/api_exception.dart';
 import 'specialties_provider.dart';
+import 'specialty_search_provider.dart';
 import 'specialty_repository_provider.dart';
 
 /// Alta de una especialidad (RF-29). Al terminar bien invalida el catálogo.
@@ -21,6 +22,7 @@ class CreateSpecialtyController extends Notifier<SubmitState> {
       final repository = await ref.read(specialtyRepositoryProvider.future);
       await repository.create(name: name, requiresReferral: requiresReferral);
       ref.invalidate(specialtiesProvider);
+      ref.invalidate(specialtySearchProvider);
       state = const SubmitState(status: SubmitStatus.done);
     } catch (e) {
       state = SubmitState(
