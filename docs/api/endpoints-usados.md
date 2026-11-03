@@ -120,7 +120,7 @@ titular. Su contrato y ejemplos de consola están en
 Al 26/10/2026, el backend implementa las rutas #10, #12, #18, #21, #22, #28 y
 `GET /api/socios/me/pases/disponibles`. La implementación actual es la fuente
 de verdad para las consultas de consola y puede diferir de propuestas previas
-en `contrato-v1.md`: por ejemplo, `GET /api/usuarios` usa `texto` (no `q`), y
+en `contrato-v1.md`: por ejemplo,
 `GET /api/historia-clinica` devuelve una lista sin paginar con los campos
 clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige paginación). Ver el manual enlazado
 arriba para el contrato real y ejemplos.
