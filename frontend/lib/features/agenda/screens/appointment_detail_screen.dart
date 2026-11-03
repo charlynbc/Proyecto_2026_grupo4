@@ -10,6 +10,7 @@ import '../../auth/widgets/logout_button.dart';
 import '../models/appointment.dart';
 import '../providers/appointment_history_provider.dart';
 import '../repositories/appointment_history_repository.dart';
+import '../widgets/cancel_appointment_dialog.dart';
 
 class AppointmentDetailScreen extends ConsumerWidget {
   const AppointmentDetailScreen({required this.id, super.key});
@@ -31,7 +32,7 @@ class AppointmentDetailScreen extends ConsumerWidget {
           child: appointment.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => _error(context, ref, error),
-            data: (value) => _details(value),
+            data: (value) => _details(context, ref, value),
           ),
         ),
       ),
@@ -72,7 +73,11 @@ class AppointmentDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _details(Appointment appointment) {
+  Widget _details(
+    BuildContext context,
+    WidgetRef ref,
+    Appointment appointment,
+  ) {
     final bookedAt = DateFormat('dd/MM/yyyy HH:mm')
         .format(UruguayTime.toUruguay(appointment.bookedAt));
     final rows = <(String, String)>[
@@ -103,16 +108,18 @@ class AppointmentDetailScreen extends ConsumerWidget {
         for (final (label, value) in rows)
           ListTile(title: Text(label), subtitle: Text(value)),
         const SizedBox(height: 8),
-        const Text(
-          'La cancelación de consultas todavía no está disponible.',
-          key: Key('cancellation-pending'),
-        ),
-        const SizedBox(height: 8),
-        const OutlinedButton(
-          key: Key('cancel-appointment-disabled'),
-          onPressed: null,
-          child: Text('Cancelar consulta'),
-        ),
+        if (appointment.status == 'AGENDADA') ...[
+          const SizedBox(height: 8),
+          OutlinedButton(
+            key: const Key('cancel-appointment'),
+            onPressed: () => showCancelAppointmentDialog(
+              context: context,
+              ref: ref,
+              appointment: appointment,
+            ),
+            child: const Text('Cancelar consulta'),
+          ),
+        ],
       ],
     );
   }
