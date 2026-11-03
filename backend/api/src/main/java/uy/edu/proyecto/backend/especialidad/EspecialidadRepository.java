@@ -1,7 +1,12 @@
 package uy.edu.proyecto.backend.especialidad;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -55,6 +60,51 @@ public class EspecialidadRepository {
                 rs.getString("nombre"),
                 rs.getBoolean("requiere_pase")
         ), params.toArray());
+    }
+
+    /**
+     * Devuelve las especialidades cuyo nombre (sin distinguir mayusculas)
+     * este en la coleccion dada, indexadas por nombre en minusculas.
+     * La unicidad la respalda el indice uq_especialidad_nombre.
+     */
+    public Map<String, Especialidad> buscarPorNombresLower(
+            Collection<String> nombres
+    ) {
+        if (nombres == null || nombres.isEmpty()) {
+            return Map.of();
+        }
+
+        List<String> normalizados = nombres.stream()
+                .map(nombre -> nombre.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+
+        String placeholders = normalizados.stream()
+                .map(ignored -> "?")
+                .collect(Collectors.joining(", "));
+
+        Map<String, Especialidad> encontradas = new HashMap<>();
+        jdbcTemplate.query(
+                """
+                SELECT id_especialidad, nombre, requiere_pase
+                FROM public.especialidad
+                WHERE lower(nombre) IN (%s)
+                """.formatted(placeholders),
+                (rs, rowNum) -> {
+                    Especialidad especialidad = new Especialidad(
+                            rs.getLong("id_especialidad"),
+                            rs.getString("nombre"),
+                            rs.getBoolean("requiere_pase")
+                    );
+                    encontradas.put(
+                            especialidad.nombre().toLowerCase(Locale.ROOT),
+                            especialidad
+                    );
+                    return especialidad;
+                },
+                normalizados.toArray()
+        );
+        return encontradas;
     }
 
     public Especialidad crear(String nombre, boolean requierePase) {

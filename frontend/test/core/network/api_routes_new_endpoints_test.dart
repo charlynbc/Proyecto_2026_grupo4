@@ -44,8 +44,44 @@ void main() {
     });
   });
 
+  group('rutas de cuenta y recuperación de contraseña', () {
+    test('cambiar la contraseña estando con sesión', () {
+      expect(ApiRoutes.authChangePassword, '/api/auth/cambiar-contrasena');
+    });
+
+    test('datos personales de la cuenta', () {
+      expect(ApiRoutes.accountMe, '/api/cuentas/me');
+    });
+
+    test('pedir la recuperación de contraseña', () {
+      expect(
+        ApiRoutes.authPasswordRecoveryRequest,
+        '/api/auth/recuperacion/solicitar',
+      );
+    });
+
+    test('definir la contraseña nueva con el enlace recibido', () {
+      expect(
+        ApiRoutes.authPasswordRecoveryComplete,
+        '/api/auth/recuperacion/completar',
+      );
+    });
+
+    test('confirmar el correo nuevo con el enlace recibido', () {
+      expect(
+        ApiRoutes.authEmailChangeConfirm,
+        '/api/auth/cambio-correo/confirmar',
+      );
+    });
+  });
+
   group('ApiRoutes.all', () {
     for (final route in [
+      '/api/auth/cambiar-contrasena',
+      '/api/cuentas/me',
+      '/api/auth/recuperacion/solicitar',
+      '/api/auth/recuperacion/completar',
+      '/api/auth/cambio-correo/confirmar',
       '/api/medico/consultas/1/cancelar',
       '/api/medico/turnos/1/cancelar',
       '/api/medico/pacientes/1/historia-clinica',

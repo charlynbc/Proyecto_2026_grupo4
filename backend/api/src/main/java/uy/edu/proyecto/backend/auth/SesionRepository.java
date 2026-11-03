@@ -65,6 +65,35 @@ public class SesionRepository {
                 .findFirst();
     }
 
+    /**
+     * Revoca todas las sesiones vigentes de la cuenta salvo la indicada
+     * (null revoca todas). Devuelve cuantas se revocaron.
+     */
+    public int revocarOtrasSesiones(long idCuenta, String tokenHashActual) {
+        if (tokenHashActual == null) {
+            return jdbcTemplate.update(
+                    """
+                    UPDATE public.sesion
+                    SET revocada_en = CURRENT_TIMESTAMP
+                    WHERE id_cuenta = ?
+                      AND revocada_en IS NULL
+                    """,
+                    idCuenta
+            );
+        }
+        return jdbcTemplate.update(
+                """
+                UPDATE public.sesion
+                SET revocada_en = CURRENT_TIMESTAMP
+                WHERE id_cuenta = ?
+                  AND revocada_en IS NULL
+                  AND token_renovacion_hash <> ?
+                """,
+                idCuenta,
+                tokenHashActual
+        );
+    }
+
     public void revocar(String tokenHash) {
         jdbcTemplate.update(
                 """

@@ -85,6 +85,40 @@ public class CuentaAuthRepository {
                 .findFirst();
     }
 
+    /**
+     * Bloquea la fila de la cuenta (FOR UPDATE) y devuelve su hash actual.
+     * Solo cuentas habilitadas y con primer ingreso completado.
+     */
+    public Optional<String> bloquearCredencial(long idCuenta) {
+        return jdbcTemplate.query(
+                        """
+                        SELECT contrasena_hash
+                        FROM public.cuenta
+                        WHERE id_cuenta = ?
+                          AND habilitada = TRUE
+                          AND primer_ingreso_completado = TRUE
+                          AND contrasena_hash IS NOT NULL
+                        FOR UPDATE
+                        """,
+                        (rs, rowNum) -> rs.getString("contrasena_hash"),
+                        idCuenta
+                )
+                .stream()
+                .findFirst();
+    }
+
+    public void actualizarContrasena(long idCuenta, String nuevoHash) {
+        jdbcTemplate.update(
+                """
+                UPDATE public.cuenta
+                SET contrasena_hash = ?
+                WHERE id_cuenta = ?
+                """,
+                nuevoHash,
+                idCuenta
+        );
+    }
+
     public Optional<Vigencia> buscarVigencia(long idCuenta) {
         return jdbcTemplate.query(
                         """

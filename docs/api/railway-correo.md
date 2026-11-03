@@ -1,5 +1,24 @@
 # Correo y despliegue en Railway
 
+## Flujos de correo del backend
+
+Hay tres flujos que envían correo, todos sobre la misma infraestructura
+(`CorreoSender`, evento de dominio publicado dentro de la transacción y envío
+**después del commit**, en segundo plano; el fallo del proveedor nunca cambia la
+respuesta HTTP ni filtra la existencia de la cuenta):
+
+| Flujo | RF | Tipo de enlace (`enlace_cuenta.tipo`) | Variable con la URL base |
+|---|---|---|---|
+| Primer ingreso | RF-02 | `PRIMER_INGRESO` | `FIRST_LOGIN_URL` |
+| Recuperación de contraseña | RF-05 | `RECUPERACION` | `RECOVERY_URL` |
+| Confirmación de cambio de correo | RF-06 | `CAMBIO_CORREO` | `CHANGE_EMAIL_URL` |
+
+Los tres enlaces son aleatorios de 256 bits, se guardan solo como hash SHA-256,
+vencen a las 24 horas y son de un solo uso; pedir uno nuevo invalida los
+anteriores del mismo tipo (en RF-05 hay además un anti-reenvío de 60 segundos).
+Nunca se envía una contraseña por correo y los logs no registran tokens,
+destinatarios ni contenido.
+
 ## Primer ingreso (RF-02)
 
 `PrimerIngresoService` genera el enlace (token aleatorio de 32 bytes, solo se
@@ -78,7 +97,11 @@ Variables (los valores secretos se cargan en el panel de Railway, nunca en Git):
 | `RESEND_API_KEY` | sí | Clave de la cuenta de Resend. |
 | `MAIL_FROM` | sí | Remitente verificado en Resend (por ejemplo `Clínica <no-reply@dominio>`). |
 | `FIRST_LOGIN_URL` | sí | `https://<dominio-de-railway>/#/primer-ingreso` (sin `?token=`). |
+| `RECOVERY_URL` | sí | `https://<dominio-de-railway>/#/recuperacion` (sin `?token=`). |
+| `CHANGE_EMAIL_URL` | sí | `https://<dominio-de-railway>/#/cambio-correo` (sin `?token=`). |
 | `PASSWORD_MIN_LENGTH` | no | Por defecto 8. |
+| `RECOVERY_TOKEN_VALIDITY_HOURS` | no | Por defecto 24. |
+| `EMAIL_CHANGE_TOKEN_VALIDITY_HOURS` | no | Por defecto 24. |
 
 Detrás del proxy de Railway se activa `server.forward-headers-strategy=framework`
 para respetar HTTPS. Si `MAIL_PROVIDER` queda en `none`, el backend sube pero los
@@ -108,6 +131,26 @@ cuyo correo sea el buzón de prueba del equipo:
 5. Iniciar sesión con la contraseña nueva.
 
 Un `202` no demuestra nada más que el punto 1.
+
+### Verificación remota de RF-05 y RF-06 (mismo criterio)
+
+Con la cuenta ya activada del buzón de prueba:
+
+1. `POST /api/auth/recuperacion/solicitar` con su CI y acceso → `202`.
+2. Panel de Resend con el correo *delivered*; el enlace empieza con
+   `RECOVERY_URL?token=`.
+3. Abrir el enlace, definir la contraseña nueva con
+   `POST /api/auth/recuperacion/completar` → `200`, e iniciar sesión con ella.
+4. Para RF-06: iniciar sesión, `PATCH /api/cuentas/me` con un `correo` del
+   buzón de prueba → `200` con `correoPendiente`; el correo llega al correo
+   **nuevo**; abrir el enlace (`CHANGE_EMAIL_URL?token=`) y confirmar con
+   `POST /api/auth/cambio-correo/confirmar` → `200`; `GET /api/cuentas/me`
+   muestra el correo nuevo.
+
+**Estado al 01/11/2026:** RF-05 y RF-06 se probaron con el proveedor simulado
+(captura del evento de dominio en las pruebas de integración) y el patrón de
+envío es el mismo que RF-02, pero **no se verificó ninguna entrega remota
+real**: falta la misma configuración de Resend descrita arriba.
 
 ### Problemas frecuentes
 

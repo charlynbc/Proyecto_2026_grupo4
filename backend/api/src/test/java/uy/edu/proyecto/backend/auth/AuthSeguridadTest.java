@@ -1,6 +1,7 @@
 package uy.edu.proyecto.backend.auth;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
@@ -35,6 +36,9 @@ class AuthSeguridadTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private CambioContrasenaService cambioContrasenaService;
 
     @MockitoBean
     private RefreshCookieService refreshCookieService;
@@ -109,6 +113,39 @@ class AuthSeguridadTest {
         }
 
         verify(authService, times(4)).logout("v2.refresh");
+    }
+
+    @Test
+    void cambiarContrasenaRequiereAutenticacion() throws Exception {
+        mockMvc.perform(post("/api/auth/cambiar-contrasena")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"passwordActual":"a","passwordNueva":"b"}
+                                """))
+                .andExpect(status().isUnauthorized());
+
+        org.mockito.Mockito.verifyNoInteractions(cambioContrasenaService);
+    }
+
+    @Test
+    void cambiarContrasenaAceptaCualquierRolAutenticado() throws Exception {
+        for (String rol : new String[]{
+                "SOCIO", "FUNCIONARIO", "MEDICO", "ADMINISTRADOR"
+        }) {
+            mockMvc.perform(post("/api/auth/cambiar-contrasena")
+                            .with(jwt().jwt(token -> token.subject("91"))
+                                    .authorities(
+                                            new SimpleGrantedAuthority("ROLE_" + rol)
+                                    ))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"passwordActual":"Clave-Vieja-1","passwordNueva":"Clave-Nueva-1"}
+                                    """))
+                    .andExpect(status().isNoContent());
+        }
+
+        verify(cambioContrasenaService, times(4))
+                .cambiar(eq(91L), any(), any());
     }
 
     @Test

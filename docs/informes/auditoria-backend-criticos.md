@@ -1,142 +1,230 @@
 # Auditoría del backend crítico — Proyecto 2026
 
-## 1. Alcance y método
+## 1. Alcance, fuentes y criterio
 
-Este documento audita la implementación real de la rama `integracion/proyecto-2026-avances` contra los 22 requerimientos críticos del proyecto, tal como se exponen en la documentación del repositorio y en la implementación del backend.
+Auditoría del backend en `integracion/proyecto-2026-avances`, commit
+`280a7e4ad5426d243cd8dd233e47193d2af98729` (HEAD local igual a
+`origin/integracion/proyecto-2026-avances`; árbol limpio al iniciar la revisión).
+El alcance se limita a los 22 RF críticos y sus condiciones de aceptación; no
+evalúa los otros 23 RF ni cambia código, esquema, API, configuración de Railway,
+ni datos.
 
-### Fuente canónica tomada en este repositorio
+Se leyó íntegramente la especificación crítica provista como adjunto en la
+conversación. La ruta `docs/especificaciones/backend_criticos_2026.md` no existe
+en el checkout, por lo que ese adjunto no puede citarse mediante un archivo
+versionado. Se contrastó con la fuente de requerimientos del repositorio,
+`docs/analisis/requerimientos.md`, y con `docs/analisis/casos-de-uso.md`,
+`docs/analisis/diseno.md`, `docs/api/endpoints-usados.md`, `database/schema.sql`
+y el código y las pruebas del backend.
 
-- `docs/analisis/requerimientos.md`
-- `docs/analisis/arquitectura.md`
-- `docs/api/endpoints-usados.md`
-- `database/schema.sql`
-- `backend/api/src/main/java/...` (código real del backend)
+### Estados utilizados
 
-### Contradicción documental importante
+- **COMPLETO EN CÓDIGO:** hay implementación trazable para el alcance descrito
+  y pruebas automatizadas relevantes en el repositorio. No significa que se
+  haya aceptado en producción ni que se haya ejecutado E2E con PostgreSQL en
+  esta auditoría.
+- **PARCIAL:** hay flujo implementado, pero se verificó una condición de
+  aceptación incumplida o queda una brecha funcional concreta.
+- **PENDIENTE:** no se encontró implementación backend funcional verificable.
+- **NO VERIFICABLE:** evidencia insuficiente para decidir. No se asigna este
+  estado a ningún RF de la matriz; las limitaciones de ambiente se describen
+  aparte y no se confunden con ausencia de código.
 
-La especificación solicitada por la instrucción, `docs/especificaciones/backend_criticos_2026.md`, no existe en este repositorio. No fue posible leer ese archivo en esta ejecución. Por eso, la auditoría se basó en la fuente disponible y canónica del proyecto en `docs/analisis/requerimientos.md`, y se registró explícitamente esta discrepancia para evitar sustituir una regla no disponible por supuestos del auditor.
+### Niveles de evidencia de prueba
 
-Se mantiene la regla de no inventar requisitos ni endpoints: solo se documenta lo que existe y está verificado en el código real.
+- **Unitarias:** servicios o utilidades aisladas.
+- **Repositorio/mock:** SQL, parámetros y ramas de persistencia comprobados con
+  dependencias mockeadas; no ejecutan SQL contra PostgreSQL.
+- **HTTP/contexto:** pruebas de controladores, seguridad o contexto Spring;
+  pueden usar servicios o repositorios mockeados.
+- **PostgreSQL/HTTP real:** pruebas `*IT` con servidor HTTP y PostgreSQL
+  descartable; están en el repositorio, pero no se ejecutaron en esta auditoría.
+- **E2E frontend:** recorrido desde navegador/cliente real contra un backend y
+  base de datos; no ejecutado.
 
 ## 2. Resumen ejecutivo
 
-La rama `integracion/proyecto-2026-avances` contiene un backend Spring Boot real y con estructura coherente para la operación del sistema: seguridad por JWT, Spring Security, PostgreSQL, lógica de negocio modularizada, registro de usuarios/turnos/especialidades/consultas y operaciones administrativas. Hay evidencia concreta de implementación de varios RF críticos.
+| Estado | Cantidad | Porcentaje de los 22 RF |
+|---|---:|---:|
+| COMPLETO EN CÓDIGO | 19 | 86,4 % |
+| PARCIAL | 0 | 0 % |
+| PENDIENTE | 3 | 13,6 % |
+| NO VERIFICABLE | 0 | 0 % |
 
-Sin embargo, la auditoría no permite afirmar que los 22 RF críticos estén cerrados de manera verificable en producción o con PostgreSQL real, porque:
+El porcentaje indica únicamente cobertura de implementación y evidencia
+automatizada a nivel de código. No es porcentaje de aceptación E2E ni de
+validación PostgreSQL. La actualización de RF-02 corresponde al candidato
+`feat/rf-02-primer-ingreso` (`5799639d701a8036a1c3943918cc2dfe051cfd32`),
+que todavía no está integrado en `integracion/proyecto-2026-avances`.
 
-- no existe un archivo de especificación de RF crítico en la ruta indicada;
-- la validación real del backend no se ejecutó sobre un PostgreSQL del entorno de pruebas del proyecto, sino sobre la suite unitaria/mocked del repositorio;
-- varios requerimientos críticos implican reglas de negocio complejas (inactivación, conflicto de interés, cancelaciones, pases, estados derivados, trazabilidad), y la evidencia del código no siempre demuestra la validación E2E completa de cada una de esas reglas.
+Hallazgos prioritarios:
+
+1. **RF-39, RF-40 y RF-41 pendientes:** no se encontraron controladores,
+   servicios, repositorios, DTO ni SQL de estadísticas. En el catálogo de API
+   las rutas estadísticas aparecen como propuestas, no como endpoints
+   implementados.
+2. **PostgreSQL real no validado para RF-02:** existen pruebas `*IT`
+   que usan PostgreSQL, servidor HTTP y una base marcada como descartable,
+   pero no fue posible ejecutarlas por falta de PostgreSQL aislado disponible.
+   El candidato RF-02 obtuvo **15/15 pruebas focalizadas** y **343/343 en
+   `.\mvnw.cmd -B verify`**; esos resultados no incluyen las clases `*IT` ni
+   acreditan PostgreSQL o E2E.
 
 ## 3. Matriz de los 22 RF críticos
 
-| RF | Requerimiento | Evidencia real | Estado auditado | Observación |
+| RF | Requerimiento | Estado | Evidencia de implementación (archivo, clase/método y líneas) | Evidencia / límite de pruebas |
 |---|---|---|---|---|
-| RF-01 | Inicio de sesión | `AuthController`, `AuthService`, `JwtService`, `SecurityConfig` | Implementado en código | El flujo real de login con acceso SOCIO/EMPLEADO y JWT está presente. |
-| RF-02 | Primer ingreso | `PrimerIngresoController`, `PrimerIngresoService`, `CuentaRepository`, `enlace_cuenta` en `schema.sql` | Parcial / no verificado E2E | Existe flujo de activación, token y validación, pero requiere revisión de inactivación administrativa y de caso límite con reutilización/expiración. |
-| RF-08 | Consulta de disponibilidad | `DisponibilidadController`, `AgendaService`, `FiltroDisponibilidadDTO` | Implementado en código | La API de disponibilidad y filtrado existe. Falta validación histórica real con PostgreSQL para la regla completa de pases, suspensión y anticipación. |
-| RF-09 | Agenda de consulta | `ConsultaController`, `ConsultaService`, `CrearConsultaRequest` | Implementado en código | La reserva existe y consume pases/valida reglas en servicio. Es una de las piezas clave del core del sistema. |
-| RF-11 | Histórico de agendas | `ConsultaController`, `ConsultaHistorialService`, `ConsultaHistorialPageResponse` | Implementado en código | El historial del socio existe con filtros y paginación. |
-| RF-12 | Consulta de historia clínica | `HistoriaClinicaController`, `HistoriaClinicaService`, `HistoriaClinicaRepository`, `AtencionService` | Implementado en la rama de trabajo; sin E2E PostgreSQL | La lista y el detalle derivan el socio del JWT; el detalle filtra por socio e ID en SQL. Hay pruebas unitarias, HTTP/seguridad y comprobaciones de SQL con mocks; no equivalen a una prueba real de propiedad contra PostgreSQL. |
-| RF-13 | Alta de turno semanal | `TurnoSemanalController`, `TurnoSemanalService`, `turno_semanal` en `schema.sql`; `GET /api/medicos` como selector | Implementado en código; selector añadido | La configuración semanal y los números existen en modelo y servicio. `GET /api/medicos` es soporte para seleccionar médicos habilitados, no demuestra por sí mismo que RF-13 completo esté cerrado. |
-| RF-14 | Suspensión de fechas de turno | `TurnoFechasController`, `TurnoFechasService`, `SuspenderFechasRequest` | Implementado en código | La suspensión tiene servicio y API. Faltan pruebas reales concretas contra reglas de cancelación, devolución de pases y observación. |
-| RF-15 | Rehabilitación de fechas de turno | `TurnoFechasController`, `TurnoFechasService`, `RehabilitarFechasRequest` | Implementado en código | Existe flujo de restauración de fechas suspendidas. |
-| RF-16 | Registro de aviso de llegada | `AvisoLlegadaController`, `AvisoLlegadaService`, `AvisoLlegadaRepository` | Implementado en código | El aviso de llegada existe y se almacena con funcionario/hora. Falta verificación de conflicto de interés y unicidad por socio/día con PostgreSQL real. |
-| RF-17 | Consulta de turnos | `TurnoConsultaController`, `TurnoConsultaService` | Implementado en código | La consulta de fechas concretas y estado de turnos existe. |
-| RF-18 | Consulta de agendas | `AgendaConsultaController`, `AgendaConsultaService` | Implementado en código | La pantalla de seguimiento del funcionario está presente. |
-| RF-21 | Turnos y pacientes de una fecha | `TurnoMedicoController`, `TurnoMedicoService`, `ResultadoConsulta...` | Implementado en código | La vista de pacientes por turno y fecha existe; requiere validación real del orden, llegada y conflicto de interés. |
-| RF-23 | Registro del resultado de la consulta | `AtencionController`, `AtencionService`, `ResultadoConsultaRequest` | Implementado en código | Es un flujo central. Existe atención/no asistió/no se presentó. No hay evidencia de validación sobre todos los casos alternativos y transacciones. |
-| RF-24 | Registro de pases | `PaseController`, `PaseService`, `PaseDTO` | Implementado en código | La API y el modelo del pase existen. Faltan comprobaciones reales de vigencia, uso y exclusividad en escenarios complejos. |
-| RF-29 | Alta individual de especialidades | `EspecialidadController`, `EspecialidadService`, `Especialidad` | Implementado en código | El alta existe y está protegida por rol. |
-| RF-31 | Alta individual de usuarios | `AltaUsuarioController`, `AltaUsuarioService`, `CuentaRepository`, `persona`/`cuenta` en `schema.sql` | Implementado en código | La carga del padrón y la relación persona/cuenta están presentes. |
-| RF-33 | Alta individual de consultorios | `ConsultorioController`, `ConsultorioService`, `consultorio` en `schema.sql` | Implementado en código | Existen alta y servicio del consultorio. |
-| RF-35 | Consulta de usuarios | `GET /api/usuarios`, `UsuarioService`, `UsuarioPadronRepository`, DTO de cuenta | Implementado en la rama de trabajo; sin E2E PostgreSQL | Una fila por cuenta, filtros por rol/estado/CI-apellido, paginación y acceso de ADMINISTRADOR. Pruebas unitarias, HTTP/seguridad y SQL mockeado pasan; falta verificación con PostgreSQL real. |
-| RF-39 | Estadísticas por especialidad | No se evidencia en código analizado | No verificado / no implementado de forma clara | Requiere revisión específica del módulo administrativo. |
-| RF-40 | Estadísticas por turnos | No se evidencia en código analizado | No verificado / no implementado de forma clara | Sin evidencia de endpoint/servicio específico. |
-| RF-41 | Estadísticas por consultas | No se evidencia en código analizado | No verificado / no implementado de forma clara | Sin evidencia de endpoint/servicio específico. |
+| 01 | Inicio de sesión | **COMPLETO EN CÓDIGO** | `AuthController.login` (línea 34), `AuthService.login` (34), reglas de rutas y roles en `config/SecurityConfig.java` (79 en adelante), sesión/JWT en `auth`. | `AuthServiceTest`, `AuthControllerTest`, `AuthSeguridadTest`; también `integracion/AutenticacionIT` (46 en adelante), no ejecutado como `*IT`. No acredita una validación E2E desplegada. |
+| 02 | Primer ingreso | **COMPLETO EN CÓDIGO (CANDIDATO; NO INTEGRADO)** | En `feat/rf-02-primer-ingreso`, `auth/PrimerIngresoService.solicitar` y `completar`; consultas y activación condicional en `auth/PrimerIngresoRepository`; correos post-commit en `PrimerIngresoMailListener`. La cuenta activa conserva respuesta genérica y genera correo de orientación a RF-05 sin crear enlace ni cambiar cuenta. | 15 pruebas unitarias focalizadas y 343 pruebas en `verify` aprobadas. `AutenticacionIT` contiene escenarios HTTP/PostgreSQL para activación, reuso, vencimiento, inactivación y concurrencia, pero no fue ejecutada. Integración bloqueada hasta validar con PostgreSQL aislado. Ver §4. |
+| 08 | Consulta de disponibilidad | **COMPLETO EN CÓDIGO** | `agenda/DisponibilidadController.consultar` (18), servicio de agenda y repositorio de disponibilidad; rutas aseguradas como SOCIO en `SecurityConfig`. | Pruebas de servicio/repositorio y `DisponibilidadSeguridadTest` (32 en adelante). Las pruebas de repositorio no sustituyen ejecución SQL real ni verificación E2E de fechas, suspensiones y anticipación. |
+| 09 | Agenda de consulta | **COMPLETO EN CÓDIGO** | `agenda/ConsultaService.agendar` (21), `ConsultaRepository.crear` (313), transacción y bloqueos/validaciones en el servicio. Índices únicos parciales sobre número y pase no cancelados: `database/schema.sql` (420–423). | `ConsultaServiceTest`, `ConsultaRepositoryTest`, `ConsultaSeguridadTest`; escenarios reales HTTP/PostgreSQL existen en IT y no se ejecutaron. |
+| 11 | Histórico de agendas | **COMPLETO EN CÓDIGO** | `agenda/ConsultaHistorialService.listar` (36), `obtener` (85), consulta filtrada por socio en `ConsultaRepository.HISTORIAL_CTE` (línea 17 en adelante); controller `ConsultaController`. Estados derivados de fin de día en SQL. | Pruebas unitarias, SQL mockeado y HTTP/seguridad en `ConsultaSeguridadTest`; las pruebas `*IT` no fueron ejecutadas. |
+| 12 | Historia clínica | **COMPLETO EN CÓDIGO** | `atencion/HistoriaClinicaController.listar` (24) y `detalle` (47); `HistoriaClinicaService.listar` (20), `detalle` (71); `HistoriaClinicaRepository.listar` (25) y `obtenerDetalle` (138). El ID del socio viene del JWT y la consulta del detalle recibe socio e idAtencion. | `HistoriaClinicaServiceTest`, `HistoriaClinicaRepositoryTest`, `HistoriaClinicaSeguridadTest`; mocks/HTTP, no PostgreSQL ejecutado. La propiedad queda implementada en el predicado SQL, pero no se comprobó en esta ejecución contra registros de dos socios en DB real. |
+| 13 | Alta de turno semanal | **COMPLETO EN CÓDIGO** | `turno/TurnoSemanalController.crear` (25), `TurnoSemanalService.crear` (38); valida médico activo, especialidad y solapamientos antes de persistir. `GET /api/medicos` es soporte del selector y no prueba por sí solo RF-13. | `TurnoSemanalServiceTest` y `TurnoSemanalSeguridadTest` verifican reglas y rol FUNCIONARIO. Hay prueba IT de concurrencia, no ejecutada. |
+| 14 | Suspensión de fechas | **COMPLETO EN CÓDIGO** | `turno/TurnoFechasController` (líneas 27–35), `TurnoFechasService.suspender` (65); cancelación transaccional de consultas y registro de evento. | `TurnoFechasServiceTest`, `TurnoFechasRepositoryTest`, `TurnoFechasSeguridadTest`; pruebas unitarias/mock y HTTP de seguridad. IT de concurrencia no ejecutada. |
+| 15 | Rehabilitación de fechas | **COMPLETO EN CÓDIGO** | `TurnoFechasController.rehabilitar` (42), `TurnoFechasService.rehabilitar` (152); verifica vigencia del médico y conflictos de médico/consultorio; no restaura reservas canceladas. | Pruebas de servicio/repositorio y seguridad; IT de concurrencia no ejecutada. |
+| 16 | Aviso de llegada | **COMPLETO EN CÓDIGO** | `aviso/AvisoLlegadaService.consultasDeHoy` (32) y `registrar` (41); controller GET/POST en `AvisoLlegadaController` (29/36); persistencia incluye funcionario y hora. | Pruebas unitarias, repositorio y `AvisoLlegadaSeguridadTest`; recorrido real está en ITs no ejecutadas. |
+| 17 | Consulta de turnos | **COMPLETO EN CÓDIGO** | `turno/TurnoConsultaController.listar` (18), `TurnoConsultaService.listar` (20), `TurnoConsultaRepository.listar` (50); ruta `GET /api/turnos` y consulta de patrón semanal. | `TurnoConsultaServiceTest`, `TurnoConsultaRepositoryTest`, `TurnoConsultaSeguridadTest`; mocks/HTTP, sin PostgreSQL real ejecutado. |
+| 18 | Consulta de agendas | **COMPLETO EN CÓDIGO** | `agenda/AgendaConsultaController.consultar` (18), `AgendaConsultaService.consultar` (40), SQL y estados derivados en `AgendaConsultaRepository` (CTE desde línea 16). | Pruebas de servicio, SQL mockeado y `AgendaConsultaSeguridadTest`; escenarios HTTP/PostgreSQL reales no ejecutados. |
+| 21 | Turnos y pacientes de una fecha | **COMPLETO EN CÓDIGO** | `turno/TurnoMedicoController` (24 en adelante), `TurnoMedicoService.listar` (33), repositorio filtra por médico del JWT y fecha. | `TurnoMedicoServiceTest`, `TurnoMedicoRepositoryTest`, `TurnoMedicoSeguridadTest`; IT de llegada/resultado no ejecutada. |
+| 23 | Registro del resultado de consulta | **COMPLETO EN CÓDIGO** | `atencion/AtencionController.registrarResultado` (22), `AtencionService.registrarResultado` (37). Verifica médico/consulta, conflicto de interés, estado, fecha y aviso; atiende o marca `NO_SE_PRESENTO` dentro de transacción. | `AtencionServiceTest`, `AtencionRepositoryTest`, `AtencionSeguridadTest`; IT `LlegadaAgendaMedicoIT` prueba flujos y no se ejecutó. |
+| 24 | Registro de pases | **COMPLETO EN CÓDIGO** | Emisión acoplada al alta de atención en `AtencionService` (método desde 37; validación de pases más adelante), persistencia `AtencionRepository.crearPase` (202). `PaseController` expone disponibles. | Unitarias de servicio/repositorio y seguridad. Reglas de exclusividad/vigencia y consumo tienen pruebas automatizadas, pero no se ejecutaron con PostgreSQL real en esta auditoría. |
+| 29 | Alta individual de especialidades | **COMPLETO EN CÓDIGO** | `especialidad/EspecialidadController` (26/31), `EspecialidadService.listar/crear` (20/24), repositorio; autorización ADMINISTRADOR. `schema.sql` define unicidad case-insensitive (419). | `EspecialidadServiceTest`, `EspecialidadControllerTest`, `EspecialidadSeguridadTest`; DB real no ejecutada. |
+| 31 | Alta individual de usuarios | **COMPLETO EN CÓDIGO** | `usuario/AltaUsuarioController.crear` (38), `AltaUsuarioService.crear` (35), repositorio/cuenta-persona y validación de CI/roles/especialidades. | `AltaUsuarioServiceTest`, `AltaUsuarioSeguridadTest`, controladores y guardas de integración; no equivale a ejecución PostgreSQL en esta auditoría. |
+| 33 | Alta individual de consultorios | **COMPLETO EN CÓDIGO** | `consultorio/ConsultorioController.crear` (30), `ConsultorioService.crear` (24), repositorio; autorización ADMINISTRADOR. | Pruebas unitarias, controller y seguridad; no se ejecutó contra PostgreSQL real. |
+| 35 | Consulta del padrón | **COMPLETO EN CÓDIGO** | `usuario/AltaUsuarioController.listar` (27), `UsuarioService.listar` (17), `UsuarioPadronRepository.listar` (19); el DTO es por cuenta y excluye credenciales. | `UsuarioServiceTest`, `UsuarioRepositoryTest`, `AltaUsuarioSeguridadTest`; SQL mockeado y HTTP de roles, sin PostgreSQL real ejecutado. |
+| 39 | Estadísticas por especialidad | **PENDIENTE** | No se encontraron endpoint/controller, servicio, repositorio, DTO ni consulta SQL de estadísticas. `docs/api/endpoints-usados.md` clasifica las rutas de estadísticas como propuesta. | No se encontraron tests funcionales del RF. No existe resultado PostgreSQL/HTTP ni E2E. |
+| 40 | Estadísticas por turno | **PENDIENTE** | No hay implementación de porcentaje de números ocupados sobre ofrecidos en fechas activas; no se encontraron endpoint, servicio, SQL o DTO estadístico. | No se encontraron tests funcionales del RF. La regla debe distinguir estados que ocupan el número, cancelaciones y fechas suspendidas. |
+| 41 | Estadísticas de consultas | **PENDIENTE** | No se encontraron endpoint, servicio, consulta SQL ni DTO que agregue cantidades por estado y tasa de cancelación del socio. | No se encontraron tests funcionales del RF. No hay evidencia de manejo de total cero como “Sin datos” frente a numerador cero como 0 %. |
 
-## 4. Cobertura general
+Los números de línea son del commit auditado; enlaces y nombres de clases se
+refieren a rutas relativas desde la raíz del repositorio.
 
-### Estado de cobertura
+## 4. Análisis exhaustivo de RF-02 — Primer ingreso
 
-- Criterio 1: “hay código que implementa la funcionalidad”: sí, para la mayoría de los RF críticos.
-- Criterio 2: “la regla está validada con PostgreSQL real y con casos de negocio completos”: no está demostrado en esta auditoría.
+### Reglas que sí aparecen implementadas
 
-### Síntesis
+- `PrimerIngresoService.solicitar` rechaza campos faltantes, acepta solo
+  accesos `SOCIO` o `EMPLEADO` y normaliza/valida la CI uruguaya antes de
+  consultar.
+- `PrimerIngresoRepository.buscarCuentaPendiente` filtra por CI, cuenta
+  habilitada y primer ingreso no completado. El acceso SOCIO selecciona solo
+  SOCIO; EMPLEADO cubre FUNCIONARIO, MEDICO y ADMINISTRADOR. La fila se bloquea
+  con `FOR UPDATE OF c`.
+- Para una cuenta pendiente, se invalidan enlaces de primer ingreso anteriores,
+  se genera token aleatorio de 32 bytes, se almacena SHA-256 y se establece
+  vencimiento UTC a 24 horas. El evento de correo se publica dentro de la
+  transacción y `PrimerIngresoMailListener` lo procesa tras el commit.
+- La activación actualiza enlace y cuenta bajo `@Transactional`; el SQL exige
+  enlace correcto, no usado, no vencido, cuenta habilitada y primer ingreso
+  pendiente. La cuenta se vuelve a comprobar en el `UPDATE` final. El correo
+  registrado no se modifica.
+- Se requiere dirección, teléfono 1 y contraseña; se valida longitud mínima y
+  límite de 72 bytes UTF-8 correspondiente al encoder BCrypt usado por el
+  backend. La contraseña se persiste codificada.
+- Respuestas de enlace inválido, usado, vencido y cuenta inactiva se unifican.
+  El listener no registra token ni correo; ante una excepción registra id de
+  cuenta y clase de excepción.
+- `AutenticacionIT` contempla activación satisfactoria y login posterior,
+  token no almacenado en claro, enlace inventado/reutilizado/expirado y
+  respuesta genérica.
 
-La implementación real del backend tiene un volumen considerable de código y una estructura coherente, pero la evidencia del repositorio no demuestra cobertura completa y verificable de todos los 22 RF críticos. El contenido del código sugiere un esfuerzo real de implementación, pero aún no se ha realizado una auditoría de aceptación por requisito con base de datos real y casos de borde.
+### Estado del candidato RF-02
 
-## 5. Principales problemas detectados
+El candidato `5799639d701a8036a1c3943918cc2dfe051cfd32` corrige la discrepancia
+funcional: cuenta activa e inexistente reciben el mismo cuerpo HTTP genérico;
+para la cuenta activa se programa un correo que explica que ya está activa y
+orienta al flujo RF-05. No se crea un enlace de primer ingreso ni se cambia
+contraseña, correo o estado de la cuenta.
 
-1. Falta de una especificación literal del archivo indicado
-   - La ruta `docs/especificaciones/backend_criticos_2026.md` no existe.
-   - Esto obliga a trabajar con `docs/analisis/requerimientos.md` como fuente primaria del repositorio, pero no elimina la discrepancia documental.
+El token se genera aleatoriamente, se persiste como hash, vence a las 24 horas
+por configuración predeterminada y el consumo se realiza con actualización
+condicional dentro de una transacción. La consulta y la actualización final
+comprueban que la cuenta siga habilitada y pendiente. La carrera de dos
+consumidores tiene una IT definida, pero todavía no se ha ejecutado contra
+PostgreSQL; por eso la garantía de concurrencia queda pendiente de validación
+real antes de integrar.
 
-2. Diferencia entre tests unitarios y validación real
-   - La suite Maven posterior a los cambios pasa (338 tests, 0 fallos, 0 errores), pero esta ejecución no equivale a validación end-to-end con PostgreSQL: se configuró una URL intencionalmente inalcanzable para evitar el listener local no identificado en 5432.
+### Casos con prueba real escrita, pendiente de ejecución
 
-3. Reglas de negocio complejas sin prueba real visible
-   - Las reglas de pases, cancelaciones, inactivación administrativa, conflicto de interés y estados derivados (`NO_ASISTIO`, `NO_ATENDIDA`, `NO_SE_PRESENTO_A_LA_CONSULTA`) son críticas y requieren validación real, no solo unit tests con mocks.
+- Inactivar administrativamente una cuenta después de emitir el enlace y
+  verificar que el enlace no la reactive.
+- Intentos concurrentes de completar el mismo enlace; solo uno puede activar.
+- Repetir solicitud para asegurar que solo el enlace nuevo sea válido.
+- Probar ambos accesos (SOCIO/EMPLEADO) con cuentas homónimas de persona,
+  diferenciando cuenta SOCIO de cuenta de empleado.
+- Confirmar el flujo de evento transaccional y la entrega/fallo del proveedor
+  de correo sin exponer token/correo. Las pruebas unitarias del listener cubren
+  el contenido y el logging, pero no sustituyen la integración del listener
+  con el commit transaccional.
 
-4. Seguridad y autorización
-   - El backend usa JWT y Spring Security, pero la auditoría no revela una verificación exhaustiva de que cada operación apunte a la cuenta correcta en todos los casos de conflicto de interés.
+## 5. Análisis exhaustivo de RF-39, RF-40 y RF-41
 
-5. Faltan indicadores claros de estadísticas administrativas
-   - Los RF-39, RF-40 y RF-41 no tienen evidencia concreta de implementación específica en el backend observado.
+No es una carencia de pruebas únicamente: falta la funcionalidad de servidor.
+No hay rutas estadísticas implementadas ni autorización específica asociada
+con consultas de estadísticas para ADMINISTRADOR.
 
-## 6. Primer RF crítico que debería completarse
+- **RF-39:** debe agregar por especialidad las consultas según fecha de
+  agendamiento, incluyendo las que después se cancelaron. El campo persistido
+  relevante es `consulta.agendada_en`; no debe filtrar solamente reservas
+  actualmente activas.
+- **RF-40:** debe agregar números ofrecidos y ocupados para las fechas del
+  período en que el turno estuvo activo. La definición de ocupado incluye
+  AGENDADA, ATENDIDA, NO_ASISTIO, NO_ATENDIDA y NO_SE_PRESENTO_A_LA_CONSULTA;
+  las cancelaciones dejan el número libre. Los estados NO_ASISTIO y
+  NO_ATENDIDA se derivan por fecha y aviso de llegada en las consultas
+  operativas (`ConsultaRepository` y `AgendaConsultaRepository`); no son
+  estados persistidos por `consulta`.
+- **RF-41:** debe contar por fecha del turno/consulta y estado, incluyendo
+  canceladas por socio e institución, y calcular tasa de cancelación por socio.
+  Debe distinguir total cero (“Sin datos”) de total positivo y cero
+  cancelaciones (0 %).
 
-El primer RF crítico a cerrar debería ser RF-01 (inicio de sesión), por estos motivos:
+El esquema guarda como estados principales `AGENDADA`, `ATENDIDA`,
+`CANCELADA_SOCIO`, `CANCELADA_INSTITUCION` y `NO_SE_PRESENTO` en
+`database/schema.sql` (242–290). Los dos estados derivados requieren una
+política temporal coherente en la agregación estadística. La fecha para RF-39
+es `agendada_en`; para RF-40/RF-41, la fecha de la consulta/turno, de acuerdo
+con la fuente de requerimientos.
 
-- es la base de acceso al resto del sistema;
-- ya está implementado con JWT y roles;
-- es el punto de entrada para la validación de permisos y de cuenta activa;
-- todas las demás funciones dependen de que este mecanismo se comporte de manera consistente.
+## 6. Calidad y alcance de las pruebas
 
-No se trata de “mínimo viable” general, sino del punto de entrada que permite validar la autenticación y autorización del resto del flujo.
+- Para el commit inicial auditado (`280a7e4`), la suite Maven registrada fue
+  `.\mvnw.cmd -B verify`: 338 aprobados, 0 fallidos, 0 errores, 0 omitidos.
+  Para el candidato RF-02 (`5799639`), se informaron 15/15 pruebas focalizadas
+  y 343/343 en `verify`. La configuración de la suite normal evitó conectar
+  a `localhost:5432`; ninguno de esos resultados acredita PostgreSQL.
+- `backend/api/pom.xml` configura `maven-surefire-plugin` y no configura
+  `maven-failsafe-plugin`. Por convención, las clases `*IT` no están incluidas
+  en la ejecución ordinaria Surefire/`verify`.
+- Las pruebas reales sí están preparadas en
+  `backend/api/src/test/java/.../integracion`: `BaseIntegracionIT` levanta un
+  servidor HTTP y usa PostgreSQL, pero exige una base local con sufijo
+  `_e2e`/`_test` y una marca/variable de habilitación antes de ejecutar
+  operaciones destructivas sobre su esquema. Esta protección no autoriza
+  ejecutar pruebas en una base desconocida.
+- No se ejecutó ni se validó una base PostgreSQL durante esta auditoría.
+  Tampoco se ejecutó un navegador/frontend contra un backend real. Por tanto,
+  no se reporta aprobación E2E, ni se concluye funcionamiento en Railway.
 
-## 7. Orden recomendado de implementación posterior
+## 7. Contradicciones documentales identificadas
 
-1. RF-01 — Inicio de sesión y seguridad de acceso
-2. RF-02 — Primer ingreso e inactivación administrativa
-3. RF-08 / RF-09 — disponibilidad y agenda del socio
-4. RF-16 / RF-18 / RF-21 — llegada y seguimiento por funcionario/médico
-5. RF-23 / RF-24 — atención y pases
-6. RF-13 / RF-14 / RF-15 — turnos y suspensión/rehabilitación
-7. RF-29 / RF-31 / RF-33 — administración de dominio
-8. RF-39 / RF-40 / RF-41 — estadísticas
+1. El archivo versionado bajo `docs/especificaciones/` no está presente; la
+   especificación crítica se recibió como adjunto y fue leída. Para poder
+   auditarla en futuras ejecuciones conviene incorporarla al repositorio sin
+   alterar su contenido oficial.
+2. `docs/api/endpoints-usados.md` conserva estadísticas como propuestas, en
+   concordancia con la ausencia de implementación actual; esos textos no son
+   evidencia de endpoints disponibles.
 
 ## 8. Conclusión
 
-El backend real del repositorio es una base sólida y funcionalmente avanzada, con componente de seguridad, repositorios, servicios, DTOs y esquema de datos que sostienen la mayor parte del dominio crítico. Sin embargo, la auditoría no permite calificar los 22 RF críticos como “completos” con evidencia verificable de negocio y PostgreSQL real. El trabajo recomendado es cerrar primero la autenticación, luego la inactivación/primera vez, y después los flujos de agenda, atención y pases con pruebas reales.
+El código compartido auditado inicialmente tenía implementación significativa
+para 18 de los 22 RF críticos. El candidato no integrado de RF-02 eleva a 19 la
+cobertura de código con pruebas automatizadas, pero aún no tiene validación IT
+con PostgreSQL ni E2E. RF-39, RF-40 y RF-41 siguen pendientes. No se deben
+presentar las tres estadísticas como funcionalidades existentes ni afirmar
+que RF-02 fue integrado o validado con PostgreSQL hasta completar esa etapa.
 
-## 9. Actualización de validación de RF-12, RF-13 y RF-35 — 26/10/2026
-
-La verificación de esta continuación se realizó en la rama de trabajo
-`feat/validacion-endpoints-criticos`, creada desde el commit
-`0de783b5ca4abd55731b4880d8330644e8bf10f3`. Los cambios no deben interpretarse
-como integrados hasta que se confirme el push a avances.
-
-- **RF-12:** se añadieron `GET /api/historia-clinica` y
-  `GET /api/historia-clinica/{idAtencion}`. El controlador deriva el socio del
-  JWT y la consulta SQL del detalle incluye tanto el socio como el ID de
-  atención. Pruebas unitarias, HTTP/roles y composición SQL con `JdbcTemplate`
-  mockeado pasan. Falta verificar propiedad y datos/pases con PostgreSQL aislado.
-- **RF-35:** `GET /api/usuarios` está protegido para `ADMINISTRADOR`, devuelve
-  una fila por cuenta, aplica filtros y paginación, y usa un DTO sin hashes ni
-  tokens. Pruebas unitarias, HTTP/roles y composición SQL mockeada pasan. Falta
-  verificar resultados contra PostgreSQL aislado.
-- **RF-13:** `GET /api/medicos` da soporte al selector de médicos habilitados
-  y sus especialidades para el funcionario. Este endpoint por sí solo no
-  demuestra que RF-13 esté completo; el alta/validación transaccional de turnos
-  semanales requiere su propia evidencia.
-- **Suite Maven:** `.\mvnw.cmd -B verify` terminó con 338 tests aprobados,
-  0 fallidos, 0 errores y 0 omitidos. Se apuntó deliberadamente a
-  `127.0.0.1:1`, un puerto inalcanzable, porque existe un listener no
-  identificado en `localhost:5432` y Docker no estaba disponible. El resultado
-  valida la suite disponible (unitaria, mock y contexto/HTTP), no una prueba
-  real de PostgreSQL ni un E2E con datos.
-- **E2E pendiente:** preparar una instancia PostgreSQL efímera o una base de
-  pruebas marcada/aislada, ejecutar los flujos de médicos, padrón, historia
-  propia, rechazo de historia ajena y pases; confirmar el contrato desde el
-  frontend local. No usar datos clínicos reales.
+El plan de cierre y dependencias está en
+[`pendientes-criticos.md`](./pendientes-criticos.md).
