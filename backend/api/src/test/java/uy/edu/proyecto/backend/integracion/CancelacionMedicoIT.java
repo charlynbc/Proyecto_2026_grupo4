@@ -373,7 +373,7 @@ class CancelacionMedicoIT extends BaseIntegracionIT {
         LocalDateTime ahora = LocalDateTime.now(ZONA);
         LocalTime inicioCercano;
         LocalTime inicioLejano;
-        if (ahora.toLocalTime().isAfter(LocalTime.of(20, 59))) {
+        if (ahora.toLocalTime().isAfter(LocalTime.of(20, 5))) {
             inicioCercano = LocalTime.of(10, 0);
             inicioLejano = LocalTime.of(13, 0);
         } else {
