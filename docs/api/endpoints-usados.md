@@ -30,7 +30,7 @@ PostgreSQL.
 | 5 | `POST /api/auth/primer-ingreso/completar` | público (token) | 02 | Activar cuenta | CONFIRMADA | feat/front-acceso-roles 14/10/2026 | [contrato #5](contrato-v1.md#e05) |
 | 6 | `GET /api/especialidades` | autenticado | 29 | Formularios y listado | CONFIRMADA | feat/front-admin 19/10/2026; feat/front-funcionario 20/10/2026 | [contrato #6](contrato-v1.md#e06) |
 | 7 | `POST /api/especialidades` | ADMINISTRADOR | 29 | Alta de especialidad | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #7](contrato-v1.md#e07) |
-| 8 | `GET /api/consultorios` | autenticado | 33 | Formularios y listado | CONFIRMADA | feat/front-admin 19/10/2026; feat/front-funcionario 20/10/2026 | [contrato #8](contrato-v1.md#e08) |
+| 8 | `GET /api/consultorios` | autenticado | 33 | Formularios y listado; consulta con filtros RF-37 (`nombre` hasta 120, `ubicacion` hasta 200, `orden` nombre o ubicacion, siempre ascendente, sin paginación) | CONFIRMADA | feat/front-admin 19/10/2026; feat/front-funcionario 20/10/2026; feat/front-filtrar-consultorios 03/11/2026 | [contrato #8](contrato-v1.md#e08) |
 | 9 | `POST /api/consultorios` | ADMINISTRADOR | 33 | Alta de consultorio | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #9](contrato-v1.md#e09) |
 | 10 | `GET /api/medicos?especialidadId=` | FUNCIONARIO | 13, 08 | Selector de médico | CONFIRMADA | - | [contrato #10](contrato-v1.md#e10) |
 | 11 | `POST /api/usuarios` | ADMINISTRADOR | 31 | Alta de usuario | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #11](contrato-v1.md#e11) |
