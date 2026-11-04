@@ -115,6 +115,12 @@ public class SecurityConfig {
                                                 "ADMINISTRADOR"
                                         )
 
+                                        .requestMatchers(HttpMethod.POST, "/api/anuncios")
+                                        .hasRole("ADMINISTRADOR")
+
+                                        .requestMatchers(HttpMethod.GET, "/api/anuncios", "/api/anuncios/*")
+                                        .authenticated()
+
                                         .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/api/especialidades/importaciones/**"

@@ -83,6 +83,9 @@ PostgreSQL.
 | 53 | `POST /api/especialidades/importaciones/confirmar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #53](contrato-v1.md#e53) |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #54](contrato-v1.md#e54) |
 | 55 | `POST /api/usuarios/importaciones/confirmar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #55](contrato-v1.md#e55) |
+| 56 | `POST /api/anuncios` | ADMINISTRADOR | 28 | Publicar novedad con título, texto Markdown opcional e imágenes | CONFIRMADA en `feature/rf-28-rf-07-novedades` (PR pendiente) | - | [contrato #56](contrato-v1.md#e56) |
+| 57 | `GET /api/anuncios` | autenticado | 07 | Tarjetas de novedades para el inicio y la cartelera | CONFIRMADA en `feature/rf-28-rf-07-novedades` (PR pendiente) | - | [contrato #57](contrato-v1.md#e57) |
+| 58 | `GET /api/anuncios/{id}` | autenticado | 07 | Detalle de novedad con carrusel de imágenes | CONFIRMADA en `feature/rf-28-rf-07-novedades` (PR pendiente) | - | [contrato #58](contrato-v1.md#e58) |
 
 ## Rutas de la prueba de concepto
 

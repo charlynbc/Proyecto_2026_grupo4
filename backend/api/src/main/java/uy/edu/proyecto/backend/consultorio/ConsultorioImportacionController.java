@@ -42,6 +42,10 @@ public class ConsultorioImportacionController {
                     "Debe seleccionar un archivo CSV no vacío"
             );
         }
+        if (archivo.getSize() > 1024L * 1024L) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CSV_INVALIDO",
+                    "El archivo supera el tamaño máximo permitido (1 MB)");
+        }
 
         String contenido;
         try {

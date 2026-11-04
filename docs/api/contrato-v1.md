@@ -2220,6 +2220,73 @@ Cada fila es **una cuenta**: una persona con dos cuentas aparece en dos filas co
 
 Mismo archivo y validaciones que #54. Registra cada fila válida invocando el alta individual #11: cada cuenta queda **pendiente de primer ingreso**, **no se envía ningún correo** y ninguna cuenta se activa automáticamente. Cada fila se procesa en su propia transacción: un rechazo no revierte las demás. Responde `ResultadoImportacionDTO` con filas `{numero, ci, nombre, apellido, rol, error}`; los motivos de rechazo son los mismos códigos del alta individual (`CI_INVALIDA`, `VALIDACION`, `DATOS_PERSONA_DISCORDANTES`, `SOCIO_DUPLICADO`, `EMPLEADO_DUPLICADO`) expresados en el `error` de cada fila.
 
+### 3.15 Cartelera de novedades (RF-28 y RF-07)
+
+Contrato implementado en la rama `feature/rf-28-rf-07-novedades`, pendiente de integración. Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
+
+<a id="e56"></a>
+#### #56 · `POST /api/anuncios`
+
+- **Roles:** ADMINISTRADOR. **RF:** RF-28. **Estado:** implementada en la rama de trabajo; pendiente de PR.
+- **Pedido:** `multipart/form-data` con una parte `datos` de tipo `application/json` y entre una y cinco partes de archivo llamadas `imagenes`, en el orden del carrusel. Ejemplo de `datos`:
+
+```json
+{ "titulo": "Campaña de vacunación", "resumen": "Comienza el lunes", "texto": "**Vacunarse** ayuda a prevenir la gripe." }
+```
+
+`titulo` es obligatorio (1 a 160 caracteres sin contar espacios exteriores). `resumen` es opcional (hasta 300 caracteres) y `texto` es opcional. Se exige al menos una imagen aunque haya texto. Cada archivo debe ser JPEG o PNG real, de hasta 5 MB y hasta 6000 × 6000 píxeles. El servidor genera el identificador, el autor, la fecha y las referencias de los archivos. Si la publicación falla, no queda una fila de anuncio publicada; la eliminación de archivos ya cargados se intenta como compensación.
+
+- **Respuesta `201 Created`:** cabecera `Location: /api/anuncios/{id}` y cuerpo con la misma forma del detalle #58:
+
+```json
+{
+  "id": 42,
+  "titulo": "Campaña de vacunación",
+  "resumen": "Comienza el lunes",
+  "texto": "**Vacunarse** ayuda a prevenir la gripe.",
+  "publicadoEn": "2026-11-03T12:00:00Z",
+  "imagenes": [
+    { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." },
+    { "id": 102, "orden": 1, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+  ]
+}
+```
+
+- **Errores:** `400 VALIDACION` por título, imágenes ausentes, tipo o contenido inválido, cantidad o dimensiones; `400 IMAGEN_INVALIDA` si el servidor rechaza el tamaño multipart; `401 NO_AUTENTICADO`; `403 ACCESO_DENEGADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si Storage no responde.
+
+<a id="e57"></a>
+#### #57 · `GET /api/anuncios?page=0&size=20`
+
+- **Roles:** cualquier usuario autenticado. **RF:** RF-07. **Estado:** implementada en la rama de trabajo; pendiente de PR.
+- **Parámetros:** `page` desde 0 (por defecto 0), `size` de 1 a 100 (por defecto 20). El inicio puede solicitar `size=5`. Orden fijo: `publicadoEn` descendente y, ante empate, `id` descendente.
+- **Respuesta `200 OK`:**
+
+```json
+{
+  "items": [
+    {
+      "id": 42,
+      "titulo": "Campaña de vacunación",
+      "resumen": "Comienza el lunes",
+      "publicadoEn": "2026-11-03T12:00:00Z",
+      "imagenPortada": { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "total": 1
+}
+```
+
+- **Errores:** `400 VALIDACION` por paginación inválida; `401 NO_AUTENTICADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar el enlace de una imagen.
+
+<a id="e58"></a>
+#### #58 · `GET /api/anuncios/{id}`
+
+- **Roles:** cualquier usuario autenticado. **RF:** RF-07. **Estado:** implementada en la rama de trabajo; pendiente de PR.
+- **Respuesta `200 OK`:** la forma de detalle ilustrada en #56, con todas las imágenes ordenadas para el carrusel.
+- **Errores:** `401 NO_AUTENTICADO`; `404 NO_ENCONTRADO` si no existe el anuncio; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar un enlace.
+
 ## 4. Matriz de roles por endpoint
 
 ✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
@@ -2280,6 +2347,9 @@ Mismo archivo y validaciones que #54. Registra cada fila válida invocando el al
 | 53 | `POST /api/especialidades/importaciones/confirmar` | | | | | ✔ |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | | | | | ✔ |
 | 55 | `POST /api/usuarios/importaciones/confirmar` | | | | | ✔ |
+| 56 | `POST /api/anuncios` | | | | | ✔ |
+| 57 | `GET /api/anuncios` | | ✔ | ✔ | ✔ | ✔ |
+| 58 | `GET /api/anuncios/{id}` | | ✔ | ✔ | ✔ | ✔ |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2336,6 +2406,8 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 409 | `SOCIO_DUPLICADO` | #11 | La CI ya tiene cuenta de socio. |
 | 409 | `EMPLEADO_DUPLICADO` | #11 | La CI ya tiene cuenta de empleado habilitada o pendiente. |
 | 400 | `CSV_INVALIDO` | #52 a #55 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
+| 400 | `IMAGEN_INVALIDA` | #56 | El multipart supera el tamaño permitido. |
+| 503 | `ALMACENAMIENTO_NO_DISPONIBLE` | #56 a #58 | No se pudo acceder a Storage o firmar la imagen. |
 
 En #53 y #55 los errores por fila viajan en el campo `error` de cada fila del resultado (no como status de la respuesta): la importación es parcial y responde `200` aunque todas las filas se rechacen.
 
@@ -2530,6 +2602,7 @@ Las rutas que propone este contrato se detallan en la sección 3. Decisiones sob
 8. **Recuperación (#48, #49, RF-05):** réplica exacta del mecanismo de RF-02 con tipo de enlace `RECUPERACION`. Dos decisiones que el RF no fija: (a) anti-abuso de 60 segundos entre envíos a la misma cuenta, con la respuesta pública intacta; (b) al completar se revocan **todas** las sesiones, porque la contraseña anterior pudo estar comprometida. La respuesta de `solicitar` reutiliza el texto de #4.
 9. **Datos personales (#46, #47, #50, RF-06):** dirección y teléfonos aplican de inmediato; el correo se aplica solo tras confirmar el enlace enviado al correo **nuevo** (tipo `CAMBIO_CORREO`, 24 h, un solo uso), como exige el RF. `telefono2` es el único campo anulable: `""` o `null` explícito lo borra y ausente lo conserva. Cualquier campo fuera de los cuatro editables se rechaza con `400 VALIDACION` nombrándolo.
 10. **Modificación de turno semanal (#51, RF-20):** solo el consultorio. "Consultas Agendadas cuyo día todavía no terminó" se interpreta como `fecha >= hoy` (hora de Uruguay). El control de solapamientos de RF-13 se revalida sobre las fechas **activas** vigentes; las suspendidas se mueven sin revalidar (si se rehabilitan, RF-15 revalida en ese momento). Enviar el consultorio actual es un no-op `200`.
+11. **Novedades (#56 a #58, RF-28 y RF-07):** para sostener la portada y el carrusel se acordó exigir título y al menos una imagen en cada publicación. RF-28 también permite anuncios solo con texto; esta decisión más restrictiva queda visible para su revisión en el PR. El texto sigue siendo opcional y usa Markdown.
 
 ### 7.2 Contradicciones entre documentos
 
@@ -2545,7 +2618,9 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 
 Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
 
-RF-07 y RF-28 cartelera de novedades, RF-34 carga masiva de consultorios, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+RF-34 carga masiva de consultorios, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+
+RF-07 y RF-28 tienen contrato en los endpoints #56 a #58 (sección 3.15), implementado en la rama `feature/rf-28-rf-07-novedades` y pendiente de integración.
 
 RF-30 y RF-32 salieron de esta lista el 02/11/2026: tienen contrato confirmado en los endpoints #52 a #55 (sección 3.14).
 
