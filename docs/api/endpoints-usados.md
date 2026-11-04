@@ -83,6 +83,11 @@ PostgreSQL.
 | 53 | `POST /api/especialidades/importaciones/confirmar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #53](contrato-v1.md#e53) |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #54](contrato-v1.md#e54) |
 | 55 | `POST /api/usuarios/importaciones/confirmar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #55](contrato-v1.md#e55) |
+| 56 | `POST /api/consultorios/importaciones/previsualizar` | ADMINISTRADOR | 34 | Carga masiva de consultorios (vista previa) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #56](contrato-v1.md#e56) |
+| 57 | `POST /api/consultorios/importaciones/confirmar` | ADMINISTRADOR | 34 | Carga masiva de consultorios (importa válidas) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #57](contrato-v1.md#e57) |
+| 58 | `PATCH /api/usuarios/{id}` | ADMINISTRADOR | 38 | Corrección de datos de la cuenta (CI, nombre, apellido, fecha de nacimiento, correo, teléfonos, dirección, especialidades; nunca el rol) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #58](contrato-v1.md#e58) |
+| 59 | `PATCH /api/especialidades/{id}` | ADMINISTRADOR | 38 | Corrección de nombre y exigencia de pase | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #59](contrato-v1.md#e59) |
+| 60 | `PATCH /api/consultorios/{id}` | ADMINISTRADOR | 38 | Corrección de nombre y ubicación | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #60](contrato-v1.md#e60) |
 
 ## Rutas de la prueba de concepto
 

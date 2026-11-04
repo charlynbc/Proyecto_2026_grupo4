@@ -120,4 +120,131 @@ class EspecialidadServiceTest {
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         assertEquals("ESPECIALIDAD_DUPLICADA", error.getCode());
     }
+
+    /* ---------- Correccion administrativa (RF-38) ---------- */
+
+    @Test
+    void corregirRequiereAlMenosUnCampo() {
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(1L, null, null)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("VALIDACION", error.getCode());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void corregirRechazaEspecialidadInexistente() {
+        when(repository.buscarPorId(99L))
+                .thenReturn(java.util.Optional.empty());
+
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(99L, "Neurología", null)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
+        assertEquals("ESPECIALIDAD_NO_ENCONTRADA", error.getCode());
+    }
+
+    @Test
+    void corregirSoloPaseConservaElNombre() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Especialidad(1L, "Cardiología", true)));
+        when(repository.actualizar(1L, "Cardiología", false))
+                .thenReturn(new Especialidad(1L, "Cardiología", false));
+
+        Especialidad resultado = service.corregir(1L, null, false);
+
+        assertEquals("Cardiología", resultado.nombre());
+        assertEquals(false, resultado.requierePase());
+        verify(repository).actualizar(1L, "Cardiología", false);
+    }
+
+    @Test
+    void corregirNombreNormalizaYActualiza() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Especialidad(1L, "Cardiología", true)));
+        when(repository.buscarPorNombreLower("Cardiologia"))
+                .thenReturn(java.util.Optional.empty());
+        when(repository.actualizar(1L, "Cardiologia", true))
+                .thenReturn(new Especialidad(1L, "Cardiologia", true));
+
+        Especialidad resultado = service.corregir(1L, "  Cardiologia  ", null);
+
+        assertEquals("Cardiologia", resultado.nombre());
+        verify(repository).actualizar(1L, "Cardiologia", true);
+    }
+
+    @Test
+    void corregirNombreRechazaVacio() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Especialidad(1L, "Cardiología", true)));
+
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(1L, "   ", null)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("VALIDACION", error.getCode());
+    }
+
+    @Test
+    void corregirNombreRechazaDuplicadoDeOtraEspecialidad() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Especialidad(1L, "Cardiología", true)));
+        when(repository.buscarPorNombreLower("NEUROLOGÍA"))
+                .thenReturn(java.util.Optional.of(
+                        new Especialidad(2L, "Neurología", false)));
+
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(1L, "NEUROLOGÍA", null)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("ESPECIALIDAD_DUPLICADA", error.getCode());
+    }
+
+    @Test
+    void corregirPermiteMismoNombreConDistintaCapitalizacion() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Especialidad(1L, "Cardiología", true)));
+        when(repository.buscarPorNombreLower("CARDIOLOGÍA"))
+                .thenReturn(java.util.Optional.of(
+                        new Especialidad(1L, "Cardiología", true)));
+        when(repository.actualizar(1L, "CARDIOLOGÍA", true))
+                .thenReturn(new Especialidad(1L, "CARDIOLOGÍA", true));
+
+        Especialidad resultado = service.corregir(1L, "CARDIOLOGÍA", null);
+
+        assertEquals("CARDIOLOGÍA", resultado.nombre());
+    }
+
+    @Test
+    void corregirDuplicadoPorConcurrenciaDevuelve409() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Especialidad(1L, "Cardiología", true)));
+        when(repository.buscarPorNombreLower("Neurología"))
+                .thenReturn(java.util.Optional.empty());
+        when(repository.actualizar(1L, "Neurología", true))
+                .thenThrow(new DuplicateKeyException("uq_especialidad_nombre"));
+
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(1L, "Neurología", null)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("ESPECIALIDAD_DUPLICADA", error.getCode());
+    }
 }

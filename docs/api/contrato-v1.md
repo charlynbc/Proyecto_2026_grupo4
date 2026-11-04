@@ -2220,6 +2220,116 @@ Cada fila es **una cuenta**: una persona con dos cuentas aparece en dos filas co
 
 Mismo archivo y validaciones que #54. Registra cada fila válida invocando el alta individual #11: cada cuenta queda **pendiente de primer ingreso**, **no se envía ningún correo** y ninguna cuenta se activa automáticamente. Cada fila se procesa en su propia transacción: un rechazo no revierte las demás. Responde `ResultadoImportacionDTO` con filas `{numero, ci, nombre, apellido, rol, error}`; los motivos de rechazo son los mismos códigos del alta individual (`CI_INVALIDA`, `VALIDACION`, `DATOS_PERSONA_DISCORDANTES`, `SOCIO_DUPLICADO`, `EMPLEADO_DUPLICADO`) expresados en el `error` de cada fila.
 
+<a id="e56"></a>
+#### #56 · `POST /api/consultorios/importaciones/previsualizar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-34. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Columnas del CSV: `nombre,ubicacion`. Validaciones por fila: nombre obligatorio y de hasta 120 caracteres, ubicación obligatoria y de hasta 200 caracteres, sin duplicados dentro del archivo (sin distinguir mayúsculas, se conserva la primera aparición) y nombre no existente en el sistema (sin distinguir mayúsculas). Responde `PrevisualizacionDTO` con filas `{numero, nombre, ubicacion, error}`.
+
+<a id="e57"></a>
+#### #57 · `POST /api/consultorios/importaciones/confirmar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-34. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Mismo archivo y validaciones que #56. Inserta cada fila válida con las mismas reglas del alta individual #9; la base vuelve a verificar todo al confirmar (una fila válida en la previsualización puede quedar rechazada si otra operación la registró en el medio). Ningún consultorio existente se actualiza. Responde `ResultadoImportacionDTO` con filas `{numero, nombre, ubicacion, error}`; las filas rechazadas incluyen el motivo (por ejemplo "El consultorio ya existe en el sistema").
+
+### 3.15 Corrección de datos administrados (administrador, RF-38)
+
+El administrador corrige datos ya registrados. Reglas comunes:
+
+- Los tres endpoints son exclusivos del rol ADMINISTRADOR y aplican la corrección en una única transacción.
+- Al menos un campo corregible debe venir en el cuerpo; un cuerpo vacío (`{}`) responde `400 VALIDACION`.
+- Las consultas, los turnos y las historias clínicas ya registrados conservan su estado y su contenido: las correcciones no reescriben el historial.
+
+<a id="e58"></a>
+#### #58 · `PATCH /api/usuarios/{id}`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-38. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Corrige datos de la cuenta `{id}` (de cualquier rol y estado: también cuentas inactivadas o pendientes de primer ingreso). **Campos corregibles** (todos opcionales; ausente = no se toca):
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `ci` | texto | Con dígito verificador válido; admite puntos y guion. Es dato de la **persona**: la corrección vale para todas sus cuentas. |
+| `nombre` | texto | Hasta 100 caracteres. Dato de la persona. |
+| `apellido` | texto | Hasta 100 caracteres. Dato de la persona. |
+| `fechaNacimiento` | texto `aaaa-mm-dd` | Dato de la persona. |
+| `correo` | texto | Formato válido, hasta 254; se guarda en minúsculas. Es dato de la **cuenta** y aplica de inmediato (sin enlace de confirmación: corrige el administrador). |
+| `telefono1` | texto | Obligatorio no vacío si viene; hasta 30. |
+| `telefono2` | texto o `null` | Hasta 30. `""` o `null` explícito lo borra. |
+| `direccion` | texto o `null` | `""` o `null` explícito la borra, **solo** si la cuenta no completó el primer ingreso (una cuenta activada debe conservar dirección, RF-02). |
+| `especialidadIds` | arreglo de enteros | Solo cuentas de rol MEDICO; reemplaza el conjunto completo (mínimo 1, sin repetidos, todas existentes). No se quita una especialidad con turnos vigentes ni con consultas agendadas cuyo día todavía no terminó. |
+
+Cualquier otro campo (`rol`, `estado`, `habilitada`, `id`, `fechaAlta`, ...) se rechaza con `400 VALIDACION` nombrándolo: **el rol de la cuenta nunca se modifica**.
+
+**Respuesta 200** — estado completo de la cuenta tras la corrección:
+
+```json
+{
+  "id": 12,
+  "ci": "34567894",
+  "nombre": "Sofia Elena",
+  "apellido": "Socia",
+  "fechaNacimiento": "1985-06-06",
+  "rol": "MEDICO",
+  "correo": "sofia@ejemplo.invalid",
+  "telefono1": "099111222",
+  "telefono2": null,
+  "direccion": "Calle Falsa 123",
+  "especialidadIds": [3, 7],
+  "estado": "ACTIVA",
+  "activada": true
+}
+```
+
+`especialidadIds` se completa solo para médicos (en otro rol es `[]`). `estado` es `ACTIVA` o `INACTIVA`; `activada` indica que completó el primer ingreso.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Sin campos corregibles, campo no permitido (incluido `rol`), tipo inválido, correo inválido, longitud superada, dirección vacía en cuenta activada, especialidades en cuenta no médica, conjunto vacío, repetidas o inexistentes. |
+| 400 | `CI_INVALIDA` | La CI no supera el dígito verificador. |
+| 404 | `USUARIO_NO_ENCONTRADO` | No existe una cuenta con ese `id`. |
+| 409 | `CI_EN_USO` | La CI corregida ya pertenece a otra persona. |
+| 409 | `ESPECIALIDAD_EN_USO` | Se intenta quitar una especialidad con turnos vigentes o consultas agendadas futuras. |
+
+<a id="e59"></a>
+#### #59 · `PATCH /api/especialidades/{id}`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-38. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Corrige el `nombre` (hasta 120, único sin distinguir mayúsculas) y/o la exigencia de pase (`requierePase`, booleano) de la especialidad `{id}`. El cambio de `requierePase` rige para las consultas que se agenden desde ese momento y **no afecta a las ya agendadas** (RF-29). Responde la especialidad actualizada `{id, nombre, requierePase}`.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Sin campos, nombre vacío o de más de 120 caracteres. |
+| 404 | `ESPECIALIDAD_NO_ENCONTRADA` | No existe una especialidad con ese `id`. |
+| 409 | `ESPECIALIDAD_DUPLICADA` | Ya existe otra especialidad con ese nombre (sin distinguir mayúsculas). |
+
+<a id="e60"></a>
+#### #60 · `PATCH /api/consultorios/{id}`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-38. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Corrige el `nombre` (hasta 120, único sin distinguir mayúsculas) y/o la `ubicacion` (hasta 200) del consultorio `{id}`. Las relaciones con turnos y consultas se conservan (referencian al consultorio por `id`). Responde el consultorio actualizado `{id, nombre, ubicacion}`.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Sin campos, nombre u ubicación vacíos o fuera de longitud. |
+| 404 | `CONSULTORIO_NO_ENCONTRADO` | No existe un consultorio con ese `id`. |
+| 409 | `CONSULTORIO_DUPLICADO` | Ya existe otro consultorio con ese nombre (sin distinguir mayúsculas). |
+
 ## 4. Matriz de roles por endpoint
 
 ✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
@@ -2280,6 +2390,11 @@ Mismo archivo y validaciones que #54. Registra cada fila válida invocando el al
 | 53 | `POST /api/especialidades/importaciones/confirmar` | | | | | ✔ |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | | | | | ✔ |
 | 55 | `POST /api/usuarios/importaciones/confirmar` | | | | | ✔ |
+| 56 | `POST /api/consultorios/importaciones/previsualizar` | | | | | ✔ |
+| 57 | `POST /api/consultorios/importaciones/confirmar` | | | | | ✔ |
+| 58 | `PATCH /api/usuarios/{id}` | | | | | ✔ |
+| 59 | `PATCH /api/especialidades/{id}` | | | | | ✔ |
+| 60 | `PATCH /api/consultorios/{id}` | | | | | ✔ |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2329,15 +2444,20 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 
 | Status | `code` | Endpoint | Cuándo |
 |---|---|---|---|
-| 409 | `ESPECIALIDAD_DUPLICADA` | #7 | Nombre repetido (normalizado). |
-| 409 | `CONSULTORIO_DUPLICADO` | #9 | Nombre o número repetido (normalizado). |
-| 400 | `CI_INVALIDA` | #11 | Dígito verificador incorrecto. |
+| 409 | `ESPECIALIDAD_DUPLICADA` | #7, #59 | Nombre repetido (normalizado). |
+| 409 | `CONSULTORIO_DUPLICADO` | #9, #60 | Nombre o número repetido (normalizado). |
+| 400 | `CI_INVALIDA` | #11, #58 | Dígito verificador incorrecto. |
 | 409 | `DATOS_PERSONA_DISCORDANTES` | #11 | CI existente con nombre, apellido o fecha de nacimiento distintos. |
 | 409 | `SOCIO_DUPLICADO` | #11 | La CI ya tiene cuenta de socio. |
 | 409 | `EMPLEADO_DUPLICADO` | #11 | La CI ya tiene cuenta de empleado habilitada o pendiente. |
-| 400 | `CSV_INVALIDO` | #52 a #55 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
+| 400 | `CSV_INVALIDO` | #52 a #57 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
+| 404 | `USUARIO_NO_ENCONTRADO` | #58 | No existe una cuenta con ese identificador. |
+| 409 | `CI_EN_USO` | #58 | La CI corregida ya pertenece a otra persona. |
+| 409 | `ESPECIALIDAD_EN_USO` | #58 | No se quita una especialidad con turnos vigentes o consultas agendadas futuras. |
+| 404 | `ESPECIALIDAD_NO_ENCONTRADA` | #59 | No existe una especialidad con ese identificador. |
+| 404 | `CONSULTORIO_NO_ENCONTRADO` | #60 | No existe un consultorio con ese identificador. |
 
-En #53 y #55 los errores por fila viajan en el campo `error` de cada fila del resultado (no como status de la respuesta): la importación es parcial y responde `200` aunque todas las filas se rechacen.
+En #53, #55 y #57 los errores por fila viajan en el campo `error` de cada fila del resultado (no como status de la respuesta): la importación es parcial y responde `200` aunque todas las filas se rechacen.
 
 ### 5.5 Códigos de turnos
 
@@ -2545,7 +2665,9 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 
 Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
 
-RF-07 y RF-28 cartelera de novedades, RF-34 carga masiva de consultorios, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+RF-07 y RF-28 cartelera de novedades, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+
+RF-34 y RF-38 salieron de esta lista el 04/11/2026: tienen contrato confirmado en los endpoints #56 a #60 (secciones 3.14 y 3.15).
 
 RF-30 y RF-32 salieron de esta lista el 02/11/2026: tienen contrato confirmado en los endpoints #52 a #55 (sección 3.14).
 
