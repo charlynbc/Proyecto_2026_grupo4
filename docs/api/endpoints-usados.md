@@ -88,6 +88,8 @@ PostgreSQL.
 | 58 | `PATCH /api/usuarios/{id}` | ADMINISTRADOR | 38 | Corrección de datos de la cuenta (CI, nombre, apellido, fecha de nacimiento, correo, teléfonos, dirección, especialidades; nunca el rol) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #58](contrato-v1.md#e58) |
 | 59 | `PATCH /api/especialidades/{id}` | ADMINISTRADOR | 38 | Corrección de nombre y exigencia de pase | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #59](contrato-v1.md#e59) |
 | 60 | `PATCH /api/consultorios/{id}` | ADMINISTRADOR | 38 | Corrección de nombre y ubicación | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #60](contrato-v1.md#e60) |
+| 61 | `POST /api/usuarios/{id}/inactivar` | ADMINISTRADOR | 45 | Inactivar cuenta de empleado, conservando historial y registrando auditoría | CONFIRMADA (backend 04/11/2026, integración RF-45) | - | [contrato #61](contrato-v1.md#e61) |
+| 62 | `POST /api/usuarios/{id}/reactivar` | ADMINISTRADOR | 45 | Reactivar cuenta de empleado sin habilitar turnos suspendidos; evita duplicidad | CONFIRMADA (backend 04/11/2026, integración RF-45) | - | [contrato #62](contrato-v1.md#e62) |
 
 ## Rutas de la prueba de concepto
 

@@ -2330,6 +2330,65 @@ Corrige el `nombre` (hasta 120, único sin distinguir mayúsculas) y/o la `ubica
 | 404 | `CONSULTORIO_NO_ENCONTRADO` | No existe un consultorio con ese `id`. |
 | 409 | `CONSULTORIO_DUPLICADO` | Ya existe otro consultorio con ese nombre (sin distinguir mayúsculas). |
 
+### 3.16 Inactivación y reactivación de empleados (administrador, RF-45)
+
+Los dos endpoints requieren JWT de **ADMINISTRADOR**, operan sobre cuentas de empleado (FUNCIONARIO, MEDICO o ADMINISTRADOR) y obtienen el identificador del administrador que ejecuta el cambio desde el JWT. No aceptan cuerpo. Ambas operaciones son transaccionales, conservan el historial y registran la identidad de quien operó y la fecha/hora de la operación.
+
+<a id="e61"></a>
+#### #61 · `POST /api/usuarios/{id}/inactivar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-45. **Estado:** CONFIRMADA (backend, 04/11/2026).
+- **Parámetro:** `id` es el identificador de la cuenta de empleado a inactivar.
+- **Cuerpo:** ninguno.
+
+Deshabilita la cuenta, revoca sus sesiones de renovación y evita el uso de los JWT de acceso existentes mediante la validación de vigencia. **No modifica la cuenta de socio** de la misma persona.
+
+Si la cuenta es de un médico, se rechaza la operación mientras existan fechas activas de turnos cuyo día no haya terminado o consultas AGENDADAS cuyo día no haya terminado. Primero se deben suspender las fechas correspondientes mediante RF-14, con sus cancelaciones.
+
+<a id="e62"></a>
+#### #62 · `POST /api/usuarios/{id}/reactivar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-45. **Estado:** CONFIRMADA (backend, 04/11/2026).
+- **Parámetro:** `id` es el identificador de la cuenta de empleado a reactivar.
+- **Cuerpo:** ninguno.
+
+Habilita una cuenta previamente inactiva únicamente si **no existe otra cuenta de empleado habilitada o pendiente de primer ingreso** con la misma CI. Las fechas de turnos suspendidas siguen suspendidas: su rehabilitación corresponde a RF-15. La validación JWT impide reutilizar tokens emitidos antes de la última reactivación.
+
+**Respuesta 200 de ambas operaciones** (`EstadoCuentaResponse`, ejemplo de inactivación):
+
+```json
+{
+  "id": 42,
+  "ci": "45678911",
+  "nombre": "Lucía",
+  "apellido": "Fernández",
+  "rol": "MEDICO",
+  "estado": "INACTIVA",
+  "ultimaInactivacionEn": "2026-11-04T12:00:00-03:00",
+  "ultimaInactivacionPor": 1,
+  "ultimaReactivacionEn": null,
+  "ultimaReactivacionPor": null
+}
+```
+
+Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `ultimaReactivacionPor`.
+
+**Errores:**
+
+| HTTP | Código | Motivo |
+|---|---|---|
+| 400 | `VALIDACION` | El identificador pertenece a una cuenta SOCIO. |
+| 401 | `TOKEN_INVALIDO` / `NO_AUTENTICADO` | Token o sesión inválidos. |
+| 403 | `ACCESO_DENEGADO` | El usuario no tiene rol ADMINISTRADOR. |
+| 404 | `USUARIO_NO_ENCONTRADO` | No existe la cuenta. |
+| 409 | `CUENTA_YA_INACTIVA` | La cuenta ya estaba inactiva (al inactivar). |
+| 409 | `CUENTA_YA_ACTIVA` | La cuenta ya estaba habilitada (al reactivar). |
+| 409 | `MEDICO_CON_TURNOS_ACTIVOS` | Existen fechas activas que impiden la inactivación. |
+| 409 | `MEDICO_CON_CONSULTAS_AGENDADAS` | Existen consultas agendadas que impiden la inactivación. |
+| 409 | `EMPLEADO_DUPLICADO` | Otra cuenta de empleado de la misma CI impide la reactivación. |
+
 ## 4. Matriz de roles por endpoint
 
 ✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
@@ -2395,6 +2454,8 @@ Corrige el `nombre` (hasta 120, único sin distinguir mayúsculas) y/o la `ubica
 | 58 | `PATCH /api/usuarios/{id}` | | | | | ✔ |
 | 59 | `PATCH /api/especialidades/{id}` | | | | | ✔ |
 | 60 | `PATCH /api/consultorios/{id}` | | | | | ✔ |
+| 61 | `POST /api/usuarios/{id}/inactivar` | | | | | ✔ |
+| 62 | `POST /api/usuarios/{id}/reactivar` | | | | | ✔ |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2665,7 +2726,9 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 
 Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
 
-RF-07 y RF-28 cartelera de novedades, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+RF-07 y RF-28 cartelera de novedades, RF-42 a RF-44 estadísticas adicionales.
+
+RF-45 salió de esta lista el 04/11/2026: tiene contrato confirmado en los endpoints #61 y #62 (sección 3.16).
 
 RF-34 y RF-38 salieron de esta lista el 04/11/2026: tienen contrato confirmado en los endpoints #56 a #60 (secciones 3.14 y 3.15).
 
