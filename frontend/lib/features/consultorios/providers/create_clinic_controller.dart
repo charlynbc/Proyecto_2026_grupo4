@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/forms/submit_state.dart';
 import '../../../core/network/api_exception.dart';
 import 'clinic_repository_provider.dart';
+import 'clinic_search_provider.dart';
 import 'clinics_provider.dart';
 
-/// Alta de un consultorio (RF-33). Al terminar bien invalida el catálogo.
+/// Alta de un consultorio (RF-33). Al terminar bien invalida el catálogo
+/// y el listado filtrado.
 class CreateClinicController extends Notifier<SubmitState> {
   @override
   SubmitState build() => const SubmitState();
@@ -18,6 +20,7 @@ class CreateClinicController extends Notifier<SubmitState> {
       final repository = await ref.read(clinicRepositoryProvider.future);
       await repository.create(name: name, location: location);
       ref.invalidate(clinicsProvider);
+      ref.invalidate(clinicSearchProvider);
       state = const SubmitState(status: SubmitStatus.done);
     } catch (e) {
       state = SubmitState(
