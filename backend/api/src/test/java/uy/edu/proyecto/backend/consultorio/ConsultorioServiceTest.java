@@ -162,4 +162,119 @@ class ConsultorioServiceTest {
         assertEquals(HttpStatus.CONFLICT, error.getStatus());
         assertEquals("CONSULTORIO_DUPLICADO", error.getCode());
     }
+
+    /* ---------- Correccion administrativa (RF-38) ---------- */
+
+    @Test
+    void corregirRequiereAlMenosUnCampo() {
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(1L, null, null)
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("VALIDACION", error.getCode());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void corregirRechazaConsultorioInexistente() {
+        when(repository.buscarPorId(99L))
+                .thenReturn(java.util.Optional.empty());
+
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(99L, "Consultorio 9", null)
+        );
+
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
+        assertEquals("CONSULTORIO_NO_ENCONTRADO", error.getCode());
+    }
+
+    @Test
+    void corregirSoloUbicacionConservaElNombre() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Consultorio(1L, "Consultorio 1", "Piso 1")));
+        when(repository.actualizar(1L, "Consultorio 1", "Piso 8"))
+                .thenReturn(new Consultorio(1L, "Consultorio 1", "Piso 8"));
+
+        Consultorio resultado = service.corregir(1L, null, " Piso 8 ");
+
+        assertEquals("Consultorio 1", resultado.nombre());
+        assertEquals("Piso 8", resultado.ubicacion());
+        verify(repository).actualizar(1L, "Consultorio 1", "Piso 8");
+    }
+
+    @Test
+    void corregirNombreRechazaDuplicadoDeOtroConsultorio() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Consultorio(1L, "Consultorio 1", "Piso 1")));
+        when(repository.buscarPorNombresLower(List.of("CONSULTORIO 2")))
+                .thenReturn(java.util.Map.of(
+                        "consultorio 2",
+                        new Consultorio(2L, "Consultorio 2", "Piso 2")
+                ));
+
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(1L, "CONSULTORIO 2", null)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("CONSULTORIO_DUPLICADO", error.getCode());
+    }
+
+    @Test
+    void corregirPermiteMismoNombreConDistintaCapitalizacion() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Consultorio(1L, "Consultorio 1", "Piso 1")));
+        when(repository.buscarPorNombresLower(List.of("CONSULTORIO 1")))
+                .thenReturn(java.util.Map.of(
+                        "consultorio 1",
+                        new Consultorio(1L, "Consultorio 1", "Piso 1")
+                ));
+        when(repository.actualizar(1L, "CONSULTORIO 1", "Piso 1"))
+                .thenReturn(new Consultorio(1L, "CONSULTORIO 1", "Piso 1"));
+
+        Consultorio resultado = service.corregir(1L, "CONSULTORIO 1", null);
+
+        assertEquals("CONSULTORIO 1", resultado.nombre());
+    }
+
+    @Test
+    void corregirRechazaUbicacionVacia() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Consultorio(1L, "Consultorio 1", "Piso 1")));
+
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(1L, null, "   ")
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("VALIDACION", error.getCode());
+    }
+
+    @Test
+    void corregirDuplicadoPorConcurrenciaDevuelve409() {
+        when(repository.buscarPorId(1L))
+                .thenReturn(java.util.Optional.of(
+                        new Consultorio(1L, "Consultorio 1", "Piso 1")));
+        when(repository.buscarPorNombresLower(List.of("Consultorio 2")))
+                .thenReturn(java.util.Map.of());
+        when(repository.actualizar(1L, "Consultorio 2", "Piso 1"))
+                .thenThrow(new DuplicateKeyException("uq_consultorio_nombre"));
+
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> service.corregir(1L, "Consultorio 2", null)
+        );
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("CONSULTORIO_DUPLICADO", error.getCode());
+    }
 }
