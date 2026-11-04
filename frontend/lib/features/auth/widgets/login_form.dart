@@ -140,6 +140,16 @@ class _LoginFormState extends ConsumerState<LoginForm> {
                   ),
             child: const Text('Es mi primera vez'),
           ),
+          TextButton(
+            key: const Key('login-forgot-password'),
+            onPressed: loginState.isLoading
+                ? null
+                : () => context.go(
+                    '/recuperacion/solicitar'
+                    '?acceso=${widget.access.queryValue}',
+                  ),
+            child: const Text('Olvidé mi contraseña'),
+          ),
         ],
       ),
     );
