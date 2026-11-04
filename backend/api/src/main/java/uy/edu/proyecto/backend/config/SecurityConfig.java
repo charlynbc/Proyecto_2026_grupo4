@@ -81,9 +81,11 @@ public class SecurityConfig {
                                                 "/api/auth/login",
                                                 "/api/auth/refresh",
                                                 "/api/auth/primer-ingreso/solicitar",
+                                                "/api/auth/primer-ingreso/validar",
                                                 "/api/auth/primer-ingreso/completar",
                                                 "/api/auth/cambio-correo/confirmar",
                                                 "/api/auth/recuperacion/solicitar",
+                                                "/api/auth/recuperacion/validar",
                                                 "/api/auth/recuperacion/completar"
                                         )
                                         .permitAll()

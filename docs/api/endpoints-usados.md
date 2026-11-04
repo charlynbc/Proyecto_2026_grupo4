@@ -83,6 +83,10 @@ PostgreSQL.
 | 53 | `POST /api/especialidades/importaciones/confirmar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #53](contrato-v1.md#e53) |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #54](contrato-v1.md#e54) |
 | 55 | `POST /api/usuarios/importaciones/confirmar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #55](contrato-v1.md#e55) |
+| 59 | `POST /api/auth/primer-ingreso/validar` | público (token) | 02 | Comprobar el enlace antes de pedir los datos, sin consumirlo | CONFIRMADA en `feat/validar-enlaces-auth` (integración y despliegue pendientes) | - | [contrato #59](contrato-v1.md#e59) |
+| 60 | `POST /api/auth/recuperacion/validar` | público (token) | 05 | Comprobar el enlace antes de pedir contraseña, sin consumirlo | CONFIRMADA en `feat/validar-enlaces-auth` (integración y despliegue pendientes) | - | [contrato #60](contrato-v1.md#e60) |
+
+Los números #56–#58 están reservados por la rama de novedades `feature/rf-28-rf-07-novedades`, cuyo PR está pendiente.
 
 ## Rutas de la prueba de concepto
 
@@ -126,6 +130,8 @@ clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige pagi
 arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
+
+- 03/11/2026, #59 y #60: nuevos `POST /api/auth/primer-ingreso/validar` y `POST /api/auth/recuperacion/validar`, cuerpo `{"token":"…"}`. Públicos, `200` sin cuerpo si el enlace está vigente; `400 ENLACE_INVALIDO` con el mensaje actual para cualquier enlace inválido, sin distinguir el motivo. Solo lectura, repetibles, no consumen ni reservan el enlace. El frontend debe conservar el manejo de `ENLACE_INVALIDO` al completar (#5 y #49). Implementados en `feat/validar-enlaces-auth`; integración y despliegue pendientes.
 
 - 31/10/2026, #30: `consulta.paciente` agrega `id` (entero, identificador de cuenta del socio) sin eliminar `ci`, `nombre` ni `apellido`. El frontend debe usar `consulta.paciente.id` como `{socioId}` en #40 para RF-22. Los números libres conservan `consulta: null`.
 
