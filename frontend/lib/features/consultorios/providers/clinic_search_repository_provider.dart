@@ -8,11 +8,12 @@ import '../repositories/clinic_search_repository.dart';
 import '../repositories/fake_clinic_search_repository.dart';
 
 /// Selecciona la búsqueda falsa o la API sin alterar el catálogo compartido.
-final clinicSearchRepositoryProvider =
-    FutureProvider<ClinicSearchRepository>((ref) async {
-      if (ref.watch(useFakesProvider)) {
-        return FakeClinicSearchRepository(ref.watch(fakeAdminDatabaseProvider));
-      }
-      final dio = await ref.watch(dioProvider.future);
-      return ApiClinicSearchRepository(dio);
-    }, retry: (_, _) => null);
+final clinicSearchRepositoryProvider = FutureProvider<ClinicSearchRepository>((
+  ref,
+) async {
+  if (ref.watch(useFakesProvider)) {
+    return FakeClinicSearchRepository(ref.watch(fakeAdminDatabaseProvider));
+  }
+  final dio = await ref.watch(dioProvider.future);
+  return ApiClinicSearchRepository(dio);
+}, retry: (_, _) => null);

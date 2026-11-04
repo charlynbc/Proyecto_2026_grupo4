@@ -1,17 +1,23 @@
 /// Órdenes ascendentes disponibles para consultar consultorios.
 enum ClinicOrder { name, location }
 
-/// Filtros combinables de RF-37, sin sentido ni paginación.
+/// Filtros combinables de RF-37, sin paginación.
+///
+/// [ascending] se resuelve en el cliente. La consulta no tiene sentido.
 class ClinicFilters {
   const ClinicFilters({
     this.name,
     this.location,
     this.order = ClinicOrder.name,
+    this.ascending = true,
   });
 
   final String? name;
   final String? location;
   final ClinicOrder order;
+
+  /// false invierte la lista ya cargada. No se envía al servidor.
+  final bool ascending;
 
   /// Envía solo los filtros usados. Los textos se recortan; el orden por
   /// nombre no se manda.
@@ -34,9 +40,9 @@ class ClinicFilters {
     }
 
     return {
-     if (search != null && search.isNotEmpty) 'nombre': search,
-     if (place != null && place.isNotEmpty) 'ubicacion': place,
-     if (order == ClinicOrder.location) 'orden': 'ubicacion',
+      if (search != null && search.isNotEmpty) 'nombre': search,
+      if (place != null && place.isNotEmpty) 'ubicacion': place,
+      if (order == ClinicOrder.location) 'orden': 'ubicacion',
     };
   }
 }

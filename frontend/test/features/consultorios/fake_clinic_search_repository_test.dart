@@ -50,10 +50,7 @@ void main() {
       const ClinicFilters(location: 'PISO 2'),
     );
 
-    expect(items.map((item) => item.name), [
-      'Consultorio 5',
-      'Consultorio 6',
-    ]);
+    expect(items.map((item) => item.name), ['Consultorio 5', 'Consultorio 6']);
   });
 
   test('orden ubicacion pone Piso 2 antes que Planta baja', () async {

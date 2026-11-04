@@ -20,7 +20,7 @@ class ClinicsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final clinics = ref.watch(clinicSearchProvider);
+    final clinics = ref.watch(clinicListProvider);
     final filters = ref.watch(clinicFiltersControllerProvider);
     final hasFilters =
         (filters.name?.trim().isNotEmpty ?? false) ||
@@ -45,17 +45,7 @@ class ClinicsScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            ClinicFilterBar(
-              onSearch: (selected) => ref
-                  .read(clinicFiltersControllerProvider.notifier)
-                  .apply(
-                    name: selected.name,
-                    location: selected.location,
-                    order: selected.order,
-                  ),
-              onClear: () =>
-                  ref.read(clinicFiltersControllerProvider.notifier).clear(),
-            ),
+            const ClinicFilterBar(),
             const SizedBox(height: 16),
             ...clinics.when(
               skipLoadingOnRefresh: false,

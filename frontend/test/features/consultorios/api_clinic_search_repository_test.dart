@@ -49,12 +49,8 @@ Matcher get _genericError => isA<ApiException>().having(
   kApiGenericMessage,
 );
 
-Matcher _failure(ClinicSearchFailure failure) =>
-    isA<ClinicSearchException>().having(
-      (error) => error.failure,
-      'tipo de error',
-      failure,
-    );
+Matcher _failure(ClinicSearchFailure failure) => isA<ClinicSearchException>()
+    .having((error) => error.failure, 'tipo de error', failure);
 
 void main() {
   group('ApiClinicSearchRepository.search', () {
@@ -89,9 +85,7 @@ void main() {
     test('el orden por nombre no se envía', () async {
       final (repository, adapter) = _repository(200, {'items': <Object>[]});
 
-      await repository.search(
-        const ClinicFilters(order: ClinicOrder.name),
-      );
+      await repository.search(const ClinicFilters(order: ClinicOrder.name));
 
       expect(adapter.last!.queryParameters, <String, dynamic>{});
     });
@@ -104,11 +98,7 @@ void main() {
             'nombre': 'Consultorio 5',
             'ubicacion': 'Piso 2, ala norte',
           },
-          {
-            'id': 6,
-            'nombre': 'Consultorio 6',
-            'ubicacion': 'Piso 2, ala sur',
-          },
+          {'id': 6, 'nombre': 'Consultorio 6', 'ubicacion': 'Piso 2, ala sur'},
         ],
       });
 
@@ -145,27 +135,29 @@ void main() {
       );
     });
 
-    test('400 VALIDACION es validation y conserva el mensaje del servidor',
-        () async {
-      const message = 'La ubicación no puede superar los 200 caracteres.';
-      final (repository, _) = _repository(400, {
-        'code': 'VALIDACION',
-        'message': message,
-      });
+    test(
+      '400 VALIDACION es validation y conserva el mensaje del servidor',
+      () async {
+        const message = 'La ubicación no puede superar los 200 caracteres.';
+        final (repository, _) = _repository(400, {
+          'code': 'VALIDACION',
+          'message': message,
+        });
 
-      await expectLater(
-        repository.search(const ClinicFilters()),
-        throwsA(
-          isA<ClinicSearchException>()
-              .having(
-                (error) => error.failure,
-                'tipo de error',
-                ClinicSearchFailure.validation,
-              )
-              .having((error) => error.message, 'mensaje', message),
-        ),
-      );
-    });
+        await expectLater(
+          repository.search(const ClinicFilters()),
+          throwsA(
+            isA<ClinicSearchException>()
+                .having(
+                  (error) => error.failure,
+                  'tipo de error',
+                  ClinicSearchFailure.validation,
+                )
+                .having((error) => error.message, 'mensaje', message),
+          ),
+        );
+      },
+    );
 
     test('401 NO_AUTENTICADO es unauthenticated', () async {
       final (repository, _) = _repository(401, {

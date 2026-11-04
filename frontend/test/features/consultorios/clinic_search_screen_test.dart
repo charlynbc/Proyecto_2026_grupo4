@@ -19,7 +19,7 @@ import 'package:go_router/go_router.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 
-// Orden distinto del alfabético: la pantalla no debe reordenar.
+// El repositorio los devuelve al revés del orden natural por nombre.
 const _items = [
   Clinic(id: 6, name: 'Consultorio 6', location: 'Piso 2, ala sur'),
   Clinic(id: 5, name: 'Consultorio 5', location: 'Piso 2, ala norte'),
@@ -193,7 +193,7 @@ void main() {
     expect(query.toQueryParameters(), isEmpty);
   });
 
-  testWidgets('muestra las filas en el orden del servidor', (tester) async {
+  testWidgets('ordena el nombre con el numero como cantidad', (tester) async {
     final repository = _Repository();
     await _pump(tester, repository);
 
@@ -202,8 +202,8 @@ void main() {
     expect(find.text('Consultorio 5'), findsOneWidget);
     expect(find.text('Piso 2, ala norte'), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('Consultorio 6')).dy,
-      lessThan(tester.getTopLeft(find.text('Consultorio 5')).dy),
+      tester.getTopLeft(find.text('Consultorio 5')).dy,
+      lessThan(tester.getTopLeft(find.text('Consultorio 6')).dy),
     );
   });
 
@@ -236,11 +236,11 @@ void main() {
     await _enter(tester, 'clinic-filter-location', 'norte');
     await _select(tester, 'clinic-filter-order', 'Ubicación');
     await _tap(tester, 'clinic-filter-search');
-    expect(repository.queries, hasLength(2));
+    expect(repository.queries, hasLength(3));
 
     await _tap(tester, 'clinic-filter-clear');
 
-    expect(repository.queries, hasLength(3));
+    expect(repository.queries, hasLength(4));
     expect(repository.queries.last.toQueryParameters(), isEmpty);
     expect(
       tester
@@ -273,11 +273,12 @@ void main() {
     await _pump(tester, repository);
     await _enter(tester, 'clinic-filter-location', 'norte');
     await _select(tester, 'clinic-filter-order', 'Ubicación');
-    expect(repository.queries, hasLength(1));
+    expect(repository.queries, hasLength(2));
+    expect(repository.queries.last.toQueryParameters(), {'orden': 'ubicacion'});
 
     await _tap(tester, 'clinic-filter-search');
 
-    expect(repository.queries, hasLength(2));
+    expect(repository.queries, hasLength(3));
     expect(repository.queries.last.toQueryParameters(), {
       'ubicacion': 'norte',
       'orden': 'ubicacion',
@@ -306,10 +307,7 @@ void main() {
 
     expect(find.byKey(const Key('clinic-filter-empty')), findsOneWidget);
     expect(find.text('No hay consultorios que coincidan.'), findsOneWidget);
-    expect(
-      find.text('Todavía no hay consultorios registrados.'),
-      findsNothing,
-    );
+    expect(find.text('Todavía no hay consultorios registrados.'), findsNothing);
     expect(find.byType(ListTile), findsNothing);
   });
 
@@ -381,22 +379,21 @@ void main() {
     await _enter(tester, 'clinic-filter-location', 'norte');
     await _select(tester, 'clinic-filter-order', 'Ubicación');
     await _tap(tester, 'clinic-filter-search');
-    expect(repository.queries, hasLength(2));
+    expect(repository.queries, hasLength(3));
     expect(
       find.text('No se pudo completar la búsqueda de prueba.'),
       findsOneWidget,
     );
 
     await _enter(tester, 'clinic-filter-name', '12');
-    await _select(tester, 'clinic-filter-order', 'Nombre');
-    expect(repository.queries, hasLength(2));
+    expect(repository.queries, hasLength(3));
     repository.error = null;
     final retry = find.widgetWithText(OutlinedButton, 'Reintentar');
     await tester.ensureVisible(retry);
     await tester.tap(retry);
     await _settle(tester);
 
-    expect(repository.queries, hasLength(3));
+    expect(repository.queries, hasLength(4));
     expect(repository.queries.last.toQueryParameters(), {
       'nombre': '5',
       'ubicacion': 'norte',
@@ -409,57 +406,52 @@ void main() {
     );
   });
 
-  testWidgets(
-    'un consultorio creado desde el formulario aparece al volver',
-    (tester) async {
-      final db = FakeAdminDatabase();
-      final router = await pumpAdminScreens(
-        tester,
-        initialLocation: kClinicsPath,
-        routes: [
-          GoRoute(
-            path: kClinicsPath,
-            builder: (_, _) => const ClinicsScreen(),
-            routes: [
-              GoRoute(
-                path: 'nuevo',
-                builder: (_, _) => const NewClinicScreen(),
-              ),
-            ],
-          ),
-        ],
-        overrides: [
-          clinicRepositoryProvider.overrideWith(
-            (ref) async => FakeClinicRepository(db, latency: Duration.zero),
-          ),
-          clinicSearchRepositoryProvider.overrideWith(
-            (ref) async =>
-                FakeClinicSearchRepository(db, latency: Duration.zero),
-          ),
-        ],
-      );
+  testWidgets('un consultorio creado desde el formulario aparece al volver', (
+    tester,
+  ) async {
+    final db = FakeAdminDatabase();
+    final router = await pumpAdminScreens(
+      tester,
+      initialLocation: kClinicsPath,
+      routes: [
+        GoRoute(
+          path: kClinicsPath,
+          builder: (_, _) => const ClinicsScreen(),
+          routes: [
+            GoRoute(path: 'nuevo', builder: (_, _) => const NewClinicScreen()),
+          ],
+        ),
+      ],
+      overrides: [
+        clinicRepositoryProvider.overrideWith(
+          (ref) async => FakeClinicRepository(db, latency: Duration.zero),
+        ),
+        clinicSearchRepositoryProvider.overrideWith(
+          (ref) async => FakeClinicSearchRepository(db, latency: Duration.zero),
+        ),
+      ],
+    );
 
-      await _enter(tester, 'clinic-filter-location', 'piso 9');
-      await _tap(tester, 'clinic-filter-search');
-      expect(find.byKey(const Key('clinic-filter-empty')), findsOneWidget);
+    await _enter(tester, 'clinic-filter-location', 'piso 9');
+    await _tap(tester, 'clinic-filter-search');
+    expect(find.byKey(const Key('clinic-filter-empty')), findsOneWidget);
 
-      await tester.tap(find.text('Nuevo consultorio'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Nuevo consultorio'));
+    await tester.pumpAndSettle();
 
-      final formFields = find.descendant(
-        of: find.byType(Form),
-        matching: find.byType(TextFormField),
-      );
-      await tester.enterText(formFields.at(0), 'Consultorio 20');
-      await tester.enterText(formFields.at(1), 'Piso 9');
-      await tester.tap(find.widgetWithText(FilledButton, 'Guardar consultorio'));
-      await tester.pumpAndSettle();
+    final formFields = find.descendant(
+      of: find.byType(Form),
+      matching: find.byType(TextFormField),
+    );
+    await tester.enterText(formFields.at(0), 'Consultorio 20');
+    await tester.enterText(formFields.at(1), 'Piso 9');
+    await tester.tap(find.widgetWithText(FilledButton, 'Guardar consultorio'));
+    await tester.pumpAndSettle();
 
-      expect(currentLocation(router), kClinicsPath);
-      expect(find.text('Consultorio registrado.'), findsOneWidget);
-      expect(find.text('Consultorio 20'), findsOneWidget);
-      expect(find.text('Piso 9'), findsOneWidget);
-      expect(find.text('Consultorio 3'), findsNothing);
-    },
-  );
+    expect(currentLocation(router), kClinicsPath);
+    expect(find.text('Consultorio registrado.'), findsOneWidget);
+    expect(find.text('Consultorio 20'), findsOneWidget);
+    expect(find.text('Piso 9'), findsOneWidget);
+    expect(find.text('Consultorio 3'), findsNothing);
+  });
 }
