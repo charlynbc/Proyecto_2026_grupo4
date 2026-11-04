@@ -149,6 +149,15 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.POST,
+                                                "/api/usuarios/*/inactivar",
+                                                "/api/usuarios/*/reactivar"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
                                                 "/api/usuarios/importaciones/**"
                                         )
                                         .hasRole(
