@@ -101,6 +101,38 @@ class CuentaVigenteValidatorTest {
     }
 
     @Test
+    void tokenNuevoDentroDelMismoSegundoDeLaReactivacionSeAcepta() {
+        when(repository.buscarVigencia(7)).thenReturn(Optional.of(
+                vigencia("SOCIO", true, EMISION.plusMillis(100))));
+        Jwt jwt = Jwt.withTokenValue("t").header("alg", "HS256").subject("7")
+                .claim("role", "SOCIO")
+                .claim("issued_at_precise", EMISION.plusMillis(500).toString())
+                .issuedAt(EMISION).expiresAt(EMISION.plusSeconds(900)).build();
+        assertFalse(validator.validate(jwt).hasErrors());
+    }
+
+    @Test
+    void tokenAnteriorDentroDelMismoSegundoDeLaReactivacionSeRechaza() {
+        when(repository.buscarVigencia(7)).thenReturn(Optional.of(
+                vigencia("SOCIO", true, EMISION.plusMillis(500))));
+        Jwt jwt = Jwt.withTokenValue("t").header("alg", "HS256").subject("7")
+                .claim("role", "SOCIO")
+                .claim("issued_at_precise", EMISION.plusMillis(100).toString())
+                .issuedAt(EMISION).expiresAt(EMISION.plusSeconds(900)).build();
+        assertTrue(validator.validate(jwt).hasErrors());
+    }
+
+    @Test
+    void fechaPrecisaMalformadaSeRechaza() {
+        when(repository.buscarVigencia(7)).thenReturn(Optional.of(
+                vigencia("SOCIO", true, EMISION.minusSeconds(3))));
+        Jwt jwt = Jwt.withTokenValue("t").header("alg", "HS256").subject("7")
+                .claim("role", "SOCIO").claim("issued_at_precise", "invalido")
+                .issuedAt(EMISION).expiresAt(EMISION.plusSeconds(900)).build();
+        assertTrue(validator.validate(jwt).hasErrors());
+    }
+
+    @Test
     void falloDeBaseDeDatosRechazaSinOmitirLaComprobacion() {
         when(repository.buscarVigencia(7))
                 .thenThrow(new DataAccessResourceFailureException("base caida"));

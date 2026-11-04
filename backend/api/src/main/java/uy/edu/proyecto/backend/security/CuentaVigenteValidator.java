@@ -1,5 +1,8 @@
 package uy.edu.proyecto.backend.security;
 
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -57,9 +60,21 @@ public class CuentaVigenteValidator implements OAuth2TokenValidator<Jwt> {
         if (jwt.getIssuedAt() == null) {
             return rechazo("El token no informa su fecha de emision");
         }
-        if (vigencia.reactivadaEn() != null
-                && !jwt.getIssuedAt().isAfter(vigencia.reactivadaEn().toInstant())) {
-            return rechazo("El token fue emitido antes de la ultima reactivacion de la cuenta");
+        if (vigencia.reactivadaEn() != null) {
+            Instant reactivadaEn = vigencia.reactivadaEn().toInstant();
+            String emisionPrecisa = jwt.getClaimAsString("issued_at_precise");
+            if (emisionPrecisa != null) {
+                try {
+                    if (!Instant.parse(emisionPrecisa).isAfter(reactivadaEn)) {
+                        return rechazo("El token fue emitido antes de la ultima reactivacion de la cuenta");
+                    }
+                } catch (DateTimeParseException exception) {
+                    return rechazo("Fecha precisa de emision invalida");
+                }
+            } else if (!jwt.getIssuedAt().isAfter(reactivadaEn)) {
+                // Tokens anteriores al campo de precision: nunca revivirlos.
+                return rechazo("El token fue emitido antes de la ultima reactivacion de la cuenta");
+            }
         }
         return OAuth2TokenValidatorResult.success();
     }
