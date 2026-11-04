@@ -92,6 +92,23 @@ class ApiRoutes {
   static const String usersImportConfirm =
       '/api/usuarios/importaciones/confirmar';
 
+  // --- RF-34, RF-38 y RF-45: administración (filas 56 a 62) ---
+  // Todas son solo para ADMINISTRADOR. Las dos primeras son POST (carga masiva
+  // de consultorios). Las tres con id de especialidad, consultorio o cuenta
+  // son PATCH (`specialty`, `clinic`, `user`: corrección de datos); las dos
+  // últimas son POST sin cuerpo (inactivar y reactivar una cuenta de
+  // empleado).
+
+  static const String clinicsImportPreview =
+      '/api/consultorios/importaciones/previsualizar';
+  static const String clinicsImportConfirm =
+      '/api/consultorios/importaciones/confirmar';
+  static String specialty(int id) => '/api/especialidades/$id';
+  static String clinic(int id) => '/api/consultorios/$id';
+  static String user(int id) => '/api/usuarios/$id';
+  static String userDeactivate(int id) => '/api/usuarios/$id/inactivar';
+  static String userReactivate(int id) => '/api/usuarios/$id/reactivar';
+
   static const String pocPushRegistration = '/api/notificaciones/registro';
 
   /// Todas las rutas, con un id de ejemplo (`1`) donde la ruta lo lleva.
@@ -146,6 +163,13 @@ class ApiRoutes {
     specialtiesImportConfirm,
     usersImportPreview,
     usersImportConfirm,
+    clinicsImportPreview,
+    clinicsImportConfirm,
+    specialty(1),
+    clinic(1),
+    user(1),
+    userDeactivate(1),
+    userReactivate(1),
     pocPushRegistration,
   ];
 }
