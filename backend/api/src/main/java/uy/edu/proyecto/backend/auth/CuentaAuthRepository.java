@@ -125,7 +125,7 @@ public class CuentaAuthRepository {
                         SELECT rol,
                                habilitada,
                                primer_ingreso_completado,
-                               date_trunc('second', ultima_reactivacion_en) AS reactivada_en
+                               ultima_reactivacion_en AS reactivada_en
                         FROM public.cuenta
                         WHERE id_cuenta = ?
                         """,
