@@ -1,6 +1,6 @@
 {
-    "name": "agenda_medica",
-    "short_name": "agenda_medica",
+    "name": "Médica Oriental",
+    "short_name": "Médica Oriental",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
