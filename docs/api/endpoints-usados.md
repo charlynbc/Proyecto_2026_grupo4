@@ -32,13 +32,13 @@ PostgreSQL.
 | 7 | `POST /api/especialidades` | ADMINISTRADOR | 29 | Alta de especialidad | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #7](contrato-v1.md#e07) |
 | 8 | `GET /api/consultorios` | autenticado | 33 | Formularios y listado; consulta con filtros RF-37 (`nombre` hasta 120, `ubicacion` hasta 200, `orden` nombre o ubicacion, siempre ascendente, sin paginación) | CONFIRMADA | feat/front-admin 19/10/2026; feat/front-funcionario 20/10/2026; feat/front-filtrar-consultorios 03/11/2026 | [contrato #8](contrato-v1.md#e08) |
 | 9 | `POST /api/consultorios` | ADMINISTRADOR | 33 | Alta de consultorio | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #9](contrato-v1.md#e09) |
-| 10 | `GET /api/medicos?especialidadId=` | SOCIO, FUNCIONARIO | 13, 08 | Selector de médico (filtro opcional; el socio ve todos los médicos activos y solo campos mínimos) | CONFIRMADA | - | [contrato #10](contrato-v1.md#e10) |
+| 10 | `GET /api/medicos?especialidadId=` | SOCIO, FUNCIONARIO | 13, 08 | Selector de médico (filtro opcional; el socio ve todos los médicos activos y solo campos mínimos). En Flutter lo usa el selector de médico de la pantalla de disponibilidad del socio (RF-08): se pide una vez al abrir y se filtra en el cliente | CONFIRMADA | feat/front-disponibilidad-medico 05/11/2026 | [contrato #10](contrato-v1.md#e10) |
 | 11 | `POST /api/usuarios` | ADMINISTRADOR | 31 | Alta de usuario | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #11](contrato-v1.md#e11) |
 | 12 | `GET /api/usuarios` | ADMINISTRADOR | 35 | Consulta de usuarios (`rol`, `estado` ACTIVA o INACTIVA, `q` CI o apellido, `orden` apellido o fechaAlta, `sentido` asc o desc, `page` desde 0, `size` de 1 a 100, por defecto 20) | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #12](contrato-v1.md#e12) |
 | 13 | `POST /api/turnos-semanales` | FUNCIONARIO | 13 | Alta de turno semanal | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #13](contrato-v1.md#e13) |
 | 14 | `GET /api/turnos-semanales/{id}` | FUNCIONARIO | 17 | Detalle de configuración | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #14](contrato-v1.md#e14) |
 | 15 | `GET /api/turnos` | FUNCIONARIO | 17 | Consulta de turnos | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #15](contrato-v1.md#e15) |
-| 16 | `GET /api/disponibilidad` | SOCIO | 08 | Disponibilidad (especialidadId o medicoId, al menos uno) | CONFIRMADA | Sin POC: agenda Flutter | [contrato #16](contrato-v1.md#e16) |
+| 16 | `GET /api/disponibilidad` | SOCIO | 08 | Disponibilidad (especialidadId o medicoId, al menos uno) | CONFIRMADA | Sin POC: agenda Flutter; feat/front-disponibilidad-medico 05/11/2026 (búsqueda por médico, por especialidad o por ambos) | [contrato #16](contrato-v1.md#e16) |
 | 17 | `POST /api/consultas` | SOCIO | 09 | Confirmar agenda | CONFIRMADA | Sin POC: agenda Flutter | [contrato #17](contrato-v1.md#e17) |
 
 ## Semana 2 y adelantos
