@@ -17,8 +17,10 @@ import '../models/agenda_time.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
+import '../models/doctor_with_specialties.dart';
 import '../models/referral.dart';
 import '../providers/agenda_repository_provider.dart';
+import '../providers/availability_doctors_provider.dart';
 import '../providers/availability_provider.dart';
 import '../providers/available_referrals_provider.dart';
 import '../repositories/agenda_repository.dart';
@@ -26,17 +28,20 @@ import '../repositories/agenda_repository.dart';
 const String _invalidRangeMessage =
     'La fecha "Desde" no puede ser posterior a la fecha "Hasta".';
 
-/// Disponibilidad y alta de consultas del socio (RF-08 y RF-09): se elige una
-/// especialidad, se filtran los números libres y se agenda uno por su
-/// `numeroId`.
+/// Disponibilidad y alta de consultas del socio (RF-08 y RF-09): se busca por
+/// especialidad, por médico o por ambos, se filtran los números libres y se
+/// agenda uno por su `numeroId`.
 ///
 /// La búsqueda es explícita: la especialidad, el médico y las fechas quedan
 /// pendientes hasta tocar "Buscar" (o Enter en una fecha), y recién ahí se
 /// copian a la búsqueda aplicada, que es la que se consulta. Orden y sentido
 /// se aplican al instante sobre la búsqueda aplicada.
 ///
-/// El listado de médicos no existe en el backend: el filtro por médico ofrece
-/// solo los que aparecen en los números libres de la especialidad elegida.
+/// Los dos desplegables están habilitados desde el inicio y se filtran entre
+/// sí en el cliente, con la lista de médicos que se pide una sola vez
+/// (`GET /api/medicos`): elegir una especialidad deja los médicos que la
+/// atienden, y elegir un médico deja sus especialidades. Un médico sin
+/// números libres se puede elegir: la búsqueda da la lista vacía.
 class AvailabilityScreen extends ConsumerStatefulWidget {
   const AvailabilityScreen({super.key});
 
@@ -50,7 +55,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
 
   // Pendiente: lo que se eligió y todavía no se buscó. Las fechas pendientes
   // son el texto de los dos campos.
-  Specialty? _specialty;
+  int? _specialtyId;
   int? _doctorId;
 
   // Aplicado: la búsqueda que se ve en pantalla (sin orden ni sentido, que se
@@ -78,17 +83,13 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
   AvailabilityQuery? get _query =>
       _applied?.withOrder(order: _order, direction: _direction);
 
-  /// El médico solo se elige con la especialidad que ya se buscó: sus opciones
-  /// salen de los números libres de esa búsqueda.
-  bool get _canPickDoctor {
-    final applied = _applied;
-    return applied != null && applied.specialtyId == _specialty?.id;
-  }
+  /// Hay una especialidad o un médico elegidos: el mínimo para buscar.
+  bool get _hasFilter => _specialtyId != null || _doctorId != null;
 
-  /// Copia lo pendiente a la búsqueda aplicada. Sin especialidad no hace nada.
+  /// Copia lo pendiente a la búsqueda aplicada. Sin especialidad ni médico no
+  /// hace nada.
   void _search() {
-    final specialty = _specialty;
-    if (specialty == null) return;
+    if (!_hasFilter) return;
     FocusScope.of(context).unfocus();
     final fromText = _fromController.text.trim();
     final toText = _toController.text.trim();
@@ -102,7 +103,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
     setState(() {
       _rangeError = null;
       _applied = AvailabilityQuery(
-        specialtyId: specialty.id,
+        specialtyId: _specialtyId,
         doctorId: _doctorId,
         from: from,
         to: to,
@@ -112,13 +113,16 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
     });
   }
 
+  /// Deja especialidad, médico y fechas en "Todos" y vacíos. Sin ningún filtro
+  /// no hay nada que consultar, así que también se quita la lista mostrada.
   void _clearFilters() {
     FocusScope.of(context).unfocus();
     _fromController.clear();
     _toController.clear();
     setState(() {
+      _specialtyId = null;
       _doctorId = null;
-      _applied = _applied?.withDoctor(null).withRange();
+      _applied = null;
       _rangeError = null;
     });
   }
@@ -204,18 +208,17 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
               data: (items) => [_filters(items, today)],
             ),
             const SizedBox(height: 16),
+            if (_applied == null || !_hasFilter)
+              const Text(
+                'Elegí una especialidad o un médico y tocá Buscar para ver '
+                'los números disponibles.',
+              ),
             if (_query != null)
               _Results(
                 query: _query!,
                 bookingNumberId: _bookingNumberId,
                 busy: _busy,
                 onBook: _book,
-                onDoctorsLoaded: _syncDoctor,
-              )
-            else
-              const Text(
-                'Elegí una especialidad y tocá Buscar para ver los números '
-                'disponibles.',
               ),
           ],
         ),
@@ -223,19 +226,46 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
     );
   }
 
-  /// Si el médico elegido ya no figura entre los que tienen números (cambió
-  /// el rango de fechas), se vuelve a "Todos" en vez de dejar un filtro que no
-  /// se puede ver.
-  void _syncDoctor(List<DoctorRef> doctors) {
-    if (_doctorId != null && !doctors.any((d) => d.id == _doctorId)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _doctorId = null);
-      });
+  /// El médico [id] de [doctors], o `null` si no se eligió o no está.
+  DoctorWithSpecialties? _doctorById(
+    List<DoctorWithSpecialties>? doctors,
+    int? id,
+  ) {
+    if (id == null || doctors == null) return null;
+    for (final doctor in doctors) {
+      if (doctor.id == id) return doctor;
     }
+    return null;
+  }
+
+  /// Cambió la especialidad pendiente. Si el médico elegido no la atiende, se
+  /// vuelve a "Todos" en vez de dejar una combinación que no da resultados.
+  void _onSpecialtyChanged(int? id, List<DoctorWithSpecialties>? doctors) {
+    setState(() {
+      _specialtyId = id;
+      final doctor = _doctorById(doctors, _doctorId);
+      if (id != null && doctor != null && !doctor.attends(id)) {
+        _doctorId = null;
+      }
+    });
   }
 
   Widget _filters(List<Specialty> specialties, DateTime today) {
-    final doctors = _doctorOptions;
+    final doctorsAsync = ref.watch(availabilityDoctorsProvider);
+    final allDoctors = doctorsAsync.value;
+    final specialtyId = _specialtyId;
+    final chosenDoctor = _doctorById(allDoctors, _doctorId);
+    // Cada desplegable ofrece solo lo que es compatible con el otro.
+    final doctors = [
+      for (final doctor in allDoctors ?? const <DoctorWithSpecialties>[])
+        if (specialtyId == null || doctor.attends(specialtyId)) doctor,
+    ];
+    final specialtyOptions = [
+      for (final specialty in specialties)
+        if (chosenDoctor == null || chosenDoctor.attends(specialty.id))
+          specialty,
+    ];
+    final colorScheme = Theme.of(context).colorScheme;
     return Wrap(
       spacing: 12,
       runSpacing: 12,
@@ -243,54 +273,61 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       children: [
         SizedBox(
           width: 280,
-          child: DropdownButtonFormField<int>(
+          child: DropdownButtonFormField<int?>(
             key: const Key('filter-specialty'),
-            initialValue: _specialty?.id,
+            initialValue: specialtyOptions.any((s) => s.id == specialtyId)
+                ? specialtyId
+                : null,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Especialidad'),
             items: [
-              for (final specialty in specialties)
+              const DropdownMenuItem(value: null, child: Text('Todos')),
+              for (final specialty in specialtyOptions)
                 DropdownMenuItem(
                   value: specialty.id,
                   child: Text(specialty.name),
                 ),
             ],
-            onChanged: (id) {
-              if (id == null) return;
-              setState(() {
-                _specialty = specialties.firstWhere((s) => s.id == id);
-                _doctorId = null;
-              });
-            },
+            onChanged: (id) => _onSpecialtyChanged(id, allDoctors),
           ),
         ),
-        if (_specialty != null)
-          SizedBox(
-            width: 280,
-            child: DropdownButtonFormField<int?>(
-              key: ValueKey('filter-doctor-${_specialty!.id}-$_doctorId'),
-              initialValue: doctors.any((d) => d.id == _doctorId)
-                  ? _doctorId
+        SizedBox(
+          width: 280,
+          child: DropdownButtonFormField<int?>(
+            key: const Key('filter-doctor'),
+            initialValue: doctors.any((d) => d.id == _doctorId)
+                ? _doctorId
+                : null,
+            isExpanded: true,
+            decoration: InputDecoration(
+              labelText: 'Médico',
+              helperText: doctorsAsync.hasError
+                  ? apiMessageOf(doctorsAsync.error!)
+                  : (allDoctors == null ? 'Cargando médicos' : null),
+              helperMaxLines: 3,
+              helperStyle: doctorsAsync.hasError
+                  ? TextStyle(color: colorScheme.error)
                   : null,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: 'Médico',
-                helperText: _canPickDoctor
-                    ? null
-                    : 'Tocá Buscar para elegir médico',
-              ),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Todos')),
-                if (_canPickDoctor)
-                  for (final doctor in doctors)
-                    DropdownMenuItem(
-                      value: doctor.id,
-                      child: Text('${doctor.lastName}, ${doctor.firstName}'),
-                    ),
-              ],
-              onChanged: _canPickDoctor
-                  ? (id) => setState(() => _doctorId = id)
-                  : null,
+            ),
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Todos')),
+              for (final doctor in doctors)
+                DropdownMenuItem(
+                  value: doctor.id,
+                  child: Text('${doctor.lastName}, ${doctor.firstName}'),
+                ),
+            ],
+            onChanged: allDoctors == null
+                ? null
+                : (id) => setState(() => _doctorId = id),
+          ),
+        ),
+        if (doctorsAsync.hasError && !doctorsAsync.isLoading)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: OutlinedButton(
+              onPressed: () => ref.invalidate(availabilityDoctorsProvider),
+              child: const Text('Reintentar'),
             ),
           ),
         SizedBox(
@@ -364,7 +401,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
           padding: const EdgeInsets.only(top: 8),
           child: FilledButton.icon(
             key: const Key('availability-search-button'),
-            onPressed: _specialty == null ? null : _search,
+            onPressed: _hasFilter ? _search : null,
             icon: const Icon(Icons.search),
             label: const Text('Buscar'),
           ),
@@ -380,23 +417,6 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       ],
     );
   }
-
-  /// Los médicos con números libres en la especialidad y el rango elegidos,
-  /// sin contar el filtro por médico (así se puede volver a otro médico).
-  List<DoctorRef> get _doctorOptions {
-    final query = _query;
-    if (query == null) return const [];
-    final numbers =
-        ref.watch(availabilityProvider(query.withDoctor(null))).value ??
-        const <AvailableNumber>[];
-    final byId = <int, DoctorRef>{
-      for (final number in numbers) number.doctor.id: number.doctor,
-    };
-    return byId.values.toList()..sort((a, b) {
-      final byName = a.lastName.compareTo(b.lastName);
-      return byName != 0 ? byName : a.firstName.compareTo(b.firstName);
-    });
-  }
 }
 
 class _Results extends ConsumerWidget {
@@ -405,14 +425,12 @@ class _Results extends ConsumerWidget {
     required this.bookingNumberId,
     required this.busy,
     required this.onBook,
-    required this.onDoctorsLoaded,
   });
 
   final AvailabilityQuery query;
   final int? bookingNumberId;
   final bool busy;
   final void Function(AvailableNumber number) onBook;
-  final void Function(List<DoctorRef> doctors) onDoctorsLoaded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
