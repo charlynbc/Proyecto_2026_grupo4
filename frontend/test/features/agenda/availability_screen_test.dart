@@ -186,7 +186,10 @@ const _invertedRange =
 
 /// Elige la especialidad en el desplegable, sin tocar Buscar.
 Future<void> _selectSpecialty(WidgetTester tester, String name) async {
-  await tester.tap(find.byKey(const Key('filter-specialty')));
+  final field = find.byKey(const Key('filter-specialty'));
+  await tester.ensureVisible(field);
+  await tester.pumpAndSettle();
+  await tester.tap(field);
   await tester.pumpAndSettle();
   await tester.tap(find.text(name).last);
   await tester.pumpAndSettle();
