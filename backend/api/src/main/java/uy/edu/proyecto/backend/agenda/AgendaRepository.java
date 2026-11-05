@@ -72,8 +72,7 @@ public class AgendaRepository {
                   ON e.id_especialidad = ts.id_especialidad
                 JOIN public.consultorio co
                   ON co.id_consultorio = t.id_consultorio
-                WHERE ts.id_especialidad = ?
-                  AND c.habilitada = TRUE
+                WHERE c.habilitada = TRUE
                   AND t.estado = 'ACTIVO'
                   AND ((t.fecha + n.hora_inicio)
                        AT TIME ZONE 'America/Montevideo')
@@ -89,7 +88,10 @@ public class AgendaRepository {
                   )
                 """);
         List<Object> parametros = new ArrayList<>();
-        parametros.add(filtros.especialidadId());
+        if (filtros.especialidadId() != null) {
+            sql.append(" AND ts.id_especialidad = ?");
+            parametros.add(filtros.especialidadId());
+        }
 
         if (filtros.medicoId() != null) {
             sql.append(" AND ts.id_medico = ?");

@@ -90,8 +90,23 @@ class MedicoIT extends BaseIntegracionIT {
     }
 
     @Test
-    void sinSesionOConRolSocioNoSeListan() {
+    void socioListaTodosLosMedicosActivosSinDatosExtraNiCupos() {
+        long cardiologa = medicoCardiologo();
+        medicoInhabilitado();
+
+        Respuesta r = get("/api/medicos", tokenSocio(ciSocio1));
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals(List.of(cardiologa, idMedico), ids(r.json()));
+        JsonNode primera = r.json().get(0);
+        assertEquals(4, primera.size(), "Solo id, nombre, apellido y especialidades");
+        assertEquals(2, primera.path("especialidades").size());
+        for (JsonNode especialidad : primera.path("especialidades")) {
+            assertEquals(2, especialidad.size(), "Solo id y nombre");
+            assertTrue(especialidad.has("id") && especialidad.has("nombre"));
+        }
+        assertEquals(List.of(cardiologa), ids(get(
+                "/api/medicos?especialidadId=" + idEspecialidadConPase,
+                tokenSocio(ciSocio1)).json()));
         assertEquals(401, get("/api/medicos", null).estado());
-        assertEquals(403, get("/api/medicos", tokenSocio(ciSocio1)).estado());
     }
 }

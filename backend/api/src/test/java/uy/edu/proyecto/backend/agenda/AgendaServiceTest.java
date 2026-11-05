@@ -44,6 +44,31 @@ class AgendaServiceTest {
     }
 
     @Test
+    void consultaSoloPorMedicoEnTodasSusEspecialidades() {
+        when(repository.existeMedico(17L)).thenReturn(true);
+        when(repository.consultarDisponibilidad(
+                new FiltroDisponibilidadDTO(null, 17L, null, null, "fecha", "asc")
+        )).thenReturn(List.of());
+
+        new AgendaService(repository).consultarDisponibilidad(
+                null, "17", null, null, null, null);
+
+        verify(repository).existeMedico(17L);
+        verify(repository).consultarDisponibilidad(
+                new FiltroDisponibilidadDTO(null, 17L, null, null, "fecha", "asc"));
+    }
+
+    @Test
+    void medicoInexistenteSinEspecialidadDevuelve404() {
+        when(repository.existeMedico(777L)).thenReturn(false);
+        ApiException exception = assertThrows(ApiException.class,
+                () -> new AgendaService(repository).consultarDisponibilidad(
+                        null, "777", null, null, null, null));
+        assertEquals("NO_ENCONTRADO", exception.getCode());
+        verify(repository).existeMedico(777L);
+    }
+
+    @Test
     void convierteFiltrosOpcionalesYOrdenSolicitados() {
         when(repository.existeEspecialidad(3L)).thenReturn(true);
         when(repository.existeMedico(17L)).thenReturn(true);
@@ -79,7 +104,7 @@ class AgendaServiceTest {
     }
 
     @Test
-    void rechazaEspecialidadFaltanteAntesDeConsultarRepositorio() {
+    void rechazaAmbosFiltrosFaltantesAntesDeConsultarRepositorio() {
         AgendaService service = new AgendaService(repository);
 
         ApiException exception = assertThrows(
@@ -90,6 +115,17 @@ class AgendaServiceTest {
         );
 
         assertEquals("VALIDACION", exception.getCode());
+        verifyNoInteractions(repository);
+    }
+
+    @Test
+    void rechazaIdsVaciosYNoPositivos() {
+        AgendaService service = new AgendaService(repository);
+        for (String invalido : List.of("", " ", "0", "-2", "abc")) {
+            assertEquals("VALIDACION", assertThrows(ApiException.class,
+                    () -> service.consultarDisponibilidad(
+                            null, invalido, null, null, null, null)).getCode());
+        }
         verifyNoInteractions(repository);
     }
 
