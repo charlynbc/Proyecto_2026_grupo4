@@ -56,31 +56,37 @@ void main() {
   });
 
   group('disponibilidad con médico', () {
-    test('solo con médico lista los números de todas sus especialidades', () async {
-      final repo = _repo();
+    test(
+      'solo con médico lista los números de todas sus especialidades',
+      () async {
+        final repo = _repo();
 
-      final numbers = await repo.listAvailability(
-        const AvailabilityQuery(doctorId: 1),
-      );
+        final numbers = await repo.listAvailability(
+          const AvailabilityQuery(doctorId: 1),
+        );
 
-      expect(numbers, isNotEmpty);
-      expect(numbers.map((n) => n.doctor.id).toSet(), {1});
-      expect(numbers.map((n) => n.specialty.id).toSet(), {1});
-    });
+        expect(numbers, isNotEmpty);
+        expect(numbers.map((n) => n.doctor.id).toSet(), {1});
+        expect(numbers.map((n) => n.specialty.id).toSet(), {1});
+      },
+    );
 
-    test('con médico y su especialidad da lo mismo que solo el médico', () async {
-      final repo = _repo();
+    test(
+      'con médico y su especialidad da lo mismo que solo el médico',
+      () async {
+        final repo = _repo();
 
-      final onlyDoctor = await repo.listAvailability(
-        const AvailabilityQuery(doctorId: 2),
-      );
-      final both = await repo.listAvailability(
-        const AvailabilityQuery(specialtyId: 2, doctorId: 2),
-      );
+        final onlyDoctor = await repo.listAvailability(
+          const AvailabilityQuery(doctorId: 2),
+        );
+        final both = await repo.listAvailability(
+          const AvailabilityQuery(specialtyId: 2, doctorId: 2),
+        );
 
-      expect(both.map((n) => n.numberId), onlyDoctor.map((n) => n.numberId));
-      expect(both, isNotEmpty);
-    });
+        expect(both.map((n) => n.numberId), onlyDoctor.map((n) => n.numberId));
+        expect(both, isNotEmpty);
+      },
+    );
 
     test('con médico y una especialidad sin relación da lista vacía', () async {
       final numbers = await _repo().listAvailability(

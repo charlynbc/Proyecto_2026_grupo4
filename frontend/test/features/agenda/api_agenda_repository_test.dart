@@ -399,23 +399,26 @@ void main() {
       }
     });
 
-    test('un error del servidor llega como ApiException con su mensaje', () async {
-      final (repo, _) = _repo(403, {
-        'code': 'ACCESO_DENEGADO',
-        'message': 'No tenés permiso para ver esta información.',
-      });
+    test(
+      'un error del servidor llega como ApiException con su mensaje',
+      () async {
+        final (repo, _) = _repo(403, {
+          'code': 'ACCESO_DENEGADO',
+          'message': 'No tenés permiso para ver esta información.',
+        });
 
-      await expectLater(
-        repo.listDoctors(),
-        throwsA(
-          isA<ApiException>().having(
-            (e) => e.message,
-            'message',
-            'No tenés permiso para ver esta información.',
+        await expectLater(
+          repo.listDoctors(),
+          throwsA(
+            isA<ApiException>().having(
+              (e) => e.message,
+              'message',
+              'No tenés permiso para ver esta información.',
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   });
 
   test('AvailabilityQuery compara por valor', () {

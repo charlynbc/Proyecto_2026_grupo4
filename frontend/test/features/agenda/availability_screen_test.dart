@@ -625,7 +625,10 @@ void main() {
       );
     await _pump(tester, const AvailabilityScreen(), agenda: agenda);
 
-    expect(find.text('No pudimos cargar los médicos. Probá de nuevo.'), findsOne);
+    expect(
+      find.text('No pudimos cargar los médicos. Probá de nuevo.'),
+      findsOne,
+    );
     expect(_doctorField(tester).onChanged, isNull);
     expect(agenda.doctorRequests, [null]);
 
