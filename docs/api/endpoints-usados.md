@@ -83,8 +83,8 @@ PostgreSQL.
 | 53 | `POST /api/especialidades/importaciones/confirmar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #53](contrato-v1.md#e53) |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #54](contrato-v1.md#e54) |
 | 55 | `POST /api/usuarios/importaciones/confirmar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #55](contrato-v1.md#e55) |
-| 56 | `POST /api/consultorios/importaciones/previsualizar` | ADMINISTRADOR | 34 | Carga masiva de consultorios (vista previa) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #56](contrato-v1.md#e56) |
-| 57 | `POST /api/consultorios/importaciones/confirmar` | ADMINISTRADOR | 34 | Carga masiva de consultorios (importa válidas) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #57](contrato-v1.md#e57) |
+| 56 | `POST /api/consultorios/importaciones/previsualizar` | ADMINISTRADOR | 34 | Carga masiva de consultorios (vista previa) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | feat/front-carga-consultorios 05/11/2026 | [contrato #56](contrato-v1.md#e56) |
+| 57 | `POST /api/consultorios/importaciones/confirmar` | ADMINISTRADOR | 34 | Carga masiva de consultorios (importa válidas) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | feat/front-carga-consultorios 05/11/2026 | [contrato #57](contrato-v1.md#e57) |
 | 58 | `PATCH /api/usuarios/{id}` | ADMINISTRADOR | 38 | Corrección de datos de la cuenta (CI, nombre, apellido, fecha de nacimiento, correo, teléfonos, dirección, especialidades; nunca el rol) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #58](contrato-v1.md#e58) |
 | 59 | `PATCH /api/especialidades/{id}` | ADMINISTRADOR | 38 | Corrección de nombre y exigencia de pase | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #59](contrato-v1.md#e59) |
 | 60 | `PATCH /api/consultorios/{id}` | ADMINISTRADOR | 38 | Corrección de nombre y ubicación | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #60](contrato-v1.md#e60) |
@@ -133,6 +133,8 @@ clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige pagi
 arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
+
+- 05/11/2026, #57: la respuesta de confirmar la carga masiva de consultorios incluye `total` (entero, cantidad de filas del archivo), que el contrato no lista en esa respuesta pero el backend devuelve (`ResultadoImportacionConsultorios`). El frontend lo lee y, si faltara, lo calcula como `importadas` más `rechazadas`. En las filas con error de #56 y #57 el backend devuelve `nombre` y `ubicacion` como texto recortado, que puede ser una cadena vacía en vez de nulo; el frontend trata las dos cosas igual. El cliente manda el archivo en el campo `archivo` (multipart) en #56 y en #57, y conserva los bytes entre las dos llamadas. Usado en `feat/front-carga-consultorios`.
 
 - 31/10/2026, #30: `consulta.paciente` agrega `id` (entero, identificador de cuenta del socio) sin eliminar `ci`, `nombre` ni `apellido`. El frontend debe usar `consulta.paciente.id` como `{socioId}` en #40 para RF-22. Los números libres conservan `consulta: null`.
 
