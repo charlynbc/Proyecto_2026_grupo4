@@ -116,6 +116,14 @@ public class SecurityConfig {
                                         )
 
                                         .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/especialidades/*"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/api/especialidades/importaciones/**"
                                         )
@@ -132,6 +140,14 @@ public class SecurityConfig {
                                         )
 
                                         .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/consultorios/*"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/api/consultorios/importaciones/**"
                                         )
@@ -142,6 +158,23 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/api/usuarios"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/usuarios/*"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/usuarios/*/inactivar",
+                                                "/api/usuarios/*/reactivar"
                                         )
                                         .hasRole(
                                                 "ADMINISTRADOR"

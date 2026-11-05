@@ -44,6 +44,75 @@ public class EspecialidadService {
                 filtroPase, ordenFinal);
     }
 
+    /**
+     * Correccion administrativa (RF-38): nombre y/o exigencia de pase. El
+     * nombre sigue siendo unico sin distinguir mayusculas; el cambio de pase
+     * rige para las consultas que se agenden desde ese momento y no altera
+     * las ya agendadas (RF-29).
+     */
+    public Especialidad corregir(
+            long id,
+            String nombre,
+            Boolean requierePase
+    ) {
+        if (nombre == null && requierePase == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "VALIDACION",
+                    "Debe indicar al menos un campo a corregir (nombre o requierePase)"
+            );
+        }
+
+        Especialidad actual = repository.buscarPorId(id)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "ESPECIALIDAD_NO_ENCONTRADA",
+                        "No existe una especialidad con ese identificador"
+                ));
+
+        String nombreFinal = actual.nombre();
+        if (nombre != null) {
+            nombreFinal = nombre.trim();
+            if (nombreFinal.isBlank()) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "VALIDACION",
+                        "El nombre es obligatorio"
+                );
+            }
+            if (nombreFinal.length() > 120) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "VALIDACION",
+                        "El nombre no puede superar 120 caracteres"
+                    );
+            }
+            repository.buscarPorNombreLower(nombreFinal)
+                    .filter(existente -> existente.id() != id)
+                    .ifPresent(existente -> {
+                        throw new ApiException(
+                                HttpStatus.CONFLICT,
+                                "ESPECIALIDAD_DUPLICADA",
+                                "Ya existe una especialidad registrada con ese nombre."
+                        );
+                    });
+        }
+
+        boolean paseFinal = requierePase == null
+                ? actual.requierePase()
+                : requierePase;
+
+        try {
+            return repository.actualizar(id, nombreFinal, paseFinal);
+        } catch (DuplicateKeyException exception) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "ESPECIALIDAD_DUPLICADA",
+                    "Ya existe una especialidad registrada con ese nombre."
+            );
+        }
+    }
+
     public Especialidad crear(String nombre, boolean requierePase) {
         if (nombre == null || nombre.isBlank()) {
             throw new ApiException(
