@@ -2,6 +2,116 @@ import 'package:agenda_medica/features/especialidades/models/specialty_filters.d
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('SpecialtyFilters.ascending', () {
+    test('el sentido predeterminado es ascendente', () {
+      const filters = SpecialtyFilters();
+
+      expect(filters.ascending, isTrue);
+    });
+
+    test('permite construir filtros con sentido descendente', () {
+      const filters = SpecialtyFilters(ascending: false);
+
+      expect(filters.ascending, isFalse);
+    });
+
+    test('copyWith cambia el sentido y conserva los filtros y el orden', () {
+      const original = SpecialtyFilters(
+        name: 'cardio',
+        requiresReferral: false,
+        order: SpecialtyOrder.createdAt,
+      );
+
+      final descending = original.copyWith(ascending: false);
+
+      expect(descending.ascending, isFalse);
+      expect(descending.name, 'cardio');
+      expect(descending.requiresReferral, isFalse);
+      expect(descending.order, SpecialtyOrder.createdAt);
+      expect(original.ascending, isTrue);
+      expect(original.name, 'cardio');
+      expect(original.requiresReferral, isFalse);
+      expect(original.order, SpecialtyOrder.createdAt);
+
+      final ascending = descending.copyWith(ascending: true);
+
+      expect(ascending.ascending, isTrue);
+      expect(ascending.name, 'cardio');
+      expect(ascending.requiresReferral, isFalse);
+      expect(ascending.order, SpecialtyOrder.createdAt);
+      expect(descending.ascending, isFalse);
+    });
+
+    test('copyWith sin cambios conserva el sentido descendente', () {
+      const filters = SpecialtyFilters(ascending: false);
+
+      expect(filters.copyWith().ascending, isFalse);
+    });
+
+    test('ambos sentidos sin filtros envían exactamente un mapa vacío', () {
+      const ascending = SpecialtyFilters(ascending: true);
+      const descending = SpecialtyFilters(ascending: false);
+
+      expect(ascending.toQueryParameters(), <String, dynamic>{});
+      expect(descending.toQueryParameters(), <String, dynamic>{});
+    });
+
+    test(
+      'ambos sentidos con Nombre envían únicamente los filtros aplicados',
+      () {
+        const ascending = SpecialtyFilters(
+          name: '  cardio  ',
+          requiresReferral: false,
+          order: SpecialtyOrder.name,
+          ascending: true,
+        );
+        final descending = ascending.copyWith(ascending: false);
+
+        expect(ascending.toQueryParameters(), {
+          'nombre': 'cardio',
+          'requierePase': false,
+        });
+        expect(descending.toQueryParameters(), {
+          'nombre': 'cardio',
+          'requierePase': false,
+        });
+      },
+    );
+
+    test('Fecha de alta descendente sin filtros envía únicamente orden', () {
+      const filters = SpecialtyFilters(
+        order: SpecialtyOrder.createdAt,
+        ascending: false,
+      );
+
+      expect(filters.toQueryParameters(), {'orden': 'fechaAlta'});
+    });
+
+    test(
+      'ambos sentidos con Fecha de alta envían solo los tres parámetros',
+      () {
+        const ascending = SpecialtyFilters(
+          name: 'cardio',
+          requiresReferral: true,
+          order: SpecialtyOrder.createdAt,
+          ascending: true,
+        );
+        final descending = ascending.copyWith(ascending: false);
+
+        expect(ascending.toQueryParameters(), {
+          'nombre': 'cardio',
+          'requierePase': true,
+          'orden': 'fechaAlta',
+        });
+        expect(descending.toQueryParameters(), {
+          'nombre': 'cardio',
+          'requierePase': true,
+          'orden': 'fechaAlta',
+        });
+      },
+    );
+  });
+
   group('SpecialtyFilters.toQueryParameters', () {
     test('los filtros predeterminados no envían parámetros', () {
       const filters = SpecialtyFilters();

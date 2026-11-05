@@ -20,6 +20,28 @@ import static org.mockito.Mockito.when;
 class AgendaRepositoryTest {
 
     @Test
+    void consultaSoloMedicoNoFiltraEspecialidadYConservaVentana() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.query(anyString(),
+                org.mockito.ArgumentMatchers
+                        .<org.springframework.jdbc.core.RowMapper<NumeroDisponibleDTO>>any(),
+                any(Object[].class))).thenReturn(List.of());
+        new AgendaRepository(jdbc).consultarDisponibilidad(
+                new FiltroDisponibilidadDTO(null, 17L, null, null, "fecha", "asc"));
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> parametros = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbc).query(sql.capture(),
+                org.mockito.ArgumentMatchers
+                        .<org.springframework.jdbc.core.RowMapper<NumeroDisponibleDTO>>any(),
+                parametros.capture());
+        assertFalse(sql.getValue().contains("ts.id_especialidad = ?"));
+        assertTrue(sql.getValue().contains("ts.id_medico = ?"));
+        assertTrue(sql.getValue().contains("c.habilitada = TRUE"));
+        assertEquals(List.of(17L), Arrays.asList(parametros.getValue()));
+    }
+
+    @Test
     void aplicaVentanaSuspensionesOcupacionFiltrosYOrdenSinEscrituras()
             throws Exception {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
