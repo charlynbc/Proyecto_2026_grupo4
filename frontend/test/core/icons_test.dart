@@ -24,6 +24,9 @@ const _flutterBlue = (r: 1, g: 117, b: 194);
 /// Diferencia máxima por canal para dar un píxel por "cercano" a un color.
 const _tolerance = 30;
 
+// Android: la zona segura es un círculo de 66 dp en el lienzo de 108 dp.
+const _androidSafeRadius = 33 / 108;
+
 const _description = 'Sistema de reserva de consultas médicas.';
 
 const _res = 'android/app/src/main/res';
@@ -186,7 +189,7 @@ void main() {
     }
     for (final density in _densities) {
       final path = _foregroundPath(density);
-      testWidgets('$path fuera del círculo de 40 % es transparente', (
+      testWidgets('$path fuera del círculo de 66 dp es transparente', (
         tester,
       ) async {
         await tester.runAsync(() async {
@@ -195,7 +198,7 @@ void main() {
           var visible = 0;
           for (var y = 0; y < px.height; y++) {
             for (var x = 0; x < px.width; x++) {
-              if (px.distanceInSides(x, y) <= 0.4) continue;
+              if (px.distanceInSides(x, y) <= _androidSafeRadius) continue;
               outside++;
               if (px.a(x, y) != 0) visible++;
             }
