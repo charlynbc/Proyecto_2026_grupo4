@@ -96,6 +96,15 @@ class _FlakyHistoryRepository extends _HistoryRepository {
 
   @override
   Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
+    // La lista de médicos pide de a 100 y no cuenta como pedido del listado.
+    if (query.size == 100) {
+      return AppointmentHistoryPage(
+        items: items,
+        page: query.page,
+        size: query.size,
+        total: total,
+      );
+    }
     requestedPages.add(query.page);
     if (query.page == failingPage && !_failed) {
       _failed = true;
@@ -258,6 +267,9 @@ final _statusDropdown = find.byKey(const Key('history-filter-status'));
 
 DropdownButtonFormField<int?> _doctorField(WidgetTester tester) =>
     tester.widget<DropdownButtonFormField<int?>>(_doctorDropdown);
+
+DropdownButtonFormField<int?> _specialtyField(WidgetTester tester) =>
+    tester.widget<DropdownButtonFormField<int?>>(_specialtyDropdown);
 
 /// Los textos de las opciones de un desplegable, en orden.
 List<String> _labels(WidgetTester tester, Finder dropdown) => [
@@ -624,9 +636,13 @@ void main() {
 
       await _choose(tester, _specialtyDropdown, 'Todas');
 
+      // La consulta (sin especialidad, médico 3) ya se había hecho y el
+      // proveedor la tiene guardada: no hay pedido nuevo, se ve su lista.
+      expect(_specialtyField(tester).initialValue, isNull);
       expect(_doctorField(tester).initialValue, 3);
-      expect(repository.listRequests.last.specialtyId, isNull);
-      expect(repository.listRequests.last.doctorId, 3);
+      expect(find.byKey(const Key('appointment-101')), findsOneWidget);
+      expect(find.byKey(const Key('appointment-102')), findsNothing);
+      expect(find.byKey(const Key('appointment-103')), findsNothing);
     });
 
     testWidgets('una especialidad sin consultas deja el médico deshabilitado '
@@ -739,8 +755,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_doctorField(tester).initialValue, isNull);
-      expect(repository.listRequests.last.doctorId, isNull);
       expect(find.byKey(const Key('appointment-101')), findsOneWidget);
+      expect(find.byKey(const Key('appointment-102')), findsOneWidget);
+      expect(find.byKey(const Key('appointment-103')), findsOneWidget);
     });
   });
 
