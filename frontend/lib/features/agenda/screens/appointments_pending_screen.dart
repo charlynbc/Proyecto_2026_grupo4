@@ -9,8 +9,11 @@ import '../../../core/widgets/centered_content.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialties_provider.dart';
+import '../models/appointment_doctor.dart';
 import '../models/appointment_history_page.dart';
 import '../models/appointment_history_query.dart';
+import '../models/available_number.dart';
+import '../providers/appointment_doctors_provider.dart';
 import '../providers/appointment_history_provider.dart';
 import '../repositories/appointment_history_repository.dart';
 import '../widgets/appointment_card.dart';
@@ -18,6 +21,10 @@ import '../widgets/appointment_card.dart';
 const String kAvailabilityPath = '/socio/disponibilidad';
 const String kAppointmentsPath = '/socio/consultas';
 
+/// Mis consultas del socio: listado paginado con filtros que se aplican al
+/// elegirlos. El filtro de médico ofrece solo a los médicos con los que el
+/// socio tuvo consultas (de sus propias consultas, no del catálogo), y si hay
+/// una especialidad elegida, solo a los de esa especialidad.
 class AppointmentsPendingScreen extends ConsumerStatefulWidget {
   const AppointmentsPendingScreen({super.key});
 
@@ -28,7 +35,6 @@ class AppointmentsPendingScreen extends ConsumerStatefulWidget {
 
 class _AppointmentsPendingScreenState
     extends ConsumerState<AppointmentsPendingScreen> {
-  final _doctorController = TextEditingController();
   String? _status;
   DateTime? _from;
   DateTime? _to;
@@ -50,12 +56,6 @@ class _AppointmentsPendingScreenState
     direction: _direction,
     page: _page,
   );
-
-  @override
-  void dispose() {
-    _doctorController.dispose();
-    super.dispose();
-  }
 
   Future<void> _chooseDate({required bool start}) async {
     final current = start ? _from : _to;
@@ -84,22 +84,40 @@ class _AppointmentsPendingScreenState
     });
   }
 
-  void _applyFilters() {
-    final doctorText = _doctorController.text.trim();
-    final doctorId = doctorText.isEmpty ? null : int.tryParse(doctorText);
-    if (doctorText.isNotEmpty && (doctorId == null || doctorId <= 0)) {
-      setState(() => _filterError = 'El ID del médico debe ser positivo.');
-      return;
-    }
+  /// Los médicos que se pueden elegir: los de las consultas del socio, sin
+  /// repetir, por el nombre con que los muestra la tarjeta. Con una
+  /// especialidad elegida, solo los que tuvieron una consulta de esa
+  /// especialidad.
+  List<DoctorRef> _doctorOptions(List<AppointmentDoctor> pairs) {
+    final byId = <int, DoctorRef>{
+      for (final pair in pairs)
+        if (_specialtyId == null || pair.specialtyId == _specialtyId)
+          pair.doctor.id: pair.doctor,
+    };
+    return byId.values.toList()..sort(
+      (a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()),
+    );
+  }
+
+  /// Cambió la especialidad. Si el médico elegido ya no corresponde (no tuvo
+  /// consultas de esa especialidad), vuelve a "Todos".
+  void _onSpecialtyChanged(int? specialtyId) {
+    final pairs = ref.read(appointmentDoctorsProvider).value;
     setState(() {
-      _doctorId = doctorId;
+      _specialtyId = specialtyId;
+      final doctorId = _doctorId;
+      if (doctorId != null &&
+          specialtyId != null &&
+          !(pairs ?? const <AppointmentDoctor>[]).any(
+            (p) => p.doctor.id == doctorId && p.specialtyId == specialtyId,
+          )) {
+        _doctorId = null;
+      }
       _page = 0;
-      _filterError = null;
     });
   }
 
   void _clearFilters() {
-    _doctorController.clear();
     setState(() {
       _status = null;
       _from = null;
@@ -118,6 +136,7 @@ class _AppointmentsPendingScreenState
     final query = _query;
     final history = ref.watch(appointmentHistoryProvider(query));
     final specialties = ref.watch(specialtiesProvider);
+    final doctors = ref.watch(appointmentDoctorsProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mis consultas'),
@@ -130,7 +149,7 @@ class _AppointmentsPendingScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _filters(specialties),
+              _filters(specialties, doctors),
               if (_filterError case final error?) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -155,7 +174,10 @@ class _AppointmentsPendingScreenState
     );
   }
 
-  Widget _filters(AsyncValue<List<Specialty>> specialties) {
+  Widget _filters(
+    AsyncValue<List<Specialty>> specialties,
+    AsyncValue<List<AppointmentDoctor>> doctors,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -207,12 +229,11 @@ class _AppointmentsPendingScreenState
                   child: Text(specialty.name),
                 ),
             ],
-            onChanged: (value) => setState(() {
-              _specialtyId = value;
-              _page = 0;
-            }),
+            onChanged: _onSpecialtyChanged,
           ),
         ),
+        const SizedBox(height: 8),
+        _doctorFilter(doctors, specialties.value),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -237,17 +258,6 @@ class _AppointmentsPendingScreenState
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          key: const Key('history-filter-doctor'),
-          controller: _doctorController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'ID del médico',
-            helperText: 'Ingresá el ID del médico asociado a la consulta.',
-          ),
-          onSubmitted: (_) => _applyFilters(),
         ),
         const SizedBox(height: 8),
         Row(
@@ -303,11 +313,6 @@ class _AppointmentsPendingScreenState
         Wrap(
           spacing: 8,
           children: [
-            FilledButton(
-              key: const Key('history-apply-filters'),
-              onPressed: _applyFilters,
-              child: const Text('Aplicar filtros'),
-            ),
             OutlinedButton(
               key: const Key('history-clear-filters'),
               onPressed: _clearFilters,
@@ -316,6 +321,58 @@ class _AppointmentsPendingScreenState
           ],
         ),
       ],
+    );
+  }
+
+  /// El desplegable de médico: "Todos" y los médicos con los que el socio tuvo
+  /// consultas. Queda deshabilitado, con su explicación, mientras carga, si
+  /// falla o si no hay médicos para la especialidad elegida; el listado y los
+  /// demás filtros no dependen de él.
+  Widget _doctorFilter(
+    AsyncValue<List<AppointmentDoctor>> doctors,
+    List<Specialty>? specialties,
+  ) {
+    final pairs = doctors.value;
+    final options = pairs == null ? const <DoctorRef>[] : _doctorOptions(pairs);
+    final specialtyId = _specialtyId;
+    String? specialtyName;
+    for (final specialty in specialties ?? const <Specialty>[]) {
+      if (specialty.id == specialtyId) specialtyName = specialty.name;
+    }
+    final help = switch ((pairs, doctors.hasError, options.isEmpty)) {
+      (null, true, _) => 'No se pudieron cargar los médicos',
+      (null, false, _) => 'Cargando médicos',
+      (_, _, true) when specialtyId == null =>
+        'No tuviste consultas con médicos',
+      (_, _, true) => 'No tuviste consultas con médicos de esta especialidad',
+      _ when specialtyId == null => 'Médicos con los que tuviste consultas',
+      _ =>
+        'Solo médicos de ${specialtyName ?? 'esta especialidad'} con los que '
+            'tuviste consultas',
+    };
+    return DropdownButtonFormField<int?>(
+      key: const Key('history-filter-doctor'),
+      isExpanded: true,
+      initialValue: options.any((d) => d.id == _doctorId) ? _doctorId : null,
+      decoration: InputDecoration(
+        labelText: 'Médico',
+        helperText: help,
+        helperMaxLines: 2,
+      ),
+      items: [
+        const DropdownMenuItem<int?>(value: null, child: Text('Todos')),
+        for (final doctor in options)
+          DropdownMenuItem<int?>(
+            value: doctor.id,
+            child: Text(doctor.fullName, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: options.isEmpty
+          ? null
+          : (id) => setState(() {
+              _doctorId = id;
+              _page = 0;
+            }),
     );
   }
 
