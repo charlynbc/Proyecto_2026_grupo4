@@ -17,6 +17,7 @@ import '../../features/auth/screens/password_recovery_complete_screen.dart';
 import '../../features/auth/screens/password_recovery_request_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/consultorios/screens/clinics_screen.dart';
+import '../../features/consultorios/screens/clinic_import_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
@@ -251,6 +252,10 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
             GoRoute(
               path: 'nuevo',
               builder: (context, state) => const NewClinicScreen(),
+            ),
+            GoRoute(
+              path: 'importar',
+              builder: (context, state) => const ClinicImportScreen(),
             ),
           ],
         );
