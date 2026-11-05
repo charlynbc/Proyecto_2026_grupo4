@@ -11,7 +11,7 @@ import '../widgets/auth_scaffold.dart';
 import '../widgets/credential_fields.dart';
 
 /// Elegir la contraseña nueva, a la que lleva el enlace del correo
-/// (`/recuperacion?token=...`). RF-05. No inicia sesión: al terminar vuelve
+/// (`/recuperacion?token=<token>`). RF-05. No inicia sesión: al terminar vuelve
 /// al login con el aviso.
 class PasswordRecoveryCompleteScreen extends ConsumerStatefulWidget {
   const PasswordRecoveryCompleteScreen({super.key, required this.token});
