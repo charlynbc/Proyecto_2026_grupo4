@@ -215,7 +215,7 @@ void main() {
     }
   });
 
-  testWidgets('evita cierres y llamadas duplicadas mientras cancela', (
+  testWidgets('el botón atrás no cierra el diálogo mientras cancela', (
     tester,
   ) async {
     final pending = Completer<void>();
@@ -241,23 +241,59 @@ void main() {
     await tester.tap(find.byKey(const Key('confirm-cancel-appointment')));
     await tester.pump();
 
-    expect(cancellation.cancelledIds, [9001]);
     expect(_isEnabled(tester, 'confirm-cancel-appointment'), isFalse);
     expect(_isEnabled(tester, 'dismiss-cancel-dialog'), isFalse);
+
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.text('¿Cancelar la consulta?'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.tapAt(const Offset(5, 5));
     await tester.pump();
     expect(find.text('¿Cancelar la consulta?'), findsOneWidget);
-
-    await tester.tap(
-      find.byKey(const Key('confirm-cancel-appointment')),
-      warnIfMissed: false,
-    );
-    await tester.pump();
-    expect(cancellation.cancelCalls, 1);
+    expect(_isEnabled(tester, 'confirm-cancel-appointment'), isFalse);
+    expect(_isEnabled(tester, 'dismiss-cancel-dialog'), isFalse);
     pending.complete();
   });
+
+  testWidgets(
+    'dos disparos seguidos de confirmar envían una sola cancelación',
+    (tester) async {
+      final pending = Completer<void>();
+      final cancellation = _CancellationRepository()
+        ..completer = pending
+        ..result = CancellationResult(
+          appointmentId: 9001,
+          status: 'CANCELADA_SOCIO',
+          cancelledAt: DateTime.utc(2026, 10, 20),
+          referralReturned: false,
+        );
+      final history = _HistoryRepository(
+        appointment: _appointment(status: 'AGENDADA'),
+      );
+      await _pump(
+        tester,
+        status: 'AGENDADA',
+        history: history,
+        cancellation: cancellation,
+      );
+      await _openDialog(tester);
+
+      final onPressed =
+          (tester.widget(
+                find.byKey(const Key('confirm-cancel-appointment')),
+              ) as dynamic).onPressed
+              as VoidCallback;
+      // Caso realista: dos toques muy rápidos antes de que el botón se reconstruya como deshabilitado.
+      onPressed();
+      onPressed();
+      await tester.pump();
+      expect(cancellation.cancelCalls, 1);
+      expect(cancellation.cancelledIds, [9001]);
+      pending.complete();
+    },
+  );
 
   for (final referralReturned in [false, true]) {
     testWidgets('cancelación exitosa devuelve el resultado y refresca', (
