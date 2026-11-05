@@ -43,6 +43,8 @@ CsvTable parseCsv(
   } on FormatException {
     throw const CsvFormatException('El archivo no es texto UTF-8 válido');
   }
+  // utf8.decode ya descarta un BOM inicial; esta línea es una defensa
+  // explícita (la prueba corre solo en la VM), así que sacarla no rompe tests.
   if (text.startsWith('\uFEFF')) text = text.substring(1);
 
   if (text.trim().isEmpty) {
