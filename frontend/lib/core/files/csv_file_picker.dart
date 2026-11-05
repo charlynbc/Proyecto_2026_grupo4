@@ -24,6 +24,8 @@ class FilePickerCsvPicker implements CsvFilePicker {
       allowedExtensions: const ['csv'],
     );
     if (file == null) return null;
+    // Si pesa más de 1 MB igual se lee: el rechazo es del campo, así el
+    // mensaje sale en un solo lugar.
     return PickedCsvFile(name: file.name, bytes: await file.readAsBytes());
   }
 }
