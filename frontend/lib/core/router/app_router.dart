@@ -25,6 +25,7 @@ import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
+import '../../features/especialidades/screens/specialty_import_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
 import '../../features/llegada/screens/arrival_screen.dart';
 import '../../features/turnos/screens/new_weekly_shift_screen.dart';
@@ -240,6 +241,10 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
             GoRoute(
               path: 'nueva',
               builder: (context, state) => const NewSpecialtyScreen(),
+            ),
+            GoRoute(
+              path: 'importar',
+              builder: (context, state) => const SpecialtyImportScreen(),
             ),
           ],
         );

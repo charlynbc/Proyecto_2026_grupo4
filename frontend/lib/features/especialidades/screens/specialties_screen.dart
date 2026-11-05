@@ -13,6 +13,7 @@ import '../widgets/specialty_filter_bar.dart';
 
 const String kSpecialtiesPath = '/admin/especialidades';
 const String kNewSpecialtyPath = '/admin/especialidades/nueva';
+const String kImportSpecialtiesPath = '/admin/especialidades/importar';
 
 /// Consulta de especialidades con filtros (RF-36) y acceso al alta (RF-29).
 class SpecialtiesScreen extends ConsumerWidget {
@@ -36,13 +37,25 @@ class SpecialtiesScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => context.go(kNewSpecialtyPath),
-                icon: const Icon(Icons.add),
-                label: const Text('Nueva especialidad'),
-              ),
+            // En un Wrap alineado a la derecha: a 320 px los botones pasan a
+            // dos renglones en vez de desbordar.
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('specialties-import-button'),
+                  onPressed: () => context.go(kImportSpecialtiesPath),
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Cargar desde CSV'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => context.go(kNewSpecialtyPath),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nueva especialidad'),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             SpecialtyFilterBar(
