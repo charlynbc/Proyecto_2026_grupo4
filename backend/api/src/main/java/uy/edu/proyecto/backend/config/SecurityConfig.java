@@ -226,7 +226,8 @@ public class SecurityConfig {
                                                 HttpMethod.GET,
                                                 "/api/medicos"
                                         )
-                                        .hasRole(
+                                        .hasAnyRole(
+                                                "SOCIO",
                                                 "FUNCIONARIO"
                                         )
 
