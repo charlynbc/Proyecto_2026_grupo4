@@ -208,17 +208,19 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
               data: (items) => [_filters(items, today)],
             ),
             const SizedBox(height: 16),
-            if (_applied == null || !_hasFilter)
-              const Text(
-                'Elegí una especialidad o un médico y tocá Buscar para ver '
-                'los números disponibles.',
-              ),
+            // Una sola cosa: la ayuda mientras no hay búsqueda aplicada, o el
+            // resultado de la búsqueda aplicada (lista o aviso de lista vacía).
             if (_query != null)
               _Results(
                 query: _query!,
                 bookingNumberId: _bookingNumberId,
                 busy: _busy,
                 onBook: _book,
+              )
+            else
+              const Text(
+                'Elegí una especialidad o un médico y tocá Buscar para ver '
+                'los números disponibles.',
               ),
           ],
         ),
@@ -247,7 +249,15 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       if (id != null && doctor != null && !doctor.attends(id)) {
         _doctorId = null;
       }
+      _dropSearchWithoutFilter();
     });
+  }
+
+  /// Sin especialidad ni médico no queda nada que mostrar: se descarta la
+  /// búsqueda aplicada y vuelve la ayuda. Así tampoco reaparece la lista
+  /// anterior al elegir otro filtro sin tocar Buscar. Va dentro de `setState`.
+  void _dropSearchWithoutFilter() {
+    if (!_hasFilter) _applied = null;
   }
 
   Widget _filters(List<Specialty> specialties, DateTime today) {
@@ -319,7 +329,10 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
             ],
             onChanged: allDoctors == null
                 ? null
-                : (id) => setState(() => _doctorId = id),
+                : (id) => setState(() {
+                    _doctorId = id;
+                    _dropSearchWithoutFilter();
+                  }),
           ),
         ),
         if (doctorsAsync.hasError && !doctorsAsync.isLoading)
