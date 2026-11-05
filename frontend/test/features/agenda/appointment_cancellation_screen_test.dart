@@ -245,12 +245,12 @@ void main() {
     expect(_isEnabled(tester, 'dismiss-cancel-dialog'), isFalse);
 
     await tester.binding.handlePopRoute();
-    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     expect(find.text('¿Cancelar la consulta?'), findsOneWidget);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.tapAt(const Offset(5, 5));
-    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     expect(find.text('¿Cancelar la consulta?'), findsOneWidget);
     expect(_isEnabled(tester, 'confirm-cancel-appointment'), isFalse);
     expect(_isEnabled(tester, 'dismiss-cancel-dialog'), isFalse);
