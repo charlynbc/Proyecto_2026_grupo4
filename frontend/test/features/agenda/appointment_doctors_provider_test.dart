@@ -1,5 +1,6 @@
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
+import 'package:agenda_medica/features/agenda/models/appointment_doctor.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_page.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_query.dart';
 import 'package:agenda_medica/features/agenda/models/available_number.dart';
