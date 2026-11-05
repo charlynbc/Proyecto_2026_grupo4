@@ -109,7 +109,6 @@ class AppointmentDetailScreen extends ConsumerWidget {
           ListTile(title: Text(label), subtitle: Text(value)),
         const SizedBox(height: 8),
         if (appointment.status == 'AGENDADA') ...[
-          const SizedBox(height: 8),
           OutlinedButton(
             key: const Key('cancel-appointment'),
             onPressed: () => showCancelAppointmentDialog(

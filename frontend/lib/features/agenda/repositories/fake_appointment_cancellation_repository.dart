@@ -16,7 +16,7 @@ class FakeAppointmentCancellationRepository
   final Duration latency;
   final DateTime Function() _clock;
 
-  static const Duration _cancellationDeadline = Duration(hours: 2); 
+  static const Duration _cancellationDeadline = Duration(hours: 2);
 
   @override
   Future<CancellationResult> cancel(int id) async {
@@ -28,7 +28,7 @@ class FakeAppointmentCancellationRepository
     if (index == -1) {
       throw const CancellationException(
         CancellationFailure.notFound,
-        'No se encontro la consulta.',
+        'No se encontró la consulta.',
       );
     }
 
@@ -36,7 +36,7 @@ class FakeAppointmentCancellationRepository
     if (appointment.status != 'AGENDADA') {
       throw const CancellationException(
         CancellationFailure.notScheduled,
-        'La consulta no esta agendada.',
+        'La consulta no está agendada.',
       );
     }
 
@@ -55,7 +55,7 @@ class FakeAppointmentCancellationRepository
     if (start.difference(now) < _cancellationDeadline) {
       throw const CancellationException(
         CancellationFailure.outsideWindow,
-        'La cancelacion debe solicitarse con al menos dos horas de anticipacion.',
+        'La cancelación debe solicitarse con al menos dos horas de anticipación.',
       );
     }
 
