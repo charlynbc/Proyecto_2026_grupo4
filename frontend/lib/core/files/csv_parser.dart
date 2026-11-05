@@ -43,7 +43,7 @@ CsvTable parseCsv(
   } on FormatException {
     throw const CsvFormatException('El archivo no es texto UTF-8 válido');
   }
-  if (text.startsWith('﻿')) text = text.substring(1);
+  if (text.startsWith('\uFEFF')) text = text.substring(1);
 
   if (text.trim().isEmpty) {
     throw const CsvFormatException(

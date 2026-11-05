@@ -27,7 +27,7 @@ void main() {
     });
 
     test('BOM inicial, punto y coma y fin de línea CRLF', () {
-      final table = _parse('﻿nombre;requiere_pase\r\nA;si\r\n');
+      final table = _parse('\uFEFFnombre;requiere_pase\r\nA;si\r\n');
 
       expect(table.header, ['nombre', 'requiere_pase']);
       expect(table.rows, [
