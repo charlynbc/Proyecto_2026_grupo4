@@ -51,6 +51,26 @@ void main() {
       await goTo(tester, container, '/login');
       expect(find.text(_recoveredMessage), findsNothing);
     });
+
+    testWidgets('"Olvidé mi contraseña" se apaga mientras el login carga y '
+        'vuelve a funcionar al terminar', (tester) async {
+      final auth = GatedAuthRepository();
+      await pumpRecoveryApp(tester, auth: auth);
+      bool enabled() => tester.widget<TextButton>(_forgot).onPressed != null;
+      expect(enabled(), isTrue);
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), '12345672');
+      await tester.enterText(fields.at(1), 'prueba1234');
+      await tester.tap(find.widgetWithText(FilledButton, 'Ingresar'));
+      await tester.pump();
+
+      expect(enabled(), isFalse);
+
+      auth.gate.complete();
+      await tester.pumpAndSettle();
+      expect(enabled(), isTrue);
+    });
   });
 
   group('enlace del correo, sin sesión', () {

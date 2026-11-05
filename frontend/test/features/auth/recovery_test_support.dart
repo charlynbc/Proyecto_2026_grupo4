@@ -7,6 +7,7 @@ import 'package:agenda_medica/features/auth/providers/auth_repository_provider.d
 import 'package:agenda_medica/features/auth/providers/first_login_repository_provider.dart';
 import 'package:agenda_medica/features/auth/providers/password_recovery_repository_provider.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
+import 'package:agenda_medica/features/auth/repositories/auth_repository.dart';
 import 'package:agenda_medica/features/auth/repositories/fake_auth_repository.dart';
 import 'package:agenda_medica/features/auth/repositories/fake_first_login_repository.dart';
 import 'package:agenda_medica/features/auth/repositories/fake_password_recovery_repository.dart';
@@ -48,12 +49,37 @@ class RecordingPasswordRecoveryRepository
   }
 }
 
+/// Un [AuthRepository] cuyo login queda en curso hasta que se complete
+/// [gate], y después rechaza las credenciales: sirve para mirar la pantalla
+/// de login mientras carga.
+class GatedAuthRepository implements AuthRepository {
+  final Completer<void> gate = Completer<void>();
+
+  @override
+  Future<void> login({
+    required String ci,
+    required String password,
+    required AccessType access,
+  }) async {
+    await gate.future;
+    throw const InvalidCredentialsException();
+  }
+
+  @override
+  Future<void> refresh() async => throw const AuthException();
+
+  @override
+  Future<void> logout() async {}
+}
+
 /// Monta la app completa como `pumpApp`, con el repositorio de recuperación
-/// [recovery] (o el falso sin latencia). `pumpApp` no lo acepta y no se
-/// edita, por eso este helper vive acá.
+/// [recovery] (o el falso sin latencia) y, si se indica, el de login [auth].
+/// `pumpApp` no acepta el de recuperación y no se edita, por eso este helper
+/// vive acá.
 Future<ProviderContainer> pumpRecoveryApp(
   WidgetTester tester, {
   PasswordRecoveryRepository? recovery,
+  AuthRepository? auth,
   bool employeeAccess = true,
   Size size = const Size(900, 1800),
 }) async {
@@ -66,10 +92,12 @@ Future<ProviderContainer> pumpRecoveryApp(
       useFakesProvider.overrideWithValue(true),
       employeeAccessAvailableProvider.overrideWithValue(employeeAccess),
       authRepositoryProvider.overrideWith(
-        (ref) async => FakeAuthRepository(
-          ref.read(sessionProvider.notifier),
-          latency: Duration.zero,
-        ),
+        (ref) async =>
+            auth ??
+            FakeAuthRepository(
+              ref.read(sessionProvider.notifier),
+              latency: Duration.zero,
+            ),
       ),
       firstLoginRepositoryProvider.overrideWith(
         (ref) async => FakeFirstLoginRepository(latency: Duration.zero),

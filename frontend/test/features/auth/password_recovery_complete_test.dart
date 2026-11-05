@@ -99,6 +99,21 @@ void main() {
     expect(repo.completions, isEmpty);
   });
 
+  testWidgets('35 "ñ" y 3 letras (73 bytes, uno de más) dan el error de '
+      'largo', (tester) async {
+    final repo = RecordingPasswordRecoveryRepository();
+    await _open(tester, repo: repo);
+
+    await _fill(tester, password: '${'ñ' * 35}abc');
+    await _tapSave(tester);
+
+    expect(
+      find.text('La contraseña es demasiado larga. Usá una más corta.'),
+      findsOneWidget,
+    );
+    expect(repo.completions, isEmpty);
+  });
+
   testWidgets('36 "ñ" (72 bytes) pasan', (tester) async {
     final repo = RecordingPasswordRecoveryRepository();
     await _open(tester, repo: repo);
