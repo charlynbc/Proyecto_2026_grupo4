@@ -2,16 +2,22 @@ import 'package:flutter/material.dart';
 
 import '../models/specialty_filters.dart';
 
-/// Controles de RF-36: solo Buscar y Limpiar comunican acciones al listado.
+/// Nombre y pase se aplican con Buscar; criterio y sentido son inmediatos.
 class SpecialtyFilterBar extends StatefulWidget {
   const SpecialtyFilterBar({
     required this.onSearch,
     required this.onClear,
+    required this.order,
+    required this.ascending,
+    required this.onSort,
     super.key,
   });
 
   final ValueChanged<SpecialtyFilters> onSearch;
   final VoidCallback onClear;
+  final SpecialtyOrder order;
+  final bool ascending;
+  final void Function(SpecialtyOrder order, bool ascending) onSort;
 
   @override
   State<SpecialtyFilterBar> createState() => _SpecialtyFilterBarState();
@@ -20,7 +26,6 @@ class SpecialtyFilterBar extends StatefulWidget {
 class _SpecialtyFilterBarState extends State<SpecialtyFilterBar> {
   final _nameController = TextEditingController();
   bool? _requiresReferral;
-  SpecialtyOrder _order = SpecialtyOrder.name;
 
   @override
   void dispose() {
@@ -35,7 +40,8 @@ class _SpecialtyFilterBarState extends State<SpecialtyFilterBar> {
       SpecialtyFilters(
         name: name.isEmpty ? null : name,
         requiresReferral: _requiresReferral,
-        order: _order,
+        order: widget.order,
+        ascending: widget.ascending,
       ),
     );
   }
@@ -46,7 +52,6 @@ class _SpecialtyFilterBarState extends State<SpecialtyFilterBar> {
     // Los valores iniciales actualizados sincronizan también los FormField.
     setState(() {
       _requiresReferral = null;
-      _order = SpecialtyOrder.name;
     });
     widget.onClear();
   }
@@ -74,14 +79,8 @@ class _SpecialtyFilterBarState extends State<SpecialtyFilterBar> {
               spacing: 16,
               runSpacing: 12,
               children: [
-                SizedBox(
-                  width: width,
-                  child: _referralField(),
-                ),
-                SizedBox(
-                  width: width,
-                  child: _orderField(),
-                ),
+                SizedBox(width: width, child: _referralField()),
+                SizedBox(width: width, child: _orderField()),
               ],
             );
           },
@@ -100,6 +99,14 @@ class _SpecialtyFilterBarState extends State<SpecialtyFilterBar> {
               key: const Key('specialty-filter-clear'),
               onPressed: _clear,
               child: const Text('Limpiar'),
+            ),
+            TextButton.icon(
+              key: const Key('specialty-filter-direction'),
+              onPressed: () => widget.onSort(widget.order, !widget.ascending),
+              icon: Icon(
+                widget.ascending ? Icons.arrow_upward : Icons.arrow_downward,
+              ),
+              label: Text(widget.ascending ? 'Ascendente' : 'Descendente'),
             ),
           ],
         ),
@@ -122,7 +129,7 @@ class _SpecialtyFilterBarState extends State<SpecialtyFilterBar> {
 
   Widget _orderField() => DropdownButtonFormField<SpecialtyOrder>(
     key: const Key('specialty-filter-order'),
-    initialValue: _order,
+    initialValue: widget.order,
     isExpanded: true,
     decoration: const InputDecoration(labelText: 'Ordenar por'),
     items: const [
@@ -134,7 +141,7 @@ class _SpecialtyFilterBarState extends State<SpecialtyFilterBar> {
     ],
     onChanged: (value) {
       if (value != null) {
-        setState(() => _order = value);
+        widget.onSort(value, widget.ascending);
       }
     },
   );
