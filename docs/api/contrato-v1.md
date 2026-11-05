@@ -2420,7 +2420,7 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 | 7 | `POST /api/especialidades` | | | | | ✔ |
 | 8 | `GET /api/consultorios` | | ✔ | ✔ | ✔ | ✔ |
 | 9 | `POST /api/consultorios` | | | | | ✔ |
-| 10 | `GET /api/medicos` | | ✔ | ✔ | ✔ | ✔ |
+| 10 | `GET /api/medicos` | | ✔ | ✔ | | |
 | 11 | `POST /api/usuarios` | | | | | ✔ |
 | 12 | `GET /api/usuarios` | | | | | ✔ |
 | 13 | `POST /api/turnos-semanales` | | | ✔ | | |
