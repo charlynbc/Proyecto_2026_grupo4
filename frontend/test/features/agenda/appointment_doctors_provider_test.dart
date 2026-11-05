@@ -1,6 +1,6 @@
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
-import 'package:agenda_medica/features/agenda/models/appointment_doctor.dart';
+import 'package:agenda_medica/features/agenda/models/appointment_filter_entry.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_page.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_query.dart';
 import 'package:agenda_medica/features/agenda/models/available_number.dart';
@@ -71,7 +71,7 @@ class _Repository implements AppointmentHistoryRepository {
   Future<Appointment> get(int id) => throw UnimplementedError();
 }
 
-Future<List<AppointmentDoctor>> _load(_Repository repository) async {
+Future<List<AppointmentFilterEntry>> _load(_Repository repository) async {
   final container = ProviderContainer(
     overrides: [
       appointmentHistoryRepositoryProvider.overrideWith(
@@ -136,7 +136,10 @@ void main() {
 
       expect(repository.queries.map((q) => q.page), [0, 1]);
       expect(repository.queries.map((q) => q.size), [100, 100]);
-      expect(pairs.map((p) => (p.doctor.id, p.specialtyId)), [(1, 1), (3, 3)]);
+      expect(pairs.map((p) => (p.status, p.doctor.id, p.specialtyId)), [
+        ('ATENDIDA', 1, 1),
+        ('ATENDIDA', 3, 3),
+      ]);
     });
 
     test('se detiene a las 10 páginas aunque el total sea mayor', () async {
@@ -195,34 +198,79 @@ void main() {
 
         final pairs = await _load(repository);
 
-        expect(pairs.map((p) => (p.doctor.id, p.specialtyId)), [
-          (1, 1),
-          (9, 2),
+        expect(pairs.map((p) => (p.status, p.doctor.id, p.specialtyId)), [
+          ('ATENDIDA', 1, 1),
+          ('CANCELADA_INSTITUCION', 9, 2),
         ]);
       },
     );
 
-    test('guarda cada par médico y especialidad una sola vez', () async {
-      final repository = _Repository(
-        total: 4,
-        pages: {
-          0: [
-            _consulta(1, _mendez, _general),
-            _consulta(2, _mendez, _general),
-            _consulta(3, _mendez, _cardio),
-            _consulta(4, _acosta, _derm),
-          ],
-        },
-      );
+    test(
+      'guarda cada terna estado, médico y especialidad una sola vez',
+      () async {
+        final repository = _Repository(
+          total: 4,
+          pages: {
+            0: [
+              _consulta(1, _mendez, _general),
+              _consulta(2, _mendez, _general),
+              _consulta(3, _mendez, _cardio),
+              _consulta(4, _acosta, _derm),
+            ],
+          },
+        );
 
-      final pairs = await _load(repository);
+        final pairs = await _load(repository);
 
-      expect(pairs.map((p) => (p.doctor.id, p.specialtyId)), [
-        (1, 1),
-        (1, 2),
-        (3, 3),
-      ]);
-    });
+        expect(pairs.map((p) => (p.status, p.doctor.id, p.specialtyId)), [
+          ('ATENDIDA', 1, 1),
+          ('ATENDIDA', 1, 2),
+          ('ATENDIDA', 3, 3),
+        ]);
+      },
+    );
+
+    test(
+      'el mismo médico y especialidad con otro estado es otra terna',
+      () async {
+        final repository = _Repository(
+          total: 3,
+          pages: {
+            0: [
+              _consulta(1, _mendez, _general, status: 'AGENDADA'),
+              _consulta(2, _mendez, _general),
+              _consulta(3, _mendez, _general),
+            ],
+          },
+        );
+
+        final pairs = await _load(repository);
+
+        expect(pairs.map((p) => (p.status, p.doctor.id, p.specialtyId)), [
+          ('AGENDADA', 1, 1),
+          ('ATENDIDA', 1, 1),
+        ]);
+      },
+    );
+
+    test(
+      'conserva el nombre de la especialidad que viene en la consulta',
+      () async {
+        final repository = _Repository(
+          total: 2,
+          pages: {
+            0: [_consulta(1, _acosta, _derm), _consulta(2, _mendez, _general)],
+          },
+        );
+
+        final pairs = await _load(repository);
+
+        expect(pairs.map((p) => p.specialtyName), [
+          'Dermatología',
+          'Medicina General',
+        ]);
+      },
+    );
 
     test('si falla el pedido, el error llega al proveedor', () async {
       final repository = _Repository(

@@ -197,7 +197,9 @@ class _AnaRepository extends _HistoryRepository {
 
   final int? pageSize;
   final bool failDoctors;
-  final List<Appointment> consultas;
+
+  /// Las consultas que responde; se puede cambiar entre dos pedidos.
+  List<Appointment> consultas;
   final queries = <AppointmentHistoryQuery>[];
 
   /// Si está, el pedido de la lista de médicos espera a que se complete.
@@ -294,7 +296,42 @@ Future<void> _choose(WidgetTester tester, Finder dropdown, String label) async {
   await tester.pumpAndSettle();
 }
 
-const _helpAll = 'Médicos con los que tuviste consultas';
+const _helpAll = 'Médicos de tus consultas';
+
+/// Los estados con la etiqueta que muestra el desplegable, en su orden.
+const _allStatusLabels = [
+  'Todos',
+  'Agendada',
+  'Atendida',
+  'Cancelada por el socio',
+  'Cancelada por la institución',
+  'No se presentó',
+  'No asistió',
+  'No atendida',
+];
+
+/// Los textos de las opciones del desplegable de Estado, en orden.
+List<String> _statusLabels(WidgetTester tester) => [
+  for (final item
+      in tester
+          .widget<DropdownButton<String?>>(
+            find.descendant(
+              of: _statusDropdown,
+              matching: find.byType(DropdownButton<String?>),
+            ),
+          )
+          .items!)
+    (item.child as Text).data!,
+];
+
+/// Los tres desplegables de un vistazo: Estado, Especialidad y Médico.
+({List<String> status, List<String> specialty, List<String> doctor}) _options(
+  WidgetTester tester,
+) => (
+  status: _statusLabels(tester),
+  specialty: _labels(tester, _specialtyDropdown),
+  doctor: _labels(tester, _doctorDropdown),
+);
 
 void main() {
   testWidgets('muestra consultas reales, estados y acceso al detalle', (
@@ -564,7 +601,7 @@ void main() {
 
       expect(_labels(tester, _doctorDropdown), ['Todos', 'Florencia Acosta']);
       expect(
-        find.text('Solo médicos de Dermatología con los que tuviste consultas'),
+        find.text('Solo médicos de Dermatología en tus consultas'),
         findsOneWidget,
       );
       expect(find.text(_helpAll), findsNothing);
@@ -573,9 +610,7 @@ void main() {
 
       expect(_labels(tester, _doctorDropdown), ['Todos', 'Carla Méndez']);
       expect(
-        find.text(
-          'Solo médicos de Medicina General con los que tuviste consultas',
-        ),
+        find.text('Solo médicos de Medicina General en tus consultas'),
         findsOneWidget,
       );
     });
@@ -603,23 +638,6 @@ void main() {
       expect(find.byKey(const Key('appointment-101')), findsNothing);
     });
 
-    testWidgets('cambiar a una especialidad que el médico no atiende lo '
-        'vuelve a Todos', (tester) async {
-      final repository = _AnaRepository();
-      await _pumpAna(tester, repository);
-      await _choose(tester, _doctorDropdown, 'Carla Méndez');
-      expect(_doctorField(tester).initialValue, 1);
-
-      await _choose(tester, _specialtyDropdown, 'Dermatología');
-
-      expect(_doctorField(tester).initialValue, isNull);
-      expect(repository.listRequests.last.specialtyId, 3);
-      expect(repository.listRequests.last.doctorId, isNull);
-      expect(repository.listRequests.last.page, 0);
-      expect(find.byKey(const Key('appointment-101')), findsOneWidget);
-      expect(find.byKey(const Key('appointment-102')), findsNothing);
-    });
-
     testWidgets('si el médico sigue correspondiendo, se conserva', (
       tester,
     ) async {
@@ -645,26 +663,43 @@ void main() {
       expect(find.byKey(const Key('appointment-103')), findsNothing);
     });
 
-    testWidgets('una especialidad sin consultas deja el médico deshabilitado '
-        'y lo explica', (tester) async {
+    // El desplegable de Especialidad ya no ofrece Cardiología (Ana no tiene
+    // consultas de esa especialidad); se la pone llamando a onChanged.
+    testWidgets('sin médicos para los filtros elegidos queda deshabilitado y '
+        'lo explica', (tester) async {
       await _pumpAna(tester, _AnaRepository());
 
-      await _choose(tester, _specialtyDropdown, 'Cardiología');
+      _specialtyField(tester).onChanged!(2);
+      await tester.pumpAndSettle();
 
       expect(_doctorField(tester).onChanged, isNull);
       expect(
-        find.text('No tuviste consultas con médicos de esta especialidad'),
+        find.text('No tenés consultas con médicos para estos filtros'),
         findsOneWidget,
       );
       expect(_labels(tester, _doctorDropdown), ['Todos']);
 
-      await _choose(tester, _specialtyDropdown, 'Todas');
+      _specialtyField(tester).onChanged!(null);
+      await tester.pumpAndSettle();
 
       expect(_doctorField(tester).onChanged, isNotNull);
       expect(
-        find.text('No tuviste consultas con médicos de esta especialidad'),
+        find.text('No tenés consultas con médicos para estos filtros'),
         findsNothing,
       );
+    });
+
+    testWidgets('sin ninguna consulta el desplegable queda deshabilitado y '
+        'lo dice', (tester) async {
+      await _pumpAna(tester, _AnaRepository(consultas: const []));
+
+      expect(_doctorField(tester).onChanged, isNull);
+      expect(find.text('No tenés consultas con médicos'), findsOneWidget);
+      expect(
+        find.text('No tenés consultas con médicos para estos filtros'),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('history-empty')), findsOneWidget);
     });
 
     testWidgets('la lista de médicos se pide una sola vez y cambiar filtros '
@@ -761,6 +796,294 @@ void main() {
     });
   });
 
+  // Un desplegable solo ofrece valores para los que existe al menos una consulta
+  // que coincida con lo elegido en los otros dos. Las opciones salen de las
+  // consultas de Ana: (AGENDADA, Florencia Acosta, Dermatología),
+  // (CANCELADA_SOCIO, Carla Méndez, Medicina General) y
+  // (ATENDIDA, Carla Méndez, Medicina General).
+  group('filtros cruzados', () {
+    Future<void> refresh(WidgetTester tester) async {
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AppointmentsPendingScreen)),
+      );
+      container.read(appointmentHistoryRefreshProvider.notifier).refresh();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sin filtros cada desplegable ofrece todo lo que hay en las '
+        'consultas', (tester) async {
+      await _pumpAna(tester, _AnaRepository());
+
+      final options = _options(tester);
+      expect(options.status, [
+        'Todos',
+        'Agendada',
+        'Atendida',
+        'Cancelada por el socio',
+      ]);
+      expect(options.specialty, ['Todas', 'Dermatología', 'Medicina General']);
+      expect(options.doctor, ['Todos', 'Carla Méndez', 'Florencia Acosta']);
+    });
+
+    testWidgets('con Carla Méndez: solo Medicina General y los estados de sus '
+        'consultas', (tester) async {
+      await _pumpAna(tester, _AnaRepository());
+
+      await _choose(tester, _doctorDropdown, 'Carla Méndez');
+
+      final options = _options(tester);
+      expect(options.status, ['Todos', 'Atendida', 'Cancelada por el socio']);
+      expect(options.specialty, ['Todas', 'Medicina General']);
+      expect(options.doctor, ['Todos', 'Carla Méndez', 'Florencia Acosta']);
+    });
+
+    testWidgets('con Estado Agendada: solo Florencia Acosta y Dermatología', (
+      tester,
+    ) async {
+      await _pumpAna(tester, _AnaRepository());
+
+      await _choose(tester, _statusDropdown, 'Agendada');
+
+      final options = _options(tester);
+      expect(options.status, [
+        'Todos',
+        'Agendada',
+        'Atendida',
+        'Cancelada por el socio',
+      ]);
+      expect(options.specialty, ['Todas', 'Dermatología']);
+      expect(options.doctor, ['Todos', 'Florencia Acosta']);
+    });
+
+    testWidgets(
+      'con Dermatología: solo Florencia Acosta y el estado Agendada',
+      (tester) async {
+        await _pumpAna(tester, _AnaRepository());
+
+        await _choose(tester, _specialtyDropdown, 'Dermatología');
+
+        final options = _options(tester);
+        expect(options.status, ['Todos', 'Agendada']);
+        expect(options.specialty, [
+          'Todas',
+          'Dermatología',
+          'Medicina General',
+        ]);
+        expect(options.doctor, ['Todos', 'Florencia Acosta']);
+      },
+    );
+
+    testWidgets('con Atendida y Carla Méndez: solo Medicina General', (
+      tester,
+    ) async {
+      await _pumpAna(tester, _AnaRepository());
+
+      await _choose(tester, _statusDropdown, 'Atendida');
+      await _choose(tester, _doctorDropdown, 'Carla Méndez');
+
+      final options = _options(tester);
+      expect(options.status, ['Todos', 'Atendida', 'Cancelada por el socio']);
+      expect(options.specialty, ['Todas', 'Medicina General']);
+      expect(options.doctor, ['Todos', 'Carla Méndez']);
+    });
+
+    testWidgets('después de elegir a Carla Méndez no se ofrece Dermatología ni '
+        'Agendada', (tester) async {
+      await _pumpAna(tester, _AnaRepository());
+      expect(_labels(tester, _specialtyDropdown), contains('Dermatología'));
+      expect(_statusLabels(tester), contains('Agendada'));
+
+      await _choose(tester, _doctorDropdown, 'Carla Méndez');
+
+      expect(
+        _labels(tester, _specialtyDropdown),
+        isNot(contains('Dermatología')),
+      );
+      expect(_statusLabels(tester), isNot(contains('Agendada')));
+    });
+
+    testWidgets('si el médico elegido deja de existir al refrescar, vuelve a '
+        'Todos y se pide la página 1', (tester) async {
+      final carla = [
+        for (var i = 301; i <= 303; i++)
+          _consulta(i, 'ATENDIDA', _mendez, _general),
+      ];
+      final florencia = _consulta(304, 'AGENDADA', _acosta, _derm);
+      final repository = _AnaRepository(
+        pageSize: 2,
+        consultas: [...carla, florencia],
+      );
+      await _pumpAna(tester, repository);
+      await _choose(tester, _doctorDropdown, 'Carla Méndez');
+      await tester.tap(find.byKey(const Key('history-next')));
+      await tester.pumpAndSettle();
+      expect(repository.listRequests.last.doctorId, 1);
+      expect(repository.listRequests.last.page, 1);
+      expect(_doctorField(tester).initialValue, 1);
+
+      repository.consultas = [florencia];
+      await refresh(tester);
+
+      expect(_doctorField(tester).initialValue, isNull);
+      expect(repository.listRequests.last.doctorId, isNull);
+      expect(repository.listRequests.last.page, 0);
+      expect(find.text('Página 1'), findsOneWidget);
+      expect(find.byKey(const Key('appointment-304')), findsOneWidget);
+      expect(find.byKey(const Key('appointment-301')), findsNothing);
+      expect(_labels(tester, _doctorDropdown), ['Todos', 'Florencia Acosta']);
+    });
+
+    testWidgets('si el estado elegido deja de existir al refrescar, vuelve a '
+        'Todos', (tester) async {
+      final repository = _AnaRepository();
+      await _pumpAna(tester, repository);
+      await _choose(tester, _statusDropdown, 'Agendada');
+      expect(repository.listRequests.last.status, 'AGENDADA');
+
+      repository.consultas = [_ana[1], _ana[2]];
+      await refresh(tester);
+
+      expect(find.text('Todos'), findsWidgets);
+      expect(
+        tester
+            .widget<DropdownButtonFormField<String?>>(_statusDropdown)
+            .initialValue,
+        isNull,
+      );
+      expect(repository.listRequests.last.status, isNull);
+      expect(repository.listRequests.last.page, 0);
+      expect(_statusLabels(tester), [
+        'Todos',
+        'Atendida',
+        'Cancelada por el socio',
+      ]);
+      expect(find.byKey(const Key('appointment-102')), findsOneWidget);
+      expect(find.byKey(const Key('appointment-103')), findsOneWidget);
+    });
+
+    testWidgets('si la especialidad elegida deja de existir al refrescar, '
+        'vuelve a Todas', (tester) async {
+      final repository = _AnaRepository();
+      await _pumpAna(tester, repository);
+      await _choose(tester, _specialtyDropdown, 'Dermatología');
+      expect(repository.listRequests.last.specialtyId, 3);
+
+      repository.consultas = [_ana[1], _ana[2]];
+      await refresh(tester);
+
+      expect(_specialtyField(tester).initialValue, isNull);
+      expect(repository.listRequests.last.specialtyId, isNull);
+      expect(repository.listRequests.last.page, 0);
+      expect(_labels(tester, _specialtyDropdown), [
+        'Todas',
+        'Medicina General',
+      ]);
+    });
+
+    testWidgets('si lo elegido sigue existiendo al refrescar, se conserva', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAna(tester, repository);
+      await _choose(tester, _doctorDropdown, 'Carla Méndez');
+
+      await refresh(tester);
+
+      expect(_doctorField(tester).initialValue, 1);
+      expect(repository.listRequests.last.doctorId, 1);
+    });
+
+    testWidgets('mientras carga la lista, Estado y Especialidad ofrecen todo y '
+        'Médico está deshabilitado', (tester) async {
+      final repository = _AnaRepository()..doctorsGate = Completer<void>();
+      await _pumpAna(tester, repository);
+
+      expect(_statusLabels(tester), _allStatusLabels);
+      expect(_labels(tester, _specialtyDropdown), [
+        'Todas',
+        'Medicina General',
+        'Cardiología',
+        'Dermatología',
+      ]);
+      expect(_doctorField(tester).onChanged, isNull);
+      expect(find.text('Cargando médicos'), findsOneWidget);
+
+      repository.doctorsGate!.complete();
+      await tester.pumpAndSettle();
+
+      expect(_statusLabels(tester), [
+        'Todos',
+        'Agendada',
+        'Atendida',
+        'Cancelada por el socio',
+      ]);
+      expect(_labels(tester, _specialtyDropdown), [
+        'Todas',
+        'Dermatología',
+        'Medicina General',
+      ]);
+    });
+
+    testWidgets('si la lista falla, Estado y Especialidad ofrecen todo y '
+        'Médico está deshabilitado', (tester) async {
+      await _pumpAna(tester, _AnaRepository(failDoctors: true));
+
+      expect(_statusLabels(tester), _allStatusLabels);
+      expect(_labels(tester, _specialtyDropdown), [
+        'Todas',
+        'Medicina General',
+        'Cardiología',
+        'Dermatología',
+      ]);
+      expect(_doctorField(tester).onChanged, isNull);
+      expect(find.text('No se pudieron cargar los médicos'), findsOneWidget);
+    });
+
+    testWidgets('las fechas no cambian las opciones de los desplegables', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAna(tester, repository);
+      final before = _options(tester);
+
+      for (final key in ['history-date-from', 'history-date-to']) {
+        final button = find.byKey(Key(key));
+        await tester.ensureVisible(button);
+        await tester.pumpAndSettle();
+        await tester.tap(button);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('OK'));
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.textContaining('cualquiera'), findsNothing);
+      expect(repository.listRequests.last.from, isNotNull);
+      expect(repository.listRequests.last.to, isNotNull);
+      final after = _options(tester);
+      expect(after.status, before.status);
+      expect(after.specialty, before.specialty);
+      expect(after.doctor, before.doctor);
+      expect(after.doctor, ['Todos', 'Carla Méndez', 'Florencia Acosta']);
+      expect(repository.doctorRequests, hasLength(1));
+    });
+
+    testWidgets('cambiar los tres filtros no vuelve a pedir la lista', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAna(tester, repository);
+
+      await _choose(tester, _statusDropdown, 'Atendida');
+      await _choose(tester, _specialtyDropdown, 'Medicina General');
+      await _choose(tester, _doctorDropdown, 'Carla Méndez');
+      await _choose(tester, _statusDropdown, 'Todos');
+
+      expect(repository.doctorRequests, hasLength(1));
+      expect(repository.listRequests.last.specialtyId, 1);
+      expect(repository.listRequests.last.doctorId, 1);
+    });
+  });
+
   // Va al final: Roboto se carga una sola vez por archivo y los tests que
   // vinieran después dejarían de usar la fuente de prueba. Con Roboto el texto
   // mide como en un celular; Ahem ensancha todo y daría desbordes que no
@@ -786,6 +1109,33 @@ void main() {
       ]) {
         expect(find.byKey(Key(key)), findsOneWidget, reason: key);
       }
+    });
+
+    testWidgets('los tres desplegables con los textos de ayuda no desbordan', (
+      tester,
+    ) async {
+      await _pumpAna(tester, _AnaRepository());
+      tester.view.physicalSize = const Size(320, 640);
+      await tester.pumpAndSettle();
+      expect(find.text(_helpAll), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await _choose(tester, _statusDropdown, 'Cancelada por el socio');
+      await _choose(tester, _specialtyDropdown, 'Medicina General');
+      expect(
+        find.text('Solo médicos de Medicina General en tus consultas'),
+        findsOneWidget,
+      );
+      await _choose(tester, _doctorDropdown, 'Carla Méndez');
+      expect(tester.takeException(), isNull);
+
+      _specialtyField(tester).onChanged!(2);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('No tenés consultas con médicos para estos filtros'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('el desplegable de médico con un nombre largo no desborda', (
