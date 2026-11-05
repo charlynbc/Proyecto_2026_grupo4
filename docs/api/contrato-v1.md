@@ -2568,7 +2568,7 @@ Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2"
 
 #### 6.1.1 Iniciar sesión (imagen 14) · RF-01, RF-02
 
-- **Se ve:** logo, "Agenda médica", "Acceso para empleados", campos "Cédula de identidad" (texto de ayuda "Sin puntos ni guiones") y "Contraseña" (ayuda "Mínimo 8 caracteres"), botón "Ingresar", enlace "Es mi primera vez" y, abajo, "¿Es socio? Ingresar por el acceso de socios".
+- **Se ve:** logo, "Médica Oriental", "Acceso para empleados", campos "Cédula de identidad" (texto de ayuda "Sin puntos ni guiones") y "Contraseña" (ayuda "Mínimo 8 caracteres"), botón "Ingresar", enlace "Es mi primera vez" y, abajo, "¿Es socio? Ingresar por el acceso de socios".
 - **Endpoints:** "Ingresar" → #1 con `acceso: "EMPLEADO"`. "Es mi primera vez" → #4 y, desde el correo, #5. La sesión se sostiene con #2 y #3.
 - **Mensajes:** no hay mensaje de error dibujado en esta variante; en la móvil (6.2.1) el texto es el que cubre P-33.
 - **Sin mockup:** las pantallas de pedir la activación y de completarla (dirección, teléfonos, contraseña) no están dibujadas, solo el enlace. La ayuda "Sin puntos ni guiones" apoya la propuesta de CI solo con dígitos (P-17).
