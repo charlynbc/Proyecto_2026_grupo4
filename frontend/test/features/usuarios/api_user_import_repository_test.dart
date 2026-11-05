@@ -16,6 +16,9 @@ class _StubAdapter implements HttpClientAdapter {
   final Object? body;
   RequestOptions? last;
 
+  /// El cuerpo que se mandó, como texto.
+  String sentBody = '';
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
@@ -23,6 +26,10 @@ class _StubAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     last = options;
+    if (requestStream != null) {
+      final chunks = await requestStream.toList();
+      sentBody = utf8.decode(chunks.expand((c) => c).toList());
+    }
     return ResponseBody.fromString(
       jsonEncode(body),
       status,
@@ -43,11 +50,7 @@ class _StubAdapter implements HttpClientAdapter {
 }
 
 /// El cuerpo multipart que se mandó, como texto.
-Future<String> _sentBody(_StubAdapter adapter) async {
-  final form = adapter.last!.data as FormData;
-  final chunks = await form.finalize().toList();
-  return utf8.decode(chunks.expand((c) => c).toList());
-}
+Future<String> _sentBody(_StubAdapter adapter) async => adapter.sentBody;
 
 Map<String, Object?> _row(
   int number, {
