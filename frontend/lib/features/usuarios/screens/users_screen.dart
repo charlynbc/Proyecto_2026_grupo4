@@ -23,13 +23,25 @@ class UsersScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => context.go(kNewUserPath),
-                icon: const Icon(Icons.person_add_alt_1),
-                label: const Text('Alta de usuario'),
-              ),
+            // En un Wrap alineado a la derecha: a 320 px los botones pasan a
+            // dos renglones en vez de desbordar.
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('users-import-button'),
+                  onPressed: () => context.go(kImportUsersPath),
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Cargar desde CSV'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => context.go(kNewUserPath),
+                  icon: const Icon(Icons.person_add_alt_1),
+                  label: const Text('Alta de usuario'),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             const UsersFilterBar(),

@@ -14,7 +14,6 @@ import 'package:agenda_medica/features/usuarios/screens/user_import_screen.dart'
 import 'package:agenda_medica/features/usuarios/screens/user_routes.dart';
 import 'package:agenda_medica/features/usuarios/screens/users_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 

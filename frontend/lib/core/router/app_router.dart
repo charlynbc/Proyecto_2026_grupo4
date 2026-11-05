@@ -34,6 +34,7 @@ import '../../features/turnos/screens/shifts_screen.dart';
 import '../../features/turnos/screens/suspend_shifts_screen.dart';
 import '../../features/turnos/screens/weekly_shift_detail_screen.dart';
 import '../../features/usuarios/screens/new_user_screen.dart';
+import '../../features/usuarios/screens/user_import_screen.dart';
 import '../../features/usuarios/screens/user_routes.dart';
 import '../../features/usuarios/screens/users_screen.dart';
 import '../widgets/coming_soon_screen.dart';
@@ -229,6 +230,10 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
             GoRoute(
               path: 'nuevo',
               builder: (context, state) => const NewUserScreen(),
+            ),
+            GoRoute(
+              path: 'importar',
+              builder: (context, state) => const UserImportScreen(),
             ),
           ],
         );
