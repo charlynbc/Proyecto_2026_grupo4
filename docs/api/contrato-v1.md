@@ -511,16 +511,16 @@ Sin parámetros devuelve todos los consultorios, sin paginar, ordenados por `nom
 <a id="e10"></a>
 #### #10 · `GET /api/medicos`
 
-- **Roles:** FUNCIONARIO (así está implementado y protegido en `SecurityConfig`; el alta de turno es de FUNCIONARIO).
+- **Roles:** SOCIO y FUNCIONARIO (habilitados en `SecurityConfig`).
 - **RF:** RF-13, RF-08, RF-14, RF-15, RF-17, RF-18 (selectores de médico). **Diseño:** sin operación en 2.1 a 2.7. **Estado:** IMPLEMENTADO.
 
 | Parámetro | Tipo | Obligatorio | Notas |
 |---|---|---|---|
 | `especialidadId` | entero | no | Si se envía, solo médicos que ejercen esa especialidad. |
 
-Devuelve médicos **activos**, sin paginar, ordenados por `apellido` y `nombre`. Cada médico trae sus especialidades, porque el alta de turno exige "una de las del médico" (RF-13). No expone CI, correo ni teléfonos.
+Devuelve **todos los médicos activos**, aunque no tengan números disponibles, sin paginar y ordenados por `apellido` y `nombre`. El filtro opcional `especialidadId` restringe los médicos según sus especialidades. No expone CI, correo, teléfonos ni contraseñas. Para el SOCIO, cada médico devuelve exclusivamente `id`, `nombre`, `apellido` y especialidades con `id` y `nombre`; para FUNCIONARIO se conserva la respuesta anterior, incluida `requierePase` en cada especialidad.
 
-**Respuesta 200** (una lista JSON, sin envoltorio `items`; el cliente Flutter también tolera `{"items": [...]}`)
+**Respuesta 200 para FUNCIONARIO** (una lista JSON, sin envoltorio `items`; el cliente Flutter también tolera `{"items": [...]}`)
 
 ```json
 [
@@ -536,7 +536,23 @@ Devuelve médicos **activos**, sin paginar, ordenados por `apellido` y `nombre`.
 ]
 ```
 
-Preguntas relacionadas: P-16.
+**Respuesta 200 para SOCIO** (misma lista, proyección mínima):
+
+```json
+[
+  {
+    "id": 17,
+    "nombre": "Marta",
+    "apellido": "Rodríguez",
+    "especialidades": [
+      { "id": 1, "nombre": "Medicina General" },
+      { "id": 3, "nombre": "Cardiología" }
+    ]
+  }
+]
+```
+
+El socio ve a todos los médicos activos, incluso cuando no tienen números ofrecidos (P-16 resuelta).
 
 ### 3.3 Administración de usuarios
 
@@ -824,12 +840,12 @@ Devuelve **fechas concretas** de turnos (no patrones; para el patrón se usa #14
 - **Roles:** SOCIO.
 - **RF:** RF-08. **Diseño:** `consultarDisponibilidad(filtros: FiltroDisponibilidadDTO): List<NumeroDisponibleDTO>` (S03). **Estado:** PROPUESTA.
 
-Solo números que todavía pueden agendarse (anticipación máxima y mínima) y que no son de fechas suspendidas. Es informativo: no bloquea números, y al confirmar se vuelve a comprobar todo (S03).
+Solo números que todavía pueden agendarse (anticipación máxima y mínima) y que no son de fechas suspendidas. Es informativo: no bloquea números, y al confirmar se vuelve a comprobar todo (S03). Al menos uno de `especialidadId` o `medicoId` debe estar presente; no se admite consultar todos los números sin filtro. No hay cambios en la forma de la respuesta ni en la paginación.
 
 | Parámetro | Tipo | Obligatorio | Notas |
 |---|---|---|---|
-| `especialidadId` | entero | **sí** | Obligatorio por RF-08 ("especialidad (obligatorio)"), CU 3.2.1 (paso 2) y el mockup 6.2.2 ("Especialidad (obligatorio)"). Los tres coinciden: no queda pregunta abierta. |
-| `medicoId` | entero | no | "Médico (opcional)" en el mockup. |
+| `especialidadId` | entero | no | Opcional si se envía `medicoId`. Si viene solo, se ofrecen números de esa especialidad. |
+| `medicoId` | entero | no | Opcional si se envía `especialidadId`. Solo: números de todas las especialidades del médico. Ambos: intersección de médico y especialidad. **Se requiere al menos uno de los dos IDs.** |
 | `fechaDesde`, `fechaHasta` | fecha | no | "Desde" y "Hasta", opcionales. |
 | `orden` | `fecha` o `apellidoMedico` | no | Por defecto `fecha` (fecha y hora más próximas; el mockup dice "Orden: fecha más próxima"). |
 | `sentido` | `asc` o `desc` | no | Por defecto `asc`. |
@@ -856,7 +872,7 @@ Solo números que todavía pueden agendarse (anticipación máxima y mínima) y 
 
 `especialidad.requierePase` es la indicación que RF-08 exige mostrar. Si no hay resultados, `{ "items": [] }` con `200` (el cliente muestra "No se encontraron turnos disponibles para los criterios seleccionados", CU 3.2.1).
 
-**Errores:** `400 VALIDACION` si falta `especialidadId` (dato obligatorio) o `fechaDesde` es posterior a `fechaHasta`. `404 NO_ENCONTRADO` si `especialidadId` o `medicoId` no existen.
+**Errores:** `400 VALIDACION` si faltan **ambos** filtros (`especialidadId` y `medicoId`), si alguno tiene un valor inválido o si `fechaDesde` es posterior a `fechaHasta`. `404 NO_ENCONTRADO` solo si el `especialidadId` o el `medicoId` enviados no existen. Con ambos IDs existentes pero sin relación entre médico y especialidad, devuelve `200 {"items":[]}`. Los demás filtros y errores conservan su comportamiento.
 
 <a id="e17"></a>
 #### #17 · `POST /api/consultas`
@@ -2404,7 +2420,7 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 | 7 | `POST /api/especialidades` | | | | | ✔ |
 | 8 | `GET /api/consultorios` | | ✔ | ✔ | ✔ | ✔ |
 | 9 | `POST /api/consultorios` | | | | | ✔ |
-| 10 | `GET /api/medicos` | | ✔ | ✔ | ✔ | ✔ |
+| 10 | `GET /api/medicos` | | ✔ | ✔ | | |
 | 11 | `POST /api/usuarios` | | | | | ✔ |
 | 12 | `GET /api/usuarios` | | | | | ✔ |
 | 13 | `POST /api/turnos-semanales` | | | ✔ | | |
@@ -2568,7 +2584,7 @@ Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2"
 
 #### 6.1.1 Iniciar sesión (imagen 14) · RF-01, RF-02
 
-- **Se ve:** logo, "Agenda médica", "Acceso para empleados", campos "Cédula de identidad" (texto de ayuda "Sin puntos ni guiones") y "Contraseña" (ayuda "Mínimo 8 caracteres"), botón "Ingresar", enlace "Es mi primera vez" y, abajo, "¿Es socio? Ingresar por el acceso de socios".
+- **Se ve:** logo, "Médica Oriental", "Acceso para empleados", campos "Cédula de identidad" (texto de ayuda "Sin puntos ni guiones") y "Contraseña" (ayuda "Mínimo 8 caracteres"), botón "Ingresar", enlace "Es mi primera vez" y, abajo, "¿Es socio? Ingresar por el acceso de socios".
 - **Endpoints:** "Ingresar" → #1 con `acceso: "EMPLEADO"`. "Es mi primera vez" → #4 y, desde el correo, #5. La sesión se sostiene con #2 y #3.
 - **Mensajes:** no hay mensaje de error dibujado en esta variante; en la móvil (6.2.1) el texto es el que cubre P-33.
 - **Sin mockup:** las pantallas de pedir la activación y de completarla (dirección, teléfonos, contraseña) no están dibujadas, solo el enlace. La ayuda "Sin puntos ni guiones" apoya la propuesta de CI solo con dígitos (P-17).
@@ -2651,9 +2667,9 @@ Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis
 
 #### 6.2.2 Consultar disponibilidad (imagen 16) · RF-08
 
-- **Se ve:** título "Agendar consulta". "Especialidad (obligatorio)" (con "Cardiología" elegida), "Médico (opcional)" ("Todos"), "Desde" y "Hasta" (`dd/mm/aaaa`), "Orden: fecha más próxima ▾" y botón "Buscar". Sección "Números libres": tarjetas con "Mar 13/10/2026 · 09:20 – 09:40", "Dra. Apellido · Cardiología", "Consultorio 12 · Piso 2", etiqueta "Requiere pase" y botón "Agendar".
-- **Endpoints:** "Buscar" → #16 (`especialidadId` obligatorio, `medicoId`, `fechaDesde`, `fechaHasta`, `orden`: `fecha` o `apellidoMedico`). Selectores → #6 y #10. Cada tarjeta es un `NumeroDisponibleDTO`; "Requiere pase" es `especialidad.requierePase`.
-- **Coincide con el contrato:** `especialidadId` es obligatorio en el RF-08, en el CU 3.2.1 y en el mockup. El día abreviado ("Mar", "Mié") lo calcula el cliente. El estado vacío es el mensaje de CU 3.2.1, "No se encontraron turnos disponibles para los criterios seleccionados", que no está dibujado.
+- **Se ve:** título "Agendar consulta". "Especialidad (opcional)" (con "Cardiología" elegida), "Médico (opcional)" ("Todos"); para buscar se debe seleccionar al menos uno, "Desde" y "Hasta" (`dd/mm/aaaa`), "Orden: fecha más próxima ▾" y botón "Buscar". Sección "Números libres": tarjetas con "Mar 13/10/2026 · 09:20 – 09:40", "Dra. Apellido · Cardiología", "Consultorio 12 · Piso 2", etiqueta "Requiere pase" y botón "Agendar".
+- **Endpoints:** "Buscar" → #16 (`especialidadId` y `medicoId` opcionales por separado, al menos uno requerido; `fechaDesde`, `fechaHasta`, `orden`: `fecha` o `apellidoMedico`). Selectores → #6 y #10. Cada tarjeta es un `NumeroDisponibleDTO`; "Requiere pase" es `especialidad.requierePase`.
+- **Coincide con el contrato actualizado:** RF-08, CU 3.2.1 y el mockup exigen especialidad o médico, al menos uno. El día abreviado ("Mar", "Mié") lo calcula el cliente. El estado vacío es el mensaje de CU 3.2.1, "No se encontraron turnos disponibles para los criterios seleccionados", que no está dibujado.
 - **No muestra:** el número dentro del turno (`numero`), que sí aparece en la pantalla siguiente.
 
 #### 6.2.3 Agendar consulta (imagen 10) · RF-09
@@ -2712,6 +2728,8 @@ Las rutas que propone este contrato se detallan en la sección 3. Decisiones sob
 9. **Datos personales (#46, #47, #50, RF-06):** dirección y teléfonos aplican de inmediato; el correo se aplica solo tras confirmar el enlace enviado al correo **nuevo** (tipo `CAMBIO_CORREO`, 24 h, un solo uso), como exige el RF. `telefono2` es el único campo anulable: `""` o `null` explícito lo borra y ausente lo conserva. Cualquier campo fuera de los cuatro editables se rechaza con `400 VALIDACION` nombrándolo.
 10. **Modificación de turno semanal (#51, RF-20):** solo el consultorio. "Consultas Agendadas cuyo día todavía no terminó" se interpreta como `fecha >= hoy` (hora de Uruguay). El control de solapamientos de RF-13 se revalida sobre las fechas **activas** vigentes; las suspendidas se mueven sin revalidar (si se rehabilitan, RF-15 revalida en ese momento). Enviar el consultorio actual es un no-op `200`.
 
+11. **P-16 resuelta (RF-08, #10 y #16):** SOCIO y FUNCIONARIO pueden consultar `GET /api/medicos`; el socio recibe todos los médicos habilitados aunque no tengan números libres, con campos mínimos. La disponibilidad requiere al menos uno de los filtros `especialidadId` o `medicoId`, y por médico solo abarca todas sus especialidades. La matriz de roles ya habilitaba al socio; se actualizaron la seguridad y el resto del contrato.
+
 ### 7.2 Contradicciones entre documentos
 
 Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el PR.
@@ -2759,7 +2777,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-13 | Estadísticas: ¿"cada turno" de RF-40 es el patrón semanal o la fecha concreta? ¿El porcentaje es 0 a 100 o 0 a 1? ¿La unidad de "Sin datos" es `null`? | #34, #35, #36 | usa 0 a 100 y `null` como "Sin datos". |
 | P-14 | Notificaciones: ¿hay estado leído/no leído y cómo se marca (RF y modelo de datos no lo definen)? ¿Se listan los recordatorios aún no vencidos (`programada_para` futuro)? ¿Cuánto tiempo se conservan? ¿Se da de baja el token push al cerrar sesión o cuando otro socio inicia sesión en el mismo dispositivo (`token` es único)? RNF-23 habla de push en Android; ¿vale también el push web? | #32, #33 | lista todo sin estado de lectura; no da de baja el token. |
 | P-15 | RF-16 pide mostrar las consultas del día para confirmar al socio. ¿Se debe mostrar también su nombre y apellido para verificar que es la persona correcta? `List<ConsultaDTO>` no los trae. | #26 | muestra solo las consultas. |
-| P-16 | ¿Qué médicos lista #10: solo activos (RF-13), o también inactivos para filtrar turnos históricos o suspendidos (RF-17, RF-45)? ¿Un socio ve a todos los médicos activos o solo a los que tienen números ofrecidos? | #10, #15, #16 | muestra solo médicos activos. |
+
 | P-17 | Formato de la CI en el cable: solo dígitos (propuesta) o con puntos y guion. ¿Quién normaliza? Los mockups piden "Sin puntos ni guiones" en los campos de CI, pero no definen el formato en el cable. | #1, #4, #11, #26, #27, #28 | envía solo dígitos. |
 | P-18 | Longitud máxima de los textos libres: afección, tratamiento, observaciones, observación de la suspensión, dirección. Ningún documento la fija. | #5, #24, #31 | no limita más que lo razonable en pantalla. |
 | P-19 | Valores por defecto y máximos de `size`. | todos los listados paginados | usa 20 y máximo 100. |
