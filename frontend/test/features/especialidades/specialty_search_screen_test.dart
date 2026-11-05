@@ -6,14 +6,19 @@ import 'package:agenda_medica/features/especialidades/models/specialty.dart';
 import 'package:agenda_medica/features/especialidades/models/specialty_filters.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialties_provider.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialty_search_repository_provider.dart';
+import 'package:agenda_medica/features/especialidades/providers/specialty_repository_provider.dart';
+import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_repository.dart';
 import 'package:agenda_medica/features/especialidades/repositories/specialty_search_repository.dart';
 import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_search_repository.dart';
 import 'package:agenda_medica/features/especialidades/screens/specialties_screen.dart';
+import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../helpers/load_roboto.dart';
+import '../../helpers/pump_admin.dart';
 
 // Orden deliberadamente diferente del alfabético: la pantalla no debe reordenar.
 const _items = [
@@ -148,6 +153,100 @@ Future<void> _enterName(WidgetTester tester, String name) async {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(loadRoboto);
+
+  testWidgets(
+    'el alta con rutas anidadas conserva Descendente al volver al listado',
+    (tester) async {
+      final db = FakeAdminDatabase();
+      final router = await pumpAdminScreens(
+        tester,
+        initialLocation: kSpecialtiesPath,
+        routes: [
+          GoRoute(
+            path: kSpecialtiesPath,
+            builder: (_, _) => const SpecialtiesScreen(),
+            routes: [
+              GoRoute(
+                path: 'nueva',
+                builder: (_, _) => const NewSpecialtyScreen(),
+              ),
+            ],
+          ),
+        ],
+        overrides: [
+          specialtyRepositoryProvider.overrideWith(
+            (ref) async => FakeSpecialtyRepository(db, latency: Duration.zero),
+          ),
+          specialtySearchRepositoryProvider.overrideWith(
+            (ref) async =>
+                FakeSpecialtySearchRepository(db, latency: Duration.zero),
+          ),
+        ],
+      );
+      try {
+        expect(currentLocation(router), kSpecialtiesPath);
+        expect(_displayedNames(tester), [
+          'Cardiología',
+          'Dermatología',
+          'Medicina General',
+        ]);
+        final originalList = tester.element(find.byType(SpecialtiesScreen));
+
+        await _tap(tester, 'specialty-filter-direction');
+
+        _expectDirection('Descendente', Icons.arrow_downward);
+        expect(_displayedNames(tester), [
+          'Medicina General',
+          'Dermatología',
+          'Cardiología',
+        ]);
+
+        final create = find.widgetWithText(FilledButton, 'Nueva especialidad');
+        await tester.ensureVisible(create);
+        await tester.tap(create);
+        await _settle(tester);
+
+        expect(currentLocation(router), kNewSpecialtyPath);
+        expect(find.byType(NewSpecialtyScreen), findsOneWidget);
+        final mountedList = find.byType(SpecialtiesScreen, skipOffstage: false);
+        expect(mountedList, findsOneWidget);
+        expect(tester.element(mountedList), same(originalList));
+        expect(originalList.mounted, isTrue);
+        expect(tester.takeException(), isNull);
+
+        final name = find.descendant(
+          of: find.byType(NewSpecialtyScreen),
+          matching: find.byType(TextFormField),
+        );
+        expect(name, findsOneWidget);
+        await tester.enterText(name, 'Zoologia');
+        final save = find.widgetWithText(FilledButton, 'Guardar especialidad');
+        await tester.ensureVisible(save);
+        await tester.tap(save);
+        await _settle(tester);
+
+        expect(currentLocation(router), kSpecialtiesPath);
+        expect(find.byType(NewSpecialtyScreen), findsNothing);
+        expect(
+          tester.element(find.byType(SpecialtiesScreen)),
+          same(originalList),
+        );
+        expect(_displayedNames(tester), [
+          'Zoologia',
+          'Medicina General',
+          'Dermatología',
+          'Cardiología',
+        ]);
+        _expectDirection('Descendente', Icons.arrow_downward);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        for (var i = 0; i < 3; i++) {
+          await tester.pump(const Duration(milliseconds: 1));
+        }
+      }
+    },
+  );
 
   group('orden inmediato y sentido en pantalla', () {
     testWidgets('Fecha de alta consulta inmediatamente sin pulsar Buscar', (
