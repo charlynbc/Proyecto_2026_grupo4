@@ -32,13 +32,13 @@ PostgreSQL.
 | 7 | `POST /api/especialidades` | ADMINISTRADOR | 29 | Alta de especialidad | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #7](contrato-v1.md#e07) |
 | 8 | `GET /api/consultorios` | autenticado | 33 | Formularios y listado; consulta con filtros RF-37 (`nombre` hasta 120, `ubicacion` hasta 200, `orden` nombre o ubicacion, siempre ascendente, sin paginación) | CONFIRMADA | feat/front-admin 19/10/2026; feat/front-funcionario 20/10/2026; feat/front-filtrar-consultorios 03/11/2026 | [contrato #8](contrato-v1.md#e08) |
 | 9 | `POST /api/consultorios` | ADMINISTRADOR | 33 | Alta de consultorio | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #9](contrato-v1.md#e09) |
-| 10 | `GET /api/medicos?especialidadId=` | FUNCIONARIO | 13, 08 | Selector de médico | CONFIRMADA | - | [contrato #10](contrato-v1.md#e10) |
+| 10 | `GET /api/medicos?especialidadId=` | SOCIO, FUNCIONARIO | 13, 08 | Selector de médico (filtro opcional; el socio ve todos los médicos activos y solo campos mínimos). En Flutter lo usa el selector de médico de la pantalla de disponibilidad del socio (RF-08): se pide una vez al abrir y se filtra en el cliente | CONFIRMADA | feat/front-disponibilidad-medico 05/11/2026 | [contrato #10](contrato-v1.md#e10) |
 | 11 | `POST /api/usuarios` | ADMINISTRADOR | 31 | Alta de usuario | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #11](contrato-v1.md#e11) |
 | 12 | `GET /api/usuarios` | ADMINISTRADOR | 35 | Consulta de usuarios (`rol`, `estado` ACTIVA o INACTIVA, `q` CI o apellido, `orden` apellido o fechaAlta, `sentido` asc o desc, `page` desde 0, `size` de 1 a 100, por defecto 20) | CONFIRMADA | feat/front-admin 19/10/2026 | [contrato #12](contrato-v1.md#e12) |
 | 13 | `POST /api/turnos-semanales` | FUNCIONARIO | 13 | Alta de turno semanal | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #13](contrato-v1.md#e13) |
 | 14 | `GET /api/turnos-semanales/{id}` | FUNCIONARIO | 17 | Detalle de configuración | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #14](contrato-v1.md#e14) |
 | 15 | `GET /api/turnos` | FUNCIONARIO | 17 | Consulta de turnos | CONFIRMADA | feat/front-funcionario 20/10/2026 | [contrato #15](contrato-v1.md#e15) |
-| 16 | `GET /api/disponibilidad` | SOCIO | 08 | Disponibilidad | CONFIRMADA | Sin POC: agenda Flutter | [contrato #16](contrato-v1.md#e16) |
+| 16 | `GET /api/disponibilidad` | SOCIO | 08 | Disponibilidad (especialidadId o medicoId, al menos uno) | CONFIRMADA | Sin POC: agenda Flutter; feat/front-disponibilidad-medico 05/11/2026 (búsqueda por médico, por especialidad o por ambos) | [contrato #16](contrato-v1.md#e16) |
 | 17 | `POST /api/consultas` | SOCIO | 09 | Confirmar agenda | CONFIRMADA | Sin POC: agenda Flutter | [contrato #17](contrato-v1.md#e17) |
 
 ## Semana 2 y adelantos
@@ -75,17 +75,26 @@ PostgreSQL.
 | 45 | `POST /api/auth/cambiar-contrasena` | autenticado | 04 | Cambio de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #45](contrato-v1.md#e45) |
 | 46 | `GET /api/cuentas/me` | autenticado | 06 | Datos personales (precarga del formulario) | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #46](contrato-v1.md#e46) |
 | 47 | `PATCH /api/cuentas/me` | autenticado | 06 | Edición de datos personales; el correo queda pendiente de confirmación | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #47](contrato-v1.md#e47) |
-| 48 | `POST /api/auth/recuperacion/solicitar` | público | 05 | Pedir recuperación de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20; correo verificado solo con proveedor simulado/Mailpit, falta Resend real) | - | [contrato #48](contrato-v1.md#e48) |
-| 49 | `POST /api/auth/recuperacion/completar` | público (token) | 05 | Definir contraseña nueva | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #49](contrato-v1.md#e49) |
+| 48 | `POST /api/auth/recuperacion/solicitar` | público | 05 | Pedir recuperación de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20; correo verificado solo con proveedor simulado/Mailpit, falta Resend real) | feat/front-recuperar-contrasena 03/11/2026 | [contrato #48](contrato-v1.md#e48) |
+| 49 | `POST /api/auth/recuperacion/completar` | público (token) | 05 | Definir contraseña nueva | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-recuperar-contrasena 03/11/2026 | [contrato #49](contrato-v1.md#e49) |
 | 50 | `POST /api/auth/cambio-correo/confirmar` | público (token) | 06 | Confirmar correo nuevo | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #50](contrato-v1.md#e50) |
 | 51 | `PATCH /api/turnos-semanales/{id}` | FUNCIONARIO | 20 | Modificar el consultorio del turno semanal | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #51](contrato-v1.md#e51) |
 | 52 | `POST /api/especialidades/importaciones/previsualizar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #52](contrato-v1.md#e52) |
 | 53 | `POST /api/especialidades/importaciones/confirmar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #53](contrato-v1.md#e53) |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #54](contrato-v1.md#e54) |
 | 55 | `POST /api/usuarios/importaciones/confirmar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | - | [contrato #55](contrato-v1.md#e55) |
-| 56 | `POST /api/anuncios` | ADMINISTRADOR | 28 | Publicar novedad con título, texto Markdown opcional e imágenes | CONFIRMADA en `feature/rf-28-rf-07-novedades` (PR pendiente) | - | [contrato #56](contrato-v1.md#e56) |
-| 57 | `GET /api/anuncios` | autenticado | 07 | Tarjetas de novedades para el inicio y la cartelera | CONFIRMADA en `feature/rf-28-rf-07-novedades` (PR pendiente) | - | [contrato #57](contrato-v1.md#e57) |
-| 58 | `GET /api/anuncios/{id}` | autenticado | 07 | Detalle de novedad con carrusel de imágenes | CONFIRMADA en `feature/rf-28-rf-07-novedades` (PR pendiente) | - | [contrato #58](contrato-v1.md#e58) |
+| 56 | `POST /api/consultorios/importaciones/previsualizar` | ADMINISTRADOR | 34 | Carga masiva de consultorios (vista previa) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #56](contrato-v1.md#e56) |
+| 57 | `POST /api/consultorios/importaciones/confirmar` | ADMINISTRADOR | 34 | Carga masiva de consultorios (importa válidas) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #57](contrato-v1.md#e57) |
+| 58 | `PATCH /api/usuarios/{id}` | ADMINISTRADOR | 38 | Corrección de datos de la cuenta (CI, nombre, apellido, fecha de nacimiento, correo, teléfonos, dirección, especialidades; nunca el rol) | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #58](contrato-v1.md#e58) |
+| 59 | `PATCH /api/especialidades/{id}` | ADMINISTRADOR | 38 | Corrección de nombre y exigencia de pase | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #59](contrato-v1.md#e59) |
+| 60 | `PATCH /api/consultorios/{id}` | ADMINISTRADOR | 38 | Corrección de nombre y ubicación | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #60](contrato-v1.md#e60) |
+| 61 | `POST /api/usuarios/{id}/inactivar` | ADMINISTRADOR | 45 | Inactivar cuenta de empleado, conservando historial y registrando auditoría | CONFIRMADA (backend 04/11/2026, integración RF-45) | - | [contrato #61](contrato-v1.md#e61) |
+| 62 | `POST /api/usuarios/{id}/reactivar` | ADMINISTRADOR | 45 | Reactivar cuenta de empleado sin habilitar turnos suspendidos; evita duplicidad | CONFIRMADA (backend 04/11/2026, integración RF-45) | - | [contrato #62](contrato-v1.md#e62) |
+| 63 | `POST /api/auth/primer-ingreso/validar` | público (token) | 02 | Comprobar el enlace antes de pedir los datos, sin consumirlo | IMPLEMENTADA EN BACKEND (PR #75) | - | [contrato #63](contrato-v1.md#e63) |
+| 64 | `POST /api/auth/recuperacion/validar` | público (token) | 05 | Comprobar el enlace antes de pedir contraseña, sin consumirlo | IMPLEMENTADA EN BACKEND (PR #75) | - | [contrato #64](contrato-v1.md#e64) |
+| 65 | `POST /api/anuncios` | ADMINISTRADOR | 28 | Publicar novedad con título y contenido de texto, imágenes o ambos | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #65](contrato-v1.md#e65) |
+| 66 | `GET /api/anuncios` | autenticado | 07 | Tarjetas para el inicio y la cartelera, con portada opcional | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #66](contrato-v1.md#e66) |
+| 67 | `GET /api/anuncios/{id}` | autenticado | 07 | Detalle de novedad con texto y/o imágenes ordenadas | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #67](contrato-v1.md#e67) |
 
 ## Rutas de la prueba de concepto
 
@@ -100,7 +109,7 @@ migran: se usa solo el modelo del Proyecto 2026.
 | `POST /api/auth/login` con `{cedula, clave}` | #1, con `{ci, password, acceso}` (+ `plataforma: WEB` para `EMPLEADO`) | eliminada; el login solo acepta el contrato nuevo |
 | POST /api/auth/registro | #11 `POST /api/usuarios` (RF-31, solo ADMINISTRADOR) | eliminada; no hay alta pública |
 | GET /api/auth/confirmar-email | #4 y #5 (`primer-ingreso`, RF-02) | eliminada |
-| GET /api/profesionales | #10 `GET /api/medicos` | Implementado; requiere rol FUNCIONARIO. La disponibilidad ofrece solo los médicos con números libres |
+| GET /api/profesionales | #10 `GET /api/medicos` | Implementado; permite SOCIO y FUNCIONARIO. Lista todos los médicos activos, tengan o no números libres; el socio recibe solo nombre, apellido, id y especialidades (id, nombre) |
 | GET /api/profesionales/{id}/horarios | #16 `GET /api/disponibilidad` | migrado en Flutter |
 | POST /api/reservas | #17 `POST /api/consultas` | migrado en Flutter (reserva por `numeroId`) |
 | GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | migrado en backend y Flutter; usa filtros y paginación del contrato |
@@ -129,6 +138,8 @@ clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige pagi
 arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
+
+- 03/11/2026, #63 y #64: nuevos `POST /api/auth/primer-ingreso/validar` y `POST /api/auth/recuperacion/validar`, cuerpo `{"token":"…"}`. Públicos, `200` sin cuerpo si el enlace está vigente; `400 ENLACE_INVALIDO` con el mensaje actual para cualquier enlace inválido, sin distinguir el motivo. Solo lectura, repetibles, no consumen ni reservan el enlace. El frontend debe conservar el manejo de `ENLACE_INVALIDO` al completar (#5 y #49). Implementados en el PR #75.
 
 - 31/10/2026, #30: `consulta.paciente` agrega `id` (entero, identificador de cuenta del socio) sin eliminar `ci`, `nombre` ni `apellido`. El frontend debe usar `consulta.paciente.id` como `{socioId}` en #40 para RF-22. Los números libres conservan `consulta: null`.
 

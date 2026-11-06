@@ -31,6 +31,46 @@ class DisponibilidadIT extends BaseIntegracionIT {
     }
 
     @Test
+    void socioBuscaPorMedicoSinEspecialidadYEncuentraDistintasEspecialidades() {
+        sembrarTurno(hoy().plusDays(4), 1);
+        long segundo = sembrarTurno(hoy().plusDays(6), 1);
+        jdbc.update("INSERT INTO medico_especialidad (id_medico, id_especialidad)"
+                + " VALUES (?, ?) ON CONFLICT DO NOTHING", idMedico, idEspecialidadConPase);
+        jdbc.update("UPDATE turno_semanal SET id_especialidad = ?"
+                + " WHERE id_turno_semanal = (SELECT id_turno_semanal FROM turno WHERE id_turno = ?)",
+                idEspecialidadConPase, segundo);
+
+        String token = tokenSocio(ciSocio1);
+        Respuesta soloMedico = get("/api/disponibilidad?medicoId=" + idMedico, token);
+        assertEquals(200, soloMedico.estado(), soloMedico.cuerpo());
+        assertEquals(2, soloMedico.json().path("items").size());
+        assertEquals(idEspecialidad, soloMedico.json().path("items").get(0)
+                .path("especialidad").path("id").asLong());
+        assertEquals(idEspecialidadConPase, soloMedico.json().path("items").get(1)
+                .path("especialidad").path("id").asLong());
+
+        Respuesta ambas = get("/api/disponibilidad?medicoId=" + idMedico
+                + "&especialidadId=" + idEspecialidadConPase, token);
+        assertEquals(200, ambas.estado(), ambas.cuerpo());
+        assertEquals(1, ambas.json().path("items").size());
+        Respuesta otra = get("/api/disponibilidad?medicoId=" + idMedico
+                + "&especialidadId=999999", token);
+        assertEquals(404, otra.estado(), otra.cuerpo());
+        Respuesta medicoInexistente = get("/api/disponibilidad?medicoId=999999", token);
+        assertEquals(404, medicoInexistente.estado(), medicoInexistente.cuerpo());
+        assertEquals(400, get("/api/disponibilidad", token).estado());
+    }
+
+    @Test
+    void ambosFiltrosValidosSinRelacionDevuelvenListaVacia() {
+        sembrarTurno(hoy().plusDays(4), 1);
+        Respuesta r = get("/api/disponibilidad?medicoId=" + idMedico
+                + "&especialidadId=" + idEspecialidadConPase, tokenSocio(ciSocio1));
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals(0, r.json().path("items").size());
+    }
+
+    @Test
     void respetaEspecialidadFechasYTurnosActivos() {
         sembrarTurno(hoy().plusDays(3), 2);
         long suspendido = sembrarTurno(hoy().plusDays(10), 2);

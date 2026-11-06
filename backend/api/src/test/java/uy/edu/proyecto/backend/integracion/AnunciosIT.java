@@ -10,13 +10,17 @@ import java.time.Duration;
 import java.util.Base64;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import uy.edu.proyecto.backend.anuncio.AlmacenImagenes;
+import uy.edu.proyecto.backend.exception.ApiException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -24,6 +28,12 @@ import static org.mockito.Mockito.when;
 class AnunciosIT extends BaseIntegracionIT {
     private static final byte[] PNG = Base64.getDecoder().decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l5sAAAAASUVORK5CYII=");
+    private static final String DATOS_TEXTO = """
+            {"titulo":"Campaña de vacunación","texto":"**Comienza** el lunes"}
+            """;
+    private static final String DATOS_SIN_TEXTO = """
+            {"titulo":"Campaña de vacunación"}
+            """;
 
     @MockitoBean
     AlmacenImagenes almacen;
@@ -39,7 +49,7 @@ class AnunciosIT extends BaseIntegracionIT {
         String admin = tokenEmpleado(ciAdmin);
         String socio = tokenSocio(ciSocio1);
 
-        Respuesta publicada = publicar(admin, true);
+        Respuesta publicada = publicar(admin, DATOS_TEXTO, PNG, PNG);
         assertEquals(201, publicada.estado(), publicada.cuerpo());
         long id = publicada.json().path("id").asLong();
         assertEquals("/api/anuncios/" + id,
@@ -71,30 +81,103 @@ class AnunciosIT extends BaseIntegracionIT {
 
     @Test
     void rechazaAnonimosYSociosAlPublicarSinGuardarFilas() throws Exception {
-        assertEquals(401, publicar(null, true).estado());
-        assertEquals(403, publicar(tokenSocio(ciSocio1), true).estado());
+        assertEquals(401, publicar(null, DATOS_TEXTO, PNG).estado());
+        assertEquals(403, publicar(tokenSocio(ciSocio1), DATOS_TEXTO, PNG).estado());
         assertEquals(0, contar("anuncio"));
     }
 
     @Test
-    void exigeImagenYNoGuardaPublicacionIncompleta() throws Exception {
-        Respuesta respuesta = publicar(tokenEmpleado(ciAdmin), false);
+    void publicaYConsultaAnuncioSoloConTextoSinUsarStorage() throws Exception {
+        String socio = tokenSocio(ciSocio1);
+        Respuesta publicada = publicar(tokenEmpleado(ciAdmin), DATOS_TEXTO);
+        assertEquals(201, publicada.estado(), publicada.cuerpo());
+        long id = publicada.json().path("id").asLong();
+        assertTrue(publicada.json().path("imagenes").isArray());
+        assertEquals(0, publicada.json().path("imagenes").size());
+        assertEquals(1, contar("anuncio"));
+        assertEquals(0, contar("imagen_anuncio"));
 
+        Respuesta lista = get("/api/anuncios", socio);
+        assertEquals(200, lista.estado(), lista.cuerpo());
+        var tarjeta = lista.json().path("items").get(0);
+        assertEquals(id, tarjeta.path("id").asLong());
+        assertTrue(tarjeta.path("imagenPortada").isNull());
+
+        Respuesta detalle = get("/api/anuncios/" + id, socio);
+        assertEquals(200, detalle.estado(), detalle.cuerpo());
+        assertEquals("**Comienza** el lunes", detalle.json().path("texto").asString());
+        assertTrue(detalle.json().path("imagenes").isArray());
+        assertEquals(0, detalle.json().path("imagenes").size());
+        verifyNoInteractions(almacen);
+    }
+
+    @Test
+    void publicaAnuncioSoloConImagen() throws Exception {
+        Respuesta publicada = publicar(tokenEmpleado(ciAdmin), DATOS_SIN_TEXTO, PNG);
+        assertEquals(201, publicada.estado(), publicada.cuerpo());
+        assertTrue(publicada.json().path("texto").isNull());
+        assertEquals(1, publicada.json().path("imagenes").size());
+        assertEquals(1, contar("anuncio"));
+        assertEquals(1, contar("imagen_anuncio"));
+    }
+
+    @Test
+    void rechazaAnuncioSinTextoNiImagenes() throws Exception {
+        Respuesta respuesta = publicar(tokenEmpleado(ciAdmin), DATOS_SIN_TEXTO);
         assertEquals(400, respuesta.estado(), respuesta.cuerpo());
         assertEquals("VALIDACION", respuesta.codigo());
         assertEquals(0, contar("anuncio"));
         verifyNoInteractions(almacen);
     }
 
-    private Respuesta publicar(String bearer, boolean conImagen) throws IOException, InterruptedException {
+    @Test
+    void rechazaMasDeCincoImagenesYArchivosDeMasDeCincoMegabytes() throws Exception {
+        String admin = tokenEmpleado(ciAdmin);
+        Respuesta cantidad = publicar(admin, DATOS_TEXTO, PNG, PNG, PNG, PNG, PNG, PNG);
+        assertEquals(400, cantidad.estado(), cantidad.cuerpo());
+        assertEquals("VALIDACION", cantidad.codigo());
+
+        Respuesta tamano = publicar(admin, DATOS_TEXTO, new byte[5 * 1024 * 1024 + 1]);
+        assertEquals(400, tamano.estado(), tamano.cuerpo());
+        assertEquals("IMAGEN_INVALIDA", tamano.codigo());
+        assertEquals(0, contar("anuncio"));
+        verifyNoInteractions(almacen);
+    }
+
+    @Test
+    void consultaRechazaPaginacionInvalidaYDetalleInexistente() throws Exception {
+        String socio = tokenSocio(ciSocio1);
+        Respuesta pagina = get("/api/anuncios?size=101", socio);
+        assertEquals(400, pagina.estado(), pagina.cuerpo());
+        assertEquals("VALIDACION", pagina.codigo());
+
+        Respuesta detalle = get("/api/anuncios/999999", socio);
+        assertEquals(404, detalle.estado(), detalle.cuerpo());
+        assertEquals("NO_ENCONTRADO", detalle.codigo());
+        verifyNoInteractions(almacen);
+    }
+
+    @Test
+    void devuelve503SiStorageNoPuedeGuardarLaImagen() throws Exception {
+        doThrow(new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                "ALMACENAMIENTO_NO_DISPONIBLE", "No se pudo acceder a las imágenes"))
+                .when(almacen).guardar(anyString(), any(), anyString());
+
+        Respuesta respuesta = publicar(tokenEmpleado(ciAdmin), DATOS_TEXTO, PNG);
+        assertEquals(503, respuesta.estado(), respuesta.cuerpo());
+        assertEquals("ALMACENAMIENTO_NO_DISPONIBLE", respuesta.codigo());
+        assertEquals(0, contar("anuncio"));
+        assertEquals(0, contar("imagen_anuncio"));
+    }
+
+    private Respuesta publicar(String bearer, String datos, byte[]... imagenes)
+            throws IOException, InterruptedException {
         String boundary = "ProyectoAnuncio" + System.nanoTime();
         var salida = new ByteArrayOutputStream();
         parte(salida, boundary, "datos", "datos.json", "application/json",
-                "{\"titulo\":\"Campaña de vacunación\",\"texto\":\"**Comienza** el lunes\"}"
-                        .getBytes(StandardCharsets.UTF_8));
-        if (conImagen) {
-            parte(salida, boundary, "imagenes", "primera.png", "image/png", PNG);
-            parte(salida, boundary, "imagenes", "segunda.png", "image/png", PNG);
+                datos.getBytes(StandardCharsets.UTF_8));
+        for (int i = 0; i < imagenes.length; i++) {
+            parte(salida, boundary, "imagenes", "imagen-" + i + ".png", "image/png", imagenes[i]);
         }
         salida.writeBytes(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
         var peticion = HttpRequest.newBuilder(URI.create("http://localhost:" + puerto + "/api/anuncios"))

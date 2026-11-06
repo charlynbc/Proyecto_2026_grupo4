@@ -75,13 +75,46 @@ class MedicoSeguridadTest {
     }
 
     @Test
-    void rolDistintoDeFuncionarioNoPuedeConsultarMedicos() throws Exception {
+    void socioPuedeListarMedicosConRespuestaMinima() throws Exception {
+        when(service.listar(null)).thenReturn(List.of(new MedicoDTO(
+                17L, "Marta", "Rodriguez",
+                List.of(new Especialidad(3L, "Cardiologia", true))
+        )));
+
         mockMvc.perform(get("/api/medicos")
                         .with(jwt().authorities(
                                 new SimpleGrantedAuthority("ROLE_SOCIO")
                         )))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(17))
+                .andExpect(jsonPath("$[0].especialidades[0].id").value(3))
+                .andExpect(jsonPath("$[0].especialidades[0].nombre").value("Cardiologia"))
+                .andExpect(jsonPath("$[0].especialidades[0].requierePase").doesNotExist())
+                .andExpect(jsonPath("$[0].ci").doesNotExist())
+                .andExpect(jsonPath("$[0].correo").doesNotExist())
+                .andExpect(jsonPath("$[0].telefono").doesNotExist());
+        verify(service).listar(null);
+    }
 
+    @Test
+    void socioPuedeFiltrarPorEspecialidad() throws Exception {
+        when(service.listar(3L)).thenReturn(List.of());
+        mockMvc.perform(get("/api/medicos?especialidadId=3")
+                        .with(jwt().authorities(new SimpleGrantedAuthority("ROLE_SOCIO"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+        verify(service).listar(3L);
+    }
+
+    @Test
+    void otrosRolesNoPuedenConsultarMedicos() throws Exception {
+        for (String rol : List.of("MEDICO", "ADMINISTRADOR")) {
+            mockMvc.perform(get("/api/medicos")
+                            .with(jwt().authorities(
+                                    new SimpleGrantedAuthority("ROLE_" + rol)
+                            )))
+                    .andExpect(status().isForbidden());
+        }
         verifyNoInteractions(service);
     }
 

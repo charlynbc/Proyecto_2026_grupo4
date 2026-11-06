@@ -1,8 +1,10 @@
 package uy.edu.proyecto.backend.auth;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +46,17 @@ class PrimerIngresoSeguridadTest {
                                         """)
                 )
                 .andExpect(status().isAccepted());
+    }
+
+    @Test
+    void validarEnlaceEsPublicoYResponde200SinCuerpo() throws Exception {
+        mockMvc.perform(post("/api/auth/primer-ingreso/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
+
+        verify(service).validarEnlace(new ValidarEnlaceRequest("token"));
     }
 
     @Test

@@ -89,6 +89,79 @@ void main() {
     });
   });
 
+  group('redirectFor en la recuperación de contraseña (RF-05)', () {
+    const checking = SessionState(status: SessionStatus.checking);
+    const anonymous = SessionState();
+
+    test('verificando la sesión no manda la recuperación a la carga', () {
+      expect(redirectFor(checking, Uri.parse('/recuperacion?token=x')), null);
+      expect(redirectFor(checking, Uri.parse('/recuperacion/solicitar')), null);
+    });
+
+    test('sin sesión se entra a las dos rutas y el token no se pierde', () {
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion?token=abc')),
+        null,
+      );
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion/solicitar')),
+        null,
+      );
+      expect(
+        redirectFor(
+          anonymous,
+          Uri.parse('/recuperacion/solicitar?acceso=empleado'),
+        ),
+        null,
+      );
+    });
+
+    test('sin sesión, /recuperacion sin token o con token vacío va a pedir '
+        'el enlace', () {
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion')),
+        '/recuperacion/solicitar',
+      );
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion?token=')),
+        '/recuperacion/solicitar',
+      );
+    });
+
+    test('con sesión de cada rol, las dos rutas van al inicio del rol', () {
+      for (final role in UserRole.values) {
+        final session = SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: 't',
+          role: role,
+        );
+        expect(
+          redirectFor(session, Uri.parse('/recuperacion?token=x')),
+          role.homePath,
+          reason: role.name,
+        );
+        expect(
+          redirectFor(session, Uri.parse('/recuperacion/solicitar')),
+          role.homePath,
+          reason: role.name,
+        );
+      }
+    });
+
+    test('el login y el primer ingreso no cambian', () {
+      expect(redirectFor(anonymous, Uri.parse('/login')), null);
+      expect(
+        redirectFor(anonymous, Uri.parse('/primer-ingreso?token=t')),
+        null,
+      );
+      expect(
+        redirectFor(anonymous, Uri.parse('/primer-ingreso')),
+        '/primer-ingreso/solicitar',
+      );
+      expect(redirectFor(checking, Uri.parse('/login')), '/');
+    });
+  });
+
   testWidgets('cada rol entra a su home y ve solo sus secciones', (
     tester,
   ) async {

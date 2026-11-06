@@ -36,10 +36,10 @@ class AnuncioServiceTest {
     }
 
     @Test
-    void exigeTituloYAlMenosUnaImagenAntesDeGuardar() {
-        var sinImagen = assertThrows(ApiException.class,
-                () -> service.publicar(7, new AnuncioDTO.Datos("Vacunación", null, null), List.of()));
-        assertEquals("VALIDACION", sinImagen.getCode());
+    void exigeTituloYContenidoAntesDeGuardar() {
+        var sinContenido = assertThrows(ApiException.class,
+                () -> service.publicar(7, new AnuncioDTO.Datos("Vacunación", "Resumen", " \t "), List.of()));
+        assertEquals("VALIDACION", sinContenido.getCode());
 
         var sinTitulo = assertThrows(ApiException.class,
                 () -> service.publicar(7, new AnuncioDTO.Datos("  ", null, null), List.of(png())));

@@ -127,6 +127,9 @@ Future<void> unmountApp(WidgetTester tester) async {
   for (var i = 0; i < 3; i++) {
     await tester.pump(const Duration(milliseconds: 1));
   }
+  // Los repositorios falsos simulan latencia con un `Future.delayed`: una
+  // pantalla que pide datos al abrirse deja ese timer corriendo al desmontar.
+  await tester.pump(const Duration(seconds: 1));
 }
 
 String locationOf(ProviderContainer container) => container

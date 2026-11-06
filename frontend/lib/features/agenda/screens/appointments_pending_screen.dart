@@ -9,8 +9,11 @@ import '../../../core/widgets/centered_content.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialties_provider.dart';
+import '../models/appointment_filter_entry.dart';
 import '../models/appointment_history_page.dart';
 import '../models/appointment_history_query.dart';
+import '../models/available_number.dart';
+import '../providers/appointment_doctors_provider.dart';
 import '../providers/appointment_history_provider.dart';
 import '../repositories/appointment_history_repository.dart';
 import '../widgets/appointment_card.dart';
@@ -18,6 +21,22 @@ import '../widgets/appointment_card.dart';
 const String kAvailabilityPath = '/socio/disponibilidad';
 const String kAppointmentsPath = '/socio/consultas';
 
+/// Los estados que ofrece el filtro de Estado: valor de la API y etiqueta, en
+/// el orden en que se muestran.
+const List<(String, String)> _statuses = [
+  ('AGENDADA', 'Agendada'),
+  ('ATENDIDA', 'Atendida'),
+  ('CANCELADA_SOCIO', 'Cancelada por el socio'),
+  ('CANCELADA_INSTITUCION', 'Cancelada por la institución'),
+  ('NO_SE_PRESENTO', 'No se presentó'),
+  ('NO_ASISTIO', 'No asistió'),
+  ('NO_ATENDIDA', 'No atendida'),
+];
+
+/// Mis consultas del socio: listado paginado con filtros que se aplican al
+/// elegirlos. El filtro de médico ofrece solo a los médicos con los que el
+/// socio tuvo consultas (de sus propias consultas, no del catálogo), y si hay
+/// una especialidad elegida, solo a los de esa especialidad.
 class AppointmentsPendingScreen extends ConsumerStatefulWidget {
   const AppointmentsPendingScreen({super.key});
 
@@ -28,7 +47,6 @@ class AppointmentsPendingScreen extends ConsumerStatefulWidget {
 
 class _AppointmentsPendingScreenState
     extends ConsumerState<AppointmentsPendingScreen> {
-  final _doctorController = TextEditingController();
   String? _status;
   DateTime? _from;
   DateTime? _to;
@@ -50,12 +68,6 @@ class _AppointmentsPendingScreenState
     direction: _direction,
     page: _page,
   );
-
-  @override
-  void dispose() {
-    _doctorController.dispose();
-    super.dispose();
-  }
 
   Future<void> _chooseDate({required bool start}) async {
     final current = start ? _from : _to;
@@ -84,22 +96,99 @@ class _AppointmentsPendingScreenState
     });
   }
 
-  void _applyFilters() {
-    final doctorText = _doctorController.text.trim();
-    final doctorId = doctorText.isEmpty ? null : int.tryParse(doctorText);
-    if (doctorText.isNotEmpty && (doctorId == null || doctorId <= 0)) {
-      setState(() => _filterError = 'El ID del médico debe ser positivo.');
-      return;
-    }
+  // Las opciones de cada desplegable salen de las consultas del socio
+  // ([AppointmentFilterEntry]) y dependen de lo elegido en los otros dos: solo
+  // se ofrece lo que tiene al menos una consulta que coincida con ellos. Las
+  // fechas no entran en el cálculo.
+
+  /// Los estados que se ofrecen, en el orden de [_statuses], dadas la
+  /// especialidad y el médico elegidos.
+  List<(String, String)> _statusOptions(
+    List<AppointmentFilterEntry> entries,
+    int? specialtyId,
+    int? doctorId,
+  ) => [
+    for (final status in _statuses)
+      if (entries.any(
+        (e) =>
+            e.status == status.$1 &&
+            (specialtyId == null || e.specialtyId == specialtyId) &&
+            (doctorId == null || e.doctor.id == doctorId),
+      ))
+        status,
+  ];
+
+  /// Las especialidades que se ofrecen, con el nombre de la propia consulta y
+  /// por orden alfabético, dados el estado y el médico elegidos.
+  List<({int id, String name})> _specialtyOptions(
+    List<AppointmentFilterEntry> entries,
+    String? status,
+    int? doctorId,
+  ) {
+    final byId = <int, String>{
+      for (final e in entries)
+        if ((status == null || e.status == status) &&
+            (doctorId == null || e.doctor.id == doctorId))
+          e.specialtyId: e.specialtyName,
+    };
+    return [for (final e in byId.entries) (id: e.key, name: e.value)]
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  }
+
+  /// Los médicos que se ofrecen, sin repetir y por el nombre con que los
+  /// muestra la tarjeta, dados el estado y la especialidad elegidos.
+  List<DoctorRef> _doctorOptions(
+    List<AppointmentFilterEntry> entries,
+    String? status,
+    int? specialtyId,
+  ) {
+    final byId = <int, DoctorRef>{
+      for (final e in entries)
+        if ((status == null || e.status == status) &&
+            (specialtyId == null || e.specialtyId == specialtyId))
+          e.doctor.id: e.doctor,
+    };
+    return byId.values.toList()..sort(
+      (a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()),
+    );
+  }
+
+  /// Llegaron consultas nuevas (se agendó o canceló una): lo elegido que ya
+  /// no está entre las opciones de su desplegable vuelve a "Todos", y se
+  /// vuelve a la página 1. Desde los desplegables no se puede llegar a esa
+  /// situación, porque ofrecen solo valores con consultas.
+  void _reconcile(List<AppointmentFilterEntry> entries) {
+    final statusOk =
+        _status == null ||
+        _statusOptions(
+          entries,
+          _specialtyId,
+          _doctorId,
+        ).any((s) => s.$1 == _status);
+    final specialtyOk =
+        _specialtyId == null ||
+        _specialtyOptions(
+          entries,
+          _status,
+          _doctorId,
+        ).any((s) => s.id == _specialtyId);
+    final doctorOk =
+        _doctorId == null ||
+        _doctorOptions(
+          entries,
+          _status,
+          _specialtyId,
+        ).any((d) => d.id == _doctorId);
+    if (statusOk && specialtyOk && doctorOk) return;
     setState(() {
-      _doctorId = doctorId;
+      if (!statusOk) _status = null;
+      if (!specialtyOk) _specialtyId = null;
+      if (!doctorOk) _doctorId = null;
       _page = 0;
-      _filterError = null;
     });
   }
 
   void _clearFilters() {
-    _doctorController.clear();
     setState(() {
       _status = null;
       _from = null;
@@ -118,6 +207,11 @@ class _AppointmentsPendingScreenState
     final query = _query;
     final history = ref.watch(appointmentHistoryProvider(query));
     final specialties = ref.watch(specialtiesProvider);
+    final doctors = ref.watch(appointmentDoctorsProvider);
+    ref.listen(appointmentDoctorsProvider, (_, next) {
+      final entries = next.value;
+      if (mounted && !next.isLoading && entries != null) _reconcile(entries);
+    });
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mis consultas'),
@@ -130,7 +224,7 @@ class _AppointmentsPendingScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _filters(specialties),
+              _filters(specialties, doctors),
               if (_filterError case final error?) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -155,33 +249,30 @@ class _AppointmentsPendingScreenState
     );
   }
 
-  Widget _filters(AsyncValue<List<Specialty>> specialties) {
+  Widget _filters(
+    AsyncValue<List<Specialty>> specialties,
+    AsyncValue<List<AppointmentFilterEntry>> doctors,
+  ) {
+    // Mientras la lista de consultas carga o si falla, Estado y Especialidad
+    // ofrecen todas sus opciones (los estados completos y el catálogo).
+    final entries = doctors.value;
+    final statusOptions = entries == null
+        ? _statuses
+        : _statusOptions(entries, _specialtyId, _doctorId);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         DropdownButtonFormField<String?>(
           key: const Key('history-filter-status'),
           isExpanded: true,
-          initialValue: _status,
+          initialValue: statusOptions.any((s) => s.$1 == _status)
+              ? _status
+              : null,
           decoration: const InputDecoration(labelText: 'Estado'),
-          items: const [
-            DropdownMenuItem<String?>(value: null, child: Text('Todos')),
-            DropdownMenuItem(value: 'AGENDADA', child: Text('Agendada')),
-            DropdownMenuItem(value: 'ATENDIDA', child: Text('Atendida')),
-            DropdownMenuItem(
-              value: 'CANCELADA_SOCIO',
-              child: Text('Cancelada por el socio'),
-            ),
-            DropdownMenuItem(
-              value: 'CANCELADA_INSTITUCION',
-              child: Text('Cancelada por la institución'),
-            ),
-            DropdownMenuItem(
-              value: 'NO_SE_PRESENTO',
-              child: Text('No se presentó'),
-            ),
-            DropdownMenuItem(value: 'NO_ASISTIO', child: Text('No asistió')),
-            DropdownMenuItem(value: 'NO_ATENDIDA', child: Text('No atendida')),
+          items: [
+            const DropdownMenuItem<String?>(value: null, child: Text('Todos')),
+            for (final (value, label) in statusOptions)
+              DropdownMenuItem<String?>(value: value, child: Text(label)),
           ],
           onChanged: (value) => setState(() {
             _status = value;
@@ -194,25 +285,34 @@ class _AppointmentsPendingScreenState
           error: (error, _) => Text(
             'No se pudieron cargar las especialidades: ${apiMessageOf(error)}',
           ),
-          data: (items) => DropdownButtonFormField<int?>(
-            key: const Key('history-filter-specialty'),
-            isExpanded: true,
-            initialValue: _specialtyId,
-            decoration: const InputDecoration(labelText: 'Especialidad'),
-            items: [
-              const DropdownMenuItem<int?>(value: null, child: Text('Todas')),
-              for (final specialty in items)
-                DropdownMenuItem<int?>(
-                  value: specialty.id,
-                  child: Text(specialty.name),
-                ),
-            ],
-            onChanged: (value) => setState(() {
-              _specialtyId = value;
-              _page = 0;
-            }),
-          ),
+          data: (items) {
+            final options = entries == null
+                ? [for (final s in items) (id: s.id, name: s.name)]
+                : _specialtyOptions(entries, _status, _doctorId);
+            return DropdownButtonFormField<int?>(
+              key: const Key('history-filter-specialty'),
+              isExpanded: true,
+              initialValue: options.any((s) => s.id == _specialtyId)
+                  ? _specialtyId
+                  : null,
+              decoration: const InputDecoration(labelText: 'Especialidad'),
+              items: [
+                const DropdownMenuItem<int?>(value: null, child: Text('Todas')),
+                for (final specialty in options)
+                  DropdownMenuItem<int?>(
+                    value: specialty.id,
+                    child: Text(specialty.name),
+                  ),
+              ],
+              onChanged: (value) => setState(() {
+                _specialtyId = value;
+                _page = 0;
+              }),
+            );
+          },
         ),
+        const SizedBox(height: 8),
+        _doctorFilter(doctors, specialties.value),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -237,17 +337,6 @@ class _AppointmentsPendingScreenState
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        TextField(
-          key: const Key('history-filter-doctor'),
-          controller: _doctorController,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(
-            labelText: 'ID del médico',
-            helperText: 'Ingresá el ID del médico asociado a la consulta.',
-          ),
-          onSubmitted: (_) => _applyFilters(),
         ),
         const SizedBox(height: 8),
         Row(
@@ -303,11 +392,6 @@ class _AppointmentsPendingScreenState
         Wrap(
           spacing: 8,
           children: [
-            FilledButton(
-              key: const Key('history-apply-filters'),
-              onPressed: _applyFilters,
-              child: const Text('Aplicar filtros'),
-            ),
             OutlinedButton(
               key: const Key('history-clear-filters'),
               onPressed: _clearFilters,
@@ -316,6 +400,64 @@ class _AppointmentsPendingScreenState
           ],
         ),
       ],
+    );
+  }
+
+  /// El desplegable de médico: "Todos" y los médicos de las consultas del
+  /// socio que coinciden con el Estado y la Especialidad elegidos. Queda
+  /// deshabilitado, con su explicación, mientras carga, si falla o si no hay
+  /// médicos para los filtros elegidos; el listado y los demás filtros no
+  /// dependen de él.
+  Widget _doctorFilter(
+    AsyncValue<List<AppointmentFilterEntry>> doctors,
+    List<Specialty>? specialties,
+  ) {
+    final entries = doctors.value;
+    final options = entries == null
+        ? const <DoctorRef>[]
+        : _doctorOptions(entries, _status, _specialtyId);
+    final specialtyId = _specialtyId;
+    String? specialtyName;
+    for (final specialty in specialties ?? const <Specialty>[]) {
+      if (specialty.id == specialtyId) specialtyName = specialty.name;
+    }
+    for (final e in entries ?? const <AppointmentFilterEntry>[]) {
+      if (e.specialtyId == specialtyId) specialtyName = e.specialtyName;
+    }
+    final help = switch ((entries, doctors.hasError, options.isEmpty)) {
+      (null, true, _) => 'No se pudieron cargar los médicos',
+      (null, false, _) => 'Cargando médicos',
+      (final all?, _, true) when all.isEmpty =>
+        'No tenés consultas con médicos',
+      (_, _, true) => 'No tenés consultas con médicos para estos filtros',
+      _ when specialtyId == null => 'Médicos de tus consultas',
+      _ =>
+        'Solo médicos de ${specialtyName ?? 'esta especialidad'} en tus '
+            'consultas',
+    };
+    return DropdownButtonFormField<int?>(
+      key: const Key('history-filter-doctor'),
+      isExpanded: true,
+      initialValue: options.any((d) => d.id == _doctorId) ? _doctorId : null,
+      decoration: InputDecoration(
+        labelText: 'Médico',
+        helperText: help,
+        helperMaxLines: 2,
+      ),
+      items: [
+        const DropdownMenuItem<int?>(value: null, child: Text('Todos')),
+        for (final doctor in options)
+          DropdownMenuItem<int?>(
+            value: doctor.id,
+            child: Text(doctor.fullName, overflow: TextOverflow.ellipsis),
+          ),
+      ],
+      onChanged: options.isEmpty
+          ? null
+          : (id) => setState(() {
+              _doctorId = id;
+              _page = 0;
+            }),
     );
   }
 

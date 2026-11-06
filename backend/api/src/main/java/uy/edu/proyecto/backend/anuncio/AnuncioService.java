@@ -36,13 +36,19 @@ public class AnuncioService {
         if (datos.resumen() != null && datos.resumen().length() > 300) {
             throw validacion("El resumen admite hasta 300 caracteres");
         }
-        if (imagenes == null || imagenes.isEmpty() || imagenes.size() > 5) {
-            throw validacion("El anuncio requiere entre 1 y 5 imágenes");
-        }
-        List<Contenido> contenidos = imagenes.stream().map(this::validarImagen).toList();
         var normalizados = new AnuncioDTO.Datos(datos.titulo().trim(),
                 datos.resumen() == null || datos.resumen().isBlank() ? null : datos.resumen().trim(),
                 datos.texto() == null || datos.texto().isBlank() ? null : datos.texto().trim());
+        if (imagenes == null || imagenes.isEmpty()) {
+            if (normalizados.texto() == null) {
+                throw validacion("El anuncio debe incluir texto o al menos una imagen");
+            }
+            return detalle(repository.crear(administradorId, normalizados));
+        }
+        if (imagenes.size() > 5) {
+            throw validacion("El anuncio admite hasta 5 imágenes");
+        }
+        List<Contenido> contenidos = imagenes.stream().map(this::validarImagen).toList();
         List<String> cargadas = new ArrayList<>();
         boolean limpiezaRegistrada = false;
         try {
@@ -97,8 +103,11 @@ public class AnuncioService {
     private record Contenido(byte[] bytes, String tipo, String extension) { }
 
     private Contenido validarImagen(MultipartFile archivo) {
-        if (archivo == null || archivo.isEmpty() || archivo.getSize() > MAX_BYTES) {
-            throw validacion("Cada imagen debe tener contenido y ocupar como máximo 5 MB");
+        if (archivo == null || archivo.isEmpty()) {
+            throw validacion("Cada imagen debe tener contenido");
+        }
+        if (archivo.getSize() > MAX_BYTES) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "IMAGEN_INVALIDA", "Cada imagen admite hasta 5 MB");
         }
         String tipo = archivo.getContentType();
         if (!"image/jpeg".equals(tipo) && !"image/png".equals(tipo)) {

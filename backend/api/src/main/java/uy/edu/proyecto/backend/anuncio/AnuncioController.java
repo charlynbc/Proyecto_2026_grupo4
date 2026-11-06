@@ -24,7 +24,7 @@ public class AnuncioController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AnuncioDTO.Detalle> publicar(
             @RequestPart("datos") AnuncioDTO.Datos datos,
-            @RequestPart("imagenes") List<MultipartFile> imagenes,
+            @RequestPart(value = "imagenes", required = false) List<MultipartFile> imagenes,
             @AuthenticationPrincipal Jwt jwt) {
         var anuncio = service.publicar(Long.parseLong(jwt.getSubject()), datos, imagenes);
         return ResponseEntity.created(URI.create("/api/anuncios/" + anuncio.id()))

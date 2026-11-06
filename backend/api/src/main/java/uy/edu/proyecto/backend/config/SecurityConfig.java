@@ -81,9 +81,11 @@ public class SecurityConfig {
                                                 "/api/auth/login",
                                                 "/api/auth/refresh",
                                                 "/api/auth/primer-ingreso/solicitar",
+                                                "/api/auth/primer-ingreso/validar",
                                                 "/api/auth/primer-ingreso/completar",
                                                 "/api/auth/cambio-correo/confirmar",
                                                 "/api/auth/recuperacion/solicitar",
+                                                "/api/auth/recuperacion/validar",
                                                 "/api/auth/recuperacion/completar"
                                         )
                                         .permitAll()
@@ -122,6 +124,14 @@ public class SecurityConfig {
                                         .authenticated()
 
                                         .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/especialidades/*"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/api/especialidades/importaciones/**"
                                         )
@@ -138,6 +148,14 @@ public class SecurityConfig {
                                         )
 
                                         .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/consultorios/*"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/api/consultorios/importaciones/**"
                                         )
@@ -148,6 +166,23 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 HttpMethod.POST,
                                                 "/api/usuarios"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.PATCH,
+                                                "/api/usuarios/*"
+                                        )
+                                        .hasRole(
+                                                "ADMINISTRADOR"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/usuarios/*/inactivar",
+                                                "/api/usuarios/*/reactivar"
                                         )
                                         .hasRole(
                                                 "ADMINISTRADOR"
@@ -199,7 +234,8 @@ public class SecurityConfig {
                                                 HttpMethod.GET,
                                                 "/api/medicos"
                                         )
-                                        .hasRole(
+                                        .hasAnyRole(
+                                                "SOCIO",
                                                 "FUNCIONARIO"
                                         )
 
