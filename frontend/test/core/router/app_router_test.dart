@@ -162,6 +162,59 @@ void main() {
     });
   });
 
+  group('redirectFor en la confirmación del cambio de correo (RF-06)', () {
+    const checking = SessionState(status: SessionStatus.checking);
+    const anonymous = SessionState();
+
+    test('verificando la sesión no manda el enlace a la carga', () {
+      expect(redirectFor(checking, Uri.parse('/cambio-correo?token=x')), null);
+    });
+
+    test('sin sesión el enlace con token se queda', () {
+      expect(
+        redirectFor(anonymous, Uri.parse('/cambio-correo?token=abc')),
+        null,
+      );
+    });
+
+    test('con sesión de cada rol el enlace con token se queda', () {
+      for (final role in UserRole.values) {
+        final session = SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: 't',
+          role: role,
+        );
+        expect(
+          redirectFor(session, Uri.parse('/cambio-correo?token=abc')),
+          null,
+          reason: role.name,
+        );
+      }
+    });
+
+    test('sin token o con el token vacío va a /, con o sin sesión', () {
+      const socio = SessionState(
+        status: SessionStatus.authenticated,
+        accessToken: 't',
+        role: UserRole.socio,
+      );
+      for (final session in [checking, anonymous, socio]) {
+        expect(redirectFor(session, Uri.parse('/cambio-correo')), '/');
+        expect(redirectFor(session, Uri.parse('/cambio-correo?token=')), '/');
+      }
+    });
+
+    test('la recuperación y el login no cambian', () {
+      expect(redirectFor(anonymous, Uri.parse('/recuperacion?token=x')), null);
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion')),
+        '/recuperacion/solicitar',
+      );
+      expect(redirectFor(anonymous, Uri.parse('/login')), null);
+      expect(redirectFor(checking, Uri.parse('/login')), '/');
+    });
+  });
+
   testWidgets('cada rol entra a su home y ve solo sus secciones', (
     tester,
   ) async {
