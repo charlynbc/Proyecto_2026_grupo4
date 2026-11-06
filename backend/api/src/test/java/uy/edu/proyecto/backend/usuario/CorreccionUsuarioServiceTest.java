@@ -55,6 +55,47 @@ class CorreccionUsuarioServiceTest {
     }
 
     @Test
+    void detalleDeSocioIncluyeTodosLosCamposSinModificarDatos() {
+        when(repository.buscarCuentaCompleta(10L)).thenReturn(Optional.of(cuentaSocio()));
+
+        CorreccionUsuarioResponse detalle = service.obtener(10L);
+
+        assertEquals(10L, detalle.id());
+        assertEquals("12345678", detalle.ci());
+        assertEquals(LocalDate.of(1985, 5, 5), detalle.fechaNacimiento());
+        assertEquals("099111222", detalle.telefono1());
+        assertEquals("Calle Falsa 123", detalle.direccion());
+        assertEquals(List.of(), detalle.especialidadIds());
+        verify(repository).buscarCuentaCompleta(10L);
+        org.mockito.Mockito.verify(repository, never()).especialidadesDelMedico(anyLong());
+        org.mockito.Mockito.verify(repository, never()).actualizarContactoCuenta(
+                anyLong(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void detalleDeMedicoTraeEspecialidades() {
+        when(repository.buscarCuentaCompleta(20L)).thenReturn(Optional.of(cuentaMedico()));
+        when(repository.especialidadesDelMedico(20L)).thenReturn(List.of(3L, 7L));
+
+        CorreccionUsuarioResponse detalle = service.obtener(20L);
+
+        assertEquals("MEDICO", detalle.rol());
+        assertEquals(List.of(3L, 7L), detalle.especialidadIds());
+        verify(repository).buscarCuentaCompleta(20L);
+        verify(repository).especialidadesDelMedico(20L);
+    }
+
+    @Test
+    void detalleDeCuentaInexistenteResponde404() {
+        when(repository.buscarCuentaCompleta(99L)).thenReturn(Optional.empty());
+        ApiException error = assertThrows(ApiException.class, () -> service.obtener(99L));
+        assertEquals(HttpStatus.NOT_FOUND, error.getStatus());
+        assertEquals("USUARIO_NO_ENCONTRADO", error.getCode());
+    }
+
+    @Test
     void rechazaSolicitudSinCambios() {
         ApiException error = assertThrows(ApiException.class,
                 () -> service.corregir(10L, vacio()));

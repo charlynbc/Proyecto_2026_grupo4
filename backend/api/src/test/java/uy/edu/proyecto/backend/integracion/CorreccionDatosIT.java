@@ -21,6 +21,56 @@ class CorreccionDatosIT extends BaseIntegracionIT {
     /* ---------- Usuarios ---------- */
 
     @Test
+    void detalleSocioIncluyeDatosCompletosSinEscribir() {
+        String nombrePrevio = jdbc.queryForObject(
+                "SELECT nombre FROM persona WHERE ci = ?", String.class, ciSocio1);
+
+        Respuesta r = get(USUARIOS + idSocio1, tokenEmpleado(ciAdmin));
+
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals(idSocio1, r.json().path("id").asLong());
+        assertEquals("SOCIO", r.json().path("rol").asString());
+        assertEquals("1985-05-05", r.json().path("fechaNacimiento").asString());
+        assertEquals("099111222", r.json().path("telefono1").asString());
+        assertEquals("Calle Falsa 123", r.json().path("direccion").asString());
+        assertEquals(0, r.json().path("especialidadIds").size());
+        assertEquals(nombrePrevio, jdbc.queryForObject(
+                "SELECT nombre FROM persona WHERE ci = ?", String.class, ciSocio1));
+    }
+
+    @Test
+    void detalleMedicoIncluyeEspecialidades() {
+        Respuesta r = get(USUARIOS + idMedico, tokenEmpleado(ciAdmin));
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals("MEDICO", r.json().path("rol").asString());
+        assertTrue(r.json().path("especialidadIds").isArray());
+        assertTrue(r.json().path("especialidadIds").size() > 0);
+        assertEquals(idEspecialidad,
+                r.json().path("especialidadIds").get(0).asLong());
+    }
+
+    @Test
+    void detalleUsuarioNoExistenteYRolesNoAutorizados() {
+        Respuesta inexistente = get(USUARIOS + 999999L, tokenEmpleado(ciAdmin));
+        assertEquals(404, inexistente.estado(), inexistente.cuerpo());
+        assertEquals("USUARIO_NO_ENCONTRADO", inexistente.codigo());
+        assertEquals(401, get(USUARIOS + idSocio1, null).estado());
+        assertEquals(403, get(USUARIOS + idSocio1, tokenSocio(ciSocio1)).estado());
+        assertEquals(403, get(USUARIOS + idSocio1, tokenEmpleado(ciFuncionario)).estado());
+        assertEquals(403, get(USUARIOS + idSocio1, tokenEmpleado(ciMedico)).estado());
+    }
+
+    @Test
+    void detalleCuentaInactivaSePuedeConsultar() {
+        jdbc.update("UPDATE cuenta SET habilitada = FALSE WHERE id_cuenta = ?", idSocioNuevo);
+        Respuesta r = get(USUARIOS + idSocioNuevo, tokenEmpleado(ciAdmin));
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals("INACTIVA", r.json().path("estado").asString());
+        assertEquals(false, r.json().path("activada").asBoolean());
+    }
+
+
+    @Test
     void corrigeDatosDePersonaYSeReflejaEnTodasLasCuentas() {
         // La misma persona tiene ademas una cuenta de empleado inactivada.
         jdbc.update("""
