@@ -189,7 +189,7 @@ void main() {
       expect(env.state.stage, ClinicImportStage.hasFile);
       expect(
         env.state.errorMessage,
-        'El CSV debe tener exactamente las columnas: nombre,ubicacion',
+        'El CSV debe tener exactamente las columnas: nombre, ubicacion',
       );
     },
   );

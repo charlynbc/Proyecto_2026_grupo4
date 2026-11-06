@@ -404,7 +404,7 @@ void main() {
 
     expect(
       _text(tester, 'import-error'),
-      'El CSV debe tener exactamente las columnas: nombre,ubicacion',
+      'El CSV debe tener exactamente las columnas: nombre, ubicacion',
     );
   });
 
