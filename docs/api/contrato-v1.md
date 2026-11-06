@@ -275,19 +275,20 @@ Sin cuerpo. Rota el refresh: invalida el anterior y emite otro en la cookie. **P
 | Status | `code` | Cuándo |
 |---|---|---|
 | 401 | `SESION_INVALIDA` | No hay cookie, está vencida o revocada, o la cuenta fue inactivada. El cliente descarta sus credenciales y vuelve al login. |
-| 403 | `CSRF_INVALIDO` | Falla la protección CSRF que arquitectura 8.3 exige para operaciones autenticadas por cookie (P-02). |
 
 <a id="e03"></a>
 #### #3 · `POST /api/auth/logout`
 
 - **Roles:** cualquier rol autenticado.
-- **RF:** RF-03, RNF-08. **Diseño:** arquitectura 8.3. **Estado:** PROPUESTA.
+- **RF:** RF-03, RNF-08. **Diseño:** arquitectura 8.3. **Estado:** CONFIRMADA (backend, 06/11/2026).
 
 Sin cuerpo. Revoca la sesión en el servidor y borra la cookie de renovación. El cliente descarta su token.
 
 **Respuesta 204**, sin cuerpo.
 
-**Errores:** `401 NO_AUTENTICADO` si el token ya no es válido (el cliente igual descarta sus credenciales). `403 CSRF_INVALIDO` (P-02).
+**Errores:** `401 NO_AUTENTICADO` si el token de acceso falta o no es válido (el cliente igualmente descarta sus credenciales).
+
+**Comportamiento implementado:** requiere JWT de acceso mediante `Authorization: Bearer`; la cookie `refresh_token` se revoca si está presente, y se devuelve `204` borrando la cookie de renovación. No existe validación CSRF en `SecurityConfig` y **no se devuelve** `403 CSRF_INVALIDO`. La exigencia de CSRF para operaciones basadas en cookie de la arquitectura 8.3 sigue como **deuda de seguridad P-02**; resolverla requiere una decisión de arquitectura y coordinación con frontend, no solamente agregar un error al contrato.
 
 <a id="e04"></a>
 #### #4 · `POST /api/auth/primer-ingreso/solicitar`
@@ -2359,6 +2360,37 @@ Cualquier otro campo (`rol`, `estado`, `habilitada`, `id`, `fechaAlta`, ...) se 
 | 409 | `CI_EN_USO` | La CI corregida ya pertenece a otra persona. |
 | 409 | `ESPECIALIDAD_EN_USO` | Se intenta quitar una especialidad con turnos vigentes o consultas agendadas futuras. |
 
+<a id="e68"></a>
+#### #68 · `GET /api/usuarios/{id}`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-38. **Estado:** CONFIRMADA (backend, 06/11/2026).
+- **Parámetro de ruta:** `id` (entero positivo, identificador de la **cuenta**, no de la persona).
+- **Cuerpo:** ninguno.
+
+Consulta el detalle completo necesario para precargar la tarjeta de corrección administrativa, **sin modificar registros ni bloquear filas para escritura**. Se incluyen cuentas de cualquier rol, activas, inactivas y pendientes de primer ingreso. Utiliza exactamente el mismo DTO de respuesta que `PATCH /api/usuarios/{id}` (#58), con `id`, `ci`, `nombre`, `apellido`, `fechaNacimiento`, `rol`, `correo`, `telefono1`, `telefono2`, `direccion`, `especialidadIds`, `estado` y `activada`. Para médicos, `especialidadIds` contiene los IDs asignados; para otros roles, `[]`.
+
+**Respuesta 200** (ejemplo):
+```json
+{
+  "id": 12,
+  "ci": "34567894",
+  "nombre": "Sofia Elena",
+  "apellido": "Socia",
+  "fechaNacimiento": "1985-06-06",
+  "rol": "MEDICO",
+  "correo": "sofia@ejemplo.invalid",
+  "telefono1": "099111222",
+  "telefono2": null,
+  "direccion": "Calle Falsa 123",
+  "especialidadIds": [3, 7],
+  "estado": "ACTIVA",
+  "activada": true
+}
+```
+
+**Errores:** `401 NO_AUTENTICADO` sin sesión válida; `403 ACCESO_DENEGADO` sin rol ADMINISTRADOR; `404 USUARIO_NO_ENCONTRADO` si la cuenta no existe.
+
 <a id="e59"></a>
 #### #59 · `PATCH /api/especialidades/{id}`
 
@@ -2589,6 +2621,7 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
 | 65 | `POST /api/anuncios` | | | | | ✔ |
 | 66 | `GET /api/anuncios` | | ✔ | ✔ | ✔ | ✔ |
 | 67 | `GET /api/anuncios/{id}` | | ✔ | ✔ | ✔ | ✔ |
+| 68 | `GET /api/usuarios/{id}` | | | | | ✔ |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2630,7 +2663,6 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 |---|---|---|---|
 | 401 | `CREDENCIALES_INVALIDAS` | #1 | Cualquier rechazo del login, sin distinguir motivo. |
 | 401 | `SESION_INVALIDA` | #2 | Cookie de renovación ausente, vencida o revocada. |
-| 403 | `CSRF_INVALIDO` | #2, #3 | Falla la protección CSRF (P-02). |
 | 400 | `ENLACE_INVALIDO` | #5, #49, #50 | Enlace inexistente, vencido, usado, reemplazado o cuenta inactivada. |
 | 400 | `CONTRASENA_ACTUAL_INCORRECTA` | #45 | La contraseña actual no coincide. |
 
@@ -2882,7 +2914,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | # | Pregunta | Dónde afecta | Mientras tanto el cliente… |
 |---|---|---|---|
 | P-01 | El error uniforme es solo `{code, message}`. ¿Cómo se informa **qué campo** falló en un formulario (400) y **qué fechas y números** chocan en un solapamiento (CU 3.3.1, 7.A.2: "informa las fechas y números en conflicto")? | #11, #13, #25 y todos los formularios | muestra el `message` completo en un aviso general, sin marcar campos. |
-| P-02 | La protección CSRF de `refresh` y `logout` (arquitectura 8.3) no define el mecanismo: ¿qué cabecera, cómo la obtiene el cliente, cómo la gestiona Android? Tampoco el nombre ni el `Path` de la cookie. | #2, #3 | no envía nada especial. |
+| P-02 | **Pendiente de decisión de seguridad:** arquitectura 8.3 exige CSRF para operaciones con cookie, pero el backend actual tiene `csrf.disable()` y no emite `CSRF_INVALIDO`. El refresh usa la cookie `refresh_token` (`HttpOnly`, `SameSite` configurable, `Path=/api/auth`); logout requiere un JWT Bearer. Definir una protección concreta para refresh con el frontend antes del despliegue público, sin introducir una cabecera incompatible de forma unilateral. | #2, #3 | no envía cabecera CSRF; depende de la autenticación y política de cookies existentes. |
 | P-03 | RF-01 no define límite de intentos fallidos ni bloqueo temporal de login. | #1 | no asume ninguno. |
 | P-04 | El primer ingreso (CU 3.1.2, pasos 8 y 9) valida el enlace y **muestra el correo registrado, no editable**, antes de pedir los datos. El Diseño 2.1 a 2.7 (figuras 1 a 7) solo tiene `activar(token, datos, clave)`: no hay operación para validar el enlace ni leer el correo. Tampoco se define a qué ruta del cliente apunta el enlace ni cómo viaja el token. | #5 | muestra el formulario sin el correo y valida el enlace recién al enviar. |
 | P-05 | ¿El backend puede distinguir en el mensaje de #5 una cuenta inactivada de un enlace vencido? Hoy van con el mismo código, y el aviso "pedí uno nuevo" no ayuda a una cuenta inactivada. | #5 | muestra el mensaje único. |

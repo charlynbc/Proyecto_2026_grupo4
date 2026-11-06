@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,6 +49,53 @@ class CorreccionDatosSeguridadTest {
     private ConsultorioService consultorioService;
 
     /* ---------- Usuarios ---------- */
+
+    @Test
+    void detalleUsuarioSinAutenticacionDevuelve401() throws Exception {
+        mockMvc.perform(get("/api/usuarios/10")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(correccionUsuarioService);
+    }
+
+    @Test
+    @WithMockUser(roles = "SOCIO")
+    void socioNoPuedeConsultarDetalleDeUsuario() throws Exception {
+        mockMvc.perform(get("/api/usuarios/10")).andExpect(status().isForbidden());
+        verifyNoInteractions(correccionUsuarioService);
+    }
+
+    @Test
+    @WithMockUser(roles = "FUNCIONARIO")
+    void funcionarioNoPuedeConsultarDetalleDeUsuario() throws Exception {
+        mockMvc.perform(get("/api/usuarios/10")).andExpect(status().isForbidden());
+        verifyNoInteractions(correccionUsuarioService);
+    }
+
+    @Test
+    @WithMockUser(roles = "MEDICO")
+    void medicoNoPuedeConsultarDetalleDeUsuario() throws Exception {
+        mockMvc.perform(get("/api/usuarios/10")).andExpect(status().isForbidden());
+        verifyNoInteractions(correccionUsuarioService);
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMINISTRADOR")
+    void administradorObtieneDetalleCompletoSinPatch() throws Exception {
+        when(correccionUsuarioService.obtener(10L))
+                .thenReturn(new CorreccionUsuarioResponse(
+                        10L, "12345672", "Sofia", "Socia",
+                        LocalDate.of(1985, 5, 5), "SOCIO",
+                        "sofia@ejemplo.invalid", "099111222", null,
+                        "Calle Falsa 123", List.of(), "ACTIVA", true));
+
+        mockMvc.perform(get("/api/usuarios/10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fechaNacimiento").value("1985-05-05"))
+                .andExpect(jsonPath("$.telefono1").value("099111222"))
+                .andExpect(jsonPath("$.direccion").value("Calle Falsa 123"))
+                .andExpect(jsonPath("$.especialidadIds").isArray());
+        verify(correccionUsuarioService).obtener(10L);
+    }
+
 
     @Test
     void corregirUsuarioSinAutenticacionDevuelve401() throws Exception {

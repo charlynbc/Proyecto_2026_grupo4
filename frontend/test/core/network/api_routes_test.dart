@@ -24,6 +24,22 @@ void main() {
       expect(ApiRoutes.all.toSet().length, ApiRoutes.all.length);
     });
 
+    test(
+      'validar enlaces y cartelera (filas 63 a 67), valores escritos a mano',
+      () {
+        expect(
+          ApiRoutes.authFirstLoginValidate,
+          '/api/auth/primer-ingreso/validar',
+        );
+        expect(
+          ApiRoutes.authPasswordRecoveryValidate,
+          '/api/auth/recuperacion/validar',
+        );
+        expect(ApiRoutes.announcements, '/api/anuncios');
+        expect(ApiRoutes.announcement(42), '/api/anuncios/42');
+      },
+    );
+
     test('cubren las rutas de docs/api/endpoints-usados.md', () {
       final file = File('../docs/api/endpoints-usados.md');
       if (!file.existsSync()) {
