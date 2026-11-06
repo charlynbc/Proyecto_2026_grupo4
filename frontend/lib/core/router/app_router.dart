@@ -20,6 +20,8 @@ import '../../features/auth/screens/splash_screen.dart';
 import '../../features/consultorios/screens/clinics_screen.dart';
 import '../../features/consultorios/screens/clinic_import_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
+import '../../features/cuenta/screens/account_routes.dart';
+import '../../features/cuenta/screens/account_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
 import '../../features/medico/screens/doctor_result_routes.dart';
@@ -134,6 +136,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => ConfirmEmailChangeScreen(
           token: state.uri.queryParameters['token'] ?? '',
         ),
+      ),
+      // Común a los cuatro roles: `redirectFor` la deja pasar con sesión
+      // porque no es el prefijo de ningún rol, y sin sesión manda al login.
+      GoRoute(
+        path: kAccountPath,
+        builder: (context, state) => const AccountScreen(),
       ),
       GoRoute(
         path: kRecoveryPath,

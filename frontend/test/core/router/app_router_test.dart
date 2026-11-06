@@ -714,4 +714,30 @@ void main() {
       findsOneWidget,
     );
   });
+
+  group('redirectFor en Mi cuenta (/cuenta)', () {
+    final uri = Uri.parse('/cuenta');
+
+    test('sin sesión va al login', () {
+      expect(redirectFor(const SessionState(), uri), '/login');
+    });
+
+    test('mientras se verifica la sesión va a la raíz', () {
+      expect(
+        redirectFor(const SessionState(status: SessionStatus.checking), uri),
+        '/',
+      );
+    });
+
+    test('con sesión de cada uno de los cuatro roles se queda', () {
+      for (final role in UserRole.values) {
+        final session = SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: 't',
+          role: role,
+        );
+        expect(redirectFor(session, uri), null, reason: role.name);
+      }
+    });
+  });
 }
