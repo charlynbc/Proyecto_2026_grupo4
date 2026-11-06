@@ -92,6 +92,9 @@ PostgreSQL.
 | 62 | `POST /api/usuarios/{id}/reactivar` | ADMINISTRADOR | 45 | Reactivar cuenta de empleado sin habilitar turnos suspendidos; evita duplicidad | CONFIRMADA (backend 04/11/2026, integración RF-45) | - | [contrato #62](contrato-v1.md#e62) |
 | 63 | `POST /api/auth/primer-ingreso/validar` | público (token) | 02 | Comprobar el enlace antes de pedir los datos, sin consumirlo | IMPLEMENTADA EN BACKEND (PR #75) | - | [contrato #63](contrato-v1.md#e63) |
 | 64 | `POST /api/auth/recuperacion/validar` | público (token) | 05 | Comprobar el enlace antes de pedir contraseña, sin consumirlo | IMPLEMENTADA EN BACKEND (PR #75) | - | [contrato #64](contrato-v1.md#e64) |
+| 65 | `POST /api/anuncios` | ADMINISTRADOR | 28 | Publicar novedad con título y contenido de texto, imágenes o ambos | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #65](contrato-v1.md#e65) |
+| 66 | `GET /api/anuncios` | autenticado | 07 | Tarjetas para el inicio y la cartelera, con portada opcional | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #66](contrato-v1.md#e66) |
+| 67 | `GET /api/anuncios/{id}` | autenticado | 07 | Detalle de novedad con texto y/o imágenes ordenadas | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #67](contrato-v1.md#e67) |
 
 ## Rutas de la prueba de concepto
 

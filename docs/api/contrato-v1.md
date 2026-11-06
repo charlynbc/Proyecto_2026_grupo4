@@ -2450,6 +2450,73 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 | 409 | `MEDICO_CON_CONSULTAS_AGENDADAS` | Existen consultas agendadas que impiden la inactivación. |
 | 409 | `EMPLEADO_DUPLICADO` | Otra cuenta de empleado de la misma CI impide la reactivación. |
 
+### 3.17 Cartelera de novedades (RF-28 y RF-07)
+
+Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
+
+<a id="e65"></a>
+#### #65 · `POST /api/anuncios`
+
+- **Roles:** ADMINISTRADOR. **RF:** RF-28. **Estado:** IMPLEMENTADA EN BACKEND (PR #71).
+- **Pedido:** `multipart/form-data` con una parte `datos` de tipo `application/json` y hasta cinco partes opcionales de archivo llamadas `imagenes`, en el orden del carrusel. Ejemplo de `datos`:
+
+```json
+{ "titulo": "Campaña de vacunación", "resumen": "Comienza el lunes", "texto": "**Vacunarse** ayuda a prevenir la gripe." }
+```
+
+`titulo` es obligatorio (1 a 160 caracteres sin contar espacios exteriores). `resumen` es opcional (hasta 300 caracteres) y `texto` es opcional. La publicación admite texto, imágenes o ambos. Si se omite `texto` o queda vacío, se exige al menos una imagen. El título y el resumen por sí solos no cuentan como contenido. Para publicar solo texto se omiten todas las partes `imagenes`. Cada archivo debe ser JPEG o PNG real, de hasta 5 MB y hasta 6000 × 6000 píxeles. El servidor genera el identificador, el autor, la fecha y las referencias de los archivos. Si la publicación falla, no queda una fila de anuncio publicada; la eliminación de archivos ya cargados se intenta como compensación.
+
+- **Respuesta `201 Created`:** cabecera `Location: /api/anuncios/{id}` y cuerpo con la misma forma del detalle #67:
+
+```json
+{
+  "id": 42,
+  "titulo": "Campaña de vacunación",
+  "resumen": "Comienza el lunes",
+  "texto": "**Vacunarse** ayuda a prevenir la gripe.",
+  "publicadoEn": "2026-11-03T12:00:00Z",
+  "imagenes": [
+    { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." },
+    { "id": 102, "orden": 1, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+  ]
+}
+```
+
+- **Errores:** `400 VALIDACION` por datos inválidos, falta de texto e imágenes, más de cinco archivos, o imagen vacía, de formato inválido o con dimensiones excedidas; `400 IMAGEN_INVALIDA` si una imagen supera 5 MB o se excede el límite multipart; `401 NO_AUTENTICADO`; `403 ACCESO_DENEGADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si Storage no responde.
+
+<a id="e66"></a>
+#### #66 · `GET /api/anuncios?page=0&size=20`
+
+- **Roles:** cualquier usuario autenticado. **RF:** RF-07. **Estado:** IMPLEMENTADA EN BACKEND (PR #71).
+- **Parámetros:** `page` desde 0 (por defecto 0), `size` de 1 a 100 (por defecto 20). El inicio puede solicitar `size=5`. Para un anuncio sin imágenes, `imagenPortada` es `null`. Los registros anteriores a la incorporación de `titulo` pueden devolver `titulo: null` en el listado y en el detalle. Orden fijo: `publicadoEn` descendente y, ante empate, `id` descendente.
+- **Respuesta `200 OK`:**
+
+```json
+{
+  "items": [
+    {
+      "id": 42,
+      "titulo": "Campaña de vacunación",
+      "resumen": "Comienza el lunes",
+      "publicadoEn": "2026-11-03T12:00:00Z",
+      "imagenPortada": { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "total": 1
+}
+```
+
+- **Errores:** `400 VALIDACION` por paginación inválida; `401 NO_AUTENTICADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar el enlace de una imagen.
+
+<a id="e67"></a>
+#### #67 · `GET /api/anuncios/{id}`
+
+- **Roles:** cualquier usuario autenticado. **RF:** RF-07. **Estado:** IMPLEMENTADA EN BACKEND (PR #71).
+- **Respuesta `200 OK`:** la forma de detalle ilustrada en #65, con todas las imágenes ordenadas para el carrusel. Sin imágenes, `imagenes` es `[]` en el detalle y en la respuesta de publicación. Si se publica solo con imágenes, `texto` es `null`.
+- **Errores:** `401 NO_AUTENTICADO`; `404 NO_ENCONTRADO` si no existe el anuncio; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar un enlace.
+
 ## 4. Matriz de roles por endpoint
 
 ✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
@@ -2519,6 +2586,9 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 | 62 | `POST /api/usuarios/{id}/reactivar` | | | | | ✔ |
 | 63 | `POST /api/auth/primer-ingreso/validar` | ✔ (token) | | | | |
 | 64 | `POST /api/auth/recuperacion/validar` | ✔ (token) | | | | |
+| 65 | `POST /api/anuncios` | | | | | ✔ |
+| 66 | `GET /api/anuncios` | | ✔ | ✔ | ✔ | ✔ |
+| 67 | `GET /api/anuncios/{id}` | | ✔ | ✔ | ✔ | ✔ |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2574,6 +2644,8 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 409 | `DATOS_PERSONA_DISCORDANTES` | #11 | CI existente con nombre, apellido o fecha de nacimiento distintos. |
 | 409 | `SOCIO_DUPLICADO` | #11 | La CI ya tiene cuenta de socio. |
 | 409 | `EMPLEADO_DUPLICADO` | #11 | La CI ya tiene cuenta de empleado habilitada o pendiente. |
+| 400 | `IMAGEN_INVALIDA` | #65 | Una imagen supera 5 MB o se excede el límite multipart. |
+| 503 | `ALMACENAMIENTO_NO_DISPONIBLE` | #65 a #67 | No se pudo acceder a Storage o firmar la imagen. |
 | 400 | `CSV_INVALIDO` | #52 a #57 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
 | 404 | `USUARIO_NO_ENCONTRADO` | #58 | No existe una cuenta con ese identificador. |
 | 409 | `CI_EN_USO` | #58 | La CI corregida ya pertenece a otra persona. |
