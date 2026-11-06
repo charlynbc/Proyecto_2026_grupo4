@@ -136,7 +136,8 @@ class _FakeHistory implements AppointmentHistoryRepository {
 
   @override
   Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
-    listCalls++;
+    // La lista de médicos de Mis consultas pide de a 100 y no cuenta.
+    if (query.size != 100) listCalls++;
     return AppointmentHistoryPage(
       items: const [],
       page: query.page,
