@@ -20,6 +20,11 @@ import 'api_routes.dart';
 /// que leer el estado actual desde afuera del propio notifier tiene que
 /// pasar por `ref.read(sessionProvider)`.
 ///
+/// Las rutas de enlace ([_linkPaths]) nunca llevan `Authorization`: se
+/// autorizan con el token del correo, que va en el cuerpo, y el backend
+/// rechaza con 401 cualquier bearer inválido aunque la ruta sea pública. Como
+/// salen sin header, un 401 en ellas tampoco dispara la renovación.
+///
 /// Solo se intenta renovar la sesión cuando la request llevaba token: un 401
 /// de una request pública (el login con credenciales incorrectas, el primer
 /// ingreso) no es una sesión caída. La sesión se da por terminada (con el
@@ -33,6 +38,17 @@ class AuthInterceptor extends Interceptor {
   static const _refreshPath = ApiRoutes.authRefresh;
   static const _retriedKey = 'authRetried';
 
+  /// Las rutas que se autorizan con el token de un enlace de correo (filas 5,
+  /// 49, 50, 63 y 64 del contrato). Las de pedir el enlace no están: no
+  /// tienen el problema.
+  static const _linkPaths = {
+    ApiRoutes.authFirstLoginValidate,
+    ApiRoutes.authFirstLoginComplete,
+    ApiRoutes.authPasswordRecoveryValidate,
+    ApiRoutes.authPasswordRecoveryComplete,
+    ApiRoutes.authEmailChangeConfirm,
+  };
+
   final Dio _dio;
   final Ref _ref;
 
@@ -45,6 +61,13 @@ class AuthInterceptor extends Interceptor {
     if (options.path == _refreshPath) {
       // El refresh se autentica solo con la cookie; un access token vencido
       // en el bearer haría que el backend lo rechace antes de leer la cookie.
+      options.headers.remove('Authorization');
+      handler.next(options);
+      return;
+    }
+    if (_linkPaths.contains(options.path)) {
+      // Se autorizan con el token del enlace (en el cuerpo): un access token
+      // vencido en el bearer haría que el backend responda 401 sin mirarlo.
       options.headers.remove('Authorization');
       handler.next(options);
       return;
