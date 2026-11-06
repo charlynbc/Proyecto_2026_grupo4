@@ -506,9 +506,8 @@ void main() {
       );
     }
 
-    test(
-      'un Authorization puesto a mano en una ruta de enlace se descarta',
-      () async {
+    for (final path in linkPaths) {
+      test('un Authorization puesto a mano en $path se descarta', () async {
         Map<String, dynamic>? sent;
         setUpWith((o) {
           sent = Map.of(o.headers);
@@ -517,14 +516,14 @@ void main() {
         startSession();
 
         await dio.post<void>(
-          '/api/auth/cambio-correo/confirmar',
+          path,
           data: linkBody,
           options: Options(headers: {'Authorization': 'Bearer viejo'}),
         );
 
         expect(sent!.containsKey('Authorization'), isFalse);
-      },
-    );
+      });
+    }
 
     test('la ruta de consultas del socio sigue llevando el Bearer', () async {
       String? header;
