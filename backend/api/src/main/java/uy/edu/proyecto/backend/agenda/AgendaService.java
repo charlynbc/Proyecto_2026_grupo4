@@ -29,13 +29,17 @@ public class AgendaService {
         Long especialidadId = parsearId(
                 especialidadIdSolicitada,
                 "especialidadId",
-                true
+                false
         );
         Long medicoId = parsearId(
                 medicoIdSolicitado,
                 "medicoId",
                 false
         );
+
+        if (especialidadId == null && medicoId == null) {
+            throw validacion("Debe indicar especialidadId o medicoId");
+        }
 
         LocalDate desde = parsearFecha(fechaDesde, "fechaDesde");
         LocalDate hasta = parsearFecha(fechaHasta, "fechaHasta");
@@ -55,7 +59,7 @@ public class AgendaService {
             throw validacion("sentido debe ser asc o desc");
         }
 
-        if (!repository.existeEspecialidad(especialidadId)) {
+        if (especialidadId != null && !repository.existeEspecialidad(especialidadId)) {
             throw noEncontrado("No existe la especialidad indicada");
         }
         if (medicoId != null && !repository.existeMedico(medicoId)) {
