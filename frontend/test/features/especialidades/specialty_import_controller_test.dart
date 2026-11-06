@@ -1,5 +1,7 @@
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
+import 'package:agenda_medica/core/files/picked_csv_file.dart';
 import 'package:agenda_medica/features/especialidades/models/specialty.dart';
+import 'package:agenda_medica/features/especialidades/models/specialty_import.dart';
 import 'package:agenda_medica/features/especialidades/models/specialty_filters.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialties_provider.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialty_import_controller.dart';
@@ -10,6 +12,7 @@ import 'package:agenda_medica/features/especialidades/providers/specialty_search
 import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_import_repository.dart';
 import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_repository.dart';
 import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_search_repository.dart';
+import 'package:agenda_medica/features/especialidades/repositories/specialty_import_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,6 +39,24 @@ class _CountingSearch extends FakeSpecialtySearchRepository {
   Future<List<Specialty>> search(SpecialtyFilters filters) {
     searchCalls++;
     return super.search(filters);
+  }
+}
+
+/// Cuenta las llamadas a `confirm` y delega en [inner].
+class _CountingRepository implements SpecialtyImportRepository {
+  _CountingRepository(this.inner);
+
+  final SpecialtyImportRepository inner;
+  int confirmCalls = 0;
+
+  @override
+  Future<SpecialtyImportPreview> preview(PickedCsvFile file) =>
+      inner.preview(file);
+
+  @override
+  Future<SpecialtyImportResult> confirm(PickedCsvFile file) {
+    confirmCalls++;
+    return inner.confirm(file);
   }
 }
 
@@ -194,5 +215,39 @@ void main() {
 
     expect(env.state.stage, SpecialtyImportStage.hasFile);
     expect(env.db.specialties.length, 3);
+  });
+
+  test('confirm dos veces seguidas sin esperar llama una sola vez al '
+      'repositorio', () async {
+    final db = FakeAdminDatabase();
+    final counting = _CountingRepository(
+      FakeSpecialtyImportRepository(db, latency: Duration.zero),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        specialtyImportRepositoryProvider.overrideWith((ref) async => counting),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(specialtyImportControllerProvider, (_, _) {});
+    final controller = container.read(
+      specialtyImportControllerProvider.notifier,
+    );
+    controller.setFile(specialtyImportFile());
+    await controller.preview();
+    expect(
+      container.read(specialtyImportControllerProvider).stage,
+      SpecialtyImportStage.previewed,
+    );
+
+    final first = controller.confirm();
+    final second = controller.confirm();
+    await Future.wait([first, second]);
+
+    expect(counting.confirmCalls, 1);
+    final state = container.read(specialtyImportControllerProvider);
+    expect(state.stage, SpecialtyImportStage.done);
+    expect(state.result!.imported, 3);
+    expect(db.specialties.length, 6);
   });
 }

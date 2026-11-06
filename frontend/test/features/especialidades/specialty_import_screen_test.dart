@@ -82,6 +82,24 @@ class _GatedRepository implements SpecialtyImportRepository {
   }
 }
 
+/// Cuenta las llamadas a `confirm` y delega en [inner].
+class _CountingRepository implements SpecialtyImportRepository {
+  _CountingRepository(this.inner);
+
+  final SpecialtyImportRepository inner;
+  int confirmCalls = 0;
+
+  @override
+  Future<SpecialtyImportPreview> preview(PickedCsvFile file) =>
+      inner.preview(file);
+
+  @override
+  Future<SpecialtyImportResult> confirm(PickedCsvFile file) {
+    confirmCalls++;
+    return inner.confirm(file);
+  }
+}
+
 typedef _Env = ({GoRouter router, FakeAdminDatabase db, _FakePicker picker});
 
 Future<_Env> _pump(
@@ -503,5 +521,31 @@ void main() {
       );
       expect(find.text('Nueva especialidad'), findsOneWidget);
     });
+  });
+
+  testWidgets('tocar Confirmar importación dos veces en el mismo cuadro '
+      'confirma una sola vez', (tester) async {
+    late _CountingRepository counting;
+    final env = await _pump(
+      tester,
+      repository: (db) => counting = _CountingRepository(
+        FakeSpecialtyImportRepository(db, latency: Duration.zero),
+      ),
+    );
+    await _preview(tester);
+    final confirm = find.byKey(const Key('import-confirm-button'));
+    await tester.ensureVisible(confirm);
+    await tester.pumpAndSettle();
+
+    // tester.tap no redibuja entre medio: los dos toques llegan con el
+    // botón todavía encendido.
+    await tester.tap(confirm);
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+
+    expect(counting.confirmCalls, 1);
+    expect(_text(tester, 'import-imported'), 'Importadas: 3');
+    expect(_text(tester, 'import-rejected'), 'Rechazadas: 4');
+    expect(env.db.specialties.length, 6);
   });
 }
