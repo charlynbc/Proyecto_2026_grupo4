@@ -86,6 +86,10 @@ class AuthInterceptor extends Interceptor {
     try {
       // Vuelve a pasar por onRequest, que relee el token ya renovado.
       options.extra[_retriedKey] = true;
+      // Un FormData (la carga de un archivo) solo se puede enviar una vez:
+      // el reintento va con una copia.
+      final data = options.data;
+      if (data is FormData) options.data = data.clone();
       handler.resolve(await _dio.fetch<dynamic>(options));
     } on DioException catch (e) {
       handler.next(e);
