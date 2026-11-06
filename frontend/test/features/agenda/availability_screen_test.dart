@@ -837,6 +837,38 @@ void main() {
     await _unmount(tester);
   });
 
+  testWidgets('reservar el último número del médico filtrado deja al '
+      'médico elegido y la lista vacía', (tester) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _selectSpecialty(tester, 'Medicina general');
+    await _chooseDoctor(tester, 'Gómez, Ana');
+    await _search(tester);
+    expect(_listedNumbers(tester), ['number-12']);
+
+    await _confirm(tester, 12);
+    expect(agenda.booked, [(numberId: 12, referralId: null)]);
+    await tester.tap(find.byKey(const Key('booked-ok')));
+    await tester.pumpAndSettle();
+
+    Finder inDoctor(String text) =>
+        find.descendant(of: _doctorDropdown, matching: find.text(text));
+    expect(inDoctor('Gómez, Ana'), findsOneWidget);
+    expect(inDoctor('Todos'), findsNothing);
+    expect(find.text(_noResults), findsOneWidget);
+    expect(find.byKey(const Key('number-12')), findsNothing);
+    expect(find.byKey(const Key('number-11')), findsNothing);
+    expect(_listedNumbers(tester), isEmpty);
+
+    await _search(tester);
+
+    expect(inDoctor('Gómez, Ana'), findsOneWidget);
+    expect(inDoctor('Todos'), findsNothing);
+    expect(find.text(_noResults), findsOneWidget);
+    expect(_listedNumbers(tester), isEmpty);
+    expect(agenda.queries.last.doctorId, 5);
+    await _unmount(tester);
+  });
+
   testWidgets('escribir Desde y Hasta no consulta; Buscar y Enter sí', (
     tester,
   ) async {
