@@ -165,7 +165,7 @@ void main() {
       expect(env.state.stage, SpecialtyImportStage.hasFile);
       expect(
         env.state.errorMessage,
-        'El CSV debe tener exactamente las columnas: nombre,requiere_pase',
+        'El CSV debe tener exactamente las columnas: nombre, requiere_pase',
       );
     },
   );

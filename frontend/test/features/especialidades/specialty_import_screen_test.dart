@@ -376,7 +376,7 @@ void main() {
 
     expect(
       _text(tester, 'import-error'),
-      'El CSV debe tener exactamente las columnas: nombre,requiere_pase',
+      'El CSV debe tener exactamente las columnas: nombre, requiere_pase',
     );
   });
 
