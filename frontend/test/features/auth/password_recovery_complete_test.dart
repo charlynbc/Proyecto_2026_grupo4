@@ -221,12 +221,17 @@ void main() {
 
   testWidgets('con el repositorio falso, el token "vencido" da enlace '
       'inválido', (tester) async {
-    await _open(tester, token: 'vencido');
+    // La validación al abrir ya rechaza el enlace: el aviso aparece sin
+    // llenar el formulario, que ni siquiera se muestra.
+    final container = await _open(tester, token: 'vencido');
 
-    await _fill(tester, password: 'claveNueva9');
-    await _tapSave(tester);
-
+    expect(_fields, findsNothing);
+    expect(_save, findsNothing);
     expect(find.text(_invalidLinkMessage), findsOneWidget);
+
+    await tester.tap(find.text('Pedir un enlace nuevo'));
+    await tester.pumpAndSettle();
+    expect(locationOf(container), '/recuperacion/solicitar');
   });
 
   group('a 320 px con Roboto', () {
@@ -267,10 +272,10 @@ void main() {
     testWidgets('el aviso de enlace inválido no desborda', (tester) async {
       await _open(tester, size: size, token: 'vencido');
 
-      await _fill(tester, password: 'claveNueva9');
-      await _tapSave(tester);
-
+      expect(_fields, findsNothing);
+      expect(_save, findsNothing);
       expect(find.text(_invalidLinkMessage), findsOneWidget);
+      expect(find.text('Pedir un enlace nuevo'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });
