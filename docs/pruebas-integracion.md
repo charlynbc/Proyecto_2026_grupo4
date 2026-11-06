@@ -41,6 +41,7 @@ $env:APP_FIREBASE_ENABLED = "false"
 | Clase | Cubre |
 |---|---|
 | `AutenticacionIT` | RF-01/02: login, refresh con rotación, logout con token válido y vencido (refresh sin bearer + reintento), primer ingreso (completo, inválido, reutilizado, expirado) |
+| `ValidacionEnlacesIT` | RF-02/05: endpoints públicos de validación sin consumo; respuesta uniforme para inexistente, vencido, usado, reemplazado, cuenta inactiva, estado incompatible y tipos cruzados; token/cuerpo ausente, nulo o vacío; repetición sin cambios en enlaces, cuentas ni sesiones; completar después de validar y rechazo si se reemplaza entre ambas llamadas. HTTP y PostgreSQL reales; correo capturado, sin proveedor externo. |
 | `CircuitoConsultasIT` | RF-08/09/11/13/14/15: turnos, disponibilidad, reserva, reglas de anticipación/pase, historial, suspensión y rehabilitación |
 | `LlegadaAgendaMedicoIT` | RF-16/18/21/23: llegada, agendas, resultado médico, conflicto de interés |
 | `RolesIT` | Matriz endpoint × rol (401/403/permitido), base intacta tras los rechazos, recursos públicos de Flutter |

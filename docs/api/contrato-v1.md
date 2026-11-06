@@ -194,6 +194,8 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 41 | `GET /api/medico/atenciones` | consulta de las atenciones registradas por el médico (sin operación propia en 2.1 a 2.7) | `AtencionMedicaDTO` | - | 25 |
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | detalle de una atención propia | `AtencionMedicaDTO` | - | 25 |
 | 43 | `GET /api/medico/pases` | consulta de los pases emitidos por el médico (sin operación propia en 2.1 a 2.7) | `PaseEmitidoDTO` | - | 26 |
+| 63 | `POST /api/auth/primer-ingreso/validar` | validación anticipada sin consumo (extensión de RF-02) | `ValidarEnlaceRequest` | S02 | 02 |
+| 64 | `POST /api/auth/recuperacion/validar` | validación anticipada sin consumo (extensión de RF-05) | `ValidarEnlaceRequest` | - | 05 |
 
 La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`; los números posteriores al #36 se reflejan en ambos documentos (el #37 es pases disponibles; el #44 es cancelación por funcionario).
 
@@ -376,6 +378,8 @@ Errores: `400 ENLACE_INVALIDO` (mismo código y mensaje si el enlace no existe, 
 | 400 | `ENLACE_INVALIDO` | El enlace no existe, venció, ya se usó, o la cuenta fue inactivada por un administrador. **Mismo código y mismo mensaje en los cuatro casos** (el primer ingreso no revierte una inactivación, RF-02). Mensaje: "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso." |
 
 Preguntas relacionadas: P-04, P-05, P-06, P-18.
+
+Al abrir la pantalla, el cliente puede consultar [#63](#e63) para comprobar el enlace antes de pedir los datos. Completar vuelve a validar su vigencia.
 
 <a id="e45"></a>
 #### #45 · `POST /api/auth/cambiar-contrasena`
@@ -2149,7 +2153,7 @@ Aplica el cambio de correo pendiente. El enlace es de un solo uso, válido 24 ho
 { "message": "Tu contraseña se actualizó correctamente. Ya podés iniciar sesión." }
 ```
 
-No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P-06). **Al completarse se revocan todas las sesiones de la cuenta** (decisión del backend: la contraseña anterior pudo estar comprometida). Nunca se envía una contraseña por correo.
+No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P-06). **Al completarse se revocan todas las sesiones de la cuenta** (decisión del backend: la contraseña anterior pudo estar comprometida). Nunca se envía una contraseña por correo. Al abrir la pantalla, el cliente puede consultar [#64](#e64) antes de pedir la contraseña; completar vuelve a validar el enlace.
 
 **Errores**
 
@@ -2157,6 +2161,47 @@ No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P
 |---|---|---|
 | 400 | `VALIDACION` | Falta un campo o la contraseña no cumple la longitud. No consume el enlace. |
 | 400 | `ENLACE_INVALIDO` | El enlace no existe, venció, ya se usó, fue reemplazado por uno más nuevo o la cuenta fue inactivada. Mismo código y mensaje en todos los casos. Mensaje: "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso." |
+
+### 3.13.1 Validación anticipada de enlaces, sin consumo (RF-02 y RF-05)
+
+<a id="e63"></a>
+#### #63 · `POST /api/auth/primer-ingreso/validar`
+
+- **Roles:** público; recibe el token de primer ingreso.
+- **RF:** RF-02, RNF-10. **Estado:** IMPLEMENTADA EN BACKEND (PR #75).
+
+<a id="e64"></a>
+#### #64 · `POST /api/auth/recuperacion/validar`
+
+- **Roles:** público; recibe el token de recuperación de contraseña.
+- **RF:** RF-05, RNF-10. **Estado:** IMPLEMENTADA EN BACKEND (PR #75).
+
+**Contrato común de #63 y #64.** El frontend llama al endpoint del flujo correspondiente apenas abre el enlace, antes de solicitar la contraseña. No requiere JWT; no enviar `Authorization` ni llamar a refresh para esta consulta. El token viaja en el cuerpo JSON, no en la URL de la API.
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `token` | texto | sí | El token opaco recibido por correo, sin modificarlo. |
+
+```json
+{ "token": "<token-del-enlace>" }
+```
+
+**Respuesta 200, sin cuerpo.** Solo indica que en ese instante existe un enlace del tipo esperado, sin usar y sin vencer, asociado a una cuenta habilitada. Para #63 la cuenta debe tener el primer ingreso pendiente; para #64 debe haberlo completado. No devuelve identidad, correo, rol ni vencimiento.
+
+**Respuesta 400.** Todos los enlaces inválidos reciben exactamente el mismo código y mensaje que #5 y #49 (RNF-10): inexistente, vencido, usado, reemplazado, de otro tipo, cuenta inactiva o en un estado incompatible con el flujo. Un cuerpo ausente, `null`, o un token ausente, `null`, vacío o en blanco recibe también esta respuesta. El JSON mal formado o con tipos incompatibles es un error de formato HTTP `400`, previo a validar el enlace.
+
+```json
+{
+  "code": "ENLACE_INVALIDO",
+  "message": "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso."
+}
+```
+
+**Sin efectos.** La consulta es de solo lectura: no marca uso, no renueva el vencimiento, no invalida otros enlaces, no modifica la cuenta ni las sesiones y no envía correo. Puede repetirse. Las respuestas de validación incluyen `Cache-Control` con `no-store`.
+
+**Vigencia al guardar.** Un `200` no reserva el enlace ni garantiza que siga vigente después: puede vencer, usarse, reemplazarse o inactivarse la cuenta entre ambas llamadas. #5 y #49 mantienen su validación al completar y el frontend debe seguir manejando `ENLACE_INVALIDO` al guardar.
+
+**Tasa de pedidos.** No se incorpora un límite específico en esta entrega. Los tokens existentes tienen 256 bits aleatorios; la consulta busca el hash SHA-256 mediante el índice único de `enlace_cuenta` y no genera correo ni escrituras. No se añaden variables de configuración, dependencias ni cambios de esquema.
 
 ### 3.14 Cargas masivas (administrador)
 
@@ -2472,6 +2517,8 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 | 60 | `PATCH /api/consultorios/{id}` | | | | | ✔ |
 | 61 | `POST /api/usuarios/{id}/inactivar` | | | | | ✔ |
 | 62 | `POST /api/usuarios/{id}/reactivar` | | | | | ✔ |
+| 63 | `POST /api/auth/primer-ingreso/validar` | ✔ (token) | | | | |
+| 64 | `POST /api/auth/recuperacion/validar` | ✔ (token) | | | | |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 

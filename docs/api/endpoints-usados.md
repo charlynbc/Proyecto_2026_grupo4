@@ -90,6 +90,8 @@ PostgreSQL.
 | 60 | `PATCH /api/consultorios/{id}` | ADMINISTRADOR | 38 | Corrección de nombre y ubicación | CONFIRMADA (backend 04/11/2026, rama feat/rf-34-38-cierre) | - | [contrato #60](contrato-v1.md#e60) |
 | 61 | `POST /api/usuarios/{id}/inactivar` | ADMINISTRADOR | 45 | Inactivar cuenta de empleado, conservando historial y registrando auditoría | CONFIRMADA (backend 04/11/2026, integración RF-45) | - | [contrato #61](contrato-v1.md#e61) |
 | 62 | `POST /api/usuarios/{id}/reactivar` | ADMINISTRADOR | 45 | Reactivar cuenta de empleado sin habilitar turnos suspendidos; evita duplicidad | CONFIRMADA (backend 04/11/2026, integración RF-45) | - | [contrato #62](contrato-v1.md#e62) |
+| 63 | `POST /api/auth/primer-ingreso/validar` | público (token) | 02 | Comprobar el enlace antes de pedir los datos, sin consumirlo | IMPLEMENTADA EN BACKEND (PR #75) | - | [contrato #63](contrato-v1.md#e63) |
+| 64 | `POST /api/auth/recuperacion/validar` | público (token) | 05 | Comprobar el enlace antes de pedir contraseña, sin consumirlo | IMPLEMENTADA EN BACKEND (PR #75) | - | [contrato #64](contrato-v1.md#e64) |
 
 ## Rutas de la prueba de concepto
 
@@ -133,6 +135,8 @@ clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige pagi
 arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
+
+- 03/11/2026, #63 y #64: nuevos `POST /api/auth/primer-ingreso/validar` y `POST /api/auth/recuperacion/validar`, cuerpo `{"token":"…"}`. Públicos, `200` sin cuerpo si el enlace está vigente; `400 ENLACE_INVALIDO` con el mensaje actual para cualquier enlace inválido, sin distinguir el motivo. Solo lectura, repetibles, no consumen ni reservan el enlace. El frontend debe conservar el manejo de `ENLACE_INVALIDO` al completar (#5 y #49). Implementados en el PR #75.
 
 - 31/10/2026, #30: `consulta.paciente` agrega `id` (entero, identificador de cuenta del socio) sin eliminar `ci`, `nombre` ni `apellido`. El frontend debe usar `consulta.paciente.id` como `{socioId}` en #40 para RF-22. Los números libres conservan `consulta: null`.
 

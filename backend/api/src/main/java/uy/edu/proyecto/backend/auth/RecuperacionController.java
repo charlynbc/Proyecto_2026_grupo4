@@ -25,6 +25,14 @@ public class RecuperacionController {
         return ResponseEntity.accepted().body(service.solicitar(request));
     }
 
+    @PostMapping("/validar")
+    public ResponseEntity<Void> validar(
+            @RequestBody(required = false) ValidarEnlaceRequest request
+    ) {
+        service.validarEnlace(request);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/completar")
     public ResponseEntity<Map<String, String>> completar(
             @RequestBody CompletarRecuperacionRequest request
