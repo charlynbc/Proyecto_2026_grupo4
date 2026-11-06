@@ -182,7 +182,7 @@ void main() {
     );
     await tester.tap(find.text('Abrir cuenta'));
     await tester.pumpAndSettle();
-    expect(topOf(router), kAccountPath);
+    expect(topOf(router), '/cuenta');
     expect(find.byType(AccountScreen), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('account-back')));

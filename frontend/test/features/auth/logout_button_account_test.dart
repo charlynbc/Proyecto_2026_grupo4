@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 import '../cuenta/account_test_support.dart';
 
@@ -39,6 +40,8 @@ Future<GoRouter> _pump(WidgetTester tester) => pumpAdminScreens(
 );
 
 void main() {
+  setUpAll(loadRoboto);
+
   testWidgets('muestra "Mi cuenta" antes de "Cerrar sesión"', (tester) async {
     await _pump(tester);
 
@@ -59,7 +62,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('open-account')));
     await tester.pumpAndSettle();
-    expect(topOf(router), kAccountPath);
+    expect(topOf(router), '/cuenta');
     expect(textOf(tester, 'account-ci'), '45678911');
 
     await tester.tap(find.byKey(const Key('account-back')));
@@ -67,6 +70,33 @@ void main() {
     expect(topOf(router), '/pantalla');
     expect(find.byType(AccountScreen), findsNothing);
     expect(find.text('Pantalla'), findsOneWidget);
+  });
+
+  testWidgets('a 320 px con Roboto, el título y los dos íconos entran', (
+    tester,
+  ) async {
+    await pumpAdminScreens(
+      tester,
+      routes: [
+        GoRoute(
+          path: '/pantalla',
+          builder: (_, _) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Estadísticas'),
+              actions: const [LogoutButton()],
+            ),
+          ),
+        ),
+      ],
+      initialLocation: '/pantalla',
+      overrides: const [],
+      size: const Size(320, 640),
+    );
+
+    expect(find.byTooltip('Mi cuenta'), findsOneWidget);
+    expect(find.byTooltip('Cerrar sesión'), findsOneWidget);
+    expect(find.text('Estadísticas'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('"Cerrar sesión" abre el diálogo de siempre', (tester) async {
