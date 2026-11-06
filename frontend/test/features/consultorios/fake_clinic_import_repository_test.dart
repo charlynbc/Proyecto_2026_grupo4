@@ -281,6 +281,34 @@ void main() {
     });
   });
 
+  group('una línea en blanco en el medio', () {
+    final text =
+        '$kClinicImportHeader\nConsultorio 20,Piso 3\n\nConsultorio 22,Subsuelo\n';
+
+    test('no cuenta como fila al previsualizar', () async {
+      final (_, repository) = _env();
+
+      final preview = await repository.preview(clinicCsvFile(text));
+
+      expect(preview.total, 2);
+      expect(preview.valid, 2);
+      expect(preview.rows.map((r) => r.number), [2, 3]);
+      expect(preview.rows.last.name, 'Consultorio 22');
+      expect(preview.rows.last.error, isNull);
+    });
+
+    test('no cuenta como fila al confirmar', () async {
+      final (_, repository) = _env();
+
+      final result = await repository.confirm(clinicCsvFile(text));
+
+      expect(result.imported, 2);
+      expect(result.rows.map((r) => r.number), [2, 3]);
+      expect(result.rows.last.name, 'Consultorio 22');
+      expect(result.rows.last.error, isNull);
+    });
+  });
+
   group('el archivo no sirve', () {
     test('con un encabezado equivocado lanza CsvFormatException', () async {
       final (_, repository) = _env();
@@ -291,7 +319,7 @@ void main() {
           isA<CsvFormatException>().having(
             (e) => e.message,
             'message',
-            'El CSV debe tener exactamente las columnas: nombre,ubicacion',
+            'El CSV debe tener exactamente las columnas: nombre, ubicacion',
           ),
         ),
       );
