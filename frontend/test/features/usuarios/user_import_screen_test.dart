@@ -384,7 +384,9 @@ void main() {
 
     expect(
       _text(tester, 'import-error'),
-      'El CSV debe tener exactamente las columnas: $kUserImportHeader',
+      'El CSV debe tener exactamente las columnas: ci, nombre, apellido, '
+      'fecha_nacimiento, correo, telefono_1, telefono_2, direccion, rol, '
+      'especialidades',
     );
   });
 
