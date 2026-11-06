@@ -13,6 +13,8 @@ import '../../features/auth/providers/session_provider.dart';
 import '../../features/auth/screens/first_login_activation_screen.dart';
 import '../../features/auth/screens/first_login_request_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/password_recovery_complete_screen.dart';
+import '../../features/auth/screens/password_recovery_request_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/consultorios/screens/clinics_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
@@ -45,6 +47,12 @@ const String kFirstLoginRequestPath = '/primer-ingreso/solicitar';
 bool _isFirstLoginPath(String path) =>
     path == kFirstLoginPath || path == kFirstLoginRequestPath;
 
+const String kRecoveryPath = '/recuperacion';
+const String kRecoveryRequestPath = '/recuperacion/solicitar';
+
+bool _isRecoveryPath(String path) =>
+    path == kRecoveryPath || path == kRecoveryRequestPath;
+
 const String kDoctorShiftsPath = '/medico/turnos';
 const String kArrivalPath = '/funcionario/llegada';
 
@@ -53,24 +61,34 @@ const String kArrivalPath = '/funcionario/llegada';
 /// autorización real es del servidor.
 ///
 /// - Verificando la sesión: todo va a la pantalla de carga, salvo el
-///   primer ingreso, para no perder el `token` del enlace del correo.
-/// - Sin sesión: solo `/login` y el primer ingreso; todo lo demás va a login.
+///   primer ingreso y la recuperación de contraseña, para no perder el
+///   `token` del enlace del correo.
+/// - Sin sesión: solo `/login`, el primer ingreso y la recuperación; todo lo
+///   demás va a login.
 /// - Con sesión: las pantallas de acceso y la raíz van a la home del rol, y
 ///   las rutas de otro rol también.
 String? redirectFor(SessionState session, Uri uri) {
   final path = uri.path;
+  final hasToken = (uri.queryParameters['token'] ?? '').isNotEmpty;
   switch (session.status) {
     case SessionStatus.checking:
-      return path == '/' || _isFirstLoginPath(path) ? null : '/';
+      return path == '/' || _isFirstLoginPath(path) || _isRecoveryPath(path)
+          ? null
+          : '/';
     case SessionStatus.unauthenticated:
-      if (path == kFirstLoginPath &&
-          (uri.queryParameters['token'] ?? '').isEmpty) {
-        return kFirstLoginRequestPath;
-      }
-      return path == kLoginPath || _isFirstLoginPath(path) ? null : kLoginPath;
+      if (path == kFirstLoginPath && !hasToken) return kFirstLoginRequestPath;
+      if (path == kRecoveryPath && !hasToken) return kRecoveryRequestPath;
+      return path == kLoginPath ||
+              _isFirstLoginPath(path) ||
+              _isRecoveryPath(path)
+          ? null
+          : kLoginPath;
     case SessionStatus.authenticated:
       final role = session.role!;
-      if (path == '/' || path == kLoginPath || _isFirstLoginPath(path)) {
+      if (path == '/' ||
+          path == kLoginPath ||
+          _isFirstLoginPath(path) ||
+          _isRecoveryPath(path)) {
         return role.homePath;
       }
       final owner = UserRole.fromPath(path);
@@ -98,7 +116,22 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => LoginScreen(
           access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
           accountActivated: state.uri.queryParameters['activada'] == '1',
+          passwordRecovered: state.uri.queryParameters['recuperada'] == '1',
         ),
+      ),
+      GoRoute(
+        path: kRecoveryPath,
+        builder: (context, state) => PasswordRecoveryCompleteScreen(
+          token: state.uri.queryParameters['token'] ?? '',
+        ),
+        routes: [
+          GoRoute(
+            path: 'solicitar',
+            builder: (context, state) => PasswordRecoveryRequestScreen(
+              access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: kFirstLoginPath,

@@ -1,4 +1,4 @@
-# Agenda Médica
+# Médica Oriental
 
 Aplicación Flutter (web y Android) del sistema de reserva de consultas médicas.
 Todos los comandos se corren desde esta carpeta (`frontend/`).
@@ -76,6 +76,33 @@ escribe una ruta literal. El registro de lo que se usa y su estado está en
 flutter analyze
 flutter test
 ```
+
+## Cambiar el nombre de la mutualista
+
+1. Editar la constante `kMutualistaName` en `lib/core/branding.dart`.
+2. Correr `dart run tool/sync_nombre.dart` desde `frontend/`: reescribe
+   `web/index.html`, `web/manifest.json`, `AndroidManifest.xml` y el título
+   de este README.
+
+El nombre técnico (`agenda_medica` en `pubspec.yaml` y el applicationId)
+no se cambia.
+
+## Regenerar los íconos
+
+Los íconos de web (`web/favicon.png` y `web/icons/`) y de Android
+(`ic_launcher.png` e `ic_launcher_foreground.png` en cada `mipmap-*`) salen
+de `assets/images/logo.svg`. Desde `frontend/`:
+
+```
+flutter test tool/generar_iconos.dart
+```
+
+El script no se corre con `flutter test` a secas. Las constantes que se
+ajustan están arriba de `tool/generar_iconos.dart`: el color hueso de fondo,
+el porcentaje que ocupa el logo en cada tipo de ícono y los tamaños. Dos
+corridas dejan los mismos archivos. Los XML del ícono adaptativo de Android
+(`mipmap-anydpi-v26/ic_launcher.xml` y `values/ic_launcher_background.xml`)
+se editan a mano: si cambia el hueso, hay que cambiarlo también en `values`.
 
 ## Firebase
 

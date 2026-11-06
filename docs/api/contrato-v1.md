@@ -194,8 +194,8 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 41 | `GET /api/medico/atenciones` | consulta de las atenciones registradas por el médico (sin operación propia en 2.1 a 2.7) | `AtencionMedicaDTO` | - | 25 |
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | detalle de una atención propia | `AtencionMedicaDTO` | - | 25 |
 | 43 | `GET /api/medico/pases` | consulta de los pases emitidos por el médico (sin operación propia en 2.1 a 2.7) | `PaseEmitidoDTO` | - | 26 |
-| 59 | `POST /api/auth/primer-ingreso/validar` | validación anticipada sin consumo (extensión de RF-02) | `ValidarEnlaceRequest` | S02 | 02 |
-| 60 | `POST /api/auth/recuperacion/validar` | validación anticipada sin consumo (extensión de RF-05) | `ValidarEnlaceRequest` | - | 05 |
+| 63 | `POST /api/auth/primer-ingreso/validar` | validación anticipada sin consumo (extensión de RF-02) | `ValidarEnlaceRequest` | S02 | 02 |
+| 64 | `POST /api/auth/recuperacion/validar` | validación anticipada sin consumo (extensión de RF-05) | `ValidarEnlaceRequest` | - | 05 |
 
 La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`; los números posteriores al #36 se reflejan en ambos documentos (el #37 es pases disponibles; el #44 es cancelación por funcionario).
 
@@ -379,7 +379,7 @@ Errores: `400 ENLACE_INVALIDO` (mismo código y mensaje si el enlace no existe, 
 
 Preguntas relacionadas: P-04, P-05, P-06, P-18.
 
-Al abrir la pantalla, el cliente puede consultar [#59](#e59) para comprobar el enlace antes de pedir los datos. Completar vuelve a validar su vigencia.
+Al abrir la pantalla, el cliente puede consultar [#63](#e63) para comprobar el enlace antes de pedir los datos. Completar vuelve a validar su vigencia.
 
 <a id="e45"></a>
 #### #45 · `POST /api/auth/cambiar-contrasena`
@@ -515,16 +515,16 @@ Sin parámetros devuelve todos los consultorios, sin paginar, ordenados por `nom
 <a id="e10"></a>
 #### #10 · `GET /api/medicos`
 
-- **Roles:** FUNCIONARIO (así está implementado y protegido en `SecurityConfig`; el alta de turno es de FUNCIONARIO).
+- **Roles:** SOCIO y FUNCIONARIO (habilitados en `SecurityConfig`).
 - **RF:** RF-13, RF-08, RF-14, RF-15, RF-17, RF-18 (selectores de médico). **Diseño:** sin operación en 2.1 a 2.7. **Estado:** IMPLEMENTADO.
 
 | Parámetro | Tipo | Obligatorio | Notas |
 |---|---|---|---|
 | `especialidadId` | entero | no | Si se envía, solo médicos que ejercen esa especialidad. |
 
-Devuelve médicos **activos**, sin paginar, ordenados por `apellido` y `nombre`. Cada médico trae sus especialidades, porque el alta de turno exige "una de las del médico" (RF-13). No expone CI, correo ni teléfonos.
+Devuelve **todos los médicos activos**, aunque no tengan números disponibles, sin paginar y ordenados por `apellido` y `nombre`. El filtro opcional `especialidadId` restringe los médicos según sus especialidades. No expone CI, correo, teléfonos ni contraseñas. Para el SOCIO, cada médico devuelve exclusivamente `id`, `nombre`, `apellido` y especialidades con `id` y `nombre`; para FUNCIONARIO se conserva la respuesta anterior, incluida `requierePase` en cada especialidad.
 
-**Respuesta 200** (una lista JSON, sin envoltorio `items`; el cliente Flutter también tolera `{"items": [...]}`)
+**Respuesta 200 para FUNCIONARIO** (una lista JSON, sin envoltorio `items`; el cliente Flutter también tolera `{"items": [...]}`)
 
 ```json
 [
@@ -540,7 +540,23 @@ Devuelve médicos **activos**, sin paginar, ordenados por `apellido` y `nombre`.
 ]
 ```
 
-Preguntas relacionadas: P-16.
+**Respuesta 200 para SOCIO** (misma lista, proyección mínima):
+
+```json
+[
+  {
+    "id": 17,
+    "nombre": "Marta",
+    "apellido": "Rodríguez",
+    "especialidades": [
+      { "id": 1, "nombre": "Medicina General" },
+      { "id": 3, "nombre": "Cardiología" }
+    ]
+  }
+]
+```
+
+El socio ve a todos los médicos activos, incluso cuando no tienen números ofrecidos (P-16 resuelta).
 
 ### 3.3 Administración de usuarios
 
@@ -828,12 +844,12 @@ Devuelve **fechas concretas** de turnos (no patrones; para el patrón se usa #14
 - **Roles:** SOCIO.
 - **RF:** RF-08. **Diseño:** `consultarDisponibilidad(filtros: FiltroDisponibilidadDTO): List<NumeroDisponibleDTO>` (S03). **Estado:** PROPUESTA.
 
-Solo números que todavía pueden agendarse (anticipación máxima y mínima) y que no son de fechas suspendidas. Es informativo: no bloquea números, y al confirmar se vuelve a comprobar todo (S03).
+Solo números que todavía pueden agendarse (anticipación máxima y mínima) y que no son de fechas suspendidas. Es informativo: no bloquea números, y al confirmar se vuelve a comprobar todo (S03). Al menos uno de `especialidadId` o `medicoId` debe estar presente; no se admite consultar todos los números sin filtro. No hay cambios en la forma de la respuesta ni en la paginación.
 
 | Parámetro | Tipo | Obligatorio | Notas |
 |---|---|---|---|
-| `especialidadId` | entero | **sí** | Obligatorio por RF-08 ("especialidad (obligatorio)"), CU 3.2.1 (paso 2) y el mockup 6.2.2 ("Especialidad (obligatorio)"). Los tres coinciden: no queda pregunta abierta. |
-| `medicoId` | entero | no | "Médico (opcional)" en el mockup. |
+| `especialidadId` | entero | no | Opcional si se envía `medicoId`. Si viene solo, se ofrecen números de esa especialidad. |
+| `medicoId` | entero | no | Opcional si se envía `especialidadId`. Solo: números de todas las especialidades del médico. Ambos: intersección de médico y especialidad. **Se requiere al menos uno de los dos IDs.** |
 | `fechaDesde`, `fechaHasta` | fecha | no | "Desde" y "Hasta", opcionales. |
 | `orden` | `fecha` o `apellidoMedico` | no | Por defecto `fecha` (fecha y hora más próximas; el mockup dice "Orden: fecha más próxima"). |
 | `sentido` | `asc` o `desc` | no | Por defecto `asc`. |
@@ -860,7 +876,7 @@ Solo números que todavía pueden agendarse (anticipación máxima y mínima) y 
 
 `especialidad.requierePase` es la indicación que RF-08 exige mostrar. Si no hay resultados, `{ "items": [] }` con `200` (el cliente muestra "No se encontraron turnos disponibles para los criterios seleccionados", CU 3.2.1).
 
-**Errores:** `400 VALIDACION` si falta `especialidadId` (dato obligatorio) o `fechaDesde` es posterior a `fechaHasta`. `404 NO_ENCONTRADO` si `especialidadId` o `medicoId` no existen.
+**Errores:** `400 VALIDACION` si faltan **ambos** filtros (`especialidadId` y `medicoId`), si alguno tiene un valor inválido o si `fechaDesde` es posterior a `fechaHasta`. `404 NO_ENCONTRADO` solo si el `especialidadId` o el `medicoId` enviados no existen. Con ambos IDs existentes pero sin relación entre médico y especialidad, devuelve `200 {"items":[]}`. Los demás filtros y errores conservan su comportamiento.
 
 <a id="e17"></a>
 #### #17 · `POST /api/consultas`
@@ -2137,7 +2153,7 @@ Aplica el cambio de correo pendiente. El enlace es de un solo uso, válido 24 ho
 { "message": "Tu contraseña se actualizó correctamente. Ya podés iniciar sesión." }
 ```
 
-No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P-06). **Al completarse se revocan todas las sesiones de la cuenta** (decisión del backend: la contraseña anterior pudo estar comprometida). Nunca se envía una contraseña por correo. Al abrir la pantalla, el cliente puede consultar [#60](#e60) antes de pedir la contraseña; completar vuelve a validar el enlace.
+No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P-06). **Al completarse se revocan todas las sesiones de la cuenta** (decisión del backend: la contraseña anterior pudo estar comprometida). Nunca se envía una contraseña por correo. Al abrir la pantalla, el cliente puede consultar [#64](#e64) antes de pedir la contraseña; completar vuelve a validar el enlace.
 
 **Errores**
 
@@ -2148,19 +2164,19 @@ No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P
 
 ### 3.13.1 Validación anticipada de enlaces, sin consumo (RF-02 y RF-05)
 
-<a id="e59"></a>
-#### #59 · `POST /api/auth/primer-ingreso/validar`
+<a id="e63"></a>
+#### #63 · `POST /api/auth/primer-ingreso/validar`
 
 - **Roles:** público; recibe el token de primer ingreso.
-- **RF:** RF-02, RNF-10. **Estado:** CONFIRMADA (backend, 03/11/2026, rama `feat/validar-enlaces-auth`; integración y despliegue pendientes).
+- **RF:** RF-02, RNF-10. **Estado:** IMPLEMENTADA EN BACKEND (PR #75).
 
-<a id="e60"></a>
-#### #60 · `POST /api/auth/recuperacion/validar`
+<a id="e64"></a>
+#### #64 · `POST /api/auth/recuperacion/validar`
 
 - **Roles:** público; recibe el token de recuperación de contraseña.
-- **RF:** RF-05, RNF-10. **Estado:** CONFIRMADA (backend, 03/11/2026, rama `feat/validar-enlaces-auth`; integración y despliegue pendientes).
+- **RF:** RF-05, RNF-10. **Estado:** IMPLEMENTADA EN BACKEND (PR #75).
 
-**Contrato común de #59 y #60.** El frontend llama al endpoint del flujo correspondiente apenas abre el enlace, antes de solicitar la contraseña. No requiere JWT; no enviar `Authorization` ni llamar a refresh para esta consulta. El token viaja en el cuerpo JSON, no en la URL de la API.
+**Contrato común de #63 y #64.** El frontend llama al endpoint del flujo correspondiente apenas abre el enlace, antes de solicitar la contraseña. No requiere JWT; no enviar `Authorization` ni llamar a refresh para esta consulta. El token viaja en el cuerpo JSON, no en la URL de la API.
 
 | Campo | Tipo | Obligatorio | Notas |
 |---|---|---|---|
@@ -2170,7 +2186,7 @@ No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P
 { "token": "<token-del-enlace>" }
 ```
 
-**Respuesta 200, sin cuerpo.** Solo indica que en ese instante existe un enlace del tipo esperado, sin usar y sin vencer, asociado a una cuenta habilitada. Para #59 la cuenta debe tener el primer ingreso pendiente; para #60 debe haberlo completado. No devuelve identidad, correo, rol ni vencimiento.
+**Respuesta 200, sin cuerpo.** Solo indica que en ese instante existe un enlace del tipo esperado, sin usar y sin vencer, asociado a una cuenta habilitada. Para #63 la cuenta debe tener el primer ingreso pendiente; para #64 debe haberlo completado. No devuelve identidad, correo, rol ni vencimiento.
 
 **Respuesta 400.** Todos los enlaces inválidos reciben exactamente el mismo código y mensaje que #5 y #49 (RNF-10): inexistente, vencido, usado, reemplazado, de otro tipo, cuenta inactiva o en un estado incompatible con el flujo. Un cuerpo ausente, `null`, o un token ausente, `null`, vacío o en blanco recibe también esta respuesta. El JSON mal formado o con tipos incompatibles es un error de formato HTTP `400`, previo a validar el enlace.
 
@@ -2181,7 +2197,7 @@ No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P
 }
 ```
 
-**Sin efectos.** La consulta es de solo lectura: no marca uso, no renueva el vencimiento, no invalida otros enlaces, no modifica la cuenta ni las sesiones y no envía correo. Puede repetirse. Las respuestas llevan `Cache-Control` con `no-store` mediante la configuración de seguridad existente.
+**Sin efectos.** La consulta es de solo lectura: no marca uso, no renueva el vencimiento, no invalida otros enlaces, no modifica la cuenta ni las sesiones y no envía correo. Puede repetirse. Las respuestas de validación incluyen `Cache-Control` con `no-store`.
 
 **Vigencia al guardar.** Un `200` no reserva el enlace ni garantiza que siga vigente después: puede vencer, usarse, reemplazarse o inactivarse la cuenta entre ambas llamadas. #5 y #49 mantienen su validación al completar y el frontend debe seguir manejando `ENLACE_INVALIDO` al guardar.
 
@@ -2265,6 +2281,175 @@ Cada fila es **una cuenta**: una persona con dos cuentas aparece en dos filas co
 
 Mismo archivo y validaciones que #54. Registra cada fila válida invocando el alta individual #11: cada cuenta queda **pendiente de primer ingreso**, **no se envía ningún correo** y ninguna cuenta se activa automáticamente. Cada fila se procesa en su propia transacción: un rechazo no revierte las demás. Responde `ResultadoImportacionDTO` con filas `{numero, ci, nombre, apellido, rol, error}`; los motivos de rechazo son los mismos códigos del alta individual (`CI_INVALIDA`, `VALIDACION`, `DATOS_PERSONA_DISCORDANTES`, `SOCIO_DUPLICADO`, `EMPLEADO_DUPLICADO`) expresados en el `error` de cada fila.
 
+<a id="e56"></a>
+#### #56 · `POST /api/consultorios/importaciones/previsualizar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-34. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Columnas del CSV: `nombre,ubicacion`. Validaciones por fila: nombre obligatorio y de hasta 120 caracteres, ubicación obligatoria y de hasta 200 caracteres, sin duplicados dentro del archivo (sin distinguir mayúsculas, se conserva la primera aparición) y nombre no existente en el sistema (sin distinguir mayúsculas). Responde `PrevisualizacionDTO` con filas `{numero, nombre, ubicacion, error}`.
+
+<a id="e57"></a>
+#### #57 · `POST /api/consultorios/importaciones/confirmar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-34. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Mismo archivo y validaciones que #56. Inserta cada fila válida con las mismas reglas del alta individual #9; la base vuelve a verificar todo al confirmar (una fila válida en la previsualización puede quedar rechazada si otra operación la registró en el medio). Ningún consultorio existente se actualiza. Responde `ResultadoImportacionDTO` con filas `{numero, nombre, ubicacion, error}`; las filas rechazadas incluyen el motivo (por ejemplo "El consultorio ya existe en el sistema").
+
+### 3.15 Corrección de datos administrados (administrador, RF-38)
+
+El administrador corrige datos ya registrados. Reglas comunes:
+
+- Los tres endpoints son exclusivos del rol ADMINISTRADOR y aplican la corrección en una única transacción.
+- Al menos un campo corregible debe venir en el cuerpo; un cuerpo vacío (`{}`) responde `400 VALIDACION`.
+- Las consultas, los turnos y las historias clínicas ya registrados conservan su estado y su contenido: las correcciones no reescriben el historial.
+
+<a id="e58"></a>
+#### #58 · `PATCH /api/usuarios/{id}`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-38. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Corrige datos de la cuenta `{id}` (de cualquier rol y estado: también cuentas inactivadas o pendientes de primer ingreso). **Campos corregibles** (todos opcionales; ausente = no se toca):
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `ci` | texto | Con dígito verificador válido; admite puntos y guion. Es dato de la **persona**: la corrección vale para todas sus cuentas. |
+| `nombre` | texto | Hasta 100 caracteres. Dato de la persona. |
+| `apellido` | texto | Hasta 100 caracteres. Dato de la persona. |
+| `fechaNacimiento` | texto `aaaa-mm-dd` | Dato de la persona. |
+| `correo` | texto | Formato válido, hasta 254; se guarda en minúsculas. Es dato de la **cuenta** y aplica de inmediato (sin enlace de confirmación: corrige el administrador). |
+| `telefono1` | texto | Obligatorio no vacío si viene; hasta 30. |
+| `telefono2` | texto o `null` | Hasta 30. `""` o `null` explícito lo borra. |
+| `direccion` | texto o `null` | `""` o `null` explícito la borra, **solo** si la cuenta no completó el primer ingreso (una cuenta activada debe conservar dirección, RF-02). |
+| `especialidadIds` | arreglo de enteros | Solo cuentas de rol MEDICO; reemplaza el conjunto completo (mínimo 1, sin repetidos, todas existentes). No se quita una especialidad con turnos vigentes ni con consultas agendadas cuyo día todavía no terminó. |
+
+Cualquier otro campo (`rol`, `estado`, `habilitada`, `id`, `fechaAlta`, ...) se rechaza con `400 VALIDACION` nombrándolo: **el rol de la cuenta nunca se modifica**.
+
+**Respuesta 200** — estado completo de la cuenta tras la corrección:
+
+```json
+{
+  "id": 12,
+  "ci": "34567894",
+  "nombre": "Sofia Elena",
+  "apellido": "Socia",
+  "fechaNacimiento": "1985-06-06",
+  "rol": "MEDICO",
+  "correo": "sofia@ejemplo.invalid",
+  "telefono1": "099111222",
+  "telefono2": null,
+  "direccion": "Calle Falsa 123",
+  "especialidadIds": [3, 7],
+  "estado": "ACTIVA",
+  "activada": true
+}
+```
+
+`especialidadIds` se completa solo para médicos (en otro rol es `[]`). `estado` es `ACTIVA` o `INACTIVA`; `activada` indica que completó el primer ingreso.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Sin campos corregibles, campo no permitido (incluido `rol`), tipo inválido, correo inválido, longitud superada, dirección vacía en cuenta activada, especialidades en cuenta no médica, conjunto vacío, repetidas o inexistentes. |
+| 400 | `CI_INVALIDA` | La CI no supera el dígito verificador. |
+| 404 | `USUARIO_NO_ENCONTRADO` | No existe una cuenta con ese `id`. |
+| 409 | `CI_EN_USO` | La CI corregida ya pertenece a otra persona. |
+| 409 | `ESPECIALIDAD_EN_USO` | Se intenta quitar una especialidad con turnos vigentes o consultas agendadas futuras. |
+
+<a id="e59"></a>
+#### #59 · `PATCH /api/especialidades/{id}`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-38. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Corrige el `nombre` (hasta 120, único sin distinguir mayúsculas) y/o la exigencia de pase (`requierePase`, booleano) de la especialidad `{id}`. El cambio de `requierePase` rige para las consultas que se agenden desde ese momento y **no afecta a las ya agendadas** (RF-29). Responde la especialidad actualizada `{id, nombre, requierePase}`.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Sin campos, nombre vacío o de más de 120 caracteres. |
+| 404 | `ESPECIALIDAD_NO_ENCONTRADA` | No existe una especialidad con ese `id`. |
+| 409 | `ESPECIALIDAD_DUPLICADA` | Ya existe otra especialidad con ese nombre (sin distinguir mayúsculas). |
+
+<a id="e60"></a>
+#### #60 · `PATCH /api/consultorios/{id}`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-38. **Estado:** CONFIRMADA (backend, 04/11/2026).
+
+Corrige el `nombre` (hasta 120, único sin distinguir mayúsculas) y/o la `ubicacion` (hasta 200) del consultorio `{id}`. Las relaciones con turnos y consultas se conservan (referencian al consultorio por `id`). Responde el consultorio actualizado `{id, nombre, ubicacion}`.
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | Sin campos, nombre u ubicación vacíos o fuera de longitud. |
+| 404 | `CONSULTORIO_NO_ENCONTRADO` | No existe un consultorio con ese `id`. |
+| 409 | `CONSULTORIO_DUPLICADO` | Ya existe otro consultorio con ese nombre (sin distinguir mayúsculas). |
+
+### 3.16 Inactivación y reactivación de empleados (administrador, RF-45)
+
+Los dos endpoints requieren JWT de **ADMINISTRADOR**, operan sobre cuentas de empleado (FUNCIONARIO, MEDICO o ADMINISTRADOR) y obtienen el identificador del administrador que ejecuta el cambio desde el JWT. No aceptan cuerpo. Ambas operaciones son transaccionales, conservan el historial y registran la identidad de quien operó y la fecha/hora de la operación.
+
+<a id="e61"></a>
+#### #61 · `POST /api/usuarios/{id}/inactivar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-45. **Estado:** CONFIRMADA (backend, 04/11/2026).
+- **Parámetro:** `id` es el identificador de la cuenta de empleado a inactivar.
+- **Cuerpo:** ninguno.
+
+Deshabilita la cuenta, revoca sus sesiones de renovación y evita el uso de los JWT de acceso existentes mediante la validación de vigencia. **No modifica la cuenta de socio** de la misma persona.
+
+Si la cuenta es de un médico, se rechaza la operación mientras existan fechas activas de turnos cuyo día no haya terminado o consultas AGENDADAS cuyo día no haya terminado. Primero se deben suspender las fechas correspondientes mediante RF-14, con sus cancelaciones.
+
+<a id="e62"></a>
+#### #62 · `POST /api/usuarios/{id}/reactivar`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-45. **Estado:** CONFIRMADA (backend, 04/11/2026).
+- **Parámetro:** `id` es el identificador de la cuenta de empleado a reactivar.
+- **Cuerpo:** ninguno.
+
+Habilita una cuenta previamente inactiva únicamente si **no existe otra cuenta de empleado habilitada o pendiente de primer ingreso** con la misma CI. Las fechas de turnos suspendidas siguen suspendidas: su rehabilitación corresponde a RF-15. La validación JWT impide reutilizar tokens emitidos antes de la última reactivación.
+
+**Respuesta 200 de ambas operaciones** (`EstadoCuentaResponse`, ejemplo de inactivación):
+
+```json
+{
+  "id": 42,
+  "ci": "45678911",
+  "nombre": "Lucía",
+  "apellido": "Fernández",
+  "rol": "MEDICO",
+  "estado": "INACTIVA",
+  "ultimaInactivacionEn": "2026-11-04T12:00:00-03:00",
+  "ultimaInactivacionPor": 1,
+  "ultimaReactivacionEn": null,
+  "ultimaReactivacionPor": null
+}
+```
+
+Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `ultimaReactivacionPor`.
+
+**Errores:**
+
+| HTTP | Código | Motivo |
+|---|---|---|
+| 400 | `VALIDACION` | El identificador pertenece a una cuenta SOCIO. |
+| 401 | `TOKEN_INVALIDO` / `NO_AUTENTICADO` | Token o sesión inválidos. |
+| 403 | `ACCESO_DENEGADO` | El usuario no tiene rol ADMINISTRADOR. |
+| 404 | `USUARIO_NO_ENCONTRADO` | No existe la cuenta. |
+| 409 | `CUENTA_YA_INACTIVA` | La cuenta ya estaba inactiva (al inactivar). |
+| 409 | `CUENTA_YA_ACTIVA` | La cuenta ya estaba habilitada (al reactivar). |
+| 409 | `MEDICO_CON_TURNOS_ACTIVOS` | Existen fechas activas que impiden la inactivación. |
+| 409 | `MEDICO_CON_CONSULTAS_AGENDADAS` | Existen consultas agendadas que impiden la inactivación. |
+| 409 | `EMPLEADO_DUPLICADO` | Otra cuenta de empleado de la misma CI impide la reactivación. |
+
 ## 4. Matriz de roles por endpoint
 
 ✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
@@ -2280,7 +2465,7 @@ Mismo archivo y validaciones que #54. Registra cada fila válida invocando el al
 | 7 | `POST /api/especialidades` | | | | | ✔ |
 | 8 | `GET /api/consultorios` | | ✔ | ✔ | ✔ | ✔ |
 | 9 | `POST /api/consultorios` | | | | | ✔ |
-| 10 | `GET /api/medicos` | | ✔ | ✔ | ✔ | ✔ |
+| 10 | `GET /api/medicos` | | ✔ | ✔ | | |
 | 11 | `POST /api/usuarios` | | | | | ✔ |
 | 12 | `GET /api/usuarios` | | | | | ✔ |
 | 13 | `POST /api/turnos-semanales` | | | ✔ | | |
@@ -2325,6 +2510,15 @@ Mismo archivo y validaciones que #54. Registra cada fila válida invocando el al
 | 53 | `POST /api/especialidades/importaciones/confirmar` | | | | | ✔ |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | | | | | ✔ |
 | 55 | `POST /api/usuarios/importaciones/confirmar` | | | | | ✔ |
+| 56 | `POST /api/consultorios/importaciones/previsualizar` | | | | | ✔ |
+| 57 | `POST /api/consultorios/importaciones/confirmar` | | | | | ✔ |
+| 58 | `PATCH /api/usuarios/{id}` | | | | | ✔ |
+| 59 | `PATCH /api/especialidades/{id}` | | | | | ✔ |
+| 60 | `PATCH /api/consultorios/{id}` | | | | | ✔ |
+| 61 | `POST /api/usuarios/{id}/inactivar` | | | | | ✔ |
+| 62 | `POST /api/usuarios/{id}/reactivar` | | | | | ✔ |
+| 63 | `POST /api/auth/primer-ingreso/validar` | ✔ (token) | | | | |
+| 64 | `POST /api/auth/recuperacion/validar` | ✔ (token) | | | | |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2374,15 +2568,20 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 
 | Status | `code` | Endpoint | Cuándo |
 |---|---|---|---|
-| 409 | `ESPECIALIDAD_DUPLICADA` | #7 | Nombre repetido (normalizado). |
-| 409 | `CONSULTORIO_DUPLICADO` | #9 | Nombre o número repetido (normalizado). |
-| 400 | `CI_INVALIDA` | #11 | Dígito verificador incorrecto. |
+| 409 | `ESPECIALIDAD_DUPLICADA` | #7, #59 | Nombre repetido (normalizado). |
+| 409 | `CONSULTORIO_DUPLICADO` | #9, #60 | Nombre o número repetido (normalizado). |
+| 400 | `CI_INVALIDA` | #11, #58 | Dígito verificador incorrecto. |
 | 409 | `DATOS_PERSONA_DISCORDANTES` | #11 | CI existente con nombre, apellido o fecha de nacimiento distintos. |
 | 409 | `SOCIO_DUPLICADO` | #11 | La CI ya tiene cuenta de socio. |
 | 409 | `EMPLEADO_DUPLICADO` | #11 | La CI ya tiene cuenta de empleado habilitada o pendiente. |
-| 400 | `CSV_INVALIDO` | #52 a #55 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
+| 400 | `CSV_INVALIDO` | #52 a #57 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
+| 404 | `USUARIO_NO_ENCONTRADO` | #58 | No existe una cuenta con ese identificador. |
+| 409 | `CI_EN_USO` | #58 | La CI corregida ya pertenece a otra persona. |
+| 409 | `ESPECIALIDAD_EN_USO` | #58 | No se quita una especialidad con turnos vigentes o consultas agendadas futuras. |
+| 404 | `ESPECIALIDAD_NO_ENCONTRADA` | #59 | No existe una especialidad con ese identificador. |
+| 404 | `CONSULTORIO_NO_ENCONTRADO` | #60 | No existe un consultorio con ese identificador. |
 
-En #53 y #55 los errores por fila viajan en el campo `error` de cada fila del resultado (no como status de la respuesta): la importación es parcial y responde `200` aunque todas las filas se rechacen.
+En #53, #55 y #57 los errores por fila viajan en el campo `error` de cada fila del resultado (no como status de la respuesta): la importación es parcial y responde `200` aunque todas las filas se rechacen.
 
 ### 5.5 Códigos de turnos
 
@@ -2432,7 +2631,7 @@ Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2"
 
 #### 6.1.1 Iniciar sesión (imagen 14) · RF-01, RF-02
 
-- **Se ve:** logo, "Agenda médica", "Acceso para empleados", campos "Cédula de identidad" (texto de ayuda "Sin puntos ni guiones") y "Contraseña" (ayuda "Mínimo 8 caracteres"), botón "Ingresar", enlace "Es mi primera vez" y, abajo, "¿Es socio? Ingresar por el acceso de socios".
+- **Se ve:** logo, "Médica Oriental", "Acceso para empleados", campos "Cédula de identidad" (texto de ayuda "Sin puntos ni guiones") y "Contraseña" (ayuda "Mínimo 8 caracteres"), botón "Ingresar", enlace "Es mi primera vez" y, abajo, "¿Es socio? Ingresar por el acceso de socios".
 - **Endpoints:** "Ingresar" → #1 con `acceso: "EMPLEADO"`. "Es mi primera vez" → #4 y, desde el correo, #5. La sesión se sostiene con #2 y #3.
 - **Mensajes:** no hay mensaje de error dibujado en esta variante; en la móvil (6.2.1) el texto es el que cubre P-33.
 - **Sin mockup:** las pantallas de pedir la activación y de completarla (dirección, teléfonos, contraseña) no están dibujadas, solo el enlace. La ayuda "Sin puntos ni guiones" apoya la propuesta de CI solo con dígitos (P-17).
@@ -2515,9 +2714,9 @@ Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis
 
 #### 6.2.2 Consultar disponibilidad (imagen 16) · RF-08
 
-- **Se ve:** título "Agendar consulta". "Especialidad (obligatorio)" (con "Cardiología" elegida), "Médico (opcional)" ("Todos"), "Desde" y "Hasta" (`dd/mm/aaaa`), "Orden: fecha más próxima ▾" y botón "Buscar". Sección "Números libres": tarjetas con "Mar 13/10/2026 · 09:20 – 09:40", "Dra. Apellido · Cardiología", "Consultorio 12 · Piso 2", etiqueta "Requiere pase" y botón "Agendar".
-- **Endpoints:** "Buscar" → #16 (`especialidadId` obligatorio, `medicoId`, `fechaDesde`, `fechaHasta`, `orden`: `fecha` o `apellidoMedico`). Selectores → #6 y #10. Cada tarjeta es un `NumeroDisponibleDTO`; "Requiere pase" es `especialidad.requierePase`.
-- **Coincide con el contrato:** `especialidadId` es obligatorio en el RF-08, en el CU 3.2.1 y en el mockup. El día abreviado ("Mar", "Mié") lo calcula el cliente. El estado vacío es el mensaje de CU 3.2.1, "No se encontraron turnos disponibles para los criterios seleccionados", que no está dibujado.
+- **Se ve:** título "Agendar consulta". "Especialidad (opcional)" (con "Cardiología" elegida), "Médico (opcional)" ("Todos"); para buscar se debe seleccionar al menos uno, "Desde" y "Hasta" (`dd/mm/aaaa`), "Orden: fecha más próxima ▾" y botón "Buscar". Sección "Números libres": tarjetas con "Mar 13/10/2026 · 09:20 – 09:40", "Dra. Apellido · Cardiología", "Consultorio 12 · Piso 2", etiqueta "Requiere pase" y botón "Agendar".
+- **Endpoints:** "Buscar" → #16 (`especialidadId` y `medicoId` opcionales por separado, al menos uno requerido; `fechaDesde`, `fechaHasta`, `orden`: `fecha` o `apellidoMedico`). Selectores → #6 y #10. Cada tarjeta es un `NumeroDisponibleDTO`; "Requiere pase" es `especialidad.requierePase`.
+- **Coincide con el contrato actualizado:** RF-08, CU 3.2.1 y el mockup exigen especialidad o médico, al menos uno. El día abreviado ("Mar", "Mié") lo calcula el cliente. El estado vacío es el mensaje de CU 3.2.1, "No se encontraron turnos disponibles para los criterios seleccionados", que no está dibujado.
 - **No muestra:** el número dentro del turno (`numero`), que sí aparece en la pantalla siguiente.
 
 #### 6.2.3 Agendar consulta (imagen 10) · RF-09
@@ -2576,6 +2775,8 @@ Las rutas que propone este contrato se detallan en la sección 3. Decisiones sob
 9. **Datos personales (#46, #47, #50, RF-06):** dirección y teléfonos aplican de inmediato; el correo se aplica solo tras confirmar el enlace enviado al correo **nuevo** (tipo `CAMBIO_CORREO`, 24 h, un solo uso), como exige el RF. `telefono2` es el único campo anulable: `""` o `null` explícito lo borra y ausente lo conserva. Cualquier campo fuera de los cuatro editables se rechaza con `400 VALIDACION` nombrándolo.
 10. **Modificación de turno semanal (#51, RF-20):** solo el consultorio. "Consultas Agendadas cuyo día todavía no terminó" se interpreta como `fecha >= hoy` (hora de Uruguay). El control de solapamientos de RF-13 se revalida sobre las fechas **activas** vigentes; las suspendidas se mueven sin revalidar (si se rehabilitan, RF-15 revalida en ese momento). Enviar el consultorio actual es un no-op `200`.
 
+11. **P-16 resuelta (RF-08, #10 y #16):** SOCIO y FUNCIONARIO pueden consultar `GET /api/medicos`; el socio recibe todos los médicos habilitados aunque no tengan números libres, con campos mínimos. La disponibilidad requiere al menos uno de los filtros `especialidadId` o `medicoId`, y por médico solo abarca todas sus especialidades. La matriz de roles ya habilitaba al socio; se actualizaron la seguridad y el resto del contrato.
+
 ### 7.2 Contradicciones entre documentos
 
 Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el PR.
@@ -2590,7 +2791,11 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 
 Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
 
-RF-07 y RF-28 cartelera de novedades, RF-34 carga masiva de consultorios, RF-38 corrección de datos, RF-42 a RF-44 estadísticas adicionales, RF-45 inactivación y reactivación de empleados.
+RF-07 y RF-28 cartelera de novedades, RF-42 a RF-44 estadísticas adicionales.
+
+RF-45 salió de esta lista el 04/11/2026: tiene contrato confirmado en los endpoints #61 y #62 (sección 3.16).
+
+RF-34 y RF-38 salieron de esta lista el 04/11/2026: tienen contrato confirmado en los endpoints #56 a #60 (secciones 3.14 y 3.15).
 
 RF-30 y RF-32 salieron de esta lista el 02/11/2026: tienen contrato confirmado en los endpoints #52 a #55 (sección 3.14).
 
@@ -2619,7 +2824,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-13 | Estadísticas: ¿"cada turno" de RF-40 es el patrón semanal o la fecha concreta? ¿El porcentaje es 0 a 100 o 0 a 1? ¿La unidad de "Sin datos" es `null`? | #34, #35, #36 | usa 0 a 100 y `null` como "Sin datos". |
 | P-14 | Notificaciones: ¿hay estado leído/no leído y cómo se marca (RF y modelo de datos no lo definen)? ¿Se listan los recordatorios aún no vencidos (`programada_para` futuro)? ¿Cuánto tiempo se conservan? ¿Se da de baja el token push al cerrar sesión o cuando otro socio inicia sesión en el mismo dispositivo (`token` es único)? RNF-23 habla de push en Android; ¿vale también el push web? | #32, #33 | lista todo sin estado de lectura; no da de baja el token. |
 | P-15 | RF-16 pide mostrar las consultas del día para confirmar al socio. ¿Se debe mostrar también su nombre y apellido para verificar que es la persona correcta? `List<ConsultaDTO>` no los trae. | #26 | muestra solo las consultas. |
-| P-16 | ¿Qué médicos lista #10: solo activos (RF-13), o también inactivos para filtrar turnos históricos o suspendidos (RF-17, RF-45)? ¿Un socio ve a todos los médicos activos o solo a los que tienen números ofrecidos? | #10, #15, #16 | muestra solo médicos activos. |
+
 | P-17 | Formato de la CI en el cable: solo dígitos (propuesta) o con puntos y guion. ¿Quién normaliza? Los mockups piden "Sin puntos ni guiones" en los campos de CI, pero no definen el formato en el cable. | #1, #4, #11, #26, #27, #28 | envía solo dígitos. |
 | P-18 | Longitud máxima de los textos libres: afección, tratamiento, observaciones, observación de la suspensión, dirección. Ningún documento la fija. | #5, #24, #31 | no limita más que lo razonable en pantalla. |
 | P-19 | Valores por defecto y máximos de `size`. | todos los listados paginados | usa 20 y máximo 100. |

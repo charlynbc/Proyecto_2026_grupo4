@@ -20,9 +20,10 @@ class SpecialtiesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final specialties = ref.watch(specialtySearchProvider);
+    final specialties = ref.watch(specialtySearchResultsProvider);
     final filters = ref.watch(specialtyFiltersControllerProvider);
-    final hasFilters = (filters.name?.trim().isNotEmpty ?? false) ||
+    final hasFilters =
+        (filters.name?.trim().isNotEmpty ?? false) ||
         filters.requiresReferral != null;
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
@@ -45,6 +46,11 @@ class SpecialtiesScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             SpecialtyFilterBar(
+              order: filters.order,
+              ascending: filters.ascending,
+              onSort: (order, ascending) => ref
+                  .read(specialtyFiltersControllerProvider.notifier)
+                  .sortBy(order, ascending: ascending),
               onSearch: (selected) => ref
                   .read(specialtyFiltersControllerProvider.notifier)
                   .apply(
@@ -52,9 +58,8 @@ class SpecialtiesScreen extends ConsumerWidget {
                     requiresReferral: selected.requiresReferral,
                     order: selected.order,
                   ),
-              onClear: () => ref
-                  .read(specialtyFiltersControllerProvider.notifier)
-                  .clear(),
+              onClear: () =>
+                  ref.read(specialtyFiltersControllerProvider.notifier).clear(),
             ),
             const SizedBox(height: 16),
             ...specialties.when(
@@ -83,7 +88,9 @@ class SpecialtiesScreen extends ConsumerWidget {
                           key: Key('specialty-filter-empty'),
                         )
                       else
-                        const Text('Todavía no hay especialidades registradas.'),
+                        const Text(
+                          'Todavía no hay especialidades registradas.',
+                        ),
                     ]
                   : [for (final item in items) _SpecialtyTile(item)],
             ),

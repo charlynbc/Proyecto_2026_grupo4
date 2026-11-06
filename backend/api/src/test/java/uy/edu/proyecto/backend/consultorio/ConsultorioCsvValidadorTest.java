@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import uy.edu.proyecto.backend.csv.CsvArchivo;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -14,13 +16,15 @@ class ConsultorioCsvValidadorTest {
     private final ConsultorioCsvValidador validador =
             new ConsultorioCsvValidador();
 
-    private ConsultorioCsvParser.Fila fila(
+    private CsvArchivo.FilaCruda fila(
             int numero,
             String nombre,
             String ubicacion
     ) {
-        return new ConsultorioCsvParser.Fila(
-                numero, nombre, ubicacion, null
+        return new CsvArchivo.FilaCruda(
+                numero,
+                java.util.Arrays.asList(nombre, ubicacion),
+                null
         );
     }
 
@@ -140,10 +144,9 @@ class ConsultorioCsvValidadorTest {
 
     @Test
     void conservaErrorDetectadoPorParser() {
-        var filaConError = new ConsultorioCsvParser.Fila(
+        var filaConError = new CsvArchivo.FilaCruda(
                 4,
-                null,
-                null,
+                List.of(),
                 "La fila debe tener exactamente 2 columnas"
         );
 
