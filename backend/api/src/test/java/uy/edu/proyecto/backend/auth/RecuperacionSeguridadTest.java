@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,17 @@ class RecuperacionSeguridadTest {
                 .andExpect(jsonPath("$.message").value("mensaje"));
 
         verify(service).solicitar(any());
+    }
+
+    @Test
+    void validarEnlaceEsPublicoYResponde200SinCuerpo() throws Exception {
+        mockMvc.perform(post("/api/auth/recuperacion/validar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(""));
+
+        verify(service).validarEnlace(new ValidarEnlaceRequest("token"));
     }
 
     @Test

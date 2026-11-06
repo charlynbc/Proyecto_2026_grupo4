@@ -47,6 +47,11 @@ void main() {
     await tester.tap(find.byKey(const Key('filter-specialty')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Medicina General').last);
+    await tester.pumpAndSettle();
+    final search = find.byKey(const Key('availability-search-button'));
+    await tester.ensureVisible(search);
+    await tester.pumpAndSettle();
+    await tester.tap(search);
     await _wait(tester);
     final book = find.widgetWithText(FilledButton, 'Agendar').last;
     await tester.ensureVisible(book);
@@ -78,6 +83,11 @@ void main() {
     await tester.tap(find.byKey(const Key('filter-specialty')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cardiología').last);
+    await tester.pumpAndSettle();
+    final search = find.byKey(const Key('availability-search-button'));
+    await tester.ensureVisible(search);
+    await tester.pumpAndSettle();
+    await tester.tap(search);
     await _wait(tester);
     final book = find.widgetWithText(FilledButton, 'Agendar').last;
     await tester.ensureVisible(book);

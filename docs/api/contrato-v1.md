@@ -194,6 +194,8 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 41 | `GET /api/medico/atenciones` | consulta de las atenciones registradas por el médico (sin operación propia en 2.1 a 2.7) | `AtencionMedicaDTO` | - | 25 |
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | detalle de una atención propia | `AtencionMedicaDTO` | - | 25 |
 | 43 | `GET /api/medico/pases` | consulta de los pases emitidos por el médico (sin operación propia en 2.1 a 2.7) | `PaseEmitidoDTO` | - | 26 |
+| 63 | `POST /api/auth/primer-ingreso/validar` | validación anticipada sin consumo (extensión de RF-02) | `ValidarEnlaceRequest` | S02 | 02 |
+| 64 | `POST /api/auth/recuperacion/validar` | validación anticipada sin consumo (extensión de RF-05) | `ValidarEnlaceRequest` | - | 05 |
 
 La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`; los números posteriores al #36 se reflejan en ambos documentos (el #37 es pases disponibles; el #44 es cancelación por funcionario).
 
@@ -273,19 +275,20 @@ Sin cuerpo. Rota el refresh: invalida el anterior y emite otro en la cookie. **P
 | Status | `code` | Cuándo |
 |---|---|---|
 | 401 | `SESION_INVALIDA` | No hay cookie, está vencida o revocada, o la cuenta fue inactivada. El cliente descarta sus credenciales y vuelve al login. |
-| 403 | `CSRF_INVALIDO` | Falla la protección CSRF que arquitectura 8.3 exige para operaciones autenticadas por cookie (P-02). |
 
 <a id="e03"></a>
 #### #3 · `POST /api/auth/logout`
 
 - **Roles:** cualquier rol autenticado.
-- **RF:** RF-03, RNF-08. **Diseño:** arquitectura 8.3. **Estado:** PROPUESTA.
+- **RF:** RF-03, RNF-08. **Diseño:** arquitectura 8.3. **Estado:** CONFIRMADA (backend, 06/11/2026).
 
 Sin cuerpo. Revoca la sesión en el servidor y borra la cookie de renovación. El cliente descarta su token.
 
 **Respuesta 204**, sin cuerpo.
 
-**Errores:** `401 NO_AUTENTICADO` si el token ya no es válido (el cliente igual descarta sus credenciales). `403 CSRF_INVALIDO` (P-02).
+**Errores:** `401 NO_AUTENTICADO` si el token de acceso falta o no es válido (el cliente igualmente descarta sus credenciales).
+
+**Comportamiento implementado:** requiere JWT de acceso mediante `Authorization: Bearer`; la cookie `refresh_token` se revoca si está presente, y se devuelve `204` borrando la cookie de renovación. No existe validación CSRF en `SecurityConfig` y **no se devuelve** `403 CSRF_INVALIDO`. La exigencia de CSRF para operaciones basadas en cookie de la arquitectura 8.3 sigue como **deuda de seguridad P-02**; resolverla requiere una decisión de arquitectura y coordinación con frontend, no solamente agregar un error al contrato.
 
 <a id="e04"></a>
 #### #4 · `POST /api/auth/primer-ingreso/solicitar`
@@ -376,6 +379,8 @@ Errores: `400 ENLACE_INVALIDO` (mismo código y mensaje si el enlace no existe, 
 | 400 | `ENLACE_INVALIDO` | El enlace no existe, venció, ya se usó, o la cuenta fue inactivada por un administrador. **Mismo código y mismo mensaje en los cuatro casos** (el primer ingreso no revierte una inactivación, RF-02). Mensaje: "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso." |
 
 Preguntas relacionadas: P-04, P-05, P-06, P-18.
+
+Al abrir la pantalla, el cliente puede consultar [#63](#e63) para comprobar el enlace antes de pedir los datos. Completar vuelve a validar su vigencia.
 
 <a id="e45"></a>
 #### #45 · `POST /api/auth/cambiar-contrasena`
@@ -2149,7 +2154,7 @@ Aplica el cambio de correo pendiente. El enlace es de un solo uso, válido 24 ho
 { "message": "Tu contraseña se actualizó correctamente. Ya podés iniciar sesión." }
 ```
 
-No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P-06). **Al completarse se revocan todas las sesiones de la cuenta** (decisión del backend: la contraseña anterior pudo estar comprometida). Nunca se envía una contraseña por correo.
+No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P-06). **Al completarse se revocan todas las sesiones de la cuenta** (decisión del backend: la contraseña anterior pudo estar comprometida). Nunca se envía una contraseña por correo. Al abrir la pantalla, el cliente puede consultar [#64](#e64) antes de pedir la contraseña; completar vuelve a validar el enlace.
 
 **Errores**
 
@@ -2157,6 +2162,47 @@ No devuelve token ni inicia sesión: el cliente vuelve al login (igual que #5, P
 |---|---|---|
 | 400 | `VALIDACION` | Falta un campo o la contraseña no cumple la longitud. No consume el enlace. |
 | 400 | `ENLACE_INVALIDO` | El enlace no existe, venció, ya se usó, fue reemplazado por uno más nuevo o la cuenta fue inactivada. Mismo código y mensaje en todos los casos. Mensaje: "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso." |
+
+### 3.13.1 Validación anticipada de enlaces, sin consumo (RF-02 y RF-05)
+
+<a id="e63"></a>
+#### #63 · `POST /api/auth/primer-ingreso/validar`
+
+- **Roles:** público; recibe el token de primer ingreso.
+- **RF:** RF-02, RNF-10. **Estado:** IMPLEMENTADA EN BACKEND (PR #75).
+
+<a id="e64"></a>
+#### #64 · `POST /api/auth/recuperacion/validar`
+
+- **Roles:** público; recibe el token de recuperación de contraseña.
+- **RF:** RF-05, RNF-10. **Estado:** IMPLEMENTADA EN BACKEND (PR #75).
+
+**Contrato común de #63 y #64.** El frontend llama al endpoint del flujo correspondiente apenas abre el enlace, antes de solicitar la contraseña. No requiere JWT; no enviar `Authorization` ni llamar a refresh para esta consulta. El token viaja en el cuerpo JSON, no en la URL de la API.
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `token` | texto | sí | El token opaco recibido por correo, sin modificarlo. |
+
+```json
+{ "token": "<token-del-enlace>" }
+```
+
+**Respuesta 200, sin cuerpo.** Solo indica que en ese instante existe un enlace del tipo esperado, sin usar y sin vencer, asociado a una cuenta habilitada. Para #63 la cuenta debe tener el primer ingreso pendiente; para #64 debe haberlo completado. No devuelve identidad, correo, rol ni vencimiento.
+
+**Respuesta 400.** Todos los enlaces inválidos reciben exactamente el mismo código y mensaje que #5 y #49 (RNF-10): inexistente, vencido, usado, reemplazado, de otro tipo, cuenta inactiva o en un estado incompatible con el flujo. Un cuerpo ausente, `null`, o un token ausente, `null`, vacío o en blanco recibe también esta respuesta. El JSON mal formado o con tipos incompatibles es un error de formato HTTP `400`, previo a validar el enlace.
+
+```json
+{
+  "code": "ENLACE_INVALIDO",
+  "message": "El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso."
+}
+```
+
+**Sin efectos.** La consulta es de solo lectura: no marca uso, no renueva el vencimiento, no invalida otros enlaces, no modifica la cuenta ni las sesiones y no envía correo. Puede repetirse. Las respuestas de validación incluyen `Cache-Control` con `no-store`.
+
+**Vigencia al guardar.** Un `200` no reserva el enlace ni garantiza que siga vigente después: puede vencer, usarse, reemplazarse o inactivarse la cuenta entre ambas llamadas. #5 y #49 mantienen su validación al completar y el frontend debe seguir manejando `ENLACE_INVALIDO` al guardar.
+
+**Tasa de pedidos.** No se incorpora un límite específico en esta entrega. Los tokens existentes tienen 256 bits aleatorios; la consulta busca el hash SHA-256 mediante el índice único de `enlace_cuenta` y no genera correo ni escrituras. No se añaden variables de configuración, dependencias ni cambios de esquema.
 
 ### 3.14 Cargas masivas (administrador)
 
@@ -2314,6 +2360,37 @@ Cualquier otro campo (`rol`, `estado`, `habilitada`, `id`, `fechaAlta`, ...) se 
 | 409 | `CI_EN_USO` | La CI corregida ya pertenece a otra persona. |
 | 409 | `ESPECIALIDAD_EN_USO` | Se intenta quitar una especialidad con turnos vigentes o consultas agendadas futuras. |
 
+<a id="e68"></a>
+#### #68 · `GET /api/usuarios/{id}`
+
+- **Roles:** ADMINISTRADOR.
+- **RF:** RF-38. **Estado:** CONFIRMADA (backend, 06/11/2026).
+- **Parámetro de ruta:** `id` (entero positivo, identificador de la **cuenta**, no de la persona).
+- **Cuerpo:** ninguno.
+
+Consulta el detalle completo necesario para precargar la tarjeta de corrección administrativa, **sin modificar registros ni bloquear filas para escritura**. Se incluyen cuentas de cualquier rol, activas, inactivas y pendientes de primer ingreso. Utiliza exactamente el mismo DTO de respuesta que `PATCH /api/usuarios/{id}` (#58), con `id`, `ci`, `nombre`, `apellido`, `fechaNacimiento`, `rol`, `correo`, `telefono1`, `telefono2`, `direccion`, `especialidadIds`, `estado` y `activada`. Para médicos, `especialidadIds` contiene los IDs asignados; para otros roles, `[]`.
+
+**Respuesta 200** (ejemplo):
+```json
+{
+  "id": 12,
+  "ci": "34567894",
+  "nombre": "Sofia Elena",
+  "apellido": "Socia",
+  "fechaNacimiento": "1985-06-06",
+  "rol": "MEDICO",
+  "correo": "sofia@ejemplo.invalid",
+  "telefono1": "099111222",
+  "telefono2": null,
+  "direccion": "Calle Falsa 123",
+  "especialidadIds": [3, 7],
+  "estado": "ACTIVA",
+  "activada": true
+}
+```
+
+**Errores:** `401 NO_AUTENTICADO` sin sesión válida; `403 ACCESO_DENEGADO` sin rol ADMINISTRADOR; `404 USUARIO_NO_ENCONTRADO` si la cuenta no existe.
+
 <a id="e59"></a>
 #### #59 · `PATCH /api/especialidades/{id}`
 
@@ -2405,6 +2482,73 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 | 409 | `MEDICO_CON_CONSULTAS_AGENDADAS` | Existen consultas agendadas que impiden la inactivación. |
 | 409 | `EMPLEADO_DUPLICADO` | Otra cuenta de empleado de la misma CI impide la reactivación. |
 
+### 3.17 Cartelera de novedades (RF-28 y RF-07)
+
+Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
+
+<a id="e65"></a>
+#### #65 · `POST /api/anuncios`
+
+- **Roles:** ADMINISTRADOR. **RF:** RF-28. **Estado:** IMPLEMENTADA EN BACKEND (PR #71).
+- **Pedido:** `multipart/form-data` con una parte `datos` de tipo `application/json` y hasta cinco partes opcionales de archivo llamadas `imagenes`, en el orden del carrusel. Ejemplo de `datos`:
+
+```json
+{ "titulo": "Campaña de vacunación", "resumen": "Comienza el lunes", "texto": "**Vacunarse** ayuda a prevenir la gripe." }
+```
+
+`titulo` es obligatorio (1 a 160 caracteres sin contar espacios exteriores). `resumen` es opcional (hasta 300 caracteres) y `texto` es opcional. La publicación admite texto, imágenes o ambos. Si se omite `texto` o queda vacío, se exige al menos una imagen. El título y el resumen por sí solos no cuentan como contenido. Para publicar solo texto se omiten todas las partes `imagenes`. Cada archivo debe ser JPEG o PNG real, de hasta 5 MB y hasta 6000 × 6000 píxeles. El servidor genera el identificador, el autor, la fecha y las referencias de los archivos. Si la publicación falla, no queda una fila de anuncio publicada; la eliminación de archivos ya cargados se intenta como compensación.
+
+- **Respuesta `201 Created`:** cabecera `Location: /api/anuncios/{id}` y cuerpo con la misma forma del detalle #67:
+
+```json
+{
+  "id": 42,
+  "titulo": "Campaña de vacunación",
+  "resumen": "Comienza el lunes",
+  "texto": "**Vacunarse** ayuda a prevenir la gripe.",
+  "publicadoEn": "2026-11-03T12:00:00Z",
+  "imagenes": [
+    { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." },
+    { "id": 102, "orden": 1, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+  ]
+}
+```
+
+- **Errores:** `400 VALIDACION` por datos inválidos, falta de texto e imágenes, más de cinco archivos, o imagen vacía, de formato inválido o con dimensiones excedidas; `400 IMAGEN_INVALIDA` si una imagen supera 5 MB o se excede el límite multipart; `401 NO_AUTENTICADO`; `403 ACCESO_DENEGADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si Storage no responde.
+
+<a id="e66"></a>
+#### #66 · `GET /api/anuncios?page=0&size=20`
+
+- **Roles:** cualquier usuario autenticado. **RF:** RF-07. **Estado:** IMPLEMENTADA EN BACKEND (PR #71).
+- **Parámetros:** `page` desde 0 (por defecto 0), `size` de 1 a 100 (por defecto 20). El inicio puede solicitar `size=5`. Para un anuncio sin imágenes, `imagenPortada` es `null`. Los registros anteriores a la incorporación de `titulo` pueden devolver `titulo: null` en el listado y en el detalle. Orden fijo: `publicadoEn` descendente y, ante empate, `id` descendente.
+- **Respuesta `200 OK`:**
+
+```json
+{
+  "items": [
+    {
+      "id": 42,
+      "titulo": "Campaña de vacunación",
+      "resumen": "Comienza el lunes",
+      "publicadoEn": "2026-11-03T12:00:00Z",
+      "imagenPortada": { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+    }
+  ],
+  "page": 0,
+  "size": 20,
+  "total": 1
+}
+```
+
+- **Errores:** `400 VALIDACION` por paginación inválida; `401 NO_AUTENTICADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar el enlace de una imagen.
+
+<a id="e67"></a>
+#### #67 · `GET /api/anuncios/{id}`
+
+- **Roles:** cualquier usuario autenticado. **RF:** RF-07. **Estado:** IMPLEMENTADA EN BACKEND (PR #71).
+- **Respuesta `200 OK`:** la forma de detalle ilustrada en #65, con todas las imágenes ordenadas para el carrusel. Sin imágenes, `imagenes` es `[]` en el detalle y en la respuesta de publicación. Si se publica solo con imágenes, `texto` es `null`.
+- **Errores:** `401 NO_AUTENTICADO`; `404 NO_ENCONTRADO` si no existe el anuncio; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar un enlace.
+
 ## 4. Matriz de roles por endpoint
 
 ✔ = permitido. "Auth" = cualquier rol autenticado. Todo lo que no tiene ✔ responde `403 ACCESO_DENEGADO` (o `401` si no hay sesión válida).
@@ -2472,6 +2616,12 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 | 60 | `PATCH /api/consultorios/{id}` | | | | | ✔ |
 | 61 | `POST /api/usuarios/{id}/inactivar` | | | | | ✔ |
 | 62 | `POST /api/usuarios/{id}/reactivar` | | | | | ✔ |
+| 63 | `POST /api/auth/primer-ingreso/validar` | ✔ (token) | | | | |
+| 64 | `POST /api/auth/recuperacion/validar` | ✔ (token) | | | | |
+| 65 | `POST /api/anuncios` | | | | | ✔ |
+| 66 | `GET /api/anuncios` | | ✔ | ✔ | ✔ | ✔ |
+| 67 | `GET /api/anuncios/{id}` | | ✔ | ✔ | ✔ | ✔ |
+| 68 | `GET /api/usuarios/{id}` | | | | | ✔ |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2513,7 +2663,6 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 |---|---|---|---|
 | 401 | `CREDENCIALES_INVALIDAS` | #1 | Cualquier rechazo del login, sin distinguir motivo. |
 | 401 | `SESION_INVALIDA` | #2 | Cookie de renovación ausente, vencida o revocada. |
-| 403 | `CSRF_INVALIDO` | #2, #3 | Falla la protección CSRF (P-02). |
 | 400 | `ENLACE_INVALIDO` | #5, #49, #50 | Enlace inexistente, vencido, usado, reemplazado o cuenta inactivada. |
 | 400 | `CONTRASENA_ACTUAL_INCORRECTA` | #45 | La contraseña actual no coincide. |
 
@@ -2527,6 +2676,8 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 409 | `DATOS_PERSONA_DISCORDANTES` | #11 | CI existente con nombre, apellido o fecha de nacimiento distintos. |
 | 409 | `SOCIO_DUPLICADO` | #11 | La CI ya tiene cuenta de socio. |
 | 409 | `EMPLEADO_DUPLICADO` | #11 | La CI ya tiene cuenta de empleado habilitada o pendiente. |
+| 400 | `IMAGEN_INVALIDA` | #65 | Una imagen supera 5 MB o se excede el límite multipart. |
+| 503 | `ALMACENAMIENTO_NO_DISPONIBLE` | #65 a #67 | No se pudo acceder a Storage o firmar la imagen. |
 | 400 | `CSV_INVALIDO` | #52 a #57 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
 | 404 | `USUARIO_NO_ENCONTRADO` | #58 | No existe una cuenta con ese identificador. |
 | 409 | `CI_EN_USO` | #58 | La CI corregida ya pertenece a otra persona. |
@@ -2763,7 +2914,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | # | Pregunta | Dónde afecta | Mientras tanto el cliente… |
 |---|---|---|---|
 | P-01 | El error uniforme es solo `{code, message}`. ¿Cómo se informa **qué campo** falló en un formulario (400) y **qué fechas y números** chocan en un solapamiento (CU 3.3.1, 7.A.2: "informa las fechas y números en conflicto")? | #11, #13, #25 y todos los formularios | muestra el `message` completo en un aviso general, sin marcar campos. |
-| P-02 | La protección CSRF de `refresh` y `logout` (arquitectura 8.3) no define el mecanismo: ¿qué cabecera, cómo la obtiene el cliente, cómo la gestiona Android? Tampoco el nombre ni el `Path` de la cookie. | #2, #3 | no envía nada especial. |
+| P-02 | **Pendiente de decisión de seguridad:** arquitectura 8.3 exige CSRF para operaciones con cookie, pero el backend actual tiene `csrf.disable()` y no emite `CSRF_INVALIDO`. El refresh usa la cookie `refresh_token` (`HttpOnly`, `SameSite` configurable, `Path=/api/auth`); logout requiere un JWT Bearer. Definir una protección concreta para refresh con el frontend antes del despliegue público, sin introducir una cabecera incompatible de forma unilateral. | #2, #3 | no envía cabecera CSRF; depende de la autenticación y política de cookies existentes. |
 | P-03 | RF-01 no define límite de intentos fallidos ni bloqueo temporal de login. | #1 | no asume ninguno. |
 | P-04 | El primer ingreso (CU 3.1.2, pasos 8 y 9) valida el enlace y **muestra el correo registrado, no editable**, antes de pedir los datos. El Diseño 2.1 a 2.7 (figuras 1 a 7) solo tiene `activar(token, datos, clave)`: no hay operación para validar el enlace ni leer el correo. Tampoco se define a qué ruta del cliente apunta el enlace ni cómo viaja el token. | #5 | muestra el formulario sin el correo y valida el enlace recién al enviar. |
 | P-05 | ¿El backend puede distinguir en el mensaje de #5 una cuenta inactivada de un enlace vencido? Hoy van con el mismo código, y el aviso "pedí uno nuevo" no ayuda a una cuenta inactivada. | #5 | muestra el mensaje único. |

@@ -22,21 +22,25 @@ enum SortDirection {
   final String label;
 }
 
-/// Los filtros de `GET /api/disponibilidad`. La especialidad es obligatoria;
-/// el resto es opcional. Las fechas son claves de día (UTC sin hora) y se
-/// mandan como `YYYY-MM-DD`. Tiene igualdad por valor: es la clave del
-/// provider de disponibilidad.
+/// Los filtros de `GET /api/disponibilidad`. Hace falta al menos la
+/// especialidad o el médico (sin ninguno el servidor responde 400); el resto
+/// es opcional y lo que no está se omite al consultar. Las fechas son claves
+/// de día (UTC sin hora) y se mandan como `YYYY-MM-DD`. Tiene igualdad por
+/// valor: es la clave del provider de disponibilidad.
 class AvailabilityQuery {
   const AvailabilityQuery({
-    required this.specialtyId,
+    this.specialtyId,
     this.doctorId,
     this.from,
     this.to,
     this.order = AvailabilityOrder.date,
     this.direction = SortDirection.asc,
-  });
+  }) : assert(
+         specialtyId != null || doctorId != null,
+         'Hace falta la especialidad o el médico',
+       );
 
-  final int specialtyId;
+  final int? specialtyId;
   final int? doctorId;
   final DateTime? from;
   final DateTime? to;
@@ -75,7 +79,7 @@ class AvailabilityQuery {
   );
 
   Map<String, dynamic> toQueryParameters() => {
-    'especialidadId': specialtyId,
+    'especialidadId': ?specialtyId,
     'medicoId': ?doctorId,
     'fechaDesde': ?(from == null ? null : formatApiDate(from!)),
     'fechaHasta': ?(to == null ? null : formatApiDate(to!)),
