@@ -2,6 +2,7 @@ import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/agenda/models/availability_query.dart';
 import 'package:agenda_medica/features/agenda/models/available_number.dart';
+import 'package:agenda_medica/features/agenda/models/doctor_with_specialties.dart';
 import 'package:agenda_medica/features/agenda/models/referral.dart';
 import 'package:agenda_medica/features/agenda/providers/agenda_repository_provider.dart';
 import 'package:agenda_medica/features/agenda/providers/available_referrals_provider.dart';
@@ -50,6 +51,10 @@ class _CountingAgendaRepository implements AgendaRepository {
 
   @override
   Future<List<AvailableNumber>> listAvailability(AvailabilityQuery query) =>
+      throw UnimplementedError();
+
+  @override
+  Future<List<DoctorWithSpecialties>> listDoctors({int? specialtyId}) =>
       throw UnimplementedError();
 
   @override
