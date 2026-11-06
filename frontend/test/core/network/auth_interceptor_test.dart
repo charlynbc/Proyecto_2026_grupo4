@@ -447,4 +447,96 @@ void main() {
 
     expect(container.read(sessionProvider).isAuthenticated, isTrue);
   });
+
+  group('rutas de enlace: se autorizan con el token del correo', () {
+    // Escritas a mano (contrato, filas 5, 49, 50, 63 y 64): si alguien saca
+    // una de la lista del interceptor, cae el test de esa ruta.
+    const linkPaths = [
+      '/api/auth/primer-ingreso/validar',
+      '/api/auth/primer-ingreso/completar',
+      '/api/auth/recuperacion/validar',
+      '/api/auth/recuperacion/completar',
+      '/api/auth/cambio-correo/confirmar',
+    ];
+    const linkBody = {'token': 'abc123'};
+
+    for (final path in linkPaths) {
+      test('$path sale sin Authorization aunque haya sesión', () async {
+        Map<String, dynamic>? sent;
+        setUpWith((o) {
+          sent = Map.of(o.headers);
+          return ResponseBody.fromString('', 200);
+        });
+        startSession();
+
+        await dio.post<void>(path, data: linkBody);
+
+        expect(sent!.containsKey('Authorization'), isFalse);
+      });
+
+      test(
+        'un 401 en $path no renueva, no reintenta ni cierra la sesión',
+        () async {
+          setUpWith((o) {
+            if (o.path == ApiRoutes.authRefresh) {
+              return _json(200, sessionBody('nuevo'));
+            }
+            // El backend responde así a un Bearer inválido: 401 sin cuerpo.
+            return ResponseBody.fromString('', 401);
+          });
+          startSession();
+
+          await expectLater(
+            dio.post<void>(path, data: linkBody),
+            throwsA(
+              isA<DioException>().having(
+                (e) => e.response?.statusCode,
+                'statusCode',
+                401,
+              ),
+            ),
+          );
+
+          expect(adapter.paths, [path]);
+          final session = container.read(sessionProvider);
+          expect(session.isAuthenticated, isTrue);
+          expect(session.accessToken, 'viejo');
+          expect(session.expired, isFalse);
+        },
+      );
+    }
+
+    test(
+      'un Authorization puesto a mano en una ruta de enlace se descarta',
+      () async {
+        Map<String, dynamic>? sent;
+        setUpWith((o) {
+          sent = Map.of(o.headers);
+          return ResponseBody.fromString('', 200);
+        });
+        startSession();
+
+        await dio.post<void>(
+          '/api/auth/cambio-correo/confirmar',
+          data: linkBody,
+          options: Options(headers: {'Authorization': 'Bearer viejo'}),
+        );
+
+        expect(sent!.containsKey('Authorization'), isFalse);
+      },
+    );
+
+    test('la ruta de consultas del socio sigue llevando el Bearer', () async {
+      String? header;
+      setUpWith((o) {
+        header = o.headers['Authorization'] as String?;
+        return _json(200, {'ok': true});
+      });
+      startSession();
+
+      await dio.get<void>('/api/consultas');
+
+      expect(header, 'Bearer viejo');
+    });
+  });
 }
