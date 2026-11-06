@@ -10,6 +10,7 @@ import '../../features/agendas/screens/schedules_screen.dart';
 import '../../features/auth/models/access_type.dart';
 import '../../features/auth/models/user_role.dart';
 import '../../features/auth/providers/session_provider.dart';
+import '../../features/auth/screens/confirm_email_change_screen.dart';
 import '../../features/auth/screens/first_login_activation_screen.dart';
 import '../../features/auth/screens/first_login_request_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -53,6 +54,8 @@ const String kRecoveryRequestPath = '/recuperacion/solicitar';
 bool _isRecoveryPath(String path) =>
     path == kRecoveryPath || path == kRecoveryRequestPath;
 
+const String kEmailChangePath = '/cambio-correo';
+
 const String kDoctorShiftsPath = '/medico/turnos';
 const String kArrivalPath = '/funcionario/llegada';
 
@@ -67,9 +70,13 @@ const String kArrivalPath = '/funcionario/llegada';
 ///   demás va a login.
 /// - Con sesión: las pantallas de acceso y la raíz van a la home del rol, y
 ///   las rutas de otro rol también.
+/// - El enlace de cambio de correo se abre con o sin sesión y también
+///   mientras se verifica: quien lo abre desde el correo puede tener la
+///   sesión iniciada. Sin token no tiene nada que mostrar y va a la raíz.
 String? redirectFor(SessionState session, Uri uri) {
   final path = uri.path;
   final hasToken = (uri.queryParameters['token'] ?? '').isNotEmpty;
+  if (path == kEmailChangePath) return hasToken ? null : '/';
   switch (session.status) {
     case SessionStatus.checking:
       return path == '/' || _isFirstLoginPath(path) || _isRecoveryPath(path)
@@ -117,6 +124,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
           accountActivated: state.uri.queryParameters['activada'] == '1',
           passwordRecovered: state.uri.queryParameters['recuperada'] == '1',
+        ),
+      ),
+      GoRoute(
+        path: kEmailChangePath,
+        builder: (context, state) => ConfirmEmailChangeScreen(
+          token: state.uri.queryParameters['token'] ?? '',
         ),
       ),
       GoRoute(
