@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../cuenta/screens/account_routes.dart';
 import '../providers/auth_repository_provider.dart';
 import '../repositories/auth_repository.dart';
 
-/// Ícono de cerrar sesión reusado en el AppBar de cada sección principal.
-/// Pide confirmación antes de cerrar la sesión.
+/// Íconos de la cuenta reusados en el AppBar de cada sección principal:
+/// "Mi cuenta", que apila `/cuenta` sobre la pantalla actual, y cerrar
+/// sesión, que pide confirmación antes de cerrarla.
+///
+/// Conserva el nombre `LogoutButton` aunque ahora trae los dos íconos: así
+/// no se tocan las 13 pantallas que lo usan como `actions: [LogoutButton()]`.
 class LogoutButton extends ConsumerStatefulWidget {
   const LogoutButton({super.key});
 
@@ -51,16 +57,28 @@ class _LogoutButtonState extends ConsumerState<LogoutButton> {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: _loggingOut ? null : _confirmAndLogout,
-      tooltip: 'Cerrar sesión',
-      icon: _loggingOut
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.logout),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          key: const Key('open-account'),
+          // `push` y no `go`: la flecha de "Mi cuenta" vuelve a esta pantalla.
+          onPressed: () => context.push(kAccountPath),
+          tooltip: 'Mi cuenta',
+          icon: const Icon(Icons.account_circle_outlined),
+        ),
+        IconButton(
+          onPressed: _loggingOut ? null : _confirmAndLogout,
+          tooltip: 'Cerrar sesión',
+          icon: _loggingOut
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.logout),
+        ),
+      ],
     );
   }
 }
