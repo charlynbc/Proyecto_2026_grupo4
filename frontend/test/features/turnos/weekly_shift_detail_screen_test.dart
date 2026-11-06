@@ -1,15 +1,29 @@
+import 'dart:async';
+
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/core/fakes/fake_shift_database.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/features/auth/models/user_role.dart';
+import 'package:agenda_medica/features/consultorios/models/clinic.dart';
+import 'package:agenda_medica/features/consultorios/providers/clinic_repository_provider.dart';
+import 'package:agenda_medica/features/consultorios/repositories/clinic_repository.dart';
+import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_repository.dart';
+import 'package:agenda_medica/features/turnos/models/new_weekly_shift.dart';
+import 'package:agenda_medica/features/turnos/models/shift_number.dart';
 import 'package:agenda_medica/features/turnos/models/weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/providers/shift_repository_provider.dart';
+import 'package:agenda_medica/features/turnos/providers/weekly_shift_clinic_repository_provider.dart';
 import 'package:agenda_medica/features/turnos/repositories/fake_shift_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/fake_weekly_shift_clinic_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/shift_repository.dart';
+import 'package:agenda_medica/features/turnos/repositories/weekly_shift_clinic_repository.dart';
 import 'package:agenda_medica/features/turnos/screens/shift_routes.dart';
 import 'package:agenda_medica/features/turnos/screens/weekly_shift_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 import '../../helpers/shift_listing_data.dart';
 
@@ -28,12 +42,55 @@ class _FlakyShiftRepository extends FakeShiftRepository {
 }
 
 class _Harness {
-  _Harness(this.shiftDb, this.router, this.repository);
+  _Harness(this.admin, this.shiftDb, this.router, this.repository);
 
+  final FakeAdminDatabase admin;
   final FakeShiftDatabase shiftDb;
   final GoRouter router;
   final FakeShiftRepository repository;
 }
+
+class _RecordingClinicChange implements WeeklyShiftClinicRepository {
+  _RecordingClinicChange(this.db, {this.gate});
+
+  final FakeShiftDatabase db;
+  final Completer<void>? gate;
+  int calls = 0;
+
+  @override
+  Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) async {
+    calls++;
+    if (gate != null) await gate!.future;
+    return db.changeClinic(weeklyShiftId, clinicId);
+  }
+}
+
+class _NotFoundClinic implements WeeklyShiftClinicRepository {
+  @override
+  Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) async {
+    throw const ShiftNotFoundException('No existe el consultorio indicado');
+  }
+}
+
+class _BrokenClinics implements ClinicRepository {
+  @override
+  Future<List<Clinic>> list() async => throw const ApiException();
+
+  @override
+  Future<Clinic> create({required String name, required String location}) {
+    throw UnimplementedError();
+  }
+}
+
+const _currentClinic =
+    'Consultorio actual: Consultorio 3 (Planta baja). Cambia las fechas de '
+    'hoy en adelante; las fechas pasadas conservan su consultorio.';
+const _twoAppointments =
+    'El turno tiene 2 consulta(s) agendada(s) en fechas vigentes. '
+    'Suspenda las fechas correspondientes (RF-14) y dé de alta otro turno.';
+const _overlap =
+    'Se encontraron solapamientos: fecha 2026-10-20, número 1 con número '
+    'existente 1; fecha 2026-10-20, número 2 con número existente 1';
 
 /// Monta el detalle de la configuración [index] de `buildListingDb` (0 es la
 /// de Méndez; 2, la de Acosta), o del id indicado en [id].
@@ -43,13 +100,18 @@ Future<_Harness> _pump(
   int? id,
   Size size = const Size(900, 1800),
   bool flaky = false,
+  bool clinicsFail = false,
+  WeeklyShiftClinicRepository Function(FakeShiftDatabase db)? clinicChange,
 }) async {
-  final admin = FakeAdminDatabase();
+  final admin = FakeAdminDatabase(clock: () => DateTime.utc(2026, 10, 20, 15));
   final shiftDb = buildListingDb(admin);
   final repository = flaky
       ? _FlakyShiftRepository(shiftDb)
       : FakeShiftRepository(shiftDb, latency: Duration.zero);
   final weeklyShiftId = id ?? shiftDb.weeklyShifts[index].id;
+  final clinicRepository =
+      clinicChange?.call(shiftDb) ??
+      FakeWeeklyShiftClinicRepository(shiftDb, latency: Duration.zero);
   final router = await pumpAdminScreens(
     tester,
     size: size,
@@ -67,10 +129,37 @@ Future<_Harness> _pump(
     ],
     overrides: [
       shiftRepositoryProvider.overrideWith((ref) async => repository),
+      clinicRepositoryProvider.overrideWith(
+        (ref) async => clinicsFail
+            ? _BrokenClinics()
+            : FakeClinicRepository(admin, latency: Duration.zero),
+      ),
+      weeklyShiftClinicRepositoryProvider.overrideWith(
+        (ref) async => clinicRepository,
+      ),
     ],
   );
-  return _Harness(shiftDb, router, repository);
+  return _Harness(admin, shiftDb, router, repository);
 }
+
+Future<void> _openDialog(WidgetTester tester) async {
+  final button = find.byKey(const Key('weekly-shift-change-clinic'));
+  await tester.ensureVisible(button);
+  await tester.tap(button);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pickClinic(WidgetTester tester, String name) async {
+  await tester.tap(find.byKey(const Key('weekly-shift-clinic-select')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(name).last);
+  await tester.pumpAndSettle();
+}
+
+ButtonStyleButton _saveButton(WidgetTester tester) =>
+    tester.widget<ButtonStyleButton>(
+      find.byKey(const Key('weekly-shift-clinic-save')),
+    );
 
 void main() {
   group('las rutas', () {
@@ -214,6 +303,223 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('Reintentar'), findsOneWidget);
+    });
+  });
+
+  group('cambiar consultorio', () {
+    testWidgets('abre con el actual elegido y Guardar deshabilitado', (
+      tester,
+    ) async {
+      final harness = await _pump(tester);
+      final room3Id = harness.admin.clinics
+          .firstWhere((clinic) => clinic.name == 'Consultorio 3')
+          .id;
+
+      await _openDialog(tester);
+
+      expect(find.text('Cambiar consultorio'), findsWidgets);
+      expect(find.text(_currentClinic), findsOneWidget);
+      expect(
+        tester
+            .state<FormFieldState<int>>(
+              find.byKey(const Key('weekly-shift-clinic-select')),
+            )
+            .value,
+        room3Id,
+      );
+      expect(_saveButton(tester).onPressed, isNull);
+
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-select')));
+      await tester.pumpAndSettle();
+      const names = ['Consultorio 3', 'Consultorio 7', 'Consultorio 12'];
+      for (var i = 1; i < names.length; i++) {
+        expect(
+          tester.getTopLeft(find.text(names[i - 1]).last).dy,
+          lessThan(tester.getTopLeft(find.text(names[i]).last).dy),
+        );
+      }
+    });
+
+    testWidgets('elegir otro consultorio habilita Guardar', (tester) async {
+      await _pump(tester);
+      await _openDialog(tester);
+
+      await _pickClinic(tester, 'Consultorio 7');
+
+      expect(_saveButton(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('guardar cierra, avisa y muestra el consultorio nuevo', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('Consultorio actualizado.'), findsOneWidget);
+      expect(find.text('Consultorio 7 (Piso 1)'), findsOneWidget);
+      expect(find.text('Consultorio 3 (Planta baja)'), findsNothing);
+    });
+
+    testWidgets('con consultas agendadas muestra el texto y sigue abierto', (
+      tester,
+    ) async {
+      final harness = await _pump(tester);
+      harness.shiftDb.agendadasPorTurnoSemanal[harness
+              .shiftDb
+              .weeklyShifts
+              .first
+              .id] =
+          2;
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        find.byKey(const Key('weekly-shift-clinic-error')),
+        findsOneWidget,
+      );
+      expect(find.text(_twoAppointments), findsOneWidget);
+      expect(find.text('Consultorio 3 (Planta baja)'), findsOneWidget);
+    });
+
+    testWidgets('un solapamiento muestra el texto y sigue abierto', (
+      tester,
+    ) async {
+      final harness = await _pump(tester);
+      final acosta = harness.admin.accounts.firstWhere(
+        (account) =>
+            account.role == UserRole.medico && account.lastName == 'Acosta',
+      );
+      harness.shiftDb.createWeeklyShift(
+        NewWeeklyShift(
+          doctorId: acosta.id,
+          specialtyId: 3,
+          clinicId: harness.admin.clinics
+              .firstWhere((clinic) => clinic.name == 'Consultorio 7')
+              .id,
+          weekday: 2,
+          startDate: DateTime.utc(2026, 10, 20),
+          endDate: DateTime.utc(2026, 10, 20),
+          numbers: [
+            ShiftNumber(
+              number: 1,
+              startMinutes: 9 * 60 + 10,
+              endMinutes: 9 * 60 + 30,
+            ),
+          ],
+        ),
+      );
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text(_overlap), findsOneWidget);
+    });
+
+    testWidgets('un 404 muestra el texto del servidor y sigue abierto', (
+      tester,
+    ) async {
+      await _pump(tester, clinicChange: (_) => _NotFoundClinic());
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.text('No existe el consultorio indicado'), findsOneWidget);
+    });
+
+    testWidgets('Cancelar cierra y no llama al repositorio', (tester) async {
+      late _RecordingClinicChange recording;
+      await _pump(
+        tester,
+        clinicChange: (db) => recording = _RecordingClinicChange(db),
+      );
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-cancel')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(recording.calls, 0);
+      expect(find.text('Consultorio 3 (Planta baja)'), findsOneWidget);
+    });
+
+    testWidgets(
+      'mientras envía Guardar queda deshabilitado y hay un solo envío',
+      (tester) async {
+        final gate = Completer<void>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete();
+        });
+        late _RecordingClinicChange recording;
+        await _pump(
+          tester,
+          clinicChange: (db) =>
+              recording = _RecordingClinicChange(db, gate: gate),
+        );
+        await _openDialog(tester);
+        await _pickClinic(tester, 'Consultorio 7');
+
+        await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+        await tester.pump();
+
+        expect(recording.calls, 1);
+        expect(_saveButton(tester).onPressed, isNull);
+        await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+        await tester.pump();
+        expect(recording.calls, 1);
+      },
+    );
+
+    testWidgets('si no cargan los consultorios muestra Reintentar', (
+      tester,
+    ) async {
+      await _pump(tester, clinicsFail: true);
+      await _openDialog(tester);
+
+      expect(
+        find.text('No pudimos cargar los consultorios. Intentá de nuevo.'),
+        findsOneWidget,
+      );
+      expect(find.text('Reintentar'), findsOneWidget);
+      expect(_saveButton(tester).onPressed, isNull);
+    });
+  });
+
+  group('a 320 px de ancho (con Roboto)', () {
+    setUpAll(loadRoboto);
+
+    testWidgets('el detalle no desborda', (tester) async {
+      await _pump(tester, size: const Size(320, 640));
+
+      expect(find.text('Carla Méndez'), findsOneWidget);
+      expect(
+        find.byKey(const Key('weekly-shift-change-clinic')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('el diálogo abierto no desborda', (tester) async {
+      await _pump(tester, size: const Size(320, 640));
+      await _openDialog(tester);
+
+      expect(find.text(_currentClinic), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }
