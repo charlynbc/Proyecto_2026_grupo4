@@ -113,6 +113,27 @@ public class PrimerIngresoRepository {
         );
     }
 
+    /** Consulta las mismas condiciones que activarConEnlace, sin consumir ni bloquear. */
+    public boolean existeEnlaceVigente(String tokenHash) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM public.enlace_cuenta e
+                    JOIN public.cuenta c ON c.id_cuenta = e.id_cuenta
+                    WHERE e.token_hash = ?
+                      AND e.tipo = 'PRIMER_INGRESO'
+                      AND e.usado_en IS NULL
+                      AND e.vence_en > CURRENT_TIMESTAMP
+                      AND c.habilitada = TRUE
+                      AND c.primer_ingreso_completado = FALSE
+                )
+                """,
+                Boolean.class,
+                tokenHash
+        ));
+    }
+
     public Optional<CuentaActivadaResponse> activarConEnlace(
             String tokenHash,
             String direccion,
