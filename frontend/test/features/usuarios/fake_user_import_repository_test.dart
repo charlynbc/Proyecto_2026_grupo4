@@ -377,6 +377,36 @@ void main() {
     );
   });
 
+  group('una línea en blanco en el medio', () {
+    const first =
+        '30000010,Julia,Ferrari,1992-03-15,julia@example.org,099111222,,,SOCIO,';
+    const second =
+        '30000026,Marcos,Gil,1980-07-02,marcos@example.org,099333444,,,SOCIO,';
+    final text = '$kUserImportHeader\n$first\n\n$second\n';
+
+    test('no cuenta como fila al previsualizar', () async {
+      final (_, repository) = _env();
+
+      final preview = await repository.preview(csvFile(text));
+
+      expect(preview.total, 2);
+      expect(preview.valid, 2);
+      expect(preview.rows.map((r) => r.number), [2, 3]);
+      expect(preview.rows.last.ci, '30000026');
+      expect(preview.rows.last.error, isNull);
+    });
+
+    test('no cuenta como fila al confirmar', () async {
+      final (_, repository) = _env();
+
+      final result = await repository.confirm(csvFile(text));
+
+      expect(result.imported, 2);
+      expect(result.rows.map((r) => r.number), [2, 3]);
+      expect(result.rows.last.ci, '30000026');
+    });
+  });
+
   group('el archivo no sirve', () {
     test('con un encabezado equivocado lanza CsvFormatException', () async {
       final (_, repository) = _env();
@@ -387,7 +417,9 @@ void main() {
           isA<CsvFormatException>().having(
             (e) => e.message,
             'message',
-            'El CSV debe tener exactamente las columnas: $kUserImportHeader',
+            'El CSV debe tener exactamente las columnas: ci, nombre, apellido, '
+                'fecha_nacimiento, correo, telefono_1, telefono_2, direccion, rol, '
+                'especialidades',
           ),
         ),
       );
