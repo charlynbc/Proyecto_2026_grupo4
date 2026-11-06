@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/password_recovery_controllers.dart';
+import '../providers/password_recovery_link_check_provider.dart';
 import '../repositories/first_login_repository.dart';
 import '../repositories/password_recovery_repository.dart';
 import '../widgets/auth_scaffold.dart';
@@ -67,6 +68,26 @@ class _PasswordRecoveryCompleteScreenState
         .submit(token: widget.token, password: _passwordController.text);
   }
 
+  /// El aviso de enlace inválido, con el mensaje del servidor. Lo usan el
+  /// enlace rechazado al abrir y el rechazado al guardar.
+  Widget _invalidLinkNotice(BuildContext context, String message) {
+    return AuthScaffold(
+      subtitle: 'Nueva contraseña',
+      children: [
+        AuthNotice(
+          title: 'No pudimos cambiar tu contraseña',
+          isError: true,
+          messages: [message],
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: () => context.go('/recuperacion/solicitar'),
+          child: const Text('Pedir un enlace nuevo'),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(passwordRecoveryCompleteControllerProvider, (_, state) {
@@ -75,23 +96,22 @@ class _PasswordRecoveryCompleteScreenState
       }
     });
     final state = ref.watch(passwordRecoveryCompleteControllerProvider);
+    // Se pregunta una sola vez, al abrir, si el enlace todavía sirve. Solo un
+    // enlace que el servidor declara inválido bloquea el formulario.
+    final check = ref.watch(passwordRecoveryLinkCheckProvider(widget.token));
 
     if (state.status == PasswordRecoveryStatus.linkInvalid) {
-      return AuthScaffold(
+      return _invalidLinkNotice(context, state.errorMessage ?? '');
+    }
+    if (check.isLoading) {
+      return const AuthScaffold(
         subtitle: 'Nueva contraseña',
-        children: [
-          AuthNotice(
-            title: 'No pudimos cambiar tu contraseña',
-            isError: true,
-            messages: [state.errorMessage ?? ''],
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => context.go('/recuperacion/solicitar'),
-            child: const Text('Pedir un enlace nuevo'),
-          ),
-        ],
+        children: [Center(child: CircularProgressIndicator())],
       );
+    }
+    final invalidMessage = check.value?.invalidMessage;
+    if (invalidMessage != null) {
+      return _invalidLinkNotice(context, invalidMessage);
     }
 
     final enabled = !state.isLoading;
