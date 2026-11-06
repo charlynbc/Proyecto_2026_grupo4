@@ -79,6 +79,14 @@ class ApiRoutes {
   static const String authEmailChangeConfirm =
       '/api/auth/cambio-correo/confirmar';
 
+  // --- RF-02 y RF-05: validar el enlace antes de pedir los datos (filas 63 y 64) ---
+  // Las dos son POST públicas con el token en el cuerpo. No consumen el enlace.
+
+  static const String authFirstLoginValidate =
+      '/api/auth/primer-ingreso/validar';
+  static const String authPasswordRecoveryValidate =
+      '/api/auth/recuperacion/validar';
+
   // --- RF-30 y RF-32: cargas masivas (filas 52 a 55) ---
   // Las cuatro son POST y solo para ADMINISTRADOR: vista previa y confirmación
   // de la carga de especialidades y de la carga de usuarios.
@@ -108,6 +116,13 @@ class ApiRoutes {
   static String user(int id) => '/api/usuarios/$id';
   static String userDeactivate(int id) => '/api/usuarios/$id/inactivar';
   static String userReactivate(int id) => '/api/usuarios/$id/reactivar';
+
+  // --- RF-07 y RF-28: cartelera de novedades (filas 65 a 67) ---
+  // `announcements` sirve para publicar (POST, solo ADMINISTRADOR) y para el
+  // listado paginado (GET); `announcement` es el detalle (GET).
+
+  static const String announcements = '/api/anuncios';
+  static String announcement(int id) => '/api/anuncios/$id';
 
   static const String pocPushRegistration = '/api/notificaciones/registro';
 
@@ -159,6 +174,8 @@ class ApiRoutes {
     authPasswordRecoveryRequest,
     authPasswordRecoveryComplete,
     authEmailChangeConfirm,
+    authFirstLoginValidate,
+    authPasswordRecoveryValidate,
     specialtiesImportPreview,
     specialtiesImportConfirm,
     usersImportPreview,
@@ -170,6 +187,8 @@ class ApiRoutes {
     user(1),
     userDeactivate(1),
     userReactivate(1),
+    announcements,
+    announcement(1),
     pocPushRegistration,
   ];
 }

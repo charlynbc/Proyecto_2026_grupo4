@@ -81,9 +81,11 @@ public class SecurityConfig {
                                                 "/api/auth/login",
                                                 "/api/auth/refresh",
                                                 "/api/auth/primer-ingreso/solicitar",
+                                                "/api/auth/primer-ingreso/validar",
                                                 "/api/auth/primer-ingreso/completar",
                                                 "/api/auth/cambio-correo/confirmar",
                                                 "/api/auth/recuperacion/solicitar",
+                                                "/api/auth/recuperacion/validar",
                                                 "/api/auth/recuperacion/completar"
                                         )
                                         .permitAll()
@@ -114,6 +116,12 @@ public class SecurityConfig {
                                         .hasRole(
                                                 "ADMINISTRADOR"
                                         )
+
+                                        .requestMatchers(HttpMethod.POST, "/api/anuncios")
+                                        .hasRole("ADMINISTRADOR")
+
+                                        .requestMatchers(HttpMethod.GET, "/api/anuncios", "/api/anuncios/*")
+                                        .authenticated()
 
                                         .requestMatchers(
                                                 HttpMethod.PATCH,
@@ -226,13 +234,15 @@ public class SecurityConfig {
                                                 HttpMethod.GET,
                                                 "/api/medicos"
                                         )
-                                        .hasRole(
+                                        .hasAnyRole(
+                                                "SOCIO",
                                                 "FUNCIONARIO"
                                         )
 
                                         .requestMatchers(
                                                 HttpMethod.GET,
-                                                "/api/usuarios"
+                                                "/api/usuarios",
+                                                "/api/usuarios/*"
                                         )
                                         .hasRole(
                                                 "ADMINISTRADOR"

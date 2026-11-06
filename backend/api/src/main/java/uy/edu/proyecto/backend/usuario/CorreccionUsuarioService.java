@@ -39,6 +39,35 @@ public class CorreccionUsuarioService {
         this.clock = clock;
     }
 
+    @Transactional(readOnly = true)
+    public CorreccionUsuarioResponse obtener(long idCuenta) {
+        CuentaCompleta actual = repository.buscarCuentaCompleta(idCuenta)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "USUARIO_NO_ENCONTRADO",
+                        "No existe una cuenta con ese identificador"
+                ));
+
+        List<Long> especialidadIds = actual.rol().equals("MEDICO")
+                ? repository.especialidadesDelMedico(idCuenta)
+                : List.of();
+        return new CorreccionUsuarioResponse(
+                actual.id(),
+                actual.ci(),
+                actual.nombre(),
+                actual.apellido(),
+                actual.fechaNacimiento(),
+                actual.rol(),
+                actual.correo(),
+                actual.telefono1(),
+                actual.telefono2(),
+                actual.direccion(),
+                especialidadIds,
+                actual.habilitada() ? "ACTIVA" : "INACTIVA",
+                actual.primerIngresoCompletado()
+        );
+    }
+
     @Transactional
     public CorreccionUsuarioResponse corregir(
             long idCuenta,

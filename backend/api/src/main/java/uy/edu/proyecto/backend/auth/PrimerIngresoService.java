@@ -94,6 +94,14 @@ public class PrimerIngresoService {
         return new SolicitudPrimerIngresoResponse(MENSAJE_SOLICITUD);
     }
 
+    @Transactional(readOnly = true)
+    public void validarEnlace(ValidarEnlaceRequest request) {
+        if (request == null || estaVacio(request.token())
+                || !repository.existeEnlaceVigente(TokenHash.sha256(request.token()))) {
+            throw enlaceInvalido();
+        }
+    }
+
     @Transactional
     public CuentaActivadaResponse completar(
             CompletarPrimerIngresoRequest request

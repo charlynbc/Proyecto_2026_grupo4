@@ -178,9 +178,17 @@ public class CuentaRepository {
      * persona, cualquiera sea su estado: el administrador tambien corrige
      * datos de cuentas inactivadas o pendientes de primer ingreso.
      */
+    public Optional<CuentaCompleta> buscarCuentaCompleta(long idCuenta) {
+        return consultarCuentaCompleta(idCuenta, false);
+    }
+
     public Optional<CuentaCompleta> bloquearCuentaCompleta(long idCuenta) {
-        return jdbcTemplate.query(
-                        """
+        return consultarCuentaCompleta(idCuenta, true);
+    }
+
+    private Optional<CuentaCompleta> consultarCuentaCompleta(
+            long idCuenta, boolean bloquear) {
+        String sql = """
                         SELECT c.id_cuenta, c.ci, p.nombre, p.apellido,
                                p.fecha_nacimiento, c.rol, c.correo,
                                c.telefono_1, c.telefono_2, c.direccion,
@@ -188,8 +196,9 @@ public class CuentaRepository {
                         FROM public.cuenta c
                         JOIN public.persona p ON p.ci = c.ci
                         WHERE c.id_cuenta = ?
-                        FOR UPDATE OF c, p
-                        """,
+                        """ + (bloquear ? " FOR UPDATE OF c, p" : "");
+        return jdbcTemplate.query(
+                        sql,
                         (rs, rowNum) -> new CuentaCompleta(
                                 rs.getLong("id_cuenta"),
                                 rs.getString("ci"),

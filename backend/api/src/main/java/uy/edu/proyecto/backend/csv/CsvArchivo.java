@@ -23,6 +23,7 @@ import uy.edu.proyecto.backend.exception.ApiException;
  * memoria y no se almacenan.
  */
 public final class CsvArchivo {
+    public static final long MAX_BYTES = 1024L * 1024L;
 
     /** Maximo de filas de datos admitidas por archivo (documentado en el contrato). */
     public static final int MAX_FILAS = 1000;
@@ -52,6 +53,10 @@ public final class CsvArchivo {
                     "CSV_INVALIDO",
                     "Debe seleccionar un archivo CSV no vacío"
             );
+        }
+        if (archivo.getSize() > MAX_BYTES) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CSV_INVALIDO",
+                    "El archivo supera el tamaño máximo permitido (1 MB)");
         }
 
         try {

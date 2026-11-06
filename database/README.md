@@ -13,8 +13,8 @@ database/
 └── poc-sql/                    scripts de las pruebas de concepto, no se usan
 ```
 
-`schema.sql` es el script con el que Martín creó la base `prod` en Supabase
-(`crear_estructura_v1.sql`, 13/10/2026), sin cambios. Implementa el Documento
+`schema.sql` parte del script con el que Martín creó la base `prod` en Supabase
+(`crear_estructura_v1.sql`, 13/10/2026) y contiene los cambios posteriores. Implementa el Documento
 de Modelo de Datos: las tablas del documento (`Persona`, `TurnoSemanal`, …) se
 escriben en minúscula con guion bajo (`persona`, `turno_semanal`, …) y quedan
 en el esquema `public`.
@@ -70,5 +70,5 @@ RNF-13) y dominios con `CHECK`. Las reglas que dependen de varias tablas o de
 la configuración las verifica el backend dentro de la transacción, como indica
 la sección 5 del Modelo de Datos: los solapamientos de turnos, las duraciones
 admitidas, los límites de agenda, que un médico tenga rol `MEDICO` y la
-especialidad del turno, que el rol de una cuenta no cambie y que un anuncio
-tenga texto o imagen.
+especialidad del turno y que el rol de una cuenta no cambie. En la cartelera,
+el servicio exige título y al menos una imagen por anuncio.
