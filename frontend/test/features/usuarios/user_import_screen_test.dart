@@ -5,6 +5,7 @@ import 'package:agenda_medica/core/files/csv_file_picker.dart';
 import 'package:agenda_medica/core/files/picked_csv_file.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/usuarios/models/user_import.dart';
+import 'package:agenda_medica/features/usuarios/providers/user_import_controller.dart';
 import 'package:agenda_medica/features/usuarios/providers/user_import_repository_provider.dart';
 import 'package:agenda_medica/features/usuarios/providers/user_repository_provider.dart';
 import 'package:agenda_medica/features/usuarios/repositories/fake_user_import_repository.dart';
@@ -14,6 +15,7 @@ import 'package:agenda_medica/features/usuarios/screens/user_import_screen.dart'
 import 'package:agenda_medica/features/usuarios/screens/user_routes.dart';
 import 'package:agenda_medica/features/usuarios/screens/users_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -73,6 +75,23 @@ class _GatedRepository implements UserImportRepository {
   @override
   Future<UserImportResult> confirm(PickedCsvFile file) async {
     await gate.future;
+    return inner.confirm(file);
+  }
+}
+
+/// Cuenta las llamadas a `confirm` y delega en [inner].
+class _CountingRepository implements UserImportRepository {
+  _CountingRepository(this.inner);
+
+  final UserImportRepository inner;
+  int confirmCalls = 0;
+
+  @override
+  Future<UserImportPreview> preview(PickedCsvFile file) => inner.preview(file);
+
+  @override
+  Future<UserImportResult> confirm(PickedCsvFile file) {
+    confirmCalls++;
     return inner.confirm(file);
   }
 }
@@ -516,5 +535,63 @@ void main() {
       expect(find.byKey(const Key('users-import-button')), findsOneWidget);
       expect(find.text('Alta de usuario'), findsOneWidget);
     });
+  });
+
+  testWidgets('tocar Confirmar importación dos veces en el mismo cuadro '
+      'confirma una sola vez', (tester) async {
+    late _CountingRepository counting;
+    final env = await _pump(
+      tester,
+      repository: (db) => counting = _CountingRepository(
+        FakeUserImportRepository(db, latency: Duration.zero),
+      ),
+    );
+    final before = env.db.accounts.length;
+    await _preview(tester);
+    final confirm = find.byKey(const Key('import-confirm-button'));
+    await tester.ensureVisible(confirm);
+    await tester.pumpAndSettle();
+
+    // tester.tap no redibuja entre medio: los dos toques llegan con el
+    // botón todavía encendido.
+    await tester.tap(confirm);
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+
+    expect(counting.confirmCalls, 1);
+    expect(_text(tester, 'import-imported'), 'Importadas: 3');
+    expect(_text(tester, 'import-rejected'), 'Rechazadas: 8');
+    expect(env.db.accounts.length, before + 3);
+  });
+
+  test('confirm dos veces seguidas sin esperar llama una sola vez al '
+      'repositorio', () async {
+    final db = FakeAdminDatabase();
+    final counting = _CountingRepository(
+      FakeUserImportRepository(db, latency: Duration.zero),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        userImportRepositoryProvider.overrideWith((ref) async => counting),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(userImportControllerProvider, (_, _) {});
+    final controller = container.read(userImportControllerProvider.notifier);
+    controller.setFile(userImportFile());
+    await controller.preview();
+    expect(
+      container.read(userImportControllerProvider).stage,
+      UserImportStage.previewed,
+    );
+
+    final first = controller.confirm();
+    final second = controller.confirm();
+    await Future.wait([first, second]);
+
+    expect(counting.confirmCalls, 1);
+    final state = container.read(userImportControllerProvider);
+    expect(state.stage, UserImportStage.done);
+    expect(state.result!.imported, 3);
   });
 }
