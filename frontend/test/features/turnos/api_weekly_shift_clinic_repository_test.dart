@@ -12,19 +12,12 @@ import 'models/shift_json_test.dart' show weeklyShiftJson;
 
 /// Adaptador de dio que anota el pedido y responde con lo indicado, sin red.
 class _StubAdapter implements HttpClientAdapter {
-  _StubAdapter.json(this.status, this.body) : raw = null, noConnection = false;
+  _StubAdapter.json(this.status, this.body) : noConnection = false;
 
-  _StubAdapter.raw(this.status, this.raw) : body = null, noConnection = false;
-
-  _StubAdapter.offline()
-    : status = 0,
-      body = null,
-      raw = null,
-      noConnection = true;
+  _StubAdapter.offline() : status = 0, body = null, noConnection = true;
 
   final int status;
   final Object? body;
-  final String? raw;
   final bool noConnection;
   RequestOptions? last;
 
@@ -41,14 +34,11 @@ class _StubAdapter implements HttpClientAdapter {
         type: DioExceptionType.connectionError,
       );
     }
-    final isRaw = raw != null;
     return ResponseBody.fromString(
-      isRaw ? raw! : jsonEncode(body),
+      jsonEncode(body),
       status,
       headers: {
-        Headers.contentTypeHeader: [
-          isRaw ? 'text/html' : Headers.jsonContentType,
-        ],
+        Headers.contentTypeHeader: [Headers.jsonContentType],
       },
     );
   }
