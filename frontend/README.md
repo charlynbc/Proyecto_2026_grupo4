@@ -87,6 +87,23 @@ flutter test
 El nombre técnico (`agenda_medica` en `pubspec.yaml` y el applicationId)
 no se cambia.
 
+## Regenerar los íconos
+
+Los íconos de web (`web/favicon.png` y `web/icons/`) y de Android
+(`ic_launcher.png` e `ic_launcher_foreground.png` en cada `mipmap-*`) salen
+de `assets/images/logo.svg`. Desde `frontend/`:
+
+```
+flutter test tool/generar_iconos.dart
+```
+
+El script no se corre con `flutter test` a secas. Las constantes que se
+ajustan están arriba de `tool/generar_iconos.dart`: el color hueso de fondo,
+el porcentaje que ocupa el logo en cada tipo de ícono y los tamaños. Dos
+corridas dejan los mismos archivos. Los XML del ícono adaptativo de Android
+(`mipmap-anydpi-v26/ic_launcher.xml` y `values/ic_launcher_background.xml`)
+se editan a mano: si cambia el hueso, hay que cambiarlo también en `values`.
+
 ## Firebase
 
 El proyecto usa `firebase_core` y `firebase_analytics`. No se instala Firebase
