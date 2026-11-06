@@ -30,6 +30,11 @@ const String _invalidRangeMessage =
 /// especialidad, se filtran los números libres y se agenda uno por su
 /// `numeroId`.
 ///
+/// La búsqueda es explícita: la especialidad, el médico y las fechas quedan
+/// pendientes hasta tocar "Buscar" (o Enter en una fecha), y recién ahí se
+/// copian a la búsqueda aplicada, que es la que se consulta. Orden y sentido
+/// se aplican al instante sobre la búsqueda aplicada.
+///
 /// El listado de médicos no existe en el backend: el filtro por médico ofrece
 /// solo los que aparecen en los números libres de la especialidad elegida.
 class AvailabilityScreen extends ConsumerStatefulWidget {
@@ -42,10 +47,16 @@ class AvailabilityScreen extends ConsumerStatefulWidget {
 class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
   final _fromController = TextEditingController();
   final _toController = TextEditingController();
+
+  // Pendiente: lo que se eligió y todavía no se buscó. Las fechas pendientes
+  // son el texto de los dos campos.
   Specialty? _specialty;
   int? _doctorId;
-  DateTime? _from;
-  DateTime? _to;
+
+  // Aplicado: la búsqueda que se ve en pantalla (sin orden ni sentido, que se
+  // aplican al instante; ver [_query]). `null` hasta la primera búsqueda.
+  AvailabilityQuery? _applied;
+
   AvailabilityOrder _order = AvailabilityOrder.date;
   SortDirection _direction = SortDirection.asc;
   String? _rangeError;
@@ -62,20 +73,22 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
     super.dispose();
   }
 
-  AvailabilityQuery? get _query {
-    final specialty = _specialty;
-    if (specialty == null) return null;
-    return AvailabilityQuery(
-      specialtyId: specialty.id,
-      doctorId: _doctorId,
-      from: _from,
-      to: _to,
-      order: _order,
-      direction: _direction,
-    );
+  /// La búsqueda aplicada con el orden y el sentido de ahora, o `null` si
+  /// todavía no se buscó.
+  AvailabilityQuery? get _query =>
+      _applied?.withOrder(order: _order, direction: _direction);
+
+  /// El médico solo se elige con la especialidad que ya se buscó: sus opciones
+  /// salen de los números libres de esa búsqueda.
+  bool get _canPickDoctor {
+    final applied = _applied;
+    return applied != null && applied.specialtyId == _specialty?.id;
   }
 
-  void _applyRange() {
+  /// Copia lo pendiente a la búsqueda aplicada. Sin especialidad no hace nada.
+  void _search() {
+    final specialty = _specialty;
+    if (specialty == null) return;
     FocusScope.of(context).unfocus();
     final fromText = _fromController.text.trim();
     final toText = _toController.text.trim();
@@ -88,8 +101,14 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
     }
     setState(() {
       _rangeError = null;
-      _from = from;
-      _to = to;
+      _applied = AvailabilityQuery(
+        specialtyId: specialty.id,
+        doctorId: _doctorId,
+        from: from,
+        to: to,
+        order: _order,
+        direction: _direction,
+      );
     });
   }
 
@@ -99,8 +118,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
     _toController.clear();
     setState(() {
       _doctorId = null;
-      _from = null;
-      _to = null;
+      _applied = _applied?.withDoctor(null).withRange();
       _rangeError = null;
     });
   }
@@ -196,7 +214,8 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
               )
             else
               const Text(
-                'Elegí una especialidad para ver los números disponibles.',
+                'Elegí una especialidad y tocá Buscar para ver los números '
+                'disponibles.',
               ),
           ],
         ),
@@ -254,16 +273,24 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                   ? _doctorId
                   : null,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Médico'),
+              decoration: InputDecoration(
+                labelText: 'Médico',
+                helperText: _canPickDoctor
+                    ? null
+                    : 'Tocá Buscar para elegir médico',
+              ),
               items: [
                 const DropdownMenuItem(value: null, child: Text('Todos')),
-                for (final doctor in doctors)
-                  DropdownMenuItem(
-                    value: doctor.id,
-                    child: Text('${doctor.lastName}, ${doctor.firstName}'),
-                  ),
+                if (_canPickDoctor)
+                  for (final doctor in doctors)
+                    DropdownMenuItem(
+                      value: doctor.id,
+                      child: Text('${doctor.lastName}, ${doctor.firstName}'),
+                    ),
               ],
-              onChanged: (id) => setState(() => _doctorId = id),
+              onChanged: _canPickDoctor
+                  ? (id) => setState(() => _doctorId = id)
+                  : null,
             ),
           ),
         SizedBox(
@@ -279,7 +306,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
             onChanged: (_) {
               if (_rangeError != null) setState(() => _rangeError = null);
             },
-            onSubmitted: (_) => _applyRange(),
+            onSubmitted: (_) => _search(),
           ),
         ),
         SizedBox(
@@ -297,7 +324,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
             onChanged: (_) {
               if (_rangeError != null) setState(() => _rangeError = null);
             },
-            onSubmitted: (_) => _applyRange(),
+            onSubmitted: (_) => _search(),
           ),
         ),
         SizedBox(
@@ -336,7 +363,8 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: FilledButton.icon(
-            onPressed: _applyRange,
+            key: const Key('availability-search-button'),
+            onPressed: _specialty == null ? null : _search,
             icon: const Icon(Icons.search),
             label: const Text('Buscar'),
           ),

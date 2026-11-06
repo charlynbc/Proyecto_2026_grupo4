@@ -16,6 +16,7 @@ import 'package:agenda_medica/features/agenda/screens/availability_screen.dart';
 import 'package:agenda_medica/features/consultorios/models/clinic.dart';
 import 'package:agenda_medica/features/especialidades/models/specialty.dart';
 import 'package:agenda_medica/core/utils/uruguay_time.dart';
+import 'package:agenda_medica/core/widgets/ui_date_field.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialties_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -92,13 +93,17 @@ class _FakeAgenda implements AgendaRepository {
       _number(12, _general, doctorId: 5, last: 'Gómez'),
       _number(21, _cardio),
     ];
-    return [
+    final result = [
       for (final n in all)
         if (n.specialty.id == q.specialtyId &&
             !taken.contains(n.numberId) &&
             (q.doctorId == null || n.doctor.id == q.doctorId))
           n,
     ];
+    // El servidor ordena; acá solo se respeta el sentido, por numberId.
+    return q.direction == SortDirection.desc
+        ? result.reversed.toList()
+        : result;
   }
 
   @override
@@ -172,10 +177,70 @@ Future<_FakeAgenda> _pump(
   return repo;
 }
 
-Future<void> _chooseSpecialty(WidgetTester tester, String name) async {
-  await tester.tap(find.byKey(const Key('filter-specialty')));
+const _searchKey = Key('availability-search-button');
+const _emptyHint =
+    'Elegí una especialidad y tocá Buscar para ver los números disponibles.';
+const _doctorHint = 'Tocá Buscar para elegir médico';
+const _invertedRange =
+    'La fecha "Desde" no puede ser posterior a la fecha "Hasta".';
+
+/// Elige la especialidad en el desplegable, sin tocar Buscar.
+Future<void> _selectSpecialty(WidgetTester tester, String name) async {
+  final field = find.byKey(const Key('filter-specialty'));
+  await tester.ensureVisible(field);
+  await tester.pumpAndSettle();
+  await tester.tap(field);
   await tester.pumpAndSettle();
   await tester.tap(find.text(name).last);
+  await tester.pumpAndSettle();
+}
+
+/// Toca Buscar.
+Future<void> _search(WidgetTester tester) async {
+  final button = find.byKey(_searchKey);
+  await tester.ensureVisible(button);
+  await tester.pumpAndSettle();
+  await tester.tap(button);
+  await tester.pumpAndSettle();
+}
+
+/// Elige la especialidad y toca Buscar.
+Future<void> _chooseSpecialty(WidgetTester tester, String name) async {
+  await _selectSpecialty(tester, name);
+  await _search(tester);
+}
+
+/// El desplegable de médico, sea cual sea la especialidad de su key.
+final _doctorDropdown = find.byWidgetPredicate((widget) {
+  final key = widget.key;
+  return key is ValueKey<String> && key.value.startsWith('filter-doctor-');
+});
+
+DropdownButtonFormField<int?> _doctorField(WidgetTester tester) =>
+    tester.widget<DropdownButtonFormField<int?>>(_doctorDropdown);
+
+Future<void> _chooseDoctor(WidgetTester tester, String name) async {
+  await tester.tap(_doctorDropdown);
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(name).last);
+  await tester.pumpAndSettle();
+}
+
+/// Las keys de los números que se ven, de arriba hacia abajo.
+List<String> _listedNumbers(WidgetTester tester) => [
+  for (final tile in tester.widgetList<ListTile>(find.byType(ListTile)))
+    (tile.key! as ValueKey<String>).value,
+];
+
+/// Escribe [text] en el campo de fecha [index] (0 es Desde, 1 es Hasta).
+Future<void> _typeDate(WidgetTester tester, int index, String text) async {
+  await tester.enterText(
+    find.descendant(
+      of: find.byType(UiDateField).at(index),
+      matching: find.byType(TextField),
+    ),
+    text,
+  );
   await tester.pumpAndSettle();
 }
 
@@ -214,15 +279,237 @@ void main() {
     tester,
   ) async {
     final agenda = await _pump(tester, const AvailabilityScreen());
-    expect(
-      find.text('Elegí una especialidad para ver los números disponibles.'),
-      findsOneWidget,
-    );
+    expect(find.text(_emptyHint), findsOneWidget);
     expect(agenda.queries, isEmpty);
     await _unmount(tester);
   });
 
-  testWidgets('al elegir especialidad lista los números con sus datos', (
+  testWidgets('elegir una especialidad no consulta hasta tocar Buscar', (
+    tester,
+  ) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _selectSpecialty(tester, 'Medicina general');
+
+    expect(agenda.queries, isEmpty);
+    expect(find.text(_emptyHint), findsOneWidget);
+    expect(find.byType(ListTile), findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets('Buscar está apagado sin especialidad y prendido con ella', (
+    tester,
+  ) async {
+    await _pump(tester, const AvailabilityScreen());
+    expect(
+      tester.widget<FilledButton>(find.byKey(_searchKey)).onPressed,
+      isNull,
+    );
+
+    await _selectSpecialty(tester, 'Medicina general');
+
+    expect(
+      tester.widget<FilledButton>(find.byKey(_searchKey)).onPressed,
+      isNotNull,
+    );
+    await _unmount(tester);
+  });
+
+  testWidgets('Buscar consulta una vez con la especialidad elegida', (
+    tester,
+  ) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _selectSpecialty(tester, 'Medicina general');
+    await _search(tester);
+
+    expect(agenda.queries, hasLength(1));
+    expect(agenda.queries.single.specialtyId, 1);
+    expect(agenda.queries.single.doctorId, isNull);
+    expect(find.text(_emptyHint), findsNothing);
+    expect(_listedNumbers(tester), ['number-11', 'number-12']);
+    await _unmount(tester);
+  });
+
+  testWidgets('cambiar la especialidad no consulta: la lista queda hasta el '
+      'próximo Buscar', (tester) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _chooseSpecialty(tester, 'Cardiología');
+    expect(agenda.queries, hasLength(1));
+    expect(_listedNumbers(tester), ['number-21']);
+
+    await _selectSpecialty(tester, 'Medicina general');
+
+    expect(agenda.queries, hasLength(1));
+    expect(_listedNumbers(tester), ['number-21']);
+
+    await _search(tester);
+
+    expect(agenda.queries, hasLength(2));
+    expect(agenda.queries.last.specialtyId, 1);
+    expect(_listedNumbers(tester), ['number-11', 'number-12']);
+    await _unmount(tester);
+  });
+
+  testWidgets('elegir un médico no consulta y Buscar aplica el filtro', (
+    tester,
+  ) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _chooseSpecialty(tester, 'Medicina general');
+    expect(agenda.queries, hasLength(1));
+    expect(_doctorField(tester).onChanged, isNotNull);
+    expect(find.text(_doctorHint), findsNothing);
+
+    await _chooseDoctor(tester, 'Gómez, Ana');
+
+    expect(agenda.queries, hasLength(1));
+    expect(_listedNumbers(tester), ['number-11', 'number-12']);
+
+    await _search(tester);
+
+    expect(agenda.queries, hasLength(2));
+    expect(agenda.queries.last.specialtyId, 1);
+    expect(agenda.queries.last.doctorId, 5);
+    expect(_listedNumbers(tester), ['number-12']);
+    await _unmount(tester);
+  });
+
+  testWidgets('con otra especialidad pendiente el médico está apagado y '
+      'avisa', (tester) async {
+    await _pump(tester, const AvailabilityScreen());
+    await _selectSpecialty(tester, 'Medicina general');
+
+    // Todavía no se buscó nada: la especialidad pendiente no es la aplicada.
+    expect(_doctorField(tester).onChanged, isNull);
+    expect(find.text(_doctorHint), findsOneWidget);
+
+    await _search(tester);
+
+    expect(_doctorField(tester).onChanged, isNotNull);
+    expect(find.text(_doctorHint), findsNothing);
+
+    await _selectSpecialty(tester, 'Cardiología');
+
+    expect(_doctorField(tester).onChanged, isNull);
+    expect(find.text(_doctorHint), findsOneWidget);
+
+    await _selectSpecialty(tester, 'Medicina general');
+
+    expect(_doctorField(tester).onChanged, isNotNull);
+    expect(find.text(_doctorHint), findsNothing);
+    await _unmount(tester);
+  });
+
+  testWidgets('cambiar la especialidad reinicia el médico elegido', (
+    tester,
+  ) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _chooseSpecialty(tester, 'Medicina general');
+    await _chooseDoctor(tester, 'Gómez, Ana');
+    await _selectSpecialty(tester, 'Cardiología');
+    await _search(tester);
+
+    expect(agenda.queries.last.specialtyId, 2);
+    expect(agenda.queries.last.doctorId, isNull);
+    expect(_listedNumbers(tester), ['number-21']);
+    await _unmount(tester);
+  });
+
+  testWidgets('escribir Desde y Hasta no consulta; Buscar y Enter sí', (
+    tester,
+  ) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _chooseSpecialty(tester, 'Medicina general');
+    expect(agenda.queries, hasLength(1));
+
+    await _typeDate(tester, 0, '05/11/2026');
+    await _typeDate(tester, 1, '10/11/2026');
+
+    expect(agenda.queries, hasLength(1));
+
+    await _search(tester);
+
+    expect(agenda.queries, hasLength(2));
+    expect(agenda.queries.last.from, DateTime.utc(2026, 11, 5));
+    expect(agenda.queries.last.to, DateTime.utc(2026, 11, 10));
+
+    await _typeDate(tester, 1, '12/11/2026');
+
+    expect(agenda.queries, hasLength(2));
+
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(agenda.queries, hasLength(3));
+    expect(agenda.queries.last.from, DateTime.utc(2026, 11, 5));
+    expect(agenda.queries.last.to, DateTime.utc(2026, 11, 12));
+    await _unmount(tester);
+  });
+
+  testWidgets('Enter en las fechas no busca sin especialidad', (tester) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _typeDate(tester, 0, '05/11/2026');
+
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(agenda.queries, isEmpty);
+    expect(find.text(_emptyHint), findsOneWidget);
+    await _unmount(tester);
+  });
+
+  testWidgets('un rango de fechas invertido muestra el error y no consulta', (
+    tester,
+  ) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _chooseSpecialty(tester, 'Medicina general');
+    await _typeDate(tester, 0, '20/11/2026');
+    await _typeDate(tester, 1, '10/11/2026');
+    expect(find.text(_invertedRange), findsNothing);
+
+    await _search(tester);
+
+    expect(find.text(_invertedRange), findsOneWidget);
+    expect(agenda.queries, hasLength(1));
+    await _unmount(tester);
+  });
+
+  testWidgets('Orden y Sentido se aplican al instante sobre la búsqueda '
+      'hecha', (tester) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+    await _chooseSpecialty(tester, 'Medicina general');
+    expect(agenda.queries, hasLength(1));
+    expect(_listedNumbers(tester), ['number-11', 'number-12']);
+
+    await tester.tap(find.byKey(const Key('filter-order')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Apellido del médico').last);
+    await tester.pumpAndSettle();
+
+    expect(agenda.queries, hasLength(2));
+    expect(agenda.queries.last.order, AvailabilityOrder.doctorLastName);
+    expect(agenda.queries.last.direction, SortDirection.asc);
+
+    await tester.tap(find.byKey(const Key('filter-direction')));
+    await tester.pumpAndSettle();
+
+    expect(agenda.queries, hasLength(3));
+    expect(agenda.queries.last.order, AvailabilityOrder.doctorLastName);
+    expect(agenda.queries.last.direction, SortDirection.desc);
+    expect(_listedNumbers(tester), ['number-12', 'number-11']);
+    await _unmount(tester);
+  });
+
+  testWidgets('Orden y Sentido antes de buscar no consultan', (tester) async {
+    final agenda = await _pump(tester, const AvailabilityScreen());
+
+    await tester.tap(find.byKey(const Key('filter-direction')));
+    await tester.pumpAndSettle();
+
+    expect(agenda.queries, isEmpty);
+    expect(find.text(_emptyHint), findsOneWidget);
+    await _unmount(tester);
+  });
+
+  testWidgets('al buscar lista los números de la especialidad con sus datos', (
     tester,
   ) async {
     final agenda = await _pump(tester, const AvailabilityScreen());
@@ -812,6 +1099,23 @@ void main() {
       final retry = find.text('Reintentar');
       await tester.ensureVisible(retry);
       expect(retry, findsOneWidget);
+      await _unmount(tester);
+    });
+
+    testWidgets('el médico apagado con su ayuda no desborda a 320x568', (
+      tester,
+    ) async {
+      await _pump(tester, const AvailabilityScreen());
+      tester.view.physicalSize = const Size(320, 568);
+      await _chooseSpecialty(tester, 'Medicina general');
+      await _selectSpecialty(tester, 'Cardiología');
+
+      final hint = find.text(_doctorHint);
+      await tester.ensureVisible(hint);
+      await tester.pumpAndSettle();
+      expect(hint, findsOneWidget);
+      expect(_doctorField(tester).onChanged, isNull);
+      expect(tester.takeException(), isNull);
       await _unmount(tester);
     });
 
