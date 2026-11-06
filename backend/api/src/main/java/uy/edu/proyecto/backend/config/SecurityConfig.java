@@ -241,7 +241,8 @@ public class SecurityConfig {
 
                                         .requestMatchers(
                                                 HttpMethod.GET,
-                                                "/api/usuarios"
+                                                "/api/usuarios",
+                                                "/api/usuarios/*"
                                         )
                                         .hasRole(
                                                 "ADMINISTRADOR"

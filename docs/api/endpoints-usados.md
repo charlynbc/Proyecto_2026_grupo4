@@ -95,6 +95,7 @@ PostgreSQL.
 | 65 | `POST /api/anuncios` | ADMINISTRADOR | 28 | Publicar novedad con título y contenido de texto, imágenes o ambos | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #65](contrato-v1.md#e65) |
 | 66 | `GET /api/anuncios` | autenticado | 07 | Tarjetas para el inicio y la cartelera, con portada opcional | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #66](contrato-v1.md#e66) |
 | 67 | `GET /api/anuncios/{id}` | autenticado | 07 | Detalle de novedad con texto y/o imágenes ordenadas | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #67](contrato-v1.md#e67) |
+| 68 | `GET /api/usuarios/{id}` | ADMINISTRADOR | 38 | Detalle completo de cuenta para precargar corrección; mismo DTO que PATCH #58 | CONFIRMADA (backend 06/11/2026) | - | [contrato #68](contrato-v1.md#e68) |
 
 ## Rutas de la prueba de concepto
 
