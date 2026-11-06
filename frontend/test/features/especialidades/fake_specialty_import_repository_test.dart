@@ -273,6 +273,32 @@ void main() {
     });
   });
 
+  group('una línea en blanco en el medio', () {
+    final text = '$kSpecialtyImportHeader\nReumatología,si\n\nUrología,no\n';
+
+    test('no cuenta como fila al previsualizar', () async {
+      final (_, repository) = _env();
+
+      final preview = await repository.preview(specialtyCsvFile(text));
+
+      expect(preview.total, 2);
+      expect(preview.valid, 2);
+      expect(preview.rows.map((r) => r.number), [2, 3]);
+      expect(preview.rows.last.name, 'Urología');
+      expect(preview.rows.last.error, isNull);
+    });
+
+    test('no cuenta como fila al confirmar', () async {
+      final (_, repository) = _env();
+
+      final result = await repository.confirm(specialtyCsvFile(text));
+
+      expect(result.imported, 2);
+      expect(result.rows.map((r) => r.number), [2, 3]);
+      expect(result.rows.last.name, 'Urología');
+    });
+  });
+
   group('el archivo no sirve', () {
     test('con un encabezado equivocado lanza CsvFormatException', () async {
       final (_, repository) = _env();
@@ -283,7 +309,7 @@ void main() {
           isA<CsvFormatException>().having(
             (e) => e.message,
             'message',
-            'El CSV debe tener exactamente las columnas: nombre,requiere_pase',
+            'El CSV debe tener exactamente las columnas: nombre, requiere_pase',
           ),
         ),
       );
