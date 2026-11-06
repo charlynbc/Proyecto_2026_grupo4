@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../providers/first_login_controllers.dart';
+import '../providers/first_login_link_check_provider.dart';
 import '../repositories/first_login_repository.dart';
 import '../widgets/auth_scaffold.dart';
 import '../widgets/credential_fields.dart';
@@ -78,6 +79,30 @@ class _FirstLoginActivationScreenState
         );
   }
 
+  /// El aviso de enlace inválido, con los textos de siempre. Lo usan el
+  /// enlace rechazado al abrir y el rechazado al guardar.
+  Widget _invalidLinkNotice(BuildContext context) {
+    return AuthScaffold(
+      subtitle: 'Primer ingreso',
+      children: [
+        const AuthNotice(
+          title: 'El enlace ya no es válido',
+          isError: true,
+          messages: [
+            'El enlace venció, ya se usó o no se puede usar para activar '
+                'esta cuenta. Podés pedir uno nuevo con tu cédula.',
+            'Si el problema sigue, comunicate con la institución.',
+          ],
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: () => context.go('/primer-ingreso/solicitar'),
+          child: const Text('Pedir un enlace nuevo'),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(firstLoginActivationControllerProvider, (_, state) {
@@ -87,27 +112,21 @@ class _FirstLoginActivationScreenState
       }
     });
     final state = ref.watch(firstLoginActivationControllerProvider);
+    // Se pregunta una sola vez, al abrir, si el enlace todavía sirve. Solo un
+    // enlace que el servidor declara inválido bloquea el formulario.
+    final check = ref.watch(firstLoginLinkCheckProvider(widget.token));
 
     if (state.status == FirstLoginStatus.linkInvalid) {
-      return AuthScaffold(
-        subtitle: 'Primer ingreso',
-        children: [
-          const AuthNotice(
-            title: 'El enlace ya no es válido',
-            isError: true,
-            messages: [
-              'El enlace venció, ya se usó o no se puede usar para activar '
-                  'esta cuenta. Podés pedir uno nuevo con tu cédula.',
-              'Si el problema sigue, comunicate con la institución.',
-            ],
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => context.go('/primer-ingreso/solicitar'),
-            child: const Text('Pedir un enlace nuevo'),
-          ),
-        ],
+      return _invalidLinkNotice(context);
+    }
+    if (check.isLoading) {
+      return const AuthScaffold(
+        subtitle: 'Activá tu cuenta',
+        children: [Center(child: CircularProgressIndicator())],
       );
+    }
+    if (check.value?.isInvalid ?? false) {
+      return _invalidLinkNotice(context);
     }
 
     final enabled = !state.isLoading;
