@@ -79,6 +79,24 @@ class _GatedRepository implements ClinicImportRepository {
   }
 }
 
+/// Cuenta las llamadas a `confirm` y delega en [inner].
+class _CountingRepository implements ClinicImportRepository {
+  _CountingRepository(this.inner);
+
+  final ClinicImportRepository inner;
+  int confirmCalls = 0;
+
+  @override
+  Future<ClinicImportPreview> preview(PickedCsvFile file) =>
+      inner.preview(file);
+
+  @override
+  Future<ClinicImportResult> confirm(PickedCsvFile file) {
+    confirmCalls++;
+    return inner.confirm(file);
+  }
+}
+
 typedef _Env = ({GoRouter router, FakeAdminDatabase db, _FakePicker picker});
 
 Future<_Env> _pump(
@@ -527,5 +545,31 @@ void main() {
       expect(find.byKey(const Key('clinics-import-button')), findsOneWidget);
       expect(find.text('Nuevo consultorio'), findsOneWidget);
     });
+  });
+
+  testWidgets('tocar Confirmar importación dos veces en el mismo cuadro '
+      'confirma una sola vez', (tester) async {
+    late _CountingRepository counting;
+    final env = await _pump(
+      tester,
+      repository: (db) => counting = _CountingRepository(
+        FakeClinicImportRepository(db, latency: Duration.zero),
+      ),
+    );
+    await _preview(tester);
+    final confirm = find.byKey(const Key('import-confirm-button'));
+    await tester.ensureVisible(confirm);
+    await tester.pumpAndSettle();
+
+    // tester.tap no redibuja entre medio: los dos toques llegan con el
+    // botón todavía encendido.
+    await tester.tap(confirm);
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+
+    expect(counting.confirmCalls, 1);
+    expect(_text(tester, 'import-imported'), 'Importadas: 2');
+    expect(_text(tester, 'import-rejected'), 'Rechazadas: 5');
+    expect(env.db.clinics.length, 5);
   });
 }

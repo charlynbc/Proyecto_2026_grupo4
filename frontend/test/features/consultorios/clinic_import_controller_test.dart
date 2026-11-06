@@ -1,5 +1,7 @@
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
+import 'package:agenda_medica/core/files/picked_csv_file.dart';
 import 'package:agenda_medica/features/consultorios/models/clinic.dart';
+import 'package:agenda_medica/features/consultorios/models/clinic_import.dart';
 import 'package:agenda_medica/features/consultorios/models/clinic_filters.dart';
 import 'package:agenda_medica/features/consultorios/providers/clinic_filters_controller.dart';
 import 'package:agenda_medica/features/consultorios/providers/clinic_import_controller.dart';
@@ -11,6 +13,7 @@ import 'package:agenda_medica/features/consultorios/providers/clinics_provider.d
 import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_import_repository.dart';
 import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_repository.dart';
 import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_search_repository.dart';
+import 'package:agenda_medica/features/consultorios/repositories/clinic_import_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -37,6 +40,24 @@ class _CountingSearch extends FakeClinicSearchRepository {
   Future<List<Clinic>> search(ClinicFilters filters) {
     searchCalls++;
     return super.search(filters);
+  }
+}
+
+/// Cuenta las llamadas a `confirm` y delega en [inner].
+class _CountingRepository implements ClinicImportRepository {
+  _CountingRepository(this.inner);
+
+  final ClinicImportRepository inner;
+  int confirmCalls = 0;
+
+  @override
+  Future<ClinicImportPreview> preview(PickedCsvFile file) =>
+      inner.preview(file);
+
+  @override
+  Future<ClinicImportResult> confirm(PickedCsvFile file) {
+    confirmCalls++;
+    return inner.confirm(file);
   }
 }
 
@@ -218,5 +239,37 @@ void main() {
 
     expect(env.state.stage, ClinicImportStage.hasFile);
     expect(env.db.clinics.length, 3);
+  });
+
+  test('confirm dos veces seguidas sin esperar llama una sola vez al '
+      'repositorio', () async {
+    final db = FakeAdminDatabase();
+    final counting = _CountingRepository(
+      FakeClinicImportRepository(db, latency: Duration.zero),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        clinicImportRepositoryProvider.overrideWith((ref) async => counting),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(clinicImportControllerProvider, (_, _) {});
+    final controller = container.read(clinicImportControllerProvider.notifier);
+    controller.setFile(clinicImportFile());
+    await controller.preview();
+    expect(
+      container.read(clinicImportControllerProvider).stage,
+      ClinicImportStage.previewed,
+    );
+
+    final first = controller.confirm();
+    final second = controller.confirm();
+    await Future.wait([first, second]);
+
+    expect(counting.confirmCalls, 1);
+    final state = container.read(clinicImportControllerProvider);
+    expect(state.stage, ClinicImportStage.done);
+    expect(state.result!.imported, 2);
+    expect(db.clinics.length, 5);
   });
 }
