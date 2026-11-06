@@ -52,6 +52,13 @@ const _locationClinics = [
   Clinic(id: 4, name: 'Consultorio 4', location: 'Planta baja'),
 ];
 
+/// El orden por nombre (4, 8, 9) no coincide con el de la ubicación.
+const _accentLocations = [
+  Clinic(id: 9, name: 'Consultorio 9', location: 'Zona'),
+  Clinic(id: 8, name: 'Consultorio 8', location: 'Ático'),
+  Clinic(id: 4, name: 'Consultorio 4', location: 'Piso 1'),
+];
+
 Future<_Search> _pump(
   WidgetTester tester, {
   Size size = const Size(900, 1400),
@@ -313,6 +320,27 @@ void main() {
 
     _expectNames(tester, ['Planta baja', 'Piso 10', 'Piso 2']);
     _expectNames(tester, ['Consultorio 4', 'Consultorio 8', 'Consultorio 9']);
+  });
+
+  testWidgets('Ubicación con tildes queda Ático, Piso 1, Zona', (tester) async {
+    await _pump(tester, clinics: _accentLocations);
+
+    await _select(tester, 'clinic-filter-order', 'Ubicación');
+
+    _expectNames(tester, ['Ático', 'Piso 1', 'Zona']);
+    _expectNames(tester, ['Consultorio 8', 'Consultorio 4', 'Consultorio 9']);
+  });
+
+  testWidgets('Ubicación descendente con tildes invierte Ático, Piso 1, Zona', (
+    tester,
+  ) async {
+    await _pump(tester, clinics: _accentLocations);
+
+    await _select(tester, 'clinic-filter-order', 'Ubicación');
+    await _tap(tester, 'clinic-filter-direction');
+
+    _expectNames(tester, ['Zona', 'Piso 1', 'Ático']);
+    _expectNames(tester, ['Consultorio 9', 'Consultorio 4', 'Consultorio 8']);
   });
 
   testWidgets('un alta en Descendente conserva el sentido y el orden', (
