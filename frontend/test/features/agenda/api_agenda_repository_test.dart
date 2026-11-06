@@ -335,6 +335,92 @@ void main() {
     );
   });
 
+  group('médicos', () {
+    // El ejemplo del contrato para el socio (#10): lista sin envoltorio.
+    final memberBody = [
+      {
+        'id': 17,
+        'nombre': 'Marta',
+        'apellido': 'Rodríguez',
+        'especialidades': [
+          {'id': 1, 'nombre': 'Medicina General'},
+          {'id': 3, 'nombre': 'Cardiología'},
+        ],
+      },
+    ];
+
+    test('pide GET /api/medicos y lee la lista sin envoltorio', () async {
+      final (repo, adapter) = _repo(200, memberBody);
+
+      final doctors = await repo.listDoctors();
+
+      expect(adapter.last!.method, 'GET');
+      expect(adapter.last!.path, '/api/medicos');
+      expect(adapter.last!.queryParameters, isEmpty);
+      expect(doctors, hasLength(1));
+      expect(doctors.single.id, 17);
+      expect(doctors.single.fullName, 'Marta Rodríguez');
+      expect(doctors.single.specialties.map((s) => s.id), [1, 3]);
+      expect(doctors.single.specialties.map((s) => s.name), [
+        'Medicina General',
+        'Cardiología',
+      ]);
+    });
+
+    test('con especialidadId lo manda como parámetro', () async {
+      final (repo, adapter) = _repo(200, memberBody);
+
+      await repo.listDoctors(specialtyId: 3);
+
+      expect(adapter.last!.queryParameters, {'especialidadId': 3});
+    });
+
+    test('una lista vacía da una lista vacía', () async {
+      final (repo, _) = _repo(200, <Object>[]);
+
+      expect(await repo.listDoctors(), isEmpty);
+    });
+
+    test('tolera el envoltorio items', () async {
+      final (repo, _) = _repo(200, {'items': memberBody});
+
+      expect((await repo.listDoctors()).map((d) => d.id), [17]);
+    });
+
+    test('una respuesta mal formada es el error genérico', () async {
+      for (final body in <Object?>[
+        'hola',
+        [
+          {'id': 17},
+        ],
+      ]) {
+        final (repo, _) = _repo(200, body);
+        await expectLater(repo.listDoctors(), throwsA(_genericError));
+      }
+    });
+
+    test(
+      'un error del servidor llega como ApiException con su mensaje',
+      () async {
+        final (repo, _) = _repo(403, {
+          'code': 'ACCESO_DENEGADO',
+          'message': 'No tenés permiso para ver esta información.',
+        });
+
+        await expectLater(
+          repo.listDoctors(),
+          throwsA(
+            isA<ApiException>().having(
+              (e) => e.message,
+              'message',
+              'No tenés permiso para ver esta información.',
+            ),
+          ),
+        );
+      },
+    );
+  });
+
   test('AvailabilityQuery compara por valor', () {
     expect(
       const AvailabilityQuery(specialtyId: 1),

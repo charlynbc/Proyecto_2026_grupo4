@@ -13,6 +13,7 @@ import '../widgets/specialty_filter_bar.dart';
 
 const String kSpecialtiesPath = '/admin/especialidades';
 const String kNewSpecialtyPath = '/admin/especialidades/nueva';
+const String kImportSpecialtiesPath = '/admin/especialidades/importar';
 
 /// Consulta de especialidades con filtros (RF-36) y acceso al alta (RF-29).
 class SpecialtiesScreen extends ConsumerWidget {
@@ -20,9 +21,10 @@ class SpecialtiesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final specialties = ref.watch(specialtySearchProvider);
+    final specialties = ref.watch(specialtySearchResultsProvider);
     final filters = ref.watch(specialtyFiltersControllerProvider);
-    final hasFilters = (filters.name?.trim().isNotEmpty ?? false) ||
+    final hasFilters =
+        (filters.name?.trim().isNotEmpty ?? false) ||
         filters.requiresReferral != null;
     final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
@@ -35,16 +37,33 @@ class SpecialtiesScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => context.go(kNewSpecialtyPath),
-                icon: const Icon(Icons.add),
-                label: const Text('Nueva especialidad'),
-              ),
+            // En un Wrap alineado a la derecha: a 320 px los botones pasan a
+            // dos renglones en vez de desbordar.
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('specialties-import-button'),
+                  onPressed: () => context.go(kImportSpecialtiesPath),
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Cargar desde CSV'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => context.go(kNewSpecialtyPath),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nueva especialidad'),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             SpecialtyFilterBar(
+              order: filters.order,
+              ascending: filters.ascending,
+              onSort: (order, ascending) => ref
+                  .read(specialtyFiltersControllerProvider.notifier)
+                  .sortBy(order, ascending: ascending),
               onSearch: (selected) => ref
                   .read(specialtyFiltersControllerProvider.notifier)
                   .apply(
@@ -52,9 +71,8 @@ class SpecialtiesScreen extends ConsumerWidget {
                     requiresReferral: selected.requiresReferral,
                     order: selected.order,
                   ),
-              onClear: () => ref
-                  .read(specialtyFiltersControllerProvider.notifier)
-                  .clear(),
+              onClear: () =>
+                  ref.read(specialtyFiltersControllerProvider.notifier).clear(),
             ),
             const SizedBox(height: 16),
             ...specialties.when(
@@ -83,7 +101,9 @@ class SpecialtiesScreen extends ConsumerWidget {
                           key: Key('specialty-filter-empty'),
                         )
                       else
-                        const Text('Todavía no hay especialidades registradas.'),
+                        const Text(
+                          'Todavía no hay especialidades registradas.',
+                        ),
                     ]
                   : [for (final item in items) _SpecialtyTile(item)],
             ),

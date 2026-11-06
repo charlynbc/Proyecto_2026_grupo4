@@ -121,6 +121,27 @@ public class RecuperacionRepository {
         );
     }
 
+    /** Consulta las mismas condiciones que completarConEnlace, sin consumir ni bloquear. */
+    public boolean existeEnlaceVigente(String tokenHash) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM public.enlace_cuenta e
+                    JOIN public.cuenta c ON c.id_cuenta = e.id_cuenta
+                    WHERE e.token_hash = ?
+                      AND e.tipo = 'RECUPERACION'
+                      AND e.usado_en IS NULL
+                      AND e.vence_en > CURRENT_TIMESTAMP
+                      AND c.habilitada = TRUE
+                      AND c.primer_ingreso_completado = TRUE
+                )
+                """,
+                Boolean.class,
+                tokenHash
+        ));
+    }
+
     /**
      * Consume el enlace y registra la contrasena nueva en la misma
      * transaccion. Rechaza enlaces inexistentes, vencidos, ya usados o de

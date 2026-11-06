@@ -10,12 +10,18 @@ import '../../features/agendas/screens/schedules_screen.dart';
 import '../../features/auth/models/access_type.dart';
 import '../../features/auth/models/user_role.dart';
 import '../../features/auth/providers/session_provider.dart';
+import '../../features/auth/screens/confirm_email_change_screen.dart';
 import '../../features/auth/screens/first_login_activation_screen.dart';
 import '../../features/auth/screens/first_login_request_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/password_recovery_complete_screen.dart';
+import '../../features/auth/screens/password_recovery_request_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/consultorios/screens/clinics_screen.dart';
+import '../../features/consultorios/screens/clinic_import_screen.dart';
 import '../../features/consultorios/screens/new_clinic_screen.dart';
+import '../../features/cuenta/screens/account_routes.dart';
+import '../../features/cuenta/screens/account_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
 import '../../features/medico/screens/doctor_result_routes.dart';
@@ -23,6 +29,7 @@ import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
+import '../../features/especialidades/screens/specialty_import_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
 import '../../features/llegada/screens/arrival_screen.dart';
 import '../../features/turnos/screens/new_weekly_shift_screen.dart';
@@ -32,6 +39,7 @@ import '../../features/turnos/screens/shifts_screen.dart';
 import '../../features/turnos/screens/suspend_shifts_screen.dart';
 import '../../features/turnos/screens/weekly_shift_detail_screen.dart';
 import '../../features/usuarios/screens/new_user_screen.dart';
+import '../../features/usuarios/screens/user_import_screen.dart';
 import '../../features/usuarios/screens/user_routes.dart';
 import '../../features/usuarios/screens/users_screen.dart';
 import '../widgets/coming_soon_screen.dart';
@@ -45,6 +53,14 @@ const String kFirstLoginRequestPath = '/primer-ingreso/solicitar';
 bool _isFirstLoginPath(String path) =>
     path == kFirstLoginPath || path == kFirstLoginRequestPath;
 
+const String kRecoveryPath = '/recuperacion';
+const String kRecoveryRequestPath = '/recuperacion/solicitar';
+
+bool _isRecoveryPath(String path) =>
+    path == kRecoveryPath || path == kRecoveryRequestPath;
+
+const String kEmailChangePath = '/cambio-correo';
+
 const String kDoctorShiftsPath = '/medico/turnos';
 const String kArrivalPath = '/funcionario/llegada';
 
@@ -53,24 +69,38 @@ const String kArrivalPath = '/funcionario/llegada';
 /// autorización real es del servidor.
 ///
 /// - Verificando la sesión: todo va a la pantalla de carga, salvo el
-///   primer ingreso, para no perder el `token` del enlace del correo.
-/// - Sin sesión: solo `/login` y el primer ingreso; todo lo demás va a login.
+///   primer ingreso y la recuperación de contraseña, para no perder el
+///   `token` del enlace del correo.
+/// - Sin sesión: solo `/login`, el primer ingreso y la recuperación; todo lo
+///   demás va a login.
 /// - Con sesión: las pantallas de acceso y la raíz van a la home del rol, y
 ///   las rutas de otro rol también.
+/// - El enlace de cambio de correo se abre con o sin sesión y también
+///   mientras se verifica: quien lo abre desde el correo puede tener la
+///   sesión iniciada. Sin token no tiene nada que mostrar y va a la raíz.
 String? redirectFor(SessionState session, Uri uri) {
   final path = uri.path;
+  final hasToken = (uri.queryParameters['token'] ?? '').isNotEmpty;
+  if (path == kEmailChangePath) return hasToken ? null : '/';
   switch (session.status) {
     case SessionStatus.checking:
-      return path == '/' || _isFirstLoginPath(path) ? null : '/';
+      return path == '/' || _isFirstLoginPath(path) || _isRecoveryPath(path)
+          ? null
+          : '/';
     case SessionStatus.unauthenticated:
-      if (path == kFirstLoginPath &&
-          (uri.queryParameters['token'] ?? '').isEmpty) {
-        return kFirstLoginRequestPath;
-      }
-      return path == kLoginPath || _isFirstLoginPath(path) ? null : kLoginPath;
+      if (path == kFirstLoginPath && !hasToken) return kFirstLoginRequestPath;
+      if (path == kRecoveryPath && !hasToken) return kRecoveryRequestPath;
+      return path == kLoginPath ||
+              _isFirstLoginPath(path) ||
+              _isRecoveryPath(path)
+          ? null
+          : kLoginPath;
     case SessionStatus.authenticated:
       final role = session.role!;
-      if (path == '/' || path == kLoginPath || _isFirstLoginPath(path)) {
+      if (path == '/' ||
+          path == kLoginPath ||
+          _isFirstLoginPath(path) ||
+          _isRecoveryPath(path)) {
         return role.homePath;
       }
       final owner = UserRole.fromPath(path);
@@ -98,7 +128,34 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => LoginScreen(
           access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
           accountActivated: state.uri.queryParameters['activada'] == '1',
+          passwordRecovered: state.uri.queryParameters['recuperada'] == '1',
         ),
+      ),
+      GoRoute(
+        path: kEmailChangePath,
+        builder: (context, state) => ConfirmEmailChangeScreen(
+          token: state.uri.queryParameters['token'] ?? '',
+        ),
+      ),
+      // Común a los cuatro roles: `redirectFor` la deja pasar con sesión
+      // porque no es el prefijo de ningún rol, y sin sesión manda al login.
+      GoRoute(
+        path: kAccountPath,
+        builder: (context, state) => const AccountScreen(),
+      ),
+      GoRoute(
+        path: kRecoveryPath,
+        builder: (context, state) => PasswordRecoveryCompleteScreen(
+          token: state.uri.queryParameters['token'] ?? '',
+        ),
+        routes: [
+          GoRoute(
+            path: 'solicitar',
+            builder: (context, state) => PasswordRecoveryRequestScreen(
+              access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: kFirstLoginPath,
@@ -197,6 +254,10 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
               path: 'nuevo',
               builder: (context, state) => const NewUserScreen(),
             ),
+            GoRoute(
+              path: 'importar',
+              builder: (context, state) => const UserImportScreen(),
+            ),
           ],
         );
       case kSpecialtiesPath:
@@ -208,6 +269,10 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
               path: 'nueva',
               builder: (context, state) => const NewSpecialtyScreen(),
             ),
+            GoRoute(
+              path: 'importar',
+              builder: (context, state) => const SpecialtyImportScreen(),
+            ),
           ],
         );
       case kClinicsPath:
@@ -218,6 +283,10 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
             GoRoute(
               path: 'nuevo',
               builder: (context, state) => const NewClinicScreen(),
+            ),
+            GoRoute(
+              path: 'importar',
+              builder: (context, state) => const ClinicImportScreen(),
             ),
           ],
         );

@@ -146,16 +146,20 @@ void main() {
     testWidgets(
       'con el repository falso, el token "usado" da enlace inválido',
       (tester) async {
-        await _openActivation(
+        // La validación al abrir ya rechaza el enlace: el aviso aparece sin
+        // llenar el formulario, que ni siquiera se muestra.
+        final container = await _openActivation(
           tester,
           token: FakeFirstLoginRepository.usedToken,
         );
 
-        await _fill(tester);
-        await tester.tap(_activate);
-        await tester.pumpAndSettle();
-
+        expect(_fields, findsNothing);
+        expect(_activate, findsNothing);
         expect(find.text('El enlace ya no es válido'), findsOneWidget);
+
+        await tester.tap(find.text('Pedir un enlace nuevo'));
+        await tester.pumpAndSettle();
+        expect(locationOf(container), '/primer-ingreso/solicitar');
       },
     );
 

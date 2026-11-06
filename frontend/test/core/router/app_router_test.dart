@@ -89,6 +89,132 @@ void main() {
     });
   });
 
+  group('redirectFor en la recuperación de contraseña (RF-05)', () {
+    const checking = SessionState(status: SessionStatus.checking);
+    const anonymous = SessionState();
+
+    test('verificando la sesión no manda la recuperación a la carga', () {
+      expect(redirectFor(checking, Uri.parse('/recuperacion?token=x')), null);
+      expect(redirectFor(checking, Uri.parse('/recuperacion/solicitar')), null);
+    });
+
+    test('sin sesión se entra a las dos rutas y el token no se pierde', () {
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion?token=abc')),
+        null,
+      );
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion/solicitar')),
+        null,
+      );
+      expect(
+        redirectFor(
+          anonymous,
+          Uri.parse('/recuperacion/solicitar?acceso=empleado'),
+        ),
+        null,
+      );
+    });
+
+    test('sin sesión, /recuperacion sin token o con token vacío va a pedir '
+        'el enlace', () {
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion')),
+        '/recuperacion/solicitar',
+      );
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion?token=')),
+        '/recuperacion/solicitar',
+      );
+    });
+
+    test('con sesión de cada rol, las dos rutas van al inicio del rol', () {
+      for (final role in UserRole.values) {
+        final session = SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: 't',
+          role: role,
+        );
+        expect(
+          redirectFor(session, Uri.parse('/recuperacion?token=x')),
+          role.homePath,
+          reason: role.name,
+        );
+        expect(
+          redirectFor(session, Uri.parse('/recuperacion/solicitar')),
+          role.homePath,
+          reason: role.name,
+        );
+      }
+    });
+
+    test('el login y el primer ingreso no cambian', () {
+      expect(redirectFor(anonymous, Uri.parse('/login')), null);
+      expect(
+        redirectFor(anonymous, Uri.parse('/primer-ingreso?token=t')),
+        null,
+      );
+      expect(
+        redirectFor(anonymous, Uri.parse('/primer-ingreso')),
+        '/primer-ingreso/solicitar',
+      );
+      expect(redirectFor(checking, Uri.parse('/login')), '/');
+    });
+  });
+
+  group('redirectFor en la confirmación del cambio de correo (RF-06)', () {
+    const checking = SessionState(status: SessionStatus.checking);
+    const anonymous = SessionState();
+
+    test('verificando la sesión no manda el enlace a la carga', () {
+      expect(redirectFor(checking, Uri.parse('/cambio-correo?token=x')), null);
+    });
+
+    test('sin sesión el enlace con token se queda', () {
+      expect(
+        redirectFor(anonymous, Uri.parse('/cambio-correo?token=abc')),
+        null,
+      );
+    });
+
+    test('con sesión de cada rol el enlace con token se queda', () {
+      for (final role in UserRole.values) {
+        final session = SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: 't',
+          role: role,
+        );
+        expect(
+          redirectFor(session, Uri.parse('/cambio-correo?token=abc')),
+          null,
+          reason: role.name,
+        );
+      }
+    });
+
+    test('sin token o con el token vacío va a /, con o sin sesión', () {
+      const socio = SessionState(
+        status: SessionStatus.authenticated,
+        accessToken: 't',
+        role: UserRole.socio,
+      );
+      for (final session in [checking, anonymous, socio]) {
+        expect(redirectFor(session, Uri.parse('/cambio-correo')), '/');
+        expect(redirectFor(session, Uri.parse('/cambio-correo?token=')), '/');
+      }
+    });
+
+    test('la recuperación y el login no cambian', () {
+      expect(redirectFor(anonymous, Uri.parse('/recuperacion?token=x')), null);
+      expect(
+        redirectFor(anonymous, Uri.parse('/recuperacion')),
+        '/recuperacion/solicitar',
+      );
+      expect(redirectFor(anonymous, Uri.parse('/login')), null);
+      expect(redirectFor(checking, Uri.parse('/login')), '/');
+    });
+  });
+
   testWidgets('cada rol entra a su home y ve solo sus secciones', (
     tester,
   ) async {
@@ -587,5 +713,31 @@ void main() {
       find.textContaining('comunicate con la institución'),
       findsOneWidget,
     );
+  });
+
+  group('redirectFor en Mi cuenta (/cuenta)', () {
+    final uri = Uri.parse('/cuenta');
+
+    test('sin sesión va al login', () {
+      expect(redirectFor(const SessionState(), uri), '/login');
+    });
+
+    test('mientras se verifica la sesión va a la raíz', () {
+      expect(
+        redirectFor(const SessionState(status: SessionStatus.checking), uri),
+        '/',
+      );
+    });
+
+    test('con sesión de cada uno de los cuatro roles se queda', () {
+      for (final role in UserRole.values) {
+        final session = SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: 't',
+          role: role,
+        );
+        expect(redirectFor(session, uri), null, reason: role.name);
+      }
+    });
   });
 }

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/app_config.dart';
 import '../models/access_type.dart';
 import '../providers/session_provider.dart';
+import '../repositories/password_recovery_repository.dart';
 import '../widgets/auth_scaffold.dart';
 import '../widgets/login_form.dart';
 
@@ -16,6 +17,7 @@ class LoginScreen extends ConsumerStatefulWidget {
     super.key,
     this.access = AccessType.socio,
     this.accountActivated = false,
+    this.passwordRecovered = false,
   });
 
   /// Acceso pedido por la ruta (`?acceso=`).
@@ -23,6 +25,10 @@ class LoginScreen extends ConsumerStatefulWidget {
 
   /// Se llegó desde la activación de la cuenta: se muestra el aviso de éxito.
   final bool accountActivated;
+
+  /// Se llegó desde la contraseña nueva (`?recuperada=1`): se muestra el
+  /// aviso de éxito.
+  final bool passwordRecovered;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -66,6 +72,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const AuthNotice(
             title: 'Tu cuenta quedó activa',
             messages: ['Ingresá con tu cédula y la contraseña que elegiste.'],
+          ),
+          const SizedBox(height: 16),
+        ],
+        if (widget.passwordRecovered) ...[
+          const AuthNotice(
+            title: 'Contraseña actualizada',
+            messages: [kPasswordRecoveredMessage],
           ),
           const SizedBox(height: 16),
         ],

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/branding.dart';
 import '../../../core/widgets/centered_content.dart';
 
 /// Marco común de las pantallas de acceso (login y primer ingreso): logo,
-/// "Agenda médica", un subtítulo y el contenido de cada pantalla.
+/// el nombre de la mutualista, un subtítulo y el contenido de cada pantalla.
 class AuthScaffold extends StatelessWidget {
   const AuthScaffold({
     super.key,
@@ -27,7 +28,7 @@ class AuthScaffold extends StatelessWidget {
               SvgPicture.asset('assets/images/logo.svg', height: 140),
               const SizedBox(height: 16),
               Text(
-                'Agenda médica',
+                kMutualistaName,
                 style: textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),

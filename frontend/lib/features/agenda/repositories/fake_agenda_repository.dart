@@ -7,6 +7,7 @@ import '../../especialidades/models/specialty.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
+import '../models/doctor_with_specialties.dart';
 import '../models/referral.dart';
 import 'agenda_repository.dart';
 
@@ -33,6 +34,10 @@ class FakeAgendaRepository implements AgendaRepository {
 
   static const int _maxActive = 3;
 
+  /// El médico que el falso suma a los de prueba: tiene especialidades pero
+  /// ningún número, para poder ver la búsqueda por médico sin resultados.
+  static const int _doctorWithoutNumbersId = 4;
+
   @override
   Future<List<AvailableNumber>> listAvailability(
     AvailabilityQuery query,
@@ -46,8 +51,7 @@ class FakeAgendaRepository implements AgendaRepository {
           for (final number in _db.numbers)
             if (!_db.isTaken(number.id) &&
                 number.start.isAfter(now) &&
-                _specialtyOf(number)?.id == query.specialtyId &&
-                (query.doctorId == null || number.doctorId == query.doctorId))
+                _matchesFilters(number, query))
               _toAvailable(number),
         ].where((n) {
           if (from != null && n.date.isBefore(from)) return false;
@@ -71,6 +75,68 @@ class FakeAgendaRepository implements AgendaRepository {
     return query.direction == SortDirection.asc
         ? items
         : items.reversed.toList();
+  }
+
+  /// Un número cumple los filtros si tiene una especialidad del catálogo y,
+  /// de venir, es de la especialidad y del médico pedidos. Con los dos y sin
+  /// relación entre ellos no cumple ninguno: lista vacía, como el servidor.
+  bool _matchesFilters(TestNumber number, AvailabilityQuery query) {
+    final specialty = _specialtyOf(number);
+    return specialty != null &&
+        (query.specialtyId == null || specialty.id == query.specialtyId) &&
+        (query.doctorId == null || number.doctorId == query.doctorId);
+  }
+
+  /// Los médicos de prueba cuya especialidad está en el catálogo, más a Lucía
+  /// Paz (Medicina General y Dermatología), que no tiene números libres. Van
+  /// por apellido y nombre, y con [specialtyId] solo los que la ejercen.
+  @override
+  Future<List<DoctorWithSpecialties>> listDoctors({int? specialtyId}) async {
+    await Future<void>.delayed(latency);
+    final doctors = <DoctorWithSpecialties>[
+      for (final doctor in TestData.doctors)
+        ?_doctorWith(doctor.id, doctor.name, [
+          TestData.specialties
+              .firstWhere((s) => s.id == doctor.specialtyId)
+              .name,
+        ]),
+      ?_doctorWith(_doctorWithoutNumbersId, 'Dra. Lucía Paz', const [
+        'Medicina General',
+        'Dermatología',
+      ]),
+    ];
+    doctors.sort((a, b) {
+      final byLastName = a.lastName.compareTo(b.lastName);
+      return byLastName != 0 ? byLastName : a.firstName.compareTo(b.firstName);
+    });
+    return [
+      for (final doctor in doctors)
+        if (specialtyId == null || doctor.attends(specialtyId)) doctor,
+    ];
+  }
+
+  /// Un médico con las especialidades del catálogo que aparecen en
+  /// [specialtyNames], o `null` si ninguna está (no se lo puede elegir).
+  DoctorWithSpecialties? _doctorWith(
+    int id,
+    String fullName,
+    List<String> specialtyNames,
+  ) {
+    final specialties = [
+      for (final specialty in _admin.specialties)
+        if (specialtyNames
+            .map(FakeAdminDatabase.normalize)
+            .contains(FakeAdminDatabase.normalize(specialty.name)))
+          SpecialtyRef(id: specialty.id, name: specialty.name),
+    ];
+    if (specialties.isEmpty) return null;
+    final names = fullName.replaceFirst(RegExp(r'^Dra?\. '), '').split(' ');
+    return DoctorWithSpecialties(
+      id: id,
+      firstName: names.first,
+      lastName: names.skip(1).join(' '),
+      specialties: specialties,
+    );
   }
 
   /// Los pases vigentes hoy y sin usar, por vencimiento y después por id,

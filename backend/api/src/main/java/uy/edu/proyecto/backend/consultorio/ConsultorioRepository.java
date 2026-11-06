@@ -1,7 +1,12 @@
 package uy.edu.proyecto.backend.consultorio;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -55,6 +60,91 @@ public class ConsultorioRepository {
                 rs.getString("nombre"),
                 rs.getString("ubicacion")
         ), params.toArray());
+    }
+
+    /**
+     * Devuelve los consultorios cuyo nombre (sin distinguir mayusculas) este
+     * en la coleccion dada, indexados por nombre en minusculas. La carga
+     * masiva (RF-34) trata los nombres como unicos sin distinguir mayusculas,
+     * igual que la previsualizacion.
+     */
+    public Map<String, Consultorio> buscarPorNombresLower(
+            Collection<String> nombres
+    ) {
+        if (nombres == null || nombres.isEmpty()) {
+            return Map.of();
+        }
+
+        List<String> normalizados = nombres.stream()
+                .map(nombre -> nombre.trim().toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+
+        String placeholders = normalizados.stream()
+                .map(ignored -> "?")
+                .collect(Collectors.joining(", "));
+
+        Map<String, Consultorio> encontrados = new HashMap<>();
+        jdbcTemplate.query(
+                """
+                SELECT id_consultorio, nombre, ubicacion
+                FROM public.consultorio
+                WHERE lower(nombre) IN (%s)
+                """.formatted(placeholders),
+                (rs, rowNum) -> {
+                    Consultorio consultorio = new Consultorio(
+                            rs.getLong("id_consultorio"),
+                            rs.getString("nombre"),
+                            rs.getString("ubicacion")
+                    );
+                    encontrados.put(
+                            consultorio.nombre().toLowerCase(Locale.ROOT),
+                            consultorio
+                    );
+                    return consultorio;
+                },
+                normalizados.toArray()
+        );
+        return encontrados;
+    }
+
+    public java.util.Optional<Consultorio> buscarPorId(long id) {
+        String sql = """
+                SELECT id_consultorio, nombre, ubicacion
+                FROM public.consultorio
+                WHERE id_consultorio = ?
+                """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new Consultorio(
+                        rs.getLong("id_consultorio"),
+                        rs.getString("nombre"),
+                        rs.getString("ubicacion")
+                ),
+                id
+        ).stream().findFirst();
+    }
+
+    public Consultorio actualizar(long id, String nombre, String ubicacion) {
+        String sql = """
+                UPDATE public.consultorio
+                SET nombre = ?, ubicacion = ?
+                WHERE id_consultorio = ?
+                RETURNING id_consultorio, nombre, ubicacion
+                """;
+
+        return jdbcTemplate.queryForObject(
+                sql,
+                (rs, rowNum) -> new Consultorio(
+                        rs.getLong("id_consultorio"),
+                        rs.getString("nombre"),
+                        rs.getString("ubicacion")
+                ),
+                nombre,
+                ubicacion,
+                id
+        );
     }
 
     public Consultorio crear(String nombre, String ubicacion) {

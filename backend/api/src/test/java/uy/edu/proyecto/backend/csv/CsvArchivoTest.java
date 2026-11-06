@@ -50,6 +50,18 @@ class CsvArchivoTest {
     }
 
     @Test
+    void mantieneLimiteDeUnMegabyteParaCsv() {
+        var grande = new MockMultipartFile("archivo", "grande.csv", "text/csv",
+                new byte[(int) CsvArchivo.MAX_BYTES + 1]);
+
+        ApiException error = assertThrows(ApiException.class,
+                () -> CsvArchivo.leerUtf8(grande));
+
+        assertEquals("CSV_INVALIDO", error.getCode());
+        assertTrue(error.getMessage().contains("1 MB"));
+    }
+
+    @Test
     void rechazaBytesQueNoSonUtf8() {
         // "Cardiología" en Latin-1: la tilde queda como 0xED, invalido en UTF-8.
         byte[] latin1 = "nombre,requiere_pase\nCardiología,si\n"

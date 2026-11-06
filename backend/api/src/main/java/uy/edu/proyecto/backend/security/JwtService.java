@@ -59,6 +59,10 @@ public class JwtService {
                                 rol
                         )
 
+                        // Precision completa para invalidar JWT anteriores a
+                        // una reactivacion incluso dentro del mismo segundo.
+                        .claim("issued_at_precise", ahora.toString())
+
                         .issuedAt(ahora)
 
                         .expiresAt(

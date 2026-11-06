@@ -13,6 +13,7 @@ import '../widgets/clinic_filter_bar.dart';
 
 const String kClinicsPath = '/admin/consultorios';
 const String kNewClinicPath = '/admin/consultorios/nuevo';
+const String kImportClinicsPath = '/admin/consultorios/importar';
 
 /// Consulta de consultorios con filtros (RF-37) y acceso al alta (RF-33).
 class ClinicsScreen extends ConsumerWidget {
@@ -36,13 +37,25 @@ class ClinicsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => context.go(kNewClinicPath),
-                icon: const Icon(Icons.add),
-                label: const Text('Nuevo consultorio'),
-              ),
+            // En un Wrap alineado a la derecha: a 320 px los botones pasan a
+            // dos renglones en vez de desbordar.
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  key: const Key('clinics-import-button'),
+                  onPressed: () => context.go(kImportClinicsPath),
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Cargar desde CSV'),
+                ),
+                FilledButton.icon(
+                  onPressed: () => context.go(kNewClinicPath),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nuevo consultorio'),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             const ClinicFilterBar(),

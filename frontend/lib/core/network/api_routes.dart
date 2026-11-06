@@ -79,6 +79,14 @@ class ApiRoutes {
   static const String authEmailChangeConfirm =
       '/api/auth/cambio-correo/confirmar';
 
+  // --- RF-02 y RF-05: validar el enlace antes de pedir los datos (filas 63 y 64) ---
+  // Las dos son POST públicas con el token en el cuerpo. No consumen el enlace.
+
+  static const String authFirstLoginValidate =
+      '/api/auth/primer-ingreso/validar';
+  static const String authPasswordRecoveryValidate =
+      '/api/auth/recuperacion/validar';
+
   // --- RF-30 y RF-32: cargas masivas (filas 52 a 55) ---
   // Las cuatro son POST y solo para ADMINISTRADOR: vista previa y confirmación
   // de la carga de especialidades y de la carga de usuarios.
@@ -91,6 +99,30 @@ class ApiRoutes {
       '/api/usuarios/importaciones/previsualizar';
   static const String usersImportConfirm =
       '/api/usuarios/importaciones/confirmar';
+
+  // --- RF-34, RF-38 y RF-45: administración (filas 56 a 62) ---
+  // Todas son solo para ADMINISTRADOR. Las dos primeras son POST (carga masiva
+  // de consultorios). Las tres con id de especialidad, consultorio o cuenta
+  // son PATCH (`specialty`, `clinic`, `user`: corrección de datos); las dos
+  // últimas son POST sin cuerpo (inactivar y reactivar una cuenta de
+  // empleado).
+
+  static const String clinicsImportPreview =
+      '/api/consultorios/importaciones/previsualizar';
+  static const String clinicsImportConfirm =
+      '/api/consultorios/importaciones/confirmar';
+  static String specialty(int id) => '/api/especialidades/$id';
+  static String clinic(int id) => '/api/consultorios/$id';
+  static String user(int id) => '/api/usuarios/$id';
+  static String userDeactivate(int id) => '/api/usuarios/$id/inactivar';
+  static String userReactivate(int id) => '/api/usuarios/$id/reactivar';
+
+  // --- RF-07 y RF-28: cartelera de novedades (filas 65 a 67) ---
+  // `announcements` sirve para publicar (POST, solo ADMINISTRADOR) y para el
+  // listado paginado (GET); `announcement` es el detalle (GET).
+
+  static const String announcements = '/api/anuncios';
+  static String announcement(int id) => '/api/anuncios/$id';
 
   static const String pocPushRegistration = '/api/notificaciones/registro';
 
@@ -142,10 +174,21 @@ class ApiRoutes {
     authPasswordRecoveryRequest,
     authPasswordRecoveryComplete,
     authEmailChangeConfirm,
+    authFirstLoginValidate,
+    authPasswordRecoveryValidate,
     specialtiesImportPreview,
     specialtiesImportConfirm,
     usersImportPreview,
     usersImportConfirm,
+    clinicsImportPreview,
+    clinicsImportConfirm,
+    specialty(1),
+    clinic(1),
+    user(1),
+    userDeactivate(1),
+    userReactivate(1),
+    announcements,
+    announcement(1),
     pocPushRegistration,
   ];
 }

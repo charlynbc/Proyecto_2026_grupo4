@@ -6,43 +6,34 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import uy.edu.proyecto.backend.csv.CsvArchivo;
+
+/**
+ * Validaciones por fila del CSV de consultorios (RF-34): mismas reglas del
+ * alta individual (RF-33) mas la deteccion de repetidas dentro del archivo,
+ * conservando la primera aparicion (seccion 3.1.4).
+ */
 public class ConsultorioCsvValidador {
 
-    public record ResultadoFila(
-            int numero,
-            String nombre,
-            String ubicacion,
-            String error
-    ) {
-        public boolean valida() {
-            return error == null;
-        }
-    }
+    static final List<String> COLUMNAS = List.of("nombre", "ubicacion");
 
-    public List<ResultadoFila> validar(
-            List<ConsultorioCsvParser.Fila> filas
-    ) {
-        List<ResultadoFila> resultados = new ArrayList<>();
+    public List<FilaConsultorioCsv> validar(List<CsvArchivo.FilaCruda> filas) {
+        List<FilaConsultorioCsv> resultados = new ArrayList<>();
         Map<String, Integer> nombresVistos = new HashMap<>();
 
-        for (ConsultorioCsvParser.Fila fila : filas) {
+        for (CsvArchivo.FilaCruda fila : filas) {
             if (fila.error() != null) {
-                resultados.add(new ResultadoFila(
+                resultados.add(new FilaConsultorioCsv(
                         fila.numero(),
-                        fila.nombre(),
-                        fila.ubicacion(),
+                        null,
+                        null,
                         fila.error()
                 ));
                 continue;
             }
 
-            String nombre = fila.nombre() == null
-                    ? ""
-                    : fila.nombre().trim();
-
-            String ubicacion = fila.ubicacion() == null
-                    ? ""
-                    : fila.ubicacion().trim();
+            String nombre = fila.valor(0) == null ? "" : fila.valor(0).trim();
+            String ubicacion = fila.valor(1) == null ? "" : fila.valor(1).trim();
 
             String error = null;
 
@@ -67,7 +58,7 @@ public class ConsultorioCsvValidador {
                 }
             }
 
-            resultados.add(new ResultadoFila(
+            resultados.add(new FilaConsultorioCsv(
                     fila.numero(),
                     nombre,
                     ubicacion,

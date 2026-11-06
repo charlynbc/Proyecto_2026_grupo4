@@ -331,6 +331,8 @@ ALTER TABLE public.consulta
 CREATE TABLE public.anuncio (
     id_anuncio bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
     id_administrador bigint NOT NULL,
+    titulo text,
+    resumen text,
     texto text,
     publicado_en timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_anuncio PRIMARY KEY (id_anuncio),

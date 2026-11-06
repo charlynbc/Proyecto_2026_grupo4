@@ -23,6 +23,14 @@ public class PrimerIngresoController {
         return ResponseEntity.accepted().body(service.solicitar(request));
     }
 
+    @PostMapping("/validar")
+    public ResponseEntity<Void> validar(
+            @RequestBody(required = false) ValidarEnlaceRequest request
+    ) {
+        service.validarEnlace(request);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/completar")
     public ResponseEntity<CuentaActivadaResponse> completar(
             @RequestBody CompletarPrimerIngresoRequest request

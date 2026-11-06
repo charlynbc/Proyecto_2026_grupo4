@@ -5,10 +5,11 @@ import '../../../core/network/api_routes.dart';
 import '../models/appointment.dart';
 import '../models/availability_query.dart';
 import '../models/available_number.dart';
+import '../models/doctor_with_specialties.dart';
 import '../models/referral.dart';
 import 'agenda_repository.dart';
 
-/// Implementación real de [AgendaRepository] (contrato #16 y #17). Los
+/// Implementación real de [AgendaRepository] (contrato #10, #16 y #17). Los
 /// rechazos se distinguen por `code`, nunca por el texto del mensaje. Una
 /// respuesta mal formada se vuelve el error genérico: no se rellena nada.
 class ApiAgendaRepository implements AgendaRepository {
@@ -28,6 +29,25 @@ class ApiAgendaRepository implements AgendaRepository {
       return availableNumbersFromJson(
         response.data ?? (throw const ApiException()),
       );
+    } on DioException catch (e) {
+      throw ApiException.fromDio(e);
+    } on FormatException {
+      throw const ApiException();
+    } on TypeError {
+      throw const ApiException();
+    }
+  }
+
+  @override
+  Future<List<DoctorWithSpecialties>> listDoctors({int? specialtyId}) async {
+    try {
+      // Como `Object?`: la respuesta es una lista JSON sin envoltorio, y con
+      // otro tipo dio tiraría el cast como una falla de conexión.
+      final response = await _dio.get<Object?>(
+        ApiRoutes.doctors,
+        queryParameters: {'especialidadId': ?specialtyId},
+      );
+      return doctorsFromJson(response.data);
     } on DioException catch (e) {
       throw ApiException.fromDio(e);
     } on FormatException {

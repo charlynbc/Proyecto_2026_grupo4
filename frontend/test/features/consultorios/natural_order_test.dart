@@ -144,4 +144,57 @@ void main() {
     expect(compareNatural('', ''), 0);
     expect(compareNatural('', 'a'), lessThan(0));
   });
+
+  test('Ángel 1 va antes que Zeta 1', () {
+    expect(compareNatural('Ángel 1', 'Zeta 1'), lessThan(0));
+  });
+
+  test('Ático va antes que Zona', () {
+    expect(compareNatural('Ático', 'Zona'), lessThan(0));
+  });
+
+  test('Ñandú va antes que Oeste', () {
+    expect(compareNatural('Ñandú', 'Oeste'), lessThan(0));
+  });
+
+  test('Cardiología y Cardiologia empatan', () {
+    expect(compareNatural('Cardiología', 'Cardiologia'), 0);
+  });
+
+  test('Éxito y Exito empatan', () {
+    expect(compareNatural('Éxito', 'Exito'), 0);
+  });
+
+  test('ÁNGEL y ángel empatan', () {
+    expect(compareNatural('ÁNGEL', 'ángel'), 0);
+  });
+
+  test(
+    'con tildes el orden es Ángel, Ático, Bravo, Ñandú, Oeste, Zeta, Zona',
+    () {
+      expect(
+        sortedNaturally([
+          'Zeta',
+          'Ángel',
+          'Bravo',
+          'Ático',
+          'Oeste',
+          'Ñandú',
+          'Zona',
+        ], (name) => name),
+        ['Ángel', 'Ático', 'Bravo', 'Ñandú', 'Oeste', 'Zeta', 'Zona'],
+      );
+    },
+  );
+
+  test('Cardiología y Cardiologia conservan el orden de llegada', () {
+    expect(sortedNaturally(['Cardiología', 'Cardiologia'], (name) => name), [
+      'Cardiología',
+      'Cardiologia',
+    ]);
+    expect(sortedNaturally(['Cardiologia', 'Cardiología'], (name) => name), [
+      'Cardiologia',
+      'Cardiología',
+    ]);
+  });
 }

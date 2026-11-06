@@ -107,6 +107,68 @@ public class EspecialidadRepository {
         return encontradas;
     }
 
+    public java.util.Optional<Especialidad> buscarPorId(long id) {
+        String sql = """
+                SELECT id_especialidad, nombre, requiere_pase
+                FROM public.especialidad
+                WHERE id_especialidad = ?
+                """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new Especialidad(
+                        rs.getLong("id_especialidad"),
+                        rs.getString("nombre"),
+                        rs.getBoolean("requiere_pase")
+                ),
+                id
+        ).stream().findFirst();
+    }
+
+    /** Busca por nombre sin distinguir mayusculas (unicidad de RF-29/RF-38). */
+    public java.util.Optional<Especialidad> buscarPorNombreLower(String nombre) {
+        String sql = """
+                SELECT id_especialidad, nombre, requiere_pase
+                FROM public.especialidad
+                WHERE lower(nombre) = lower(?)
+                """;
+
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new Especialidad(
+                        rs.getLong("id_especialidad"),
+                        rs.getString("nombre"),
+                        rs.getBoolean("requiere_pase")
+                ),
+                nombre
+        ).stream().findFirst();
+    }
+
+    public Especialidad actualizar(
+            long id,
+            String nombre,
+            boolean requierePase
+    ) {
+        String sql = """
+                UPDATE public.especialidad
+                SET nombre = ?, requiere_pase = ?
+                WHERE id_especialidad = ?
+                RETURNING id_especialidad, nombre, requiere_pase
+                """;
+
+        return jdbcTemplate.queryForObject(
+                sql,
+                (rs, rowNum) -> new Especialidad(
+                        rs.getLong("id_especialidad"),
+                        rs.getString("nombre"),
+                        rs.getBoolean("requiere_pase")
+                ),
+                nombre,
+                requierePase,
+                id
+        );
+    }
+
     public Especialidad crear(String nombre, boolean requierePase) {
         String sql = """
                 INSERT INTO public.especialidad (nombre, requiere_pase)
