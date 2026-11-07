@@ -96,9 +96,6 @@ PostgreSQL.
 | 66 | `GET /api/anuncios` | autenticado | 07 | Tarjetas para el inicio y la cartelera, con portada opcional | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #66](contrato-v1.md#e66) |
 | 67 | `GET /api/anuncios/{id}` | autenticado | 07 | Detalle de novedad con texto y/o imágenes ordenadas | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #67](contrato-v1.md#e67) |
 | 68 | `GET /api/usuarios/{id}` | ADMINISTRADOR | 38 | Detalle completo de cuenta para precargar corrección; mismo DTO que PATCH #58 | CONFIRMADA (backend 06/11/2026) | - | [contrato #68](contrato-v1.md#e68) |
-| 69 | `GET /api/estadisticas/inasistencias` | ADMINISTRADOR | 42 | Inasistencias por especialidad o médico | IMPLEMENTADA EN BACKEND (rama RF-42 a RF-44; pendiente de integración) | - | [contrato #69](contrato-v1.md#e69) |
-| 70 | `GET /api/estadisticas/pases` | ADMINISTRADOR | 43 | Pases por especialidad de destino | IMPLEMENTADA EN BACKEND (rama RF-42 a RF-44; pendiente de integración) | - | [contrato #70](contrato-v1.md#e70) |
-| 71 | `GET /api/estadisticas/franjas` | ADMINISTRADOR | 44 | Días y franjas pico, consultas o llegadas | IMPLEMENTADA EN BACKEND (rama RF-42 a RF-44; pendiente de integración) | - | [contrato #71](contrato-v1.md#e71) |
 
 ## Rutas de la prueba de concepto
 
