@@ -1628,12 +1628,12 @@ Preguntas relacionadas: P-14.
 
 ### 3.9 Estadísticas (administrador)
 
-Las tres usan el mismo `FiltroEstadisticaDTO`, que viaja en la query:
+RF-39 a RF-44 usan el mismo criterio de período, enviado en la query:
 
 | Parámetro | Tipo | Notas |
 |---|---|---|
-| `fechaDesde` | fecha | Opcional. Por defecto, el primer día del mes en curso (RF-44, CU 3.5.5). |
-| `fechaHasta` | fecha | Opcional. Por defecto, el último día del mes en curso. |
+| `desde` | fecha | Opcional. Por defecto, el primer día del mes en curso, en `America/Montevideo`. |
+| `hasta` | fecha | Opcional. Por defecto, el último día del mes en curso. |
 
 Cada respuesta repite `desde` y `hasta`, el período realmente aplicado. Un denominador cero se informa como **"Sin datos"** y un numerador cero con denominador positivo como **0 %** (RF-44): en el JSON, un porcentaje o tasa en `null` significa "Sin datos"; el `0` es 0 %. Los porcentajes van como número entre 0 y 100, con hasta 2 decimales (**PROPUESTA**, P-13). Estas consultas pueden demorar más que las demás (RNF-16): el cliente muestra que la operación está en curso.
 
@@ -1738,6 +1738,60 @@ Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, 
 ```
 
 `totalConsultas` cero: `porcentajeCancelacion` es `null` y `porcentajeCancelacionTexto` es `"Sin datos"`. Con consultas y ninguna cancelada por el socio: `0` y `"0 %"`. No incluye datos de pacientes.
+
+<a id="e69"></a>
+#### #69 · `GET /api/estadisticas/inasistencias`
+
+- **Roles:** ADMINISTRADOR. **RF:** RF-42. **Estado:** IMPLEMENTADA EN BACKEND en la rama del PR; pendiente de integración.
+- **Filtros:** `desde`, `hasta` y `agruparPor` (`ESPECIALIDAD` por defecto o `MEDICO`).
+- **Cómputo:** solo consultas no canceladas cuyo día ya terminó en `America/Montevideo`, por `turno.fecha`. Las `AGENDADA` de días terminados se clasifican como `NO_ASISTIO` sin aviso o `NO_ATENDIDA` con aviso. Porcentaje = (`noAsistio` + `noSePresento`) / `total` × 100; `noAtendidas` integra el denominador pero no el numerador. Orden descendente por porcentaje.
+
+```json
+{
+  "desde": "2026-10-01", "hasta": "2026-10-31", "agruparPor": "ESPECIALIDAD",
+  "items": [{"id": 3, "nombre": "Cardiología", "apellido": null,
+    "atendidas": 20, "noAsistio": 2, "noSePresento": 1, "noAtendidas": 2,
+    "total": 25, "porcentajeInasistencia": 12.00, "inasistencia": "12 %"}]
+}
+```
+
+Con `agruparPor=MEDICO`, `id`, `nombre` y `apellido` identifican al médico; con `ESPECIALIDAD`, `apellido` es `null`. Los grupos sin consultas no aparecen. `agruparPor` inválido: `400 VALIDACION`. La respuesta no expone pacientes.
+
+<a id="e70"></a>
+#### #70 · `GET /api/estadisticas/pases`
+
+- **Roles:** ADMINISTRADOR. **RF:** RF-43. **Estado:** IMPLEMENTADA EN BACKEND en la rama del PR; pendiente de integración.
+- **Filtros:** `desde`, `hasta` por `pase.emitido_en` en `America/Montevideo`; `especialidadOrigenId` positivo y opcional.
+- **Cómputo:** una fila por especialidad de destino, incluidas las que tienen cero pases. Utilizado si existe una consulta vinculada no cancelada; de lo contrario, disponible si `vence_el >= hoy`, o vencido. La cancelación devuelve el pase sin alterar su emisión ni vencimiento. Porcentaje = `utilizados / (utilizados + vencidos) × 100`.
+
+```json
+{
+  "desde": "2026-10-01", "hasta": "2026-10-31", "especialidadOrigenId": 1,
+  "items": [{"especialidadDestino": {"id": 3, "nombre": "Cardiología", "requierePase": true},
+    "emitidos": 10, "utilizados": 5, "disponibles": 3, "vencidos": 2,
+    "porcentajeUtilizados": 71.43, "utilizacion": "71.43 %"}]
+}
+```
+
+Sin pases resueltos, `porcentajeUtilizados` es `null` y `utilizacion` es `"Sin datos"`. ID no positivo: `400 VALIDACION`.
+
+<a id="e71"></a>
+#### #71 · `GET /api/estadisticas/franjas`
+
+- **Roles:** ADMINISTRADOR. **RF:** RF-44. **Estado:** IMPLEMENTADA EN BACKEND en la rama del PR; pendiente de integración.
+- **Filtros:** `desde`, `hasta` por fecha de consulta; `vista=CONSULTAS` (predeterminada) o `LLEGADAS`; `especialidadId` positivo y opcional.
+- **Cómputo:** en `CONSULTAS`, cada consulta no cancelada se ubica por el inicio de `numero.hora_inicio`. En `LLEGADAS`, cada consulta no cancelada a la que aplica el aviso del socio y día se ubica por la hora local de `aviso_llegada.registrada_en`; un aviso para dos consultas cuenta dos veces. El filtro de especialidad corresponde a cada consulta.
+
+```json
+{
+  "desde": "2026-10-01", "hasta": "2026-10-31", "vista": "LLEGADAS",
+  "especialidadId": null,
+  "celdas": [{"diaSemana": 1, "hora": 0, "cantidad": 0},
+             {"diaSemana": 1, "hora": 1, "cantidad": 0}]
+}
+```
+
+La respuesta contiene siempre 168 celdas, una por cada día ISO (lunes 1 a domingo 7) y hora (0 a 23); el ejemplo muestra las primeras dos. Vista o ID inválidos: `400 VALIDACION`. No se expone el aviso ni la identidad del socio.
 
 ---
 
@@ -2622,6 +2676,9 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
 | 66 | `GET /api/anuncios` | | ✔ | ✔ | ✔ | ✔ |
 | 67 | `GET /api/anuncios/{id}` | | ✔ | ✔ | ✔ | ✔ |
 | 68 | `GET /api/usuarios/{id}` | | | | | ✔ |
+| 69 | `GET /api/estadisticas/inasistencias` | | | | | ✔ |
+| 70 | `GET /api/estadisticas/pases` | | | | | ✔ |
+| 71 | `GET /api/estadisticas/franjas` | | | | | ✔ |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2893,9 +2950,9 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 
 ## 8. Fuera de este contrato
 
-Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
+RF-42 a RF-44 salieron de esta lista con el contrato de backend de los endpoints #69 a #71 (sección 3.9); su integración y el frontend siguen pendientes.
 
-RF-07 y RF-28 cartelera de novedades, RF-42 a RF-44 estadísticas adicionales.
+RF-07 y RF-28 tienen contrato de backend en los endpoints #65 a #67 (sección 3.17).
 
 RF-45 salió de esta lista el 04/11/2026: tiene contrato confirmado en los endpoints #61 y #62 (sección 3.16).
 

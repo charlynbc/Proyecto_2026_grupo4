@@ -52,6 +52,15 @@ class EstadisticaSeguridadTest {
     private EstadisticaConsultaService consultaService;
 
     @MockitoBean
+    private EstadisticaInasistenciaService inasistenciaService;
+
+    @MockitoBean
+    private EstadisticaPaseService paseService;
+
+    @MockitoBean
+    private EstadisticaFranjaService franjaService;
+
+    @MockitoBean
     private JwtDecoder jwtDecoder;
 
     private static RequestPostProcessor rol(String rol) {
