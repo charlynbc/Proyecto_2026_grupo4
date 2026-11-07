@@ -345,6 +345,27 @@ bool _confirmEnabled(WidgetTester tester) =>
     null;
 
 void main() {
+  testWidgets('el AppBar muestra Reservar consulta y no Disponibilidad', (
+    tester,
+  ) async {
+    await _pump(tester, const AvailabilityScreen());
+
+    final appBar = find.byType(AppBar);
+    expect(appBar, findsOneWidget);
+    final title = tester.widget<AppBar>(appBar).title;
+    expect(title, isA<Text>());
+    expect((title! as Text).data, 'Reservar consulta');
+    expect(
+      find.descendant(of: appBar, matching: find.text('Reservar consulta')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: appBar, matching: find.text('Disponibilidad')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('pide una especialidad y no consulta hasta elegirla', (
     tester,
   ) async {
