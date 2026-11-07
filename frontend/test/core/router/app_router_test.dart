@@ -228,6 +228,7 @@ void main() {
       final labels = role.sections.map((s) => s.label).toSet();
       if (role.sections.length > 1) {
         for (final label in labels) {
+          if (role == UserRole.socio && label == 'Inicio') continue;
           expect(find.text(label), findsWidgets, reason: '${role.name}/$label');
         }
       }
@@ -696,6 +697,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(locationOf(container), '/login');
+    await unmountApp(tester);
   });
 
   testWidgets('una sesión caída lleva al login con un aviso comprensible', (

@@ -101,17 +101,25 @@ void main() {
     final container = await pumpApp(tester, size: const Size(320, 800));
     try {
       await _loginAs(tester, container, UserRole.socio);
+      expect(find.byType(NavigationBar), findsNothing);
+      await goTo(tester, container, '/socio/disponibilidad');
       _expectNarrowShell(tester);
 
       final cartelera = _labelHeight(tester, 'Cartelera');
-      final disponibilidad = _labelHeight(tester, 'Disponibilidad');
+      final inicio = _labelHeight(tester, 'Inicio');
+      final reserva = _labelHeight(tester, 'Reserva');
       final consultas = _labelHeight(tester, 'Mis consultas');
       final historia = _labelHeight(tester, 'Historia clínica');
 
       expect(
-        disponibilidad,
+        reserva,
         closeTo(cartelera, 0.01),
-        reason: 'Disponibilidad debe ocupar una línea, igual que Cartelera',
+        reason: 'Reserva debe ocupar una línea, igual que Cartelera',
+      );
+      expect(inicio, closeTo(cartelera, 0.01));
+      expect(
+        tester.widget<NavigationBar>(find.byType(NavigationBar)).destinations,
+        hasLength(5),
       );
       expect(
         consultas,
@@ -160,6 +168,11 @@ void main() {
       final container = await pumpApp(tester, size: const Size(900, 800));
       try {
         await _loginAs(tester, container, role);
+
+        if (role == UserRole.socio) {
+          expect(find.byType(NavigationRail), findsNothing);
+          await goTo(tester, container, '/socio/disponibilidad');
+        }
 
         expect(tester.view.physicalSize, const Size(900, 800));
         expect(tester.view.devicePixelRatio, 1);

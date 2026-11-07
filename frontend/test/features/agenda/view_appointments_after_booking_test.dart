@@ -26,6 +26,8 @@ Future<void> _loginAsMember(
   await tester.pumpAndSettle();
   await done;
   await tester.pumpAndSettle();
+  // El socio llega a Inicio; entra a Reserva antes del recorrido de agenda.
+  await goTo(tester, container, '/socio/disponibilidad');
 }
 
 /// Deja pasar la latencia de los repositories falsos (300 ms).

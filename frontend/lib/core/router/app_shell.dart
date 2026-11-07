@@ -6,6 +6,7 @@ import 'app_sections.dart';
 /// Barra de navegación fija de las secciones de un rol: `NavigationBar` abajo
 /// en pantallas angostas, `NavigationRail` al costado en anchas. Un rol con
 /// una sola sección (médico) no muestra barra.
+/// Inicio usa sus accesos propios; el menú se conserva en las demás secciones.
 ///
 /// Intercepta el botón de atrás de Android con [PopScope]: parado en la raíz
 /// de cualquier sección que no sea la primera, atrás vuelve a la primera en
@@ -22,6 +23,9 @@ class AppShell extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
   final List<AppSection> sections;
+
+  bool get _showNavigation =>
+      sections[navigationShell.currentIndex].slug != 'inicio';
 
   void _onDestinationSelected(int index) {
     navigationShell.goBranch(
@@ -61,25 +65,27 @@ class _NarrowShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: shell.navigationShell,
-      bottomNavigationBar: NavigationBarTheme(
-        data: const NavigationBarThemeData(
-          labelTextStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
-          labelPadding: EdgeInsets.zero,
-        ),
-        child: NavigationBar(
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          selectedIndex: shell.navigationShell.currentIndex,
-          onDestinationSelected: shell._onDestinationSelected,
-          destinations: [
-            for (final section in shell.sections)
-              NavigationDestination(
-                icon: Icon(section.icon),
-                selectedIcon: Icon(section.selectedIcon),
-                label: section.label,
+      bottomNavigationBar: shell._showNavigation
+          ? NavigationBarTheme(
+              data: const NavigationBarThemeData(
+                labelTextStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
+                labelPadding: EdgeInsets.zero,
               ),
-          ],
-        ),
-      ),
+              child: NavigationBar(
+                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                selectedIndex: shell.navigationShell.currentIndex,
+                onDestinationSelected: shell._onDestinationSelected,
+                destinations: [
+                  for (final section in shell.sections)
+                    NavigationDestination(
+                      icon: Icon(section.icon),
+                      selectedIcon: Icon(section.selectedIcon),
+                      label: section.label,
+                    ),
+                ],
+              ),
+            )
+          : null,
     );
   }
 }
@@ -94,21 +100,26 @@ class _WideShell extends StatelessWidget {
     return Scaffold(
       body: Row(
         children: [
-          NavigationRail(
-            selectedIndex: shell.navigationShell.currentIndex,
-            onDestinationSelected: shell._onDestinationSelected,
-            labelType: NavigationRailLabelType.all,
-            destinations: [
-              for (final section in shell.sections)
-                NavigationRailDestination(
-                  icon: Icon(section.icon),
-                  selectedIcon: Icon(section.selectedIcon),
-                  label: Text(section.label),
-                ),
-            ],
+          if (shell._showNavigation) ...[
+            NavigationRail(
+              selectedIndex: shell.navigationShell.currentIndex,
+              onDestinationSelected: shell._onDestinationSelected,
+              labelType: NavigationRailLabelType.all,
+              destinations: [
+                for (final section in shell.sections)
+                  NavigationRailDestination(
+                    icon: Icon(section.icon),
+                    selectedIcon: Icon(section.selectedIcon),
+                    label: Text(section.label),
+                  ),
+              ],
+            ),
+            const VerticalDivider(width: 1),
+          ],
+          Expanded(
+            key: const ValueKey('section-content'),
+            child: shell.navigationShell,
           ),
-          const VerticalDivider(width: 1),
-          Expanded(child: shell.navigationShell),
         ],
       ),
     );
