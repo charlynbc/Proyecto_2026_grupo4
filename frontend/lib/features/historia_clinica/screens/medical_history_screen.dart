@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../../../core/widgets/ui_date_field.dart';
+import '../../auth/widgets/logout_button.dart';
 import '../models/medical_history_entry.dart';
 import '../models/medical_history_query.dart';
 import '../providers/medical_history_filters_controller.dart';
@@ -103,7 +104,10 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
     final history = ref.watch(medicalHistoryProvider);
     final options = ref.watch(medicalHistoryOptionsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Mi historia clínica')),
+      appBar: AppBar(
+        title: const Text('Mi historia clínica'),
+        actions: const [LogoutButton()],
+      ),
       body: CenteredContent(
         maxWidth: 900,
         child: Column(

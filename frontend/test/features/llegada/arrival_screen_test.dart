@@ -3,6 +3,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
+import 'package:agenda_medica/features/auth/models/access_type.dart';
+import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
+import 'package:agenda_medica/features/auth/repositories/auth_repository.dart';
+import 'package:agenda_medica/features/auth/widgets/logout_button.dart';
 import 'package:agenda_medica/features/llegada/models/arrival.dart';
 import 'package:agenda_medica/features/llegada/providers/arrival_providers.dart';
 import 'package:agenda_medica/features/llegada/repositories/api_arrival_repository.dart';
@@ -15,6 +19,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../helpers/pump_admin.dart';
+import '../../helpers/load_roboto.dart';
+
+class _RecordingAuthRepository implements AuthRepository {
+  int logoutCalls = 0;
+
+  @override
+  Future<void> login({
+    required String ci,
+    required String password,
+    required AccessType access,
+  }) async {
+    throw StateError('Estos tests no deben iniciar sesión.');
+  }
+
+  @override
+  Future<void> refresh() async {
+    throw const AuthException();
+  }
+
+  @override
+  Future<void> logout() async {
+    logoutCalls++;
+  }
+}
+
+Future<void> _settleLogout(WidgetTester tester) async {
+  await tester.pumpAndSettle(
+    const Duration(milliseconds: 100),
+    EnginePhase.sendSemanticsUpdate,
+    const Duration(seconds: 5),
+  );
+}
 
 /// Aviso fijo para comprobar los textos: llegó a las 08:47 de Uruguay y lo
 /// registró Mariana Ferreira.
@@ -119,15 +155,23 @@ class _ServerAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-Future<void> _pump(WidgetTester tester, ArrivalRepository repository) async {
+Future<void> _pump(
+  WidgetTester tester,
+  ArrivalRepository repository, {
+  AuthRepository? auth,
+  Size size = const Size(900, 1800),
+}) async {
   await pumpAdminScreens(
     tester,
     initialLocation: '/llegada',
+    size: size,
     routes: [
       GoRoute(path: '/llegada', builder: (_, _) => const ArrivalScreen()),
     ],
     overrides: [
       arrivalRepositoryProvider.overrideWith((ref) async => repository),
+      if (auth != null)
+        authRepositoryProvider.overrideWith((ref) async => auth),
     ],
   );
 }
@@ -331,4 +375,145 @@ void main() {
       );
     });
   }
+
+  group('RF-03', () {
+    setUpAll(loadRoboto);
+
+    testWidgets('muestra un único LogoutButton y tooltip Cerrar sesión', (
+      tester,
+    ) async {
+      final auth = _RecordingAuthRepository();
+      await _pump(tester, _RecordingRepository(), auth: auth);
+
+      expect(find.byType(ArrivalScreen), findsOneWidget);
+      expect(find.byType(LogoutButton), findsOneWidget);
+      expect(find.byTooltip('Cerrar sesión'), findsOneWidget);
+      expect(auth.logoutCalls, 0);
+    });
+
+    testWidgets('ubica LogoutButton en el AppBar y conserva el título', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _RecordingRepository(),
+        auth: _RecordingAuthRepository(),
+      );
+
+      expect(find.byType(ArrivalScreen), findsOneWidget);
+      expect(find.byType(LogoutButton), findsOneWidget);
+      final appBar = find.byType(AppBar);
+      expect(appBar, findsOneWidget);
+      expect(
+        find.descendant(of: appBar, matching: find.byType(LogoutButton)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: appBar, matching: find.text('Llegada')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Cancelar cierra el diálogo sin llamar a logout', (
+      tester,
+    ) async {
+      final auth = _RecordingAuthRepository();
+      await _pump(tester, _RecordingRepository(), auth: auth);
+
+      expect(find.byType(ArrivalScreen), findsOneWidget);
+      expect(find.byType(LogoutButton), findsOneWidget);
+      final logout = find.byTooltip('Cerrar sesión');
+      expect(logout, findsOneWidget);
+      expect(auth.logoutCalls, 0);
+      await tester.tap(logout);
+      await _settleLogout(tester);
+
+      final dialog = find.byType(AlertDialog);
+      expect(dialog, findsOneWidget);
+      expect(
+        find.descendant(
+          of: dialog,
+          matching: find.text('¿Confirmás que querés cerrar la sesión?'),
+        ),
+        findsOneWidget,
+      );
+      final cancel = find.descendant(
+        of: dialog,
+        matching: find.widgetWithText(TextButton, 'Cancelar'),
+      );
+      final confirm = find.descendant(
+        of: dialog,
+        matching: find.widgetWithText(FilledButton, 'Cerrar sesión'),
+      );
+      expect(cancel, findsOneWidget);
+      expect(confirm, findsOneWidget);
+      expect(auth.logoutCalls, 0);
+
+      await tester.tap(cancel);
+      await _settleLogout(tester);
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(ArrivalScreen), findsOneWidget);
+      expect(auth.logoutCalls, 0);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Confirmar llama a logout exactamente una vez', (tester) async {
+      final auth = _RecordingAuthRepository();
+      await _pump(tester, _RecordingRepository(), auth: auth);
+
+      expect(find.byType(ArrivalScreen), findsOneWidget);
+      expect(find.byType(LogoutButton), findsOneWidget);
+      final logout = find.byTooltip('Cerrar sesión');
+      expect(logout, findsOneWidget);
+      await tester.tap(logout);
+      await _settleLogout(tester);
+
+      final dialog = find.byType(AlertDialog);
+      expect(dialog, findsOneWidget);
+      final confirm = find.descendant(
+        of: dialog,
+        matching: find.widgetWithText(FilledButton, 'Cerrar sesión'),
+      );
+      expect(confirm, findsOneWidget);
+      expect(auth.logoutCalls, 0);
+      await tester.tap(confirm);
+      await _settleLogout(tester);
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(auth.logoutCalls, 1);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'a 320 px con Roboto muestra título y ambos accesos sin desbordes',
+      (tester) async {
+        await _pump(
+          tester,
+          _RecordingRepository(),
+          auth: _RecordingAuthRepository(),
+          size: const Size(320, 800),
+        );
+
+        expect(find.byType(ArrivalScreen), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        expect(find.byType(LogoutButton), findsOneWidget);
+        final logout = find.byTooltip('Cerrar sesión');
+        final account = find.byTooltip('Mi cuenta');
+        expect(logout, findsOneWidget);
+        expect(account, findsOneWidget);
+        expect(logout.hitTestable(), findsOneWidget);
+        expect(account.hitTestable(), findsOneWidget);
+        final title = find.descendant(
+          of: find.byType(AppBar),
+          matching: find.text('Llegada'),
+        );
+        expect(title, findsOneWidget);
+        expect(title.hitTestable(), findsOneWidget);
+        expect(tester.view.physicalSize, const Size(320, 800));
+        expect(tester.view.devicePixelRatio, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  });
 }
