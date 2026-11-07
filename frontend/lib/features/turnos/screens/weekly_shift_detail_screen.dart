@@ -9,6 +9,7 @@ import '../models/weekday_names.dart';
 import '../models/weekly_shift.dart';
 import '../providers/weekly_shift_provider.dart';
 import '../repositories/shift_repository.dart';
+import '../widgets/change_weekly_shift_clinic_dialog.dart';
 import 'shift_routes.dart';
 
 /// Detalle de una configuración semanal (RF-17): el patrón con su vigencia, los
@@ -89,13 +90,13 @@ class _LoadError extends StatelessWidget {
   }
 }
 
-class _Detail extends StatelessWidget {
+class _Detail extends ConsumerWidget {
   const _Detail(this.weeklyShift);
 
   final WeeklyShift weeklyShift;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef _) {
     final textTheme = Theme.of(context).textTheme;
     final count = weeklyShift.shiftCount;
     return Column(
@@ -128,8 +129,31 @@ class _Detail extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
+        OutlinedButton(
+          key: const Key('weekly-shift-change-clinic'),
+          onPressed: () => _changeClinic(context, weeklyShift),
+          child: const Text('Cambiar consultorio'),
+        ),
+        const SizedBox(height: 12),
         const _BackButton(),
       ],
+    );
+  }
+}
+
+Future<void> _changeClinic(
+  BuildContext context,
+  WeeklyShift weeklyShift,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final saved = await showDialog<bool>(
+    context: context,
+    builder: (context) =>
+        ChangeWeeklyShiftClinicDialog(weeklyShift: weeklyShift),
+  );
+  if (saved == true) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Consultorio actualizado.')),
     );
   }
 }

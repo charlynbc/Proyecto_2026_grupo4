@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/shift.dart';
 import '../../../core/utils/ui_date.dart';
@@ -8,14 +9,16 @@ import '../models/shift_page.dart';
 import '../models/weekday_names.dart';
 import '../providers/shift_filters_controller.dart';
 import '../providers/shifts_page_provider.dart';
+import '../screens/shift_routes.dart';
 
 /// Ancho disponible desde el que los turnos se muestran como tabla; con menos,
 /// cada fecha es una tarjeta. La tabla mide 860,1 px con Roboto y los turnos
 /// de los datos falsos (`columnSpacing: 24`, `horizontalMargin: 16`); con
 /// "Miércoles", el día más ancho, serían 877,7 px (+17,6 px sobre "Martes"). Se
 /// suma ~7 % para nombres más largos que los del seed: 877,7 × 1,07 ≈ 939,1,
-/// redondeado a 940. Si la tabla igual no entra, queda el desplazamiento
-/// horizontal.
+/// redondeado a 940. La columna "Configuración" suma cerca de 100 px, así que
+/// entre 940 y ~1040 puede aparecer el desplazamiento horizontal. Si la tabla
+/// igual no entra, queda ese desplazamiento.
 const double kShiftsTableMinWidth = 940;
 
 String _schedule(Shift shift) =>
@@ -122,6 +125,7 @@ class _ShiftsTableState extends State<_ShiftsTable> {
             DataColumn(label: Text('Consultorio')),
             DataColumn(label: Text('Números')),
             DataColumn(label: Text('Estado')),
+            DataColumn(label: Text('Configuración')),
           ],
           rows: [
             for (final shift in widget.items)
@@ -135,6 +139,7 @@ class _ShiftsTableState extends State<_ShiftsTable> {
                   DataCell(Text(shift.clinic.name)),
                   DataCell(Text('${shift.numberCount}')),
                   DataCell(Text(shift.state.label)),
+                  DataCell(_ConfigLink(shift, label: 'Ver')),
                 ],
               ),
           ],
@@ -168,9 +173,27 @@ class _ShiftCard extends StatelessWidget {
             Text(
               'Números: ${shift.numberCount} · Estado: ${shift.state.label}',
             ),
+            _ConfigLink(shift, label: 'Ver configuración'),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ConfigLink extends StatelessWidget {
+  const _ConfigLink(this.shift, {required this.label});
+
+  final Shift shift;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      key: Key('shift-config-link-${shift.id}'),
+      onPressed: () =>
+          context.go(weeklyShiftDetailLocation(shift.weeklyShiftId)),
+      child: Text(label),
     );
   }
 }

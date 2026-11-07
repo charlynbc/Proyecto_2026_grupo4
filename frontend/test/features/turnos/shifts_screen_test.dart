@@ -68,10 +68,13 @@ Future<GoRouter> _pump(
 }
 
 /// Las filas de la tabla: una lista de textos por fila, en el orden de las
-/// columnas de RF-17.
+/// columnas de RF-17. La celda del enlace no es texto y no entra en la lista.
 List<List<String>> _rows(WidgetTester tester) => [
   for (final row in tester.widget<DataTable>(find.byType(DataTable)).rows)
-    [for (final cell in row.cells) (cell.child as Text).data!],
+    [
+      for (final cell in row.cells)
+        if (cell.child is Text) (cell.child as Text).data!,
+    ],
 ];
 
 // Los mensajes se escriben a mano: así una mutación del texto se detecta.
@@ -892,5 +895,75 @@ void main() {
 
     expect(currentLocation(router), kNewWeeklyShiftPath);
     expect(find.text('Alta de turno semanal'), findsOneWidget);
+  });
+
+  testWidgets('cada fila enlaza a su configuración', (tester) async {
+    final admin = FakeAdminDatabase();
+    final shiftDb = buildListingDb(admin);
+    final page = shiftDb.listShifts(const ShiftFilters());
+    final router = await pumpAdminScreens(
+      tester,
+      size: _wideScreen,
+      initialLocation: kShiftsPath,
+      routes: [
+        GoRoute(path: kShiftsPath, builder: (_, _) => const ShiftsScreen()),
+        GoRoute(
+          path: kWeeklyShiftDetailPath,
+          builder: (_, state) =>
+              Scaffold(body: Text('Detalle ${state.pathParameters['id']}')),
+        ),
+      ],
+      overrides: [
+        shiftRepositoryProvider.overrideWith(
+          (ref) async => FakeShiftRepository(shiftDb, latency: Duration.zero),
+        ),
+        specialtyRepositoryProvider.overrideWith(
+          (ref) async => FakeSpecialtyRepository(admin, latency: Duration.zero),
+        ),
+      ],
+    );
+
+    for (final shift in page.items) {
+      expect(find.byKey(Key('shift-config-link-${shift.id}')), findsOneWidget);
+    }
+    final first = page.items.first;
+    expect(first.weeklyShiftId, isNot(first.id));
+    final link = find.byKey(Key('shift-config-link-${first.id}'));
+    await tester.ensureVisible(link);
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+
+    expect(
+      currentLocation(router),
+      weeklyShiftDetailLocation(first.weeklyShiftId),
+    );
+  });
+
+  testWidgets('con 700 px la tarjeta dice Ver configuración', (tester) async {
+    final admin = FakeAdminDatabase();
+    final shiftDb = buildListingDb(admin);
+    final page = shiftDb.listShifts(const ShiftFilters());
+    await pumpAdminScreens(
+      tester,
+      size: const Size(700, 1800),
+      initialLocation: kShiftsPath,
+      routes: [
+        GoRoute(path: kShiftsPath, builder: (_, _) => const ShiftsScreen()),
+      ],
+      overrides: [
+        shiftRepositoryProvider.overrideWith(
+          (ref) async => FakeShiftRepository(shiftDb, latency: Duration.zero),
+        ),
+        specialtyRepositoryProvider.overrideWith(
+          (ref) async => FakeSpecialtyRepository(admin, latency: Duration.zero),
+        ),
+      ],
+    );
+
+    expect(find.text('Ver configuración'), findsNWidgets(20));
+    expect(
+      find.byKey(Key('shift-config-link-${page.items.first.id}')),
+      findsOneWidget,
+    );
   });
 }

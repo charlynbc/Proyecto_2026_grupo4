@@ -17,8 +17,8 @@ String _stateOf(WidgetTester tester, String date) {
     final cell = row.cells.first.child;
     return cell is Text && cell.data == date;
   });
-  final state = row.cells.last.child;
-  return (state as Text).data!;
+  final state = row.cells.map((cell) => cell.child).whereType<Text>().last;
+  return state.data!;
 }
 
 Future<void> _choose(WidgetTester tester, Key key, String option) async {
@@ -60,11 +60,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await _choose(tester, const Key('reinstate-doctor'), 'Carla Méndez');
-    await _choose(
-      tester,
-      const Key('reinstate-specialty'),
-      'Medicina General',
-    );
+    await _choose(tester, const Key('reinstate-specialty'), 'Medicina General');
     await tester.enterText(find.widgetWithText(TextField, 'Desde'), date);
     await tester.enterText(find.widgetWithText(TextField, 'Hasta'), date);
     await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));
@@ -113,11 +109,7 @@ void main() {
     final date = formatUiDate(suspended.date);
 
     await _choose(tester, const Key('reinstate-doctor'), 'Carla Méndez');
-    await _choose(
-      tester,
-      const Key('reinstate-specialty'),
-      'Medicina General',
-    );
+    await _choose(tester, const Key('reinstate-specialty'), 'Medicina General');
     await tester.enterText(find.widgetWithText(TextField, 'Desde'), date);
     await tester.enterText(find.widgetWithText(TextField, 'Hasta'), date);
     await tester.tap(find.widgetWithText(FilledButton, 'Buscar'));

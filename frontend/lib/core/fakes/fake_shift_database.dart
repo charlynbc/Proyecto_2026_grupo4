@@ -16,6 +16,7 @@ import '../../features/turnos/models/weekday_names.dart';
 import '../../features/turnos/models/weekly_shift.dart';
 import '../../features/turnos/repositories/shift_repository.dart';
 import '../../features/turnos/repositories/shift_reinstatement_repository.dart';
+import '../../features/turnos/repositories/weekly_shift_clinic_repository.dart';
 import '../../features/usuarios/models/user_account.dart';
 import '../utils/text_fold.dart';
 import '../utils/uruguay_time.dart';
@@ -49,7 +50,7 @@ class FakeShift {
   final List<ShiftNumber> numbers;
   final int doctorId;
   final int specialtyId;
-  final int clinicId;
+  int clinicId;
 
   ShiftState _state = ShiftState.active;
   ShiftState get state => _state;
@@ -67,6 +68,10 @@ class FakeShiftDatabase {
 
   final List<WeeklyShift> weeklyShifts = [];
   final List<FakeShift> shifts = [];
+
+  /// Consultas agendadas por configuración, escrito a mano. La clave es el
+  /// id de la configuración y el valor, la cantidad.
+  final Map<int, int> agendadasPorTurnoSemanal = {};
 
   int _nextWeeklyShiftId = 1;
   int _nextShiftId = 1;
@@ -414,6 +419,130 @@ class FakeShiftDatabase {
       ),
     );
     suspendShift(shifts.firstWhere((s) => s.weeklyShiftId == first.id).id);
+    // Silva (configuración 2) tiene dos consultas agendadas, para ver el
+    // error a mano.
+    agendadasPorTurnoSemanal[2] = 2;
+  }
+
+  /// Cambia el consultorio de una configuración. El orden de los chequeos es
+  /// el del servidor: si algo falla, no cambia nada.
+  WeeklyShift changeClinic(int weeklyShiftId, int clinicId) {
+    if (weeklyShiftId <= 0 || clinicId <= 0) {
+      throw const ShiftValidationException(
+        'Faltan datos obligatorios o no son válidos',
+      );
+    }
+    final current = weeklyShiftById(weeklyShiftId);
+    if (current == null) {
+      throw const ShiftNotFoundException('No existe el turno semanal indicado');
+    }
+    if (current.clinic.id == clinicId) return current;
+
+    final clinics = admin.clinics.where((c) => c.id == clinicId);
+    if (clinics.isEmpty) {
+      throw const ShiftNotFoundException('No existe el consultorio indicado');
+    }
+    final clinic = clinics.first;
+
+    final now = UruguayTime.toUruguay(admin.clock());
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final activeFromToday = [
+      for (final shift in shifts)
+        if (shift.weeklyShiftId == weeklyShiftId &&
+            !shift.date.isBefore(today) &&
+            shift.state == ShiftState.active)
+          shift,
+    ];
+    if (activeFromToday.isEmpty) {
+      throw const ShiftNotModifiableException(
+        'El turno semanal ya finalizó; no tiene fechas actuales ni futuras '
+        'por modificar',
+      );
+    }
+
+    final booked = agendadasPorTurnoSemanal[weeklyShiftId] ?? 0;
+    if (booked > 0) {
+      throw ShiftNotModifiableException(
+        'El turno tiene $booked consulta(s) agendada(s) en fechas vigentes. '
+        'Suspenda las fechas correspondientes (RF-14) y dé de alta otro turno.',
+      );
+    }
+
+    _rejectClinicChangeOverlaps(
+      weeklyShiftId: weeklyShiftId,
+      doctorId: current.doctor.id,
+      newClinicId: clinicId,
+      activeDates: activeFromToday,
+    );
+
+    final updated = WeeklyShift(
+      id: current.id,
+      doctor: current.doctor,
+      specialty: current.specialty,
+      clinic: clinic,
+      weekday: current.weekday,
+      startDate: current.startDate,
+      endDate: current.endDate,
+      numbers: current.numbers,
+      shiftCount: current.shiftCount,
+    );
+    final index = weeklyShifts.indexWhere((item) => item.id == current.id);
+    weeklyShifts[index] = updated;
+    for (final shift in shifts) {
+      if (shift.weeklyShiftId != weeklyShiftId) continue;
+      if (shift.date.isBefore(today)) continue;
+      shift.clinicId = clinicId;
+    }
+    return updated;
+  }
+
+  /// Cruces contra turnos activos de otras configuraciones, en las fechas
+  /// activas de hoy en adelante. El mensaje no es el del alta.
+  void _rejectClinicChangeOverlaps({
+    required int weeklyShiftId,
+    required int doctorId,
+    required int newClinicId,
+    required List<FakeShift> activeDates,
+  }) {
+    final messages = <String>[];
+    final sorted = [...activeDates]..sort((a, b) => a.date.compareTo(b.date));
+    for (final mine in sorted) {
+      for (final other in shifts) {
+        if (other.weeklyShiftId == weeklyShiftId) continue;
+        if (other.state != ShiftState.active) continue;
+        if (other.date != mine.date) continue;
+        final sameDoctor = other.doctorId == doctorId;
+        final sameClinic = other.clinicId == newClinicId;
+        if (!sameDoctor && !sameClinic) continue;
+        final ownNumbers = [...mine.numbers]
+          ..sort((a, b) => a.number.compareTo(b.number));
+        final otherNumbers = [...other.numbers]
+          ..sort((a, b) => a.number.compareTo(b.number));
+        for (final own in ownNumbers) {
+          for (final existing in otherNumbers) {
+            final crosses =
+                own.startMinutes < existing.endMinutes &&
+                existing.startMinutes < own.endMinutes;
+            if (!crosses) continue;
+            messages.add(
+              'fecha ${_isoDate(mine.date)}, número ${own.number} '
+              'con número existente ${existing.number}',
+            );
+          }
+        }
+      }
+    }
+    if (messages.isEmpty) return;
+    throw OverlappingShiftException(
+      'Se encontraron solapamientos: ${messages.join('; ')}',
+    );
+  }
+
+  static String _isoDate(DateTime date) {
+    final year = date.year.toString().padLeft(4, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '$year-$month-$day';
   }
 
   /// Vuelve a habilitar una fecha concreta. Si no está suspendida, lanza
