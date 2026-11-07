@@ -5,6 +5,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../../agenda/models/appointment.dart';
 import '../../auth/widgets/credential_fields.dart';
+import '../../auth/widgets/logout_button.dart';
 import '../models/arrival.dart';
 import '../providers/arrival_providers.dart';
 
@@ -111,7 +112,10 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
     final theme = Theme.of(context);
     final appointments = _appointments;
     return Scaffold(
-      appBar: AppBar(title: const Text('Llegada')),
+      appBar: AppBar(
+        title: const Text('Llegada'),
+        actions: const [LogoutButton()],
+      ),
       body: CenteredContent(
         maxWidth: 560,
         child: Column(
