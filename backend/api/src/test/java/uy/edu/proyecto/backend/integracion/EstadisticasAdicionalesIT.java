@@ -2,6 +2,8 @@ package uy.edu.proyecto.backend.integracion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.LocalDate;
+
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.databind.JsonNode;
@@ -108,10 +110,20 @@ class EstadisticasAdicionalesIT extends BaseIntegracionIT {
         long utilizado = pase(idEspecialidad, idEspecialidadConPase, "2026-04-01");
         long disponible = pase(idEspecialidad, idEspecialidadConPase, "2099-12-31");
         pase(idEspecialidad, idEspecialidadConPase, "2026-04-01");
+        long otraOrigen = jdbc.queryForObject(
+                "INSERT INTO especialidad (nombre, requiere_pase)"
+                + " VALUES ('Traumatologia', false) RETURNING id_especialidad", Long.class);
+        pase(otraOrigen, idEspecialidadConPase, "2099-12-31");
         consulta("2026-03-15", "09:00", idEspecialidadConPase, idSocio1,
                 "AGENDADA", utilizado);
         consulta("2026-03-15", "09:30", idEspecialidadConPase, idSocio2,
                 "CANCELADA_SOCIO", disponible);
+        JsonNode sinFiltro = admin("/api/estadisticas/pases" + PERIODO).path("items");
+        long totalSinFiltro = 0;
+        for (JsonNode item : sinFiltro) {
+            totalSinFiltro += item.path("emitidos").asLong();
+        }
+        assertEquals(4, totalSinFiltro);
         JsonNode items = admin("/api/estadisticas/pases" + PERIODO
                 + "&especialidadOrigenId=" + idEspecialidad).path("items");
         JsonNode fila = null;
@@ -132,6 +144,7 @@ class EstadisticasAdicionalesIT extends BaseIntegracionIT {
         consulta("2026-03-10", "10:15", idEspecialidad, idSocio1, "AGENDADA", null);
         consulta("2026-03-10", "11:30", idEspecialidad, idSocio1, "ATENDIDA", null);
         consulta("2026-03-10", "12:00", idEspecialidad, idSocio1, "CANCELADA_SOCIO", null);
+        consulta("2026-03-10", "13:00", idEspecialidadConPase, idSocio2, "AGENDADA", null);
         jdbc.update("INSERT INTO aviso_llegada (id_socio, id_funcionario, fecha, registrada_en)"
                 + " VALUES (?, ?, DATE '2026-03-10', TIMESTAMPTZ '2026-03-10 09:10:00-03')",
                 idSocio1, idFuncionario);
@@ -142,7 +155,25 @@ class EstadisticasAdicionalesIT extends BaseIntegracionIT {
         assertEquals(1, cantidad(consultas, 2, 10));
         assertEquals(1, cantidad(consultas, 2, 11));
         assertEquals(0, cantidad(consultas, 2, 12));
+        assertEquals(1, cantidad(consultas, 2, 13));
         assertEquals(2, cantidad(llegadas, 2, 9));
+        JsonNode filtradas = admin("/api/estadisticas/franjas" + PERIODO
+                + "&especialidadId=" + idEspecialidad).path("celdas");
+        assertEquals(0, cantidad(filtradas, 2, 13));
+        assertEquals(1, cantidad(filtradas, 2, 10));
+    }
+
+    @Test
+    void rf42ExcluyeConsultasDelDiaQueTodaviaNoTermino() {
+        LocalDate hoy = LocalDate.now(ZONA);
+        LocalDate ayer = hoy.minusDays(1);
+        consulta(ayer.toString(), "10:00", idEspecialidad, idSocio1, "AGENDADA", null);
+        consulta(hoy.toString(), "10:30", idEspecialidad, idSocio2, "AGENDADA", null);
+        JsonNode items = admin("/api/estadisticas/inasistencias?desde=" + ayer
+                + "&hasta=" + hoy).path("items");
+        assertEquals(1, items.size());
+        assertEquals(1, items.get(0).path("total").asLong());
+        assertEquals(1, items.get(0).path("noAsistio").asLong());
     }
 
     private long cantidad(JsonNode celdas, int dia, int hora) {
