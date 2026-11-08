@@ -150,14 +150,19 @@ void main() {
       'NO_ASISTIO',
       'NO_ATENDIDA',
     ]) {
-      testWidgets('$status no muestra el botón', (tester) async {
-        await _pump(
+      for (final size in [const Size(1300, 1800), const Size(400, 1800)]) {
+        testWidgets('$status no muestra el botón en ${size.width}px', (
           tester,
-          entry: _entry(status),
-          cancellation: _CancellationRepository(),
-        );
-        expect(find.byKey(const Key('cancel-schedule-9001')), findsNothing);
-      });
+        ) async {
+          await _pump(
+            tester,
+            entry: _entry(status),
+            cancellation: _CancellationRepository(),
+            size: size,
+          );
+          expect(find.byKey(const Key('cancel-schedule-9001')), findsNothing);
+        });
+      }
     }
   });
 
@@ -300,6 +305,7 @@ void main() {
     expect(cancellation.cancelledIds, [9001]);
     expect((tester.widget(confirm) as OutlinedButton).onPressed, isNull);
     await tester.binding.handlePopRoute();
+    await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(AlertDialog), findsOneWidget);
 
@@ -383,6 +389,7 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
       expect(
         find.descendant(
           of: find.byType(AlertDialog),
@@ -391,9 +398,7 @@ void main() {
         findsOneWidget,
       );
       expect(schedules.searchCalls, errorCase.$3 ? 2 : 1);
-      if (!errorCase.$3) {
-        expect(find.byType(AlertDialog), findsOneWidget);
-      }
+      expect(find.byType(AlertDialog), findsOneWidget);
     });
   }
 
@@ -409,8 +414,51 @@ void main() {
     await _openDialog(tester);
     await tester.tap(find.byKey(const Key('confirm-cancel-schedule')));
     await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     expect(
-      find.text('Tu sesión venció. Iniciá sesión nuevamente.'),
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Tu sesión venció. Iniciá sesión nuevamente.'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byKey(const Key('cancel-schedule-error')),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('prohibido mantiene el diálogo abierto con el mensaje', (
+    tester,
+  ) async {
+    final cancellation = _CancellationRepository()
+      ..exception = const StaffCancellationException(
+        StaffCancellationFailure.forbidden,
+        'prohibida',
+      );
+    await _pump(tester, entry: _entry('AGENDADA'), cancellation: cancellation);
+    await _openDialog(tester);
+    await tester.tap(find.byKey(const Key('confirm-cancel-schedule')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text(
+          'Tu cuenta no tiene permiso para cancelar consultas.',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byKey(const Key('cancel-schedule-error')),
+      ),
       findsOneWidget,
     );
   });
