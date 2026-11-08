@@ -18,7 +18,7 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
   UserRole.socio: [
     AppSection(
       'disponibilidad',
-      'Disponibilidad',
+      'Reservar consulta',
       Icons.event_available_outlined,
       Icons.event_available,
     ),
