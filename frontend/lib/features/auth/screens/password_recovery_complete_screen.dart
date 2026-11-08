@@ -70,15 +70,15 @@ class _PasswordRecoveryCompleteScreenState
 
   /// El aviso de enlace inválido, con el mensaje del servidor. Lo usan el
   /// enlace rechazado al abrir y el rechazado al guardar.
-  Widget _invalidLinkNotice(BuildContext context, String message) {
+  Widget _invalidLinkNotice(
+    BuildContext context,
+    String message, {
+    required String title,
+  }) {
     return AuthScaffold(
       subtitle: 'Nueva contraseña',
       children: [
-        AuthNotice(
-          title: 'No pudimos cambiar tu contraseña',
-          isError: true,
-          messages: [message],
-        ),
+        AuthNotice(title: title, isError: true, messages: [message]),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: () => context.go('/recuperacion/solicitar'),
@@ -101,7 +101,11 @@ class _PasswordRecoveryCompleteScreenState
     final check = ref.watch(passwordRecoveryLinkCheckProvider(widget.token));
 
     if (state.status == PasswordRecoveryStatus.linkInvalid) {
-      return _invalidLinkNotice(context, state.errorMessage ?? '');
+      return _invalidLinkNotice(
+        context,
+        state.errorMessage ?? '',
+        title: 'No pudimos cambiar tu contraseña',
+      );
     }
     if (check.isLoading) {
       return const AuthScaffold(
@@ -111,7 +115,11 @@ class _PasswordRecoveryCompleteScreenState
     }
     final invalidMessage = check.value?.invalidMessage;
     if (invalidMessage != null) {
-      return _invalidLinkNotice(context, invalidMessage);
+      return _invalidLinkNotice(
+        context,
+        invalidMessage,
+        title: 'Este enlace ya no sirve',
+      );
     }
 
     final enabled = !state.isLoading;

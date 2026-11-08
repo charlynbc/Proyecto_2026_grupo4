@@ -14,6 +14,15 @@ import 'link_validation_test_support.dart';
 
 const _serverMessage = 'Mensaje del servidor para el enlace.';
 
+// Doble compatible con la excepción actual, sin exigir cambios de producción
+// para que las pruebas RED compilen.
+class _ActivationLinkError extends InvalidActivationLinkException {
+  const _ActivationLinkError();
+
+  @override
+  String get message => 'El servidor rechazó este enlace de primer ingreso.';
+}
+
 /// Una de las dos pantallas que validan el enlace al abrirse. Los dos flujos
 /// siguen la misma regla, con sus textos de hoy.
 class _Flow {
@@ -62,7 +71,8 @@ final _flows = <_Flow>[
     saveLabel: 'Guardar contraseña',
     fieldCount: 2,
     expectNotice: () {
-      expect(find.text('No pudimos cambiar tu contraseña'), findsOneWidget);
+      expect(find.text('Este enlace ya no sirve'), findsOneWidget);
+      expect(find.text('No pudimos cambiar tu contraseña'), findsNothing);
       expect(find.text(_serverMessage), findsOneWidget);
     },
     screen: (token) => PasswordRecoveryCompleteScreen(token: token),
@@ -71,12 +81,25 @@ final _flows = <_Flow>[
     name: 'primer ingreso',
     path: '/primer-ingreso',
     requestPath: '/primer-ingreso/solicitar',
-    invalidError: const InvalidActivationLinkException(),
+    invalidError: const _ActivationLinkError(),
     saveLabel: 'Activar cuenta',
     fieldCount: 5,
     expectNotice: () {
-      expect(find.text('El enlace ya no es válido'), findsOneWidget);
-      expect(find.textContaining('venció, ya se usó'), findsOneWidget);
+      expect(find.text('Este enlace ya no sirve'), findsOneWidget);
+      expect(
+        find.text('El servidor rechazó este enlace de primer ingreso.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Podés pedir un enlace nuevo con tu cédula.'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(
+          RegExp(r'venci[oó]|se us[oó]|reemplaz', caseSensitive: false),
+        ),
+        findsNothing,
+      );
       expect(
         find.text('Si el problema sigue, comunicate con la institución.'),
         findsOneWidget,

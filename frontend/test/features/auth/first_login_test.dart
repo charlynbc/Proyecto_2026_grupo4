@@ -7,6 +7,37 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/pump_app.dart';
+import '../../helpers/load_roboto.dart';
+
+class _ActivationLinkError extends InvalidActivationLinkException {
+  const _ActivationLinkError();
+
+  @override
+  String get message =>
+      'El servidor no acepta este enlace para activar la cuenta.';
+}
+
+void _expectInvalidActivationNotice() {
+  expect(find.text('Este enlace ya no sirve'), findsOneWidget);
+  expect(
+    find.text('El servidor no acepta este enlace para activar la cuenta.'),
+    findsOneWidget,
+  );
+  expect(
+    find.text('Podés pedir un enlace nuevo con tu cédula.'),
+    findsOneWidget,
+  );
+  expect(
+    find.text('Si el problema sigue, comunicate con la institución.'),
+    findsOneWidget,
+  );
+  expect(
+    find.textContaining(
+      RegExp(r'venci[oó]|se us[oó]|reemplaz', caseSensitive: false),
+    ),
+    findsNothing,
+  );
+}
 
 Finder get _fields => find.byType(TextFormField);
 Finder get _activate => find.widgetWithText(FilledButton, 'Activar cuenta');
@@ -37,6 +68,8 @@ Future<void> _fill(
 }
 
 void main() {
+  setUpAll(loadRoboto);
+
   group('activación de la cuenta', () {
     testWidgets('pide dirección, teléfono 1, contraseña y confirmación; el '
         'correo no se edita', (tester) async {
@@ -127,7 +160,7 @@ void main() {
       final container = await _openActivation(
         tester,
         repo: RecordingFirstLoginRepository(
-          activateError: const InvalidActivationLinkException(),
+          activateError: const _ActivationLinkError(),
         ),
       );
 
@@ -135,8 +168,9 @@ void main() {
       await tester.tap(_activate);
       await tester.pumpAndSettle();
 
-      expect(find.text('El enlace ya no es válido'), findsOneWidget);
-      expect(find.textContaining('venció, ya se usó'), findsOneWidget);
+      _expectInvalidActivationNotice();
+      expect(_fields, findsNothing);
+      expect(_activate, findsNothing);
 
       await tester.tap(find.text('Pedir un enlace nuevo'));
       await tester.pumpAndSettle();
@@ -155,11 +189,41 @@ void main() {
 
         expect(_fields, findsNothing);
         expect(_activate, findsNothing);
-        expect(find.text('El enlace ya no es válido'), findsOneWidget);
+        expect(find.text('Este enlace ya no sirve'), findsOneWidget);
 
         await tester.tap(find.text('Pedir un enlace nuevo'));
         await tester.pumpAndSettle();
         expect(locationOf(container), '/primer-ingreso/solicitar');
+      },
+    );
+
+    testWidgets(
+      'aviso al guardar primer ingreso a 320 px con Roboto no desborda',
+      (tester) async {
+        final repo = RecordingFirstLoginRepository(
+          activateError: const _ActivationLinkError(),
+        );
+        final container = await _openActivation(tester, repo: repo);
+        await _fill(tester);
+        tester.view.physicalSize = const Size(320, 640);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(_activate);
+        await tester.tap(_activate);
+        await tester.pumpAndSettle();
+
+        expect(tester.view.physicalSize, const Size(320, 640));
+        expect(repo.activations, hasLength(1));
+        _expectInvalidActivationNotice();
+        expect(_fields, findsNothing);
+        expect(_activate, findsNothing);
+        expect(find.text('Pedir un enlace nuevo'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+
+        await tester.ensureVisible(find.text('Pedir un enlace nuevo'));
+        await tester.tap(find.text('Pedir un enlace nuevo'));
+        await tester.pumpAndSettle();
+        expect(locationOf(container), '/primer-ingreso/solicitar');
+        expect(tester.takeException(), isNull);
       },
     );
 
