@@ -21,7 +21,11 @@ class ApiFirstLoginLinkRepository implements FirstLoginLinkRepository {
       );
     } on DioException catch (e) {
       if (apiErrorCode(e) == 'ENLACE_INVALIDO') {
-        throw const InvalidActivationLinkException();
+        final data = e.response?.data;
+        final message = data is Map ? data['message'] : null;
+        throw message is String && message.trim().isNotEmpty
+            ? InvalidActivationLinkException(message)
+            : const InvalidActivationLinkException();
       }
       throw authExceptionFrom(e);
     }

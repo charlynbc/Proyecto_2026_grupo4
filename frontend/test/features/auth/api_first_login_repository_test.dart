@@ -51,9 +51,8 @@ void main() {
     test('solicitar envía ci y acceso a la ruta del backend', () async {
       final adapter = _Adapter(202, {'message': 'ok'});
 
-      await _repo(
-        adapter,
-      ).requestLink(ci: '12345678', access: AccessType.empleado);
+      await _repo(adapter)
+          .requestLink(ci: '12345678', access: AccessType.empleado);
 
       expect(adapter.last!.method, 'POST');
       expect(adapter.last!.path, '/api/auth/primer-ingreso/solicitar');
@@ -76,12 +75,15 @@ void main() {
       expect(access, AccessType.socio);
     });
 
-    test('cualquier rol que no sea SOCIO ingresa por el acceso empleado', () async {
-      for (final rol in ['MEDICO', 'FUNCIONARIO', 'ADMINISTRADOR']) {
-        final access = await _activate(_repo(_Adapter(200, {'rol': rol})));
-        expect(access, AccessType.empleado, reason: rol);
-      }
-    });
+    test(
+      'cualquier rol que no sea SOCIO ingresa por el acceso empleado',
+      () async {
+        for (final rol in ['MEDICO', 'FUNCIONARIO', 'ADMINISTRADOR']) {
+          final access = await _activate(_repo(_Adapter(200, {'rol': rol})));
+          expect(access, AccessType.empleado, reason: rol);
+        }
+      },
+    );
 
     test('ENLACE_INVALIDO (vencido, usado o cuenta inactiva) se distingue', () {
       final repo = _repo(
@@ -91,11 +93,50 @@ void main() {
         }),
       );
 
-      expect(
+      expect(_activate(repo), throwsA(isA<InvalidActivationLinkException>()));
+    });
+
+    test('ENLACE_INVALIDO conserva el mensaje distintivo del servidor al activar', () async {
+      final repo = _repo(
+        _Adapter(400, {
+          'code': 'ENLACE_INVALIDO',
+          'message':
+              'No podemos completar la activación con este enlace. Pedí otro.',
+        }),
+      );
+
+      await expectLater(
         _activate(repo),
-        throwsA(isA<InvalidActivationLinkException>()),
+        throwsA(
+          isA<InvalidActivationLinkException>().having(
+            (error) => error.message,
+            'message',
+            'No podemos completar la activación con este enlace. Pedí otro.',
+          ),
+        ),
       );
     });
+
+    for (final body in <Map<String, dynamic>>[
+      {'code': 'ENLACE_INVALIDO'},
+      {'code': 'ENLACE_INVALIDO', 'message': ''},
+    ]) {
+      test(
+        'activar conserva fallback con mensaje ${body.containsKey('message') ? 'vacío' : 'ausente'}',
+        () async {
+          await expectLater(
+            _activate(_repo(_Adapter(400, body))),
+            throwsA(
+              isA<InvalidActivationLinkException>().having(
+                (error) => error.message,
+                'message',
+                'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.',
+              ),
+            ),
+          );
+        },
+      );
+    }
 
     test('otro 400 llega como AuthException con el mensaje del servidor', () {
       final repo = _repo(

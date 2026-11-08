@@ -108,6 +108,51 @@ void main() {
     );
   });
 
+  test(
+    'ENLACE_INVALIDO conserva el mensaje distintivo del servidor al validar',
+    () async {
+      final repo = _repo(
+        _Adapter.json(400, {
+          'code': 'ENLACE_INVALIDO',
+          'message':
+              'No podemos aceptar este enlace de activación. Solicitá otro.',
+        }),
+      );
+
+      await expectLater(
+        _validate(repo),
+        throwsA(
+          isA<InvalidActivationLinkException>().having(
+            (error) => error.message,
+            'message',
+            'No podemos aceptar este enlace de activación. Solicitá otro.',
+          ),
+        ),
+      );
+    },
+  );
+
+  for (final body in <Map<String, dynamic>>[
+    {'code': 'ENLACE_INVALIDO'},
+    {'code': 'ENLACE_INVALIDO', 'message': ''},
+  ]) {
+    test(
+      'validar conserva fallback con mensaje ${body.containsKey('message') ? 'vacío' : 'ausente'}',
+      () async {
+        await expectLater(
+          _validate(_repo(_Adapter.json(400, body))),
+          throwsA(
+            isA<InvalidActivationLinkException>().having(
+              (error) => error.message,
+              'message',
+              'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.',
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   group('cualquier otro resultado no es un enlace inválido', () {
     final cases = <String, _Adapter>{
       '500': _Adapter.json(500, {
