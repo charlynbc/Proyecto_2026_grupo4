@@ -6,6 +6,7 @@ import '../models/schedule_entry.dart';
 import '../models/schedule_page.dart';
 import '../models/schedule_status_label.dart';
 import '../providers/schedule_filters_controller.dart';
+import 'cancel_schedule_dialog.dart';
 
 /// Ancho disponible desde el que las consultas se muestran como tabla; con
 /// menos, cada una es una tarjeta. Es el mismo punto de corte que el de la
@@ -22,13 +23,13 @@ String _arrival(ScheduleEntry entry) => entry.arrivalTime ?? _noArrival;
 
 /// La página de la agenda: el total, la tabla o las tarjetas, el aviso de
 /// "sin resultados" y el paginador.
-class ScheduleResults extends StatelessWidget {
+class ScheduleResults extends ConsumerWidget {
   const ScheduleResults({super.key, required this.page});
 
   final SchedulePage page;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (page.items.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,11 +57,11 @@ class ScheduleResults extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) =>
               constraints.maxWidth >= kSchedulesTableMinWidth
-              ? _ScheduleTable(page.items)
+              ? _ScheduleTable(page.items, ref)
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    for (final entry in page.items) _ScheduleCard(entry),
+                    for (final entry in page.items) _ScheduleCard(entry, ref),
                   ],
                 ),
         ),
@@ -72,9 +73,10 @@ class ScheduleResults extends StatelessWidget {
 }
 
 class _ScheduleTable extends StatefulWidget {
-  const _ScheduleTable(this.items);
+  const _ScheduleTable(this.items, this.ref);
 
   final List<ScheduleEntry> items;
+  final WidgetRef ref;
 
   @override
   State<_ScheduleTable> createState() => _ScheduleTableState();
@@ -148,7 +150,28 @@ class _ScheduleTableState extends State<_ScheduleTable> {
                   DataCell(Text(formatUiDate(entry.date))),
                   DataCell(Text(_time(entry))),
                   DataCell(Text(entry.clinic.name)),
-                  DataCell(Text(scheduleStatusLabel(entry.status))),
+                  DataCell(
+                    entry.status == 'AGENDADA'
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(scheduleStatusLabel(entry.status)),
+                              const SizedBox(width: 8),
+                              TextButton(
+                                key: Key(
+                                  'cancel-schedule-${entry.appointmentId}',
+                                ),
+                                onPressed: () => showCancelScheduleDialog(
+                                  context: context,
+                                  ref: widget.ref,
+                                  entry: entry,
+                                ),
+                                child: const Text('Cancelar'),
+                              ),
+                            ],
+                          )
+                        : Text(scheduleStatusLabel(entry.status)),
+                  ),
                   DataCell(Text(_arrival(entry))),
                 ],
               ),
@@ -160,9 +183,10 @@ class _ScheduleTableState extends State<_ScheduleTable> {
 }
 
 class _ScheduleCard extends StatelessWidget {
-  const _ScheduleCard(this.entry);
+  const _ScheduleCard(this.entry, this.ref);
 
   final ScheduleEntry entry;
+  final WidgetRef ref;
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +224,16 @@ class _ScheduleCard extends StatelessWidget {
                 Text(_arrival(entry)),
               ],
             ),
+            if (entry.status == 'AGENDADA')
+              TextButton(
+                key: Key('cancel-schedule-${entry.appointmentId}'),
+                onPressed: () => showCancelScheduleDialog(
+                  context: context,
+                  ref: ref,
+                  entry: entry,
+                ),
+                child: const Text('Cancelar'),
+              ),
           ],
         ),
       ),
