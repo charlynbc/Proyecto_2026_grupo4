@@ -74,10 +74,7 @@ void _expectCenteredLines(
   final text = find.descendant(of: destination, matching: find.text(label));
   expect(text, findsOneWidget);
   final paragraph = tester.renderObject<RenderParagraph>(text);
-  final icons = find.descendant(
-    of: destination,
-    matching: find.byType(Icon),
-  );
+  final icons = find.descendant(of: destination, matching: find.byType(Icon));
   expect(icons, findsWidgets);
   // Flutter superpone ambos iconos durante la transición; comparten el centro.
   final iconCenterX = tester.getCenter(icons.first).dx;
@@ -87,9 +84,15 @@ void _expectCenteredLines(
   final lines = <Rect>[];
   for (final word in words) {
     final boxes = paragraph.getBoxesForSelection(word);
-    expect(boxes, hasLength(1), reason: '$label: cada palabra debe estar entera');
+    expect(
+      boxes,
+      hasLength(1),
+      reason: '$label: cada palabra debe estar entera',
+    );
     final rect = boxes.single.toRect();
-    final line = lines.indexWhere((value) => (value.top - rect.top).abs() < 0.01);
+    final line = lines.indexWhere(
+      (value) => (value.top - rect.top).abs() < 0.01,
+    );
     if (line < 0) {
       lines.add(rect);
     } else {
@@ -232,61 +235,63 @@ void main() {
     }
   });
 
-  testWidgets('el rail del socio muestra Reservar consulta y no Disponibilidad', (
-    tester,
-  ) async {
-    final container = await pumpApp(tester, size: const Size(900, 800));
-    try {
-      await _loginAs(tester, container, UserRole.socio);
+  testWidgets(
+    'el rail del socio muestra Reservar consulta y no Disponibilidad',
+    (tester) async {
+      final container = await pumpApp(tester, size: const Size(900, 800));
+      try {
+        await _loginAs(tester, container, UserRole.socio);
 
-      final rail = find.byType(NavigationRail);
-      expect(rail, findsOneWidget);
-      expect(find.byType(NavigationBar), findsNothing);
-      final destination = find.descendant(
-        of: rail,
-        matching: find.text('Reservar consulta'),
-      );
-      expect(destination, findsOneWidget);
-      expect(destination.hitTestable(), findsOneWidget);
-      expect(
-        find.descendant(of: rail, matching: find.text('Disponibilidad')),
-        findsNothing,
-      );
-      expect(tester.takeException(), isNull);
-    } finally {
-      await unmountApp(tester);
-    }
-  });
+        final rail = find.byType(NavigationRail);
+        expect(rail, findsOneWidget);
+        expect(find.byType(NavigationBar), findsNothing);
+        final destination = find.descendant(
+          of: rail,
+          matching: find.text('Reservar consulta'),
+        );
+        expect(destination, findsOneWidget);
+        expect(destination.hitTestable(), findsOneWidget);
+        expect(
+          find.descendant(of: rail, matching: find.text('Disponibilidad')),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        await unmountApp(tester);
+      }
+    },
+  );
 
-  testWidgets('tocar Reservar consulta conserva la ruta /socio/disponibilidad', (
-    tester,
-  ) async {
-    final container = await pumpApp(tester, size: const Size(320, 800));
-    try {
-      await _loginAs(tester, container, UserRole.socio);
-      await goTo(tester, container, '/socio/cartelera');
-      expect(locationOf(container), '/socio/cartelera');
-      final destination = find.descendant(
-        of: find.byType(NavigationBar),
-        matching: find.text('Reservar consulta'),
-      );
-      expect(destination, findsOneWidget);
-      expect(destination.hitTestable(), findsOneWidget);
+  testWidgets(
+    'tocar Reservar consulta conserva la ruta /socio/disponibilidad',
+    (tester) async {
+      final container = await pumpApp(tester, size: const Size(320, 800));
+      try {
+        await _loginAs(tester, container, UserRole.socio);
+        await goTo(tester, container, '/socio/cartelera');
+        expect(locationOf(container), '/socio/cartelera');
+        final destination = find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.text('Reservar consulta'),
+        );
+        expect(destination, findsOneWidget);
+        expect(destination.hitTestable(), findsOneWidget);
 
-      await tester.tap(destination);
-      await tester.pumpAndSettle(
-        const Duration(milliseconds: 100),
-        EnginePhase.sendSemanticsUpdate,
-        const Duration(seconds: 5),
-      );
+        await tester.tap(destination);
+        await tester.pumpAndSettle(
+          const Duration(milliseconds: 100),
+          EnginePhase.sendSemanticsUpdate,
+          const Duration(seconds: 5),
+        );
 
-      expect(locationOf(container), '/socio/disponibilidad');
-      expect(find.byType(AvailabilityScreen), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    } finally {
-      await unmountApp(tester);
-    }
-  });
+        expect(locationOf(container), '/socio/disponibilidad');
+        expect(find.byType(AvailabilityScreen), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await unmountApp(tester);
+      }
+    },
+  );
 
   testWidgets('funcionario a 320 px mantiene las etiquetas en una línea', (
     tester,
