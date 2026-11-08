@@ -62,7 +62,7 @@ class FakeStaffCancellationRepository implements StaffCancellationRepository {
 
     _schedules.markCancelled(id);
 
-    /// paseDevuelto es una simplificación del Fake.
+    // paseDevuelto es una simplificación del Fake.
     return StaffCancellationResult(
       appointmentId: id,
       status: 'CANCELADA_SOCIO',
