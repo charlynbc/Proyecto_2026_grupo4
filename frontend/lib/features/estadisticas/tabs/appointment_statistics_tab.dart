@@ -7,7 +7,7 @@ import '../../../core/widgets/centered_content.dart';
 import '../consultas/models/appointment_statistics.dart';
 import '../consultas/providers/appointment_statistics_provider.dart';
 import '../consultas/repositories/appointment_statistics_repository.dart';
-import '../consultas/widgets/appointment_period_filter.dart';
+import '../widgets/period_filter.dart';
 import '../consultas/widgets/appointment_status_chart.dart';
 import '../consultas/widgets/appointment_status_list.dart';
 import '../consultas/widgets/appointment_summary_cards.dart';
@@ -131,7 +131,7 @@ class _AppointmentStatisticsTabState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AppointmentPeriodFilter(
+          PeriodFilter(
             fromController: _fromController,
             toController: _toController,
             onFromChanged: (date) => _chosenFrom = date,

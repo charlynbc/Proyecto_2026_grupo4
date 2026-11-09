@@ -7,7 +7,7 @@ import '../../../core/widgets/centered_content.dart';
 import '../especialidades/models/specialty_demand.dart';
 import '../especialidades/providers/specialty_statistics_provider.dart';
 import '../especialidades/repositories/specialty_statistics_repository.dart';
-import '../especialidades/widgets/period_filter.dart';
+import '../widgets/period_filter.dart';
 import '../especialidades/widgets/specialty_demand_chart.dart';
 import '../especialidades/widgets/specialty_demand_list.dart';
 
