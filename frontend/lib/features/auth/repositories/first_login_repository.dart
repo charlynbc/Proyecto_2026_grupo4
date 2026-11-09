@@ -33,9 +33,12 @@ abstract class FirstLoginRepository {
 /// `ENLACE_INVALIDO`: el enlace no existe, venció, ya se usó o la cuenta fue
 /// inactivada. El servidor usa el mismo código para los cuatro casos.
 class InvalidActivationLinkException implements Exception {
-  const InvalidActivationLinkException();
+  const InvalidActivationLinkException([this._message]);
+
+  final String? _message;
 
   String get message =>
+      _message ??
       'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.';
 
   @override

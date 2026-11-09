@@ -19,7 +19,7 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
     AppSection('inicio', 'Inicio', Icons.home_outlined, Icons.home),
     AppSection(
       'disponibilidad',
-      'Reserva',
+      'Reservar consulta',
       Icons.event_available_outlined,
       Icons.event_available,
     ),

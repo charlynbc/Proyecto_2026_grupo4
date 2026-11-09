@@ -187,6 +187,8 @@ void main() {
     await _fill(tester, password: 'claveNueva9');
     await _tapSave(tester);
 
+    expect(find.text('No pudimos cambiar tu contraseña'), findsOneWidget);
+    expect(find.text('Este enlace ya no sirve'), findsNothing);
     expect(find.text(_invalidLinkMessage), findsOneWidget);
     await tester.tap(find.text('Pedir un enlace nuevo'));
     await tester.pumpAndSettle();

@@ -77,10 +77,13 @@ class _NarrowShell extends StatelessWidget {
                 onDestinationSelected: shell._onDestinationSelected,
                 destinations: [
                   for (final section in shell.sections)
-                    NavigationDestination(
-                      icon: Icon(section.icon),
-                      selectedIcon: Icon(section.selectedIcon),
-                      label: section.label,
+                    DefaultTextStyle.merge(
+                      textAlign: TextAlign.center,
+                      child: NavigationDestination(
+                        icon: Icon(section.icon),
+                        selectedIcon: Icon(section.selectedIcon),
+                        label: section.label,
+                      ),
                     ),
                 ],
               ),

@@ -26,7 +26,7 @@ Future<void> _loginAsMember(
   await tester.pumpAndSettle();
   await done;
   await tester.pumpAndSettle();
-  // El socio llega a Inicio; entra a Reserva antes del recorrido de agenda.
+  // El socio llega a Inicio y entra a Reservar consulta para iniciar el recorrido.
   await goTo(tester, container, '/socio/disponibilidad');
 }
 

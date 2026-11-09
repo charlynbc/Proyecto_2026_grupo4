@@ -79,18 +79,18 @@ class _FirstLoginActivationScreenState
         );
   }
 
-  /// El aviso de enlace inválido, con los textos de siempre. Lo usan el
+  /// El aviso de enlace inválido, con el mensaje del servidor. Lo usan el
   /// enlace rechazado al abrir y el rechazado al guardar.
-  Widget _invalidLinkNotice(BuildContext context) {
+  Widget _invalidLinkNotice(BuildContext context, String message) {
     return AuthScaffold(
       subtitle: 'Primer ingreso',
       children: [
-        const AuthNotice(
-          title: 'El enlace ya no es válido',
+        AuthNotice(
+          title: 'Este enlace ya no sirve',
           isError: true,
           messages: [
-            'El enlace venció, ya se usó o no se puede usar para activar '
-                'esta cuenta. Podés pedir uno nuevo con tu cédula.',
+            message,
+            'Podés pedir un enlace nuevo con tu cédula.',
             'Si el problema sigue, comunicate con la institución.',
           ],
         ),
@@ -117,7 +117,10 @@ class _FirstLoginActivationScreenState
     final check = ref.watch(firstLoginLinkCheckProvider(widget.token));
 
     if (state.status == FirstLoginStatus.linkInvalid) {
-      return _invalidLinkNotice(context);
+      return _invalidLinkNotice(
+        context,
+        state.errorMessage ?? const InvalidActivationLinkException().message,
+      );
     }
     if (check.isLoading) {
       return const AuthScaffold(
@@ -125,8 +128,9 @@ class _FirstLoginActivationScreenState
         children: [Center(child: CircularProgressIndicator())],
       );
     }
-    if (check.value?.isInvalid ?? false) {
-      return _invalidLinkNotice(context);
+    final invalidMessage = check.value?.invalidMessage;
+    if (invalidMessage != null) {
+      return _invalidLinkNotice(context, invalidMessage);
     }
 
     final enabled = !state.isLoading;
