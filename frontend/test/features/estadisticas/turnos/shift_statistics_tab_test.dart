@@ -42,10 +42,14 @@ ShiftUtilizationItem _item({
   utilization: text,
 );
 
-ShiftUtilization _result({List<ShiftUtilizationItem>? items}) =>
+ShiftUtilization _result({
+  List<ShiftUtilizationItem>? items,
+  DateTime? from,
+  DateTime? to,
+}) =>
     ShiftUtilization(
-      from: DateTime.utc(2026, 10, 1),
-      to: DateTime.utc(2026, 10, 31),
+      from: from ?? DateTime.utc(2026, 10, 1),
+      to: to ?? DateTime.utc(2026, 10, 31),
       items:
           items ??
           [
@@ -208,6 +212,74 @@ void main() {
     },
   );
 
+  testWidgets('tras cargar muestra el período de los datos', (tester) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('editar Desde sin consultar no cambia el texto del período', (
+    tester,
+  ) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('stats-from')), '01/01/2026');
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('Consultar con otro Desde cambia el texto a la respuesta', (
+    tester,
+  ) async {
+    final repository = _Repository(
+      (call) async => _result(
+        from: call.from ?? DateTime.utc(2026, 10, 1),
+        to: call.to ?? DateTime.utc(2026, 10, 31),
+      ),
+    );
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('stats-from')), '05/10/2026');
+    await _consult(tester);
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 05/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('mientras carga no muestra el texto', (tester) async {
+    final completer = Completer<ShiftUtilization>();
+    final repository = _Repository((_) => completer.future);
+    await _pump(tester, repository);
+    await tester.pump();
+
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+
+    completer.complete(_result());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+  });
+
+  testWidgets('si hay error no muestra el texto', (tester) async {
+    final repository = _Repository((_) async => throw const ApiException());
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+    expect(find.byKey(const Key('stats-error')), findsOneWidget);
+  });
+
   group('pantalla ancha (tabla)', () {
     testWidgets('a 900 px aparece la tabla y no las tarjetas', (tester) async {
       await _pump(tester, _Repository());
@@ -336,6 +408,7 @@ void main() {
 
       expect(find.byKey(const Key('stats-shift-table')), findsNothing);
       expect(_tableRow(0), findsNothing);
+      expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
       for (var i = 0; i < 4; i++) {
         expect(_card(i), findsOneWidget);
       }
@@ -486,6 +559,10 @@ void main() {
 
     expect(find.byKey(const Key('stats-empty')), findsOneWidget);
     expect(find.text('No hay turnos en el período.'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
   });
 
   group('errores', () {

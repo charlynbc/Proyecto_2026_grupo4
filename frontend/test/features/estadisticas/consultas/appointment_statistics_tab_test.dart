@@ -111,6 +111,80 @@ void main() {
     },
   );
 
+  testWidgets('tras cargar muestra el período de los datos', (tester) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('editar Desde sin consultar no cambia el texto del período', (
+    tester,
+  ) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('stats-from')), '01/01/2026');
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('Consultar con otro Desde cambia el texto a la respuesta', (
+    tester,
+  ) async {
+    final repository = _Repository((call) async {
+      final response = statisticsOf();
+      return AppointmentStatistics(
+        from: call.from ?? DateTime.utc(2026, 10, 1),
+        to: call.to ?? DateTime.utc(2026, 10, 31),
+        counts: response.counts,
+        total: response.total,
+        cancelledBySocio: response.cancelledBySocio,
+        percentage: response.percentage,
+        percentageText: response.percentageText,
+      );
+    });
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('stats-from')), '05/10/2026');
+    await _consult(tester);
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 05/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('mientras carga no muestra el texto', (tester) async {
+    final completer = Completer<AppointmentStatistics>();
+    final repository = _Repository((_) => completer.future);
+    await _pump(tester, repository);
+    await tester.pump();
+
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+
+    completer.complete(statisticsOf());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+  });
+
+  testWidgets('si hay error no muestra el texto', (tester) async {
+    final repository = _Repository((_) async => throw const ApiException());
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+    expect(find.byKey(const Key('stats-error')), findsOneWidget);
+  });
+
   group('tarjetas', () {
     testWidgets('muestran el total y la tasa del servidor', (tester) async {
       await _pump(tester, _Repository());
@@ -223,6 +297,10 @@ void main() {
       expect(_textOf(tester, 'stats-rate-value'), 'Sin datos');
       expect(_textOf(tester, 'stats-rate-subtitle'), '0 de 0 consultas');
       expect(_barHeights(tester), [0, 0, 0, 0, 0, 0, 0]);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+        'Datos del 05/10/2026 al 05/10/2026',
+      );
       for (var i = 0; i < 7; i++) {
         expect(_in(_row(i), '0'), findsOneWidget, reason: '$i');
       }
@@ -414,5 +492,6 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(_textOf(tester, 'stats-total-value'), '200');
     expect(find.byKey(const Key('stats-chart-scroll-hint')), findsOneWidget);
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
   });
 }
