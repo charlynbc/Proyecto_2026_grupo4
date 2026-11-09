@@ -126,6 +126,7 @@ void main() {
       final especialidades = _labelHeight(tester, 'Especialidades');
       final consultorios = _labelHeight(tester, 'Consultorios');
       final estadisticas = _labelHeight(tester, 'Estadísticas');
+      final cartelera = _labelHeight(tester, 'Cartelera');
 
       expect(
         especialidades,
@@ -141,6 +142,11 @@ void main() {
         estadisticas,
         closeTo(usuarios, 0.01),
         reason: 'Estadísticas debe ocupar una línea, igual que Usuarios',
+      );
+      expect(
+        cartelera,
+        closeTo(usuarios, 0.01),
+        reason: 'Cartelera debe ocupar una línea, igual que Usuarios',
       );
       expect(tester.takeException(), isNull);
     } finally {

@@ -261,13 +261,14 @@ void main() {
   });
 
   testWidgets(
-    'el médico, con una sola sección, no muestra barra de navegación',
+    'el médico conserva Mis turnos como inicio y tiene acceso a Cartelera',
     (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.medico);
 
       expect(find.byType(NavigationBar), findsNothing);
-      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.text('Cartelera'), findsOneWidget);
       expect(find.byType(DoctorShiftsScreen), findsOneWidget);
       await unmountApp(tester);
       container.invalidate(doctorAgendaControllerProvider);

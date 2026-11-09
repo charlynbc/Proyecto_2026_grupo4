@@ -12,7 +12,7 @@ import 'package:agenda_medica/features/novedades/models/announcement.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_detail.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_page.dart';
 import 'package:agenda_medica/features/novedades/providers/announcements_provider.dart';
-import 'package:agenda_medica/features/novedades/repositories/announcements_repository.dart';
+import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,7 +30,7 @@ class _Session extends SessionNotifier {
   );
 }
 
-class _News implements AnnouncementsRepository {
+class _News extends FakeAnnouncementsRepository {
   @override
   Future<AnnouncementPage> list({int page = 0}) async => AnnouncementPage(
     items: items.take(10).toList(),
