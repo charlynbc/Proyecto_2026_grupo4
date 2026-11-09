@@ -8,6 +8,7 @@ import '../consultas/models/appointment_statistics.dart';
 import '../consultas/providers/appointment_statistics_provider.dart';
 import '../consultas/repositories/appointment_statistics_repository.dart';
 import '../widgets/period_filter.dart';
+import '../widgets/period_label.dart';
 import '../consultas/widgets/appointment_status_chart.dart';
 import '../consultas/widgets/appointment_status_list.dart';
 import '../consultas/widgets/appointment_summary_cards.dart';
@@ -211,6 +212,8 @@ class _Results extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        PeriodLabel(from: result.from, to: result.to),
+        const SizedBox(height: 12),
         AppointmentSummaryCards(statistics: result),
         const SizedBox(height: 24),
         // Con total cero no hay estado vacío aparte: las siete barras siguen.

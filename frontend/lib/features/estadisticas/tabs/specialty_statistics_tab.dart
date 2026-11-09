@@ -8,6 +8,7 @@ import '../especialidades/models/specialty_demand.dart';
 import '../especialidades/providers/specialty_statistics_provider.dart';
 import '../especialidades/repositories/specialty_statistics_repository.dart';
 import '../widgets/period_filter.dart';
+import '../widgets/period_label.dart';
 import '../especialidades/widgets/specialty_demand_chart.dart';
 import '../especialidades/widgets/specialty_demand_list.dart';
 
@@ -209,6 +210,8 @@ class _Results extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        PeriodLabel(from: demand.from, to: demand.to),
+        const SizedBox(height: 12),
         Text(
           'Total de consultas: ${demand.total}',
           style: Theme.of(context).textTheme.titleMedium,
