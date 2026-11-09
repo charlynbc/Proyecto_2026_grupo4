@@ -11,11 +11,18 @@ import '../repositories/api_doctor_shift_repository.dart';
 import '../repositories/doctor_shift_repository.dart';
 import '../repositories/fake_doctor_shift_repository.dart';
 
+/// El turno falso. La cancelación lo observa para compartir la misma memoria.
+final fakeDoctorShiftRepositoryProvider = Provider<FakeDoctorShiftRepository>(
+  (ref) => FakeDoctorShiftRepository(),
+);
+
 /// Punto único de inyección del repositorio de turnos del médico.
 final doctorShiftRepositoryProvider = FutureProvider<DoctorShiftRepository>((
   ref,
 ) async {
-  if (ref.watch(useFakesProvider)) return FakeDoctorShiftRepository();
+  if (ref.watch(useFakesProvider)) {
+    return ref.watch(fakeDoctorShiftRepositoryProvider);
+  }
   final dio = await ref.watch(dioProvider.future);
   return ApiDoctorShiftRepository(dio);
 });
