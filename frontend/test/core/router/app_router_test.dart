@@ -64,6 +64,7 @@ void main() {
     test('sin sesión solo se entra a login y primer ingreso', () {
       expect(redirectFor(anonymous, Uri.parse('/login')), null);
       expect(redirectFor(anonymous, Uri.parse('/admin/usuarios')), '/login');
+      expect(redirectFor(anonymous, Uri.parse('/cuenta/editar')), '/login');
       expect(
         redirectFor(anonymous, Uri.parse('/primer-ingreso')),
         '/primer-ingreso/solicitar',
@@ -86,6 +87,17 @@ void main() {
       );
       expect(redirectFor(socio, Uri.parse('/socio')), UserRole.socio.homePath);
       expect(redirectFor(socio, Uri.parse('/socio/historia')), null);
+    });
+
+    test('la edición de cuenta admite una sesión de cada rol', () {
+      for (final role in UserRole.values) {
+        final session = SessionState(
+          status: SessionStatus.authenticated,
+          accessToken: 't',
+          role: role,
+        );
+        expect(redirectFor(session, Uri.parse('/cuenta/editar')), isNull);
+      }
     });
   });
 

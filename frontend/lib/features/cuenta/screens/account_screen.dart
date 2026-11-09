@@ -6,6 +6,7 @@ import '../../../core/widgets/centered_content.dart';
 import '../../auth/models/user_role.dart';
 import '../models/account.dart';
 import '../providers/account_provider.dart';
+import 'account_routes.dart';
 
 const String _loadErrorMessage =
     'No pudimos cargar tus datos. Intentá de nuevo.';
@@ -14,8 +15,6 @@ const String _loadErrorMessage =
 /// está logueado. Común a los cuatro roles y fuera de los shells, así que
 /// trae su propio Scaffold, sin barra de navegación.
 ///
-/// Los botones "Editar mis datos" y "Cambiar contraseña" quedan apagados:
-/// los encienden las tarjetas de RF-06 edición y RF-04.
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
@@ -96,17 +95,16 @@ class _AccountDetails extends StatelessWidget {
         _Field('Teléfono 2', account.phone2 ?? 'No cargado', 'account-phone2'),
         _Field('Dirección', account.address, 'account-address'),
         const SizedBox(height: 24),
-        const Wrap(
+        Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
-            // Las encienden las tarjetas de RF-06 edición y RF-04.
             FilledButton(
-              key: Key('account-edit'),
-              onPressed: null,
-              child: Text('Editar mis datos'),
+              key: const Key('account-edit'),
+              onPressed: () => context.push(kAccountEditPath),
+              child: const Text('Editar mis datos'),
             ),
-            OutlinedButton(
+            const OutlinedButton(
               key: Key('account-password'),
               onPressed: null,
               child: Text('Cambiar contraseña'),

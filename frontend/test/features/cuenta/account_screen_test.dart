@@ -119,7 +119,9 @@ void main() {
     expect(find.byKey(const Key('account-pending-email')), findsNothing);
   });
 
-  testWidgets('los dos botones existen y están apagados', (tester) async {
+  testWidgets('edición está disponible y contraseña sigue apagado', (
+    tester,
+  ) async {
     await _pump(tester, RecordingAccountRepository());
 
     final edit = tester.widget<ButtonStyleButton>(
@@ -130,7 +132,7 @@ void main() {
     );
     expect(find.text('Editar mis datos'), findsOneWidget);
     expect(find.text('Cambiar contraseña'), findsOneWidget);
-    expect(edit.onPressed, isNull);
+    expect(edit.onPressed, isNotNull);
     expect(password.onPressed, isNull);
   });
 
