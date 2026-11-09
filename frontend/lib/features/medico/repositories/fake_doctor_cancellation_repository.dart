@@ -11,12 +11,12 @@ class FakeDoctorCancellationRepository implements DoctorCancellationRepository {
   FakeDoctorCancellationRepository(
     this._shifts, {
     this.latency = const Duration(milliseconds: 300),
-    required DateTime Function() clock,
-  }) : _clock = clock;
+    required this.clock,
+  });
 
   final FakeDoctorShiftRepository _shifts;
   final Duration latency;
-  final DateTime Function() _clock;
+  final DateTime Function() clock;
 
   @override
   Future<DoctorCancellationResult> cancelAppointment(
@@ -38,7 +38,7 @@ class FakeDoctorCancellationRepository implements DoctorCancellationRepository {
     return DoctorCancellationResult(
       appointmentId: appointmentId,
       status: 'CANCELADA_INSTITUCION',
-      cancelledAt: _clock(),
+      cancelledAt: clock(),
       referralReturned: false,
     );
   }
