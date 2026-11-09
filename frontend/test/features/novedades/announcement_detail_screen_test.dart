@@ -12,6 +12,7 @@ import 'package:agenda_medica/features/novedades/models/announcement_detail.dart
 import 'package:agenda_medica/features/novedades/models/announcement_page.dart';
 import 'package:agenda_medica/features/novedades/providers/announcements_provider.dart';
 import 'package:agenda_medica/features/novedades/repositories/announcements_repository.dart';
+import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
 import 'package:agenda_medica/features/novedades/widgets/announcement_gallery.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -34,7 +35,7 @@ class _Session extends SessionNotifier {
       state = const SessionState(status: SessionStatus.unauthenticated);
 }
 
-class _News implements AnnouncementsRepository {
+class _News extends FakeAnnouncementsRepository {
   @override
   Future<AnnouncementPage> list({int page = 0}) async =>
       AnnouncementPage(items: [], page: page, total: 0);

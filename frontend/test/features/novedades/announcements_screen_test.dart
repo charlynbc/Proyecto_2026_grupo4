@@ -1,17 +1,22 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:agenda_medica/core/config/app_config.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/core/router/app_router.dart';
+import 'package:agenda_medica/core/router/app_sections.dart';
 import 'package:agenda_medica/core/theme/app_theme.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/cuenta/providers/account_repository_provider.dart';
+import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
 import 'package:agenda_medica/features/novedades/models/announcement.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_detail.dart';
+import 'package:agenda_medica/features/novedades/models/announcement_draft.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_page.dart';
 import 'package:agenda_medica/features/novedades/providers/announcements_provider.dart';
-import 'package:agenda_medica/features/novedades/repositories/announcements_repository.dart';
+import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
+import 'package:agenda_medica/features/novedades/screens/new_announcement_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -21,15 +26,19 @@ import '../../helpers/pump_app.dart';
 import '../cuenta/account_test_support.dart' show RecordingAccountRepository;
 
 class _Session extends SessionNotifier {
+  _Session(this.role);
+
+  final UserRole role;
+
   @override
-  SessionState build() => const SessionState(
+  SessionState build() => SessionState(
     status: SessionStatus.authenticated,
-    role: UserRole.socio,
+    role: role,
     accessToken: 'test-session',
   );
 }
 
-class _News implements AnnouncementsRepository {
+class _News extends FakeAnnouncementsRepository {
   List<Announcement> items = [
     for (var id = 23; id > 0; id--)
       Announcement(
@@ -43,6 +52,23 @@ class _News implements AnnouncementsRepository {
   final details = <int>[];
   Object? error;
   Completer<AnnouncementPage>? pending;
+  final drafts = <AnnouncementDraft>[];
+  ApiException? publishError;
+
+  @override
+  Future<void> publish(AnnouncementDraft draft) async {
+    drafts.add(draft);
+    if (publishError != null) throw publishError!;
+    items.insert(
+      0,
+      Announcement(
+        id: 24,
+        title: draft.title,
+        summary: draft.summary,
+        publishedAt: DateTime.utc(2026, 11, 9),
+      ),
+    );
+  }
 
   @override
   Future<List<Announcement>> latest() async => items.take(5).toList();
@@ -76,6 +102,8 @@ Future<ProviderContainer> _pumpList(
   _News repo, {
   double width = 1280,
   double scale = 1,
+  UserRole role = UserRole.socio,
+  List<AnnouncementImageUpload> images = const [],
 }) async {
   tester.view.physicalSize = Size(width, 1000);
   tester.view.devicePixelRatio = 1;
@@ -83,7 +111,8 @@ Future<ProviderContainer> _pumpList(
   final container = ProviderContainer(
     overrides: [
       useFakesProvider.overrideWithValue(true),
-      sessionProvider.overrideWith(_Session.new),
+      sessionProvider.overrideWith(() => _Session(role)),
+      announcementImagePickerProvider.overrideWithValue((_) async => images),
       accountRepositoryProvider.overrideWith(
         (ref) async => RecordingAccountRepository(),
       ),
@@ -94,7 +123,7 @@ Future<ProviderContainer> _pumpList(
     await unmountApp(tester);
     container.dispose();
   });
-  final router = container.read(goRouterProvider)..go('/socio/cartelera');
+  final router = container.read(goRouterProvider)..go(role.announcementsPath);
   await tester.pumpWidget(
     UncontrolledProviderScope(
       container: container,
@@ -124,6 +153,145 @@ Finder _rows() => find.byWidgetPredicate(
 );
 
 void main() {
+  for (final role in UserRole.values) {
+    testWidgets('${role.name} consulta y solo el administrador puede crear', (
+      tester,
+    ) async {
+      final repo = _News();
+      final container = await _pumpList(tester, repo, role: role);
+      expect(
+        find.text('Crear nueva novedad'),
+        role == UserRole.administrador ? findsOneWidget : findsNothing,
+      );
+      await tester.tap(find.text('Novedad 23'));
+      await tester.pumpAndSettle();
+      expect(find.text('Detalle 23'), findsOneWidget);
+      expect(repo.details, [23]);
+      await tester.tap(find.byTooltip('Volver a novedades'));
+      await tester.pumpAndSettle();
+      expect(locationOf(container), role.announcementsPath);
+      if (role != UserRole.administrador) {
+        await goTo(tester, container, '/admin/cartelera/nueva');
+        expect(locationOf(container), role.homePath);
+        expect(find.byType(NewAnnouncementScreen), findsNothing);
+      }
+      await unmountApp(tester);
+      if (role == UserRole.medico) {
+        container.invalidate(doctorAgendaControllerProvider);
+      }
+    });
+  }
+
+  testWidgets(
+    'edita Markdown, conserva el borrador ante un rechazo y publica en página 1',
+    (tester) async {
+      final repo = _News()
+        ..publishError = const ApiException('Servicio no disponible');
+      final container = await _pumpList(
+        tester,
+        repo,
+        role: UserRole.administrador,
+      );
+      final next = find.widgetWithText(OutlinedButton, 'Siguiente');
+      await tester.ensureVisible(next);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(find.text('Página 2'), findsOneWidget);
+      await tester.tap(find.text('Crear nueva novedad'));
+      await tester.pumpAndSettle();
+      final title = find.widgetWithText(TextFormField, 'Título');
+      await tester.enterText(title, 'Jornada informativa');
+      final body = find.widgetWithText(TextFormField, 'Texto de la novedad');
+      await tester.enterText(body, 'Información');
+      final controller = tester.widget<TextFormField>(body).controller!;
+      controller.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: controller.text.length,
+      );
+      await tester.tap(find.byTooltip('Negrita'));
+      await tester.pumpAndSettle();
+      expect(controller.text, '**Información**');
+      await tester.tap(find.text('Vista previa'));
+      await tester.pumpAndSettle();
+      expect(find.byType(SelectableText), findsOneWidget);
+
+      final publish = find.widgetWithText(FilledButton, 'Publicar');
+      await tester.ensureVisible(publish);
+      await tester.tap(publish);
+      await tester.pumpAndSettle();
+      expect(find.text('Servicio no disponible'), findsOneWidget);
+      expect(
+        tester.widget<TextFormField>(title).controller!.text,
+        'Jornada informativa',
+      );
+      expect(repo.drafts.single.text, '**Información**');
+      repo.publishError = null;
+      await tester.ensureVisible(publish);
+      await tester.tap(publish);
+      await tester.pumpAndSettle();
+      expect(locationOf(container), '/admin/cartelera');
+      expect(find.text('Página 1'), findsOneWidget);
+      expect(find.text('Jornada informativa'), findsOneWidget);
+      expect(find.text('Novedad publicada'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'exige contenido y permite publicar solo imágenes con portada elegida',
+    (tester) async {
+      final bytes = base64Decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2k8AAAAASUVORK5CYII=',
+      );
+      final repo = _News();
+      await _pumpList(
+        tester,
+        repo,
+        role: UserRole.administrador,
+        images: [
+          AnnouncementImageUpload(
+            name: 'primera.png',
+            bytes: bytes,
+            subtype: 'png',
+          ),
+          AnnouncementImageUpload(
+            name: 'segunda.png',
+            bytes: bytes,
+            subtype: 'png',
+          ),
+        ],
+      );
+      await tester.tap(find.text('Crear nueva novedad'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Título'),
+        'Cartel de la jornada',
+      );
+      final publish = find.widgetWithText(FilledButton, 'Publicar');
+      await tester.ensureVisible(publish);
+      await tester.tap(publish);
+      await tester.pumpAndSettle();
+      expect(find.text('Agregá texto o al menos una imagen.'), findsOneWidget);
+      expect(repo.drafts, isEmpty);
+      final add = find.text('Agregar imágenes');
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      final up = find.byTooltip('Subir imagen segunda.png');
+      await tester.ensureVisible(up);
+      await tester.tap(up);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(publish);
+      await tester.tap(publish);
+      await tester.pumpAndSettle();
+      expect(repo.drafts.single.text, isNull);
+      expect(repo.drafts.single.images.map((image) => image.name), [
+        'segunda.png',
+        'primera.png',
+      ]);
+      expect(find.text('Cartel de la jornada'), findsOneWidget);
+    },
+  );
+
   setUpAll(loadRoboto);
 
   testWidgets(

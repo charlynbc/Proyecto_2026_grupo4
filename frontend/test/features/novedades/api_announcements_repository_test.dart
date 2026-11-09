@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/novedades/repositories/api_announcements_repository.dart';
+import 'package:agenda_medica/features/novedades/models/announcement_draft.dart';
 import 'package:agenda_medica/features/novedades/repositories/announcements_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ class _Adapter implements HttpClientAdapter {
   final Object? body;
   final int status;
   RequestOptions? request;
+  String? multipart;
 
   @override
   Future<ResponseBody> fetch(
@@ -20,6 +22,13 @@ class _Adapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     request = options;
+    if (requestStream != null) {
+      final bytes = BytesBuilder();
+      await for (final chunk in requestStream) {
+        bytes.add(chunk);
+      }
+      multipart = utf8.decode(bytes.takeBytes(), allowMalformed: true);
+    }
     return ResponseBody.fromString(
       jsonEncode(body),
       status,
@@ -56,6 +65,80 @@ Map<String, Object?> card({
 };
 
 void main() {
+  for (final (text, images) in [
+    ('**Texto**', false),
+    (null, true),
+    ('**Texto**', true),
+  ]) {
+    test(
+      'publica multipart con texto=${text != null}, imágenes=$images',
+      () async {
+        final (repo, adapter) = repository({}, status: 201);
+        await repo.publish(
+          AnnouncementDraft(
+            title: 'Jornada de vacunación',
+            text: text,
+            images: images
+                ? [
+                    AnnouncementImageUpload(
+                      name: 'portada.png',
+                      bytes: Uint8List.fromList([1]),
+                      subtype: 'png',
+                    ),
+                    AnnouncementImageUpload(
+                      name: 'detalle.jpg',
+                      bytes: Uint8List.fromList([2]),
+                      subtype: 'jpeg',
+                    ),
+                  ]
+                : [],
+          ),
+        );
+        expect(adapter.request!.method, 'POST');
+        expect(adapter.request!.path, '/api/anuncios');
+        final body = adapter.multipart!;
+        expect(body, contains('name="datos"'));
+        expect(body, contains('content-type: application/json'));
+        expect(
+          body,
+          contains(
+            jsonEncode({
+              'titulo': 'Jornada de vacunación',
+              'resumen': null,
+              'texto': text,
+            }),
+          ),
+        );
+        expect(
+          RegExp('name="imagenes"').allMatches(body),
+          hasLength(images ? 2 : 0),
+        );
+        if (images) {
+          expect(body, contains('content-type: image/png'));
+          expect(body, contains('content-type: image/jpeg'));
+          expect(
+            body.indexOf('portada.png'),
+            lessThan(body.indexOf('detalle.jpg')),
+          );
+        }
+      },
+    );
+  }
+
+  test('publicación conserva el rechazo de permisos del servidor', () async {
+    final (repo, _) = repository({'message': 'Acceso denegado'}, status: 403);
+    await expectLater(
+      repo.publish(const AnnouncementDraft(title: 'Título', text: 'Texto')),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          'Acceso denegado',
+        ),
+      ),
+    );
+  });
+
   test(
     'listado solicita diez por página y usa el total para avanzar',
     () async {
