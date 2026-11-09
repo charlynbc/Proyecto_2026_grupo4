@@ -78,7 +78,8 @@ const String kArrivalPath = '/funcionario/llegada';
 /// - Sin sesión: solo `/login`, el primer ingreso y la recuperación; todo lo
 ///   demás va a login.
 /// - Con sesión: las pantallas de acceso y la raíz van a la home del rol, y
-///   las rutas de otro rol también.
+///   las rutas de otro rol también. Solo el administrador puede crear una
+///   novedad; los demás vuelven al listado si abren la ruta en su Cartelera.
 /// - El enlace de cambio de correo se abre con o sin sesión y también
 ///   mientras se verifica: quien lo abre desde el correo puede tener la
 ///   sesión iniciada. Sin token no tiene nada que mostrar y va a la raíz.
@@ -110,6 +111,10 @@ String? redirectFor(SessionState session, Uri uri) {
       final owner = UserRole.fromPath(path);
       if (owner != null && (owner != role || path == owner.routePrefix)) {
         return role.homePath;
+      }
+      if (role != UserRole.administrador &&
+          path == '${role.announcementsPath}/nueva') {
+        return role.announcementsPath;
       }
       return null;
   }

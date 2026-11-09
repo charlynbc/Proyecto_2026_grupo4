@@ -24,8 +24,9 @@ class ApiAnnouncementsRepository implements AnnouncementsRepository {
           MultipartFile.fromString(
             jsonEncode({
               'titulo': draft.title,
-              'resumen': draft.summary,
-              'texto': draft.text,
+              if (draft.summary?.trim().isNotEmpty ?? false)
+                'resumen': draft.summary,
+              if (draft.text?.trim().isNotEmpty ?? false) 'texto': draft.text,
             }),
             contentType: DioMediaType('application', 'json'),
           ),

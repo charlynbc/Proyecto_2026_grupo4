@@ -16,6 +16,8 @@ import 'package:agenda_medica/features/novedades/models/announcement_draft.dart'
 import 'package:agenda_medica/features/novedades/models/announcement_page.dart';
 import 'package:agenda_medica/features/novedades/providers/announcements_provider.dart';
 import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
+import 'package:agenda_medica/features/novedades/screens/announcement_detail_screen.dart';
+import 'package:agenda_medica/features/novedades/screens/announcements_screen.dart';
 import 'package:agenda_medica/features/novedades/screens/new_announcement_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,11 +56,14 @@ class _News extends FakeAnnouncementsRepository {
   Completer<AnnouncementPage>? pending;
   final drafts = <AnnouncementDraft>[];
   ApiException? publishError;
+  Completer<void>? publishPending;
 
   @override
   Future<void> publish(AnnouncementDraft draft) async {
     drafts.add(draft);
     if (publishError != null) throw publishError!;
+    final pending = publishPending;
+    if (pending != null) await pending.future;
     items.insert(
       0,
       Announcement(
@@ -104,6 +109,7 @@ Future<ProviderContainer> _pumpList(
   double scale = 1,
   UserRole role = UserRole.socio,
   List<AnnouncementImageUpload> images = const [],
+  bool observeLatestAsAdmin = false,
 }) async {
   tester.view.physicalSize = Size(width, 1000);
   tester.view.devicePixelRatio = 1;
@@ -117,6 +123,10 @@ Future<ProviderContainer> _pumpList(
         (ref) async => RecordingAccountRepository(),
       ),
       announcementsRepositoryProvider.overrideWith((ref) async => repo),
+      // Mantiene la caché en la sesión de administrador durante la prueba de
+      // invalidación. Cambiar a socio también refrescaría el provider.
+      if (observeLatestAsAdmin)
+        latestAnnouncementsProvider.overrideWith((ref) => repo.latest()),
     ],
   );
   addTearDown(() async {
@@ -153,6 +163,39 @@ Finder _rows() => find.byWidgetPredicate(
 );
 
 void main() {
+  for (final (role, path, expected) in [
+    (UserRole.socio, '/socio/cartelera/nueva', '/socio/cartelera'),
+    (
+      UserRole.funcionario,
+      '/funcionario/cartelera/nueva',
+      '/funcionario/cartelera',
+    ),
+    (UserRole.medico, '/medico/cartelera/nueva', '/medico/cartelera'),
+    (
+      UserRole.administrador,
+      '/admin/cartelera/nueva',
+      '/admin/cartelera/nueva',
+    ),
+  ]) {
+    testWidgets('ruta de creación para ${role.name} termina en $expected', (
+      tester,
+    ) async {
+      final container = await _pumpList(tester, _News(), role: role);
+      await goTo(tester, container, path);
+
+      final canCreate = role == UserRole.administrador;
+      expect(locationOf(container), expected);
+      expect(find.byType(AnnouncementDetailScreen), findsNothing);
+      expect(
+        find.byType(NewAnnouncementScreen),
+        canCreate ? findsOneWidget : findsNothing,
+      );
+      if (!canCreate) {
+        expect(find.byType(AnnouncementsScreen), findsOneWidget);
+      }
+    });
+  }
+
   for (final role in UserRole.values) {
     testWidgets('${role.name} consulta y solo el administrador puede crear', (
       tester,
@@ -235,6 +278,78 @@ void main() {
       expect(find.text('Novedad publicada'), findsOneWidget);
     },
   );
+
+  testWidgets('deshabilita Publicar mientras el envío está pendiente', (
+    tester,
+  ) async {
+    final pending = Completer<void>();
+    final repo = _News()..publishPending = pending;
+    final container = await _pumpList(
+      tester,
+      repo,
+      role: UserRole.administrador,
+    );
+    await goTo(tester, container, '/admin/cartelera/nueva');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Título'),
+      'Campaña de vacunación',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Texto de la novedad'),
+      'Contenido',
+    );
+    final publish = find.widgetWithText(FilledButton, 'Publicar');
+    await tester.ensureVisible(publish);
+    await tester.tap(publish);
+    await tester.pump();
+
+    final busy = find.widgetWithText(FilledButton, 'Publicando…');
+    expect(busy, findsOneWidget);
+    expect(tester.widget<FilledButton>(busy).onPressed, isNull);
+    await tester.tap(busy);
+    await tester.pump();
+    expect(repo.drafts, hasLength(1));
+
+    pending.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Novedad publicada'), findsOneWidget);
+  });
+
+  testWidgets('publicar refresca las novedades cacheadas del carrusel', (
+    tester,
+  ) async {
+    final repo = _News();
+    final container = await _pumpList(
+      tester,
+      repo,
+      role: UserRole.administrador,
+      observeLatestAsAdmin: true,
+    );
+    final subscription = container.listen(
+      latestAnnouncementsProvider,
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+    final before = await container.read(latestAnnouncementsProvider.future);
+    expect(before.first.title, 'Novedad 23');
+
+    await goTo(tester, container, '/admin/cartelera/nueva');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Título'),
+      'Campaña de vacunación',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Texto de la novedad'),
+      'Contenido',
+    );
+    final publish = find.widgetWithText(FilledButton, 'Publicar');
+    await tester.ensureVisible(publish);
+    await tester.tap(publish);
+    await tester.pumpAndSettle();
+
+    final after = await container.read(latestAnnouncementsProvider.future);
+    expect(after.first.title, 'Campaña de vacunación');
+  });
 
   testWidgets('valida y cuenta el título sin sus espacios exteriores', (
     tester,

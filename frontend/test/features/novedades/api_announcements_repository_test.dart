@@ -65,64 +65,82 @@ Map<String, Object?> card({
 };
 
 void main() {
-  for (final (text, images) in [
-    ('**Texto**', false),
-    (null, true),
-    ('**Texto**', true),
-  ]) {
-    test(
-      'publica multipart con texto=${text != null}, imágenes=$images',
-      () async {
-        final (repo, adapter) = repository({}, status: 201);
-        await repo.publish(
-          AnnouncementDraft(
-            title: 'Jornada de vacunación',
-            text: text,
-            images: images
-                ? [
-                    AnnouncementImageUpload(
-                      name: 'portada.png',
-                      bytes: Uint8List.fromList([1]),
-                      subtype: 'png',
-                    ),
-                    AnnouncementImageUpload(
-                      name: 'detalle.jpg',
-                      bytes: Uint8List.fromList([2]),
-                      subtype: 'jpeg',
-                    ),
-                  ]
-                : [],
-          ),
-        );
-        expect(adapter.request!.method, 'POST');
-        expect(adapter.request!.path, '/api/anuncios');
-        final body = adapter.multipart!;
-        expect(body, contains('name="datos"'));
-        expect(body, contains('content-type: application/json'));
-        expect(
-          body,
-          contains(
-            jsonEncode({
-              'titulo': 'Jornada de vacunación',
-              'resumen': null,
-              'texto': text,
-            }),
-          ),
-        );
-        expect(
-          RegExp('name="imagenes"').allMatches(body),
-          hasLength(images ? 2 : 0),
-        );
-        if (images) {
-          expect(body, contains('content-type: image/png'));
-          expect(body, contains('content-type: image/jpeg'));
-          expect(
-            body.indexOf('portada.png'),
-            lessThan(body.indexOf('detalle.jpg')),
-          );
-        }
+  for (final (description, summary, text, images, expected) in [
+    ('solo título', null, null, true, {'titulo': 'Campaña'}),
+    ('campos en blanco', '  ', '  ', true, {'titulo': 'Campaña'}),
+    (
+      'título y resumen',
+      'Comienza el lunes',
+      null,
+      true,
+      {'titulo': 'Campaña', 'resumen': 'Comienza el lunes'},
+    ),
+    (
+      'título, resumen y texto',
+      'Comienza el lunes',
+      '**Texto**',
+      true,
+      {
+        'titulo': 'Campaña',
+        'resumen': 'Comienza el lunes',
+        'texto': '**Texto**',
       },
-    );
+    ),
+    (
+      'texto sin imágenes',
+      null,
+      '**Texto**',
+      false,
+      {'titulo': 'Campaña', 'texto': '**Texto**'},
+    ),
+  ]) {
+    test('publica multipart con $description', () async {
+      final (repo, adapter) = repository({}, status: 201);
+      await repo.publish(
+        AnnouncementDraft(
+          title: 'Campaña',
+          summary: summary,
+          text: text,
+          images: images
+              ? [
+                  AnnouncementImageUpload(
+                    name: 'portada.png',
+                    bytes: Uint8List.fromList([1]),
+                    subtype: 'png',
+                  ),
+                  AnnouncementImageUpload(
+                    name: 'detalle.jpg',
+                    bytes: Uint8List.fromList([2]),
+                    subtype: 'jpeg',
+                  ),
+                ]
+              : [],
+        ),
+      );
+      expect(adapter.request!.method, 'POST');
+      expect(adapter.request!.path, '/api/anuncios');
+      final body = adapter.multipart!;
+      final boundary = (adapter.request!.data as FormData).boundary;
+      final dataPart = body
+          .split('--$boundary')
+          .singleWhere((part) => part.contains('name="datos"'));
+      final sections = dataPart.split('\r\n\r\n');
+      expect(sections, hasLength(2));
+      expect(sections.first, contains('content-type: application/json'));
+      expect(jsonDecode(sections.last), expected);
+      expect(
+        RegExp('name="imagenes"').allMatches(body),
+        hasLength(images ? 2 : 0),
+      );
+      if (images) {
+        expect(body, contains('content-type: image/png'));
+        expect(body, contains('content-type: image/jpeg'));
+        expect(
+          body.indexOf('portada.png'),
+          lessThan(body.indexOf('detalle.jpg')),
+        );
+      }
+    });
   }
 
   test('publicación conserva el rechazo de permisos del servidor', () async {
