@@ -236,6 +236,36 @@ void main() {
     },
   );
 
+  testWidgets('valida y cuenta el título sin sus espacios exteriores', (
+    tester,
+  ) async {
+    final repo = _News();
+    await _pumpList(tester, repo, role: UserRole.administrador);
+    await tester.tap(find.text('Crear nueva novedad'));
+    await tester.pumpAndSettle();
+    final title = find.widgetWithText(TextFormField, 'Título');
+    final publish = find.widgetWithText(FilledButton, 'Publicar');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Texto de la novedad'),
+      'Contenido',
+    );
+    await tester.enterText(title, 'a' * 161);
+    await tester.ensureVisible(publish);
+    await tester.tap(publish);
+    await tester.pumpAndSettle();
+    expect(find.text('El título admite hasta 160 caracteres.'), findsOneWidget);
+    expect(repo.drafts, isEmpty);
+
+    final validTitle = 'a' * 160;
+    await tester.enterText(title, '  $validTitle  ');
+    await tester.pumpAndSettle();
+    expect(find.text('160/160'), findsOneWidget);
+    await tester.ensureVisible(publish);
+    await tester.tap(publish);
+    await tester.pumpAndSettle();
+    expect(repo.drafts.single.title, validTitle);
+  });
+
   testWidgets(
     'exige contenido y permite publicar solo imágenes con portada elegida',
     (tester) async {

@@ -16,30 +16,32 @@ final announcementImagePickerProvider =
       (ref) => _pickImages,
     );
 
-Future<List<AnnouncementImageUpload>> _pickImages(int available) async {
+Future<List<AnnouncementImageUpload>> _pickImages(int attachedCount) async {
   final files = await FilePicker.pickFiles(
     type: FileType.custom,
-    allowedExtensions: const ['jpg', 'jpeg', 'png'],
+    allowedExtensions: AnnouncementImageUpload.allowedExtensions,
   );
-  if (files.length > available) {
-    throw const ApiException('Podés adjuntar hasta 5 imágenes.');
-  }
+  final countError = AnnouncementImageUpload.validateCount(
+    attachedCount + files.length,
+  );
+  if (countError != null) throw ApiException(countError);
   final images = <AnnouncementImageUpload>[];
   for (final file in files) {
-    if ((await file.length() ?? 0) > AnnouncementImageUpload.maxBytes) {
-      throw ApiException('${file.name} supera los 5 MB.');
-    }
+    final sizeError = AnnouncementImageUpload.validateSize(
+      file.name,
+      await file.length() ?? 0,
+    );
+    if (sizeError != null) throw ApiException(sizeError);
     final bytes = await file.readAsBytes();
-    if (bytes.length > AnnouncementImageUpload.maxBytes) {
-      throw ApiException('${file.name} supera los 5 MB.');
+    final bytesError = AnnouncementImageUpload.validateSize(
+      file.name,
+      bytes.length,
+    );
+    if (bytesError != null) throw ApiException(bytesError);
+    final subtype = AnnouncementImageUpload.detectSubtype(file.name, bytes);
+    if (subtype == null) {
+      throw ApiException(AnnouncementImageUpload.invalidTypeMessage(file.name));
     }
-    final subtype = switch (bytes) {
-      [0xff, 0xd8, 0xff, ...] => 'jpeg',
-      [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, ...] => 'png',
-      _ => throw ApiException(
-        '${file.name} no es una imagen JPEG o PNG válida.',
-      ),
-    };
     images.add(
       AnnouncementImageUpload(name: file.name, bytes: bytes, subtype: subtype),
     );
@@ -89,7 +91,7 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
     });
     try {
       final images = await ref.read(announcementImagePickerProvider)(
-        AnnouncementImageUpload.maxCount - _images.length,
+        _images.length,
       );
       if (mounted) setState(() => _images.addAll(images));
     } catch (error) {
@@ -112,10 +114,6 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
   Future<void> _publish() async {
     if (_submitting || _picking || !_form.currentState!.validate()) return;
     final text = _text.text.trim();
-    if (text.isEmpty && _images.isEmpty) {
-      setState(() => _publishError = 'Agregá texto o al menos una imagen.');
-      return;
-    }
     final summary = _summary.text.trim();
     final draft = AnnouncementDraft(
       title: _title.text.trim(),
@@ -123,6 +121,11 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
       text: text.isEmpty ? null : text,
       images: List.unmodifiable(_images),
     );
+    final contentError = draft.validateContent();
+    if (contentError != null) {
+      setState(() => _publishError = contentError);
+      return;
+    }
     setState(() {
       _submitting = true;
       _publishError = null;
@@ -186,30 +189,28 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
                     TextFormField(
                       controller: _title,
                       enabled: !_submitting,
-                      maxLength: 160,
-                      decoration: const InputDecoration(labelText: 'Título'),
-                      validator: (value) {
-                        final title = value?.trim() ?? '';
-                        if (title.isEmpty) return 'Ingresá el título.';
-                        if (title.length > 160) {
-                          return 'El título admite hasta 160 caracteres.';
-                        }
-                        return null;
-                      },
+                      decoration: InputDecoration(
+                        labelText: 'Título',
+                        counter: ValueListenableBuilder(
+                          valueListenable: _title,
+                          builder: (context, value, child) => Text(
+                            '${value.text.trim().length}/${AnnouncementDraft.maxTitleLength}',
+                          ),
+                        ),
+                      ),
+                      validator: AnnouncementDraft.validateTitle,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _summary,
                       enabled: !_submitting,
-                      maxLength: 300,
+                      maxLength: AnnouncementDraft.maxSummaryLength,
                       minLines: 1,
                       maxLines: 3,
                       decoration: const InputDecoration(
                         labelText: 'Resumen (opcional)',
                       ),
-                      validator: (value) => (value?.trim().length ?? 0) > 300
-                          ? 'El resumen admite hasta 300 caracteres.'
-                          : null,
+                      validator: AnnouncementDraft.validateSummary,
                     ),
                     const SizedBox(height: 12),
                     AnnouncementMarkdownEditor(
