@@ -27,6 +27,9 @@ import '../../features/medico/screens/doctor_appointment_result_screen.dart';
 import '../../features/medico/screens/doctor_result_routes.dart';
 import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
+import '../../features/home/screens/home_screen.dart';
+import '../../features/novedades/screens/announcement_detail_screen.dart';
+import '../../features/novedades/screens/announcements_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialty_import_screen.dart';
@@ -311,6 +314,25 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
   }
   if (role == UserRole.socio) {
     switch (path) {
+      case '/socio/inicio':
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const HomeScreen(),
+        );
+      case '/socio/cartelera':
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const AnnouncementsScreen(),
+          routes: [
+            GoRoute(
+              path: ':id',
+              builder: (context, state) => AnnouncementDetailScreen(
+                id: _appointmentId(state),
+                backToList: state.uri.queryParameters['desde'] == 'cartelera',
+              ),
+            ),
+          ],
+        );
       case '/socio/historia':
         return GoRoute(
           path: path,

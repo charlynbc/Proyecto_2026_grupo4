@@ -16,6 +16,7 @@ class AppSection {
 /// rol. Es una comodidad de navegación: la autorización real es del servidor.
 const Map<UserRole, List<AppSection>> kSectionsByRole = {
   UserRole.socio: [
+    AppSection('inicio', 'Inicio', Icons.home_outlined, Icons.home),
     AppSection(
       'disponibilidad',
       'Reservar consulta',

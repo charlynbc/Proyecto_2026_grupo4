@@ -154,6 +154,18 @@ void main() {
     final container = await pumpApp(tester, size: const Size(320, 800));
     try {
       await _loginAs(tester, container, UserRole.socio);
+      expect(locationOf(container), '/socio/inicio');
+      expect(find.byType(NavigationBar), findsNothing);
+
+      final shortcut = find.byKey(const Key('home-shortcut-disponibilidad'));
+      expect(
+        find.descendant(of: shortcut, matching: find.text('Reservar consulta')),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(shortcut);
+      await tester.tap(shortcut);
+      await tester.pumpAndSettle();
+      expect(locationOf(container), '/socio/disponibilidad');
       _expectNarrowShell(tester);
 
       final reservationLabel = find.descendant(
@@ -169,6 +181,7 @@ void main() {
         findsNothing,
       );
       final cartelera = _labelHeight(tester, 'Cartelera');
+      final inicio = _labelHeight(tester, 'Inicio');
       final reservarConsulta = _labelHeight(tester, 'Reservar consulta');
       final consultas = _labelHeight(tester, 'Mis consultas');
       final historia = _labelHeight(tester, 'Historia clínica');
@@ -178,6 +191,7 @@ void main() {
         lessThanOrEqualTo(cartelera * 2 + 0.01),
         reason: 'Reservar consulta admite dos líneas con las palabras enteras',
       );
+      expect(inicio, closeTo(cartelera, 0.01));
       final paragraph = tester.renderObject<RenderParagraph>(reservationLabel);
       // Rangos escritos a mano: Reservar [0, 8), consulta [9, 17).
       final reservarBoxes = paragraph.getBoxesForSelection(
@@ -219,14 +233,15 @@ void main() {
       }
 
       final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-      expect(bar.selectedIndex, 0);
+      expect(bar.destinations, hasLength(5));
+      expect(bar.selectedIndex, 1);
       expectSocioLabelsCentered();
 
       await goTo(tester, container, '/socio/cartelera');
       expect(locationOf(container), '/socio/cartelera');
       expect(
         tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
-        3,
+        4,
       );
       expectSocioLabelsCentered();
       expect(tester.takeException(), isNull);
@@ -241,6 +256,8 @@ void main() {
       final container = await pumpApp(tester, size: const Size(900, 800));
       try {
         await _loginAs(tester, container, UserRole.socio);
+        expect(find.byType(NavigationRail), findsNothing);
+        await goTo(tester, container, '/socio/disponibilidad');
 
         final rail = find.byType(NavigationRail);
         expect(rail, findsOneWidget);
@@ -324,6 +341,11 @@ void main() {
       final container = await pumpApp(tester, size: const Size(900, 800));
       try {
         await _loginAs(tester, container, role);
+
+        if (role == UserRole.socio) {
+          expect(find.byType(NavigationRail), findsNothing);
+          await goTo(tester, container, '/socio/disponibilidad');
+        }
 
         expect(tester.view.physicalSize, const Size(900, 800));
         expect(tester.view.devicePixelRatio, 1);
