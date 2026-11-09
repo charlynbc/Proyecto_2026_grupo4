@@ -45,8 +45,6 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pumpAndSettle();
 
       expect(topOf(router), '/cuenta');
       expect(textOf(tester, 'account-address'), 'Av. Italia 1234');

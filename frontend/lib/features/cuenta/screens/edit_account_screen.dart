@@ -9,7 +9,6 @@ import '../../../core/widgets/centered_content.dart';
 import '../models/account.dart';
 import '../models/account_changes.dart';
 import '../providers/account_provider.dart';
-import '../providers/account_repository_provider.dart';
 import '../repositories/account_repository.dart';
 import 'account_routes.dart';
 
@@ -128,11 +127,9 @@ class _EditAccountFormState extends ConsumerState<_EditAccountForm> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    final container = ProviderScope.containerOf(context, listen: false);
     final Account updated;
     try {
-      final repository = await ref.read(accountRepositoryProvider.future);
-      updated = await repository.update(changes);
+      updated = await ref.read(accountProvider.notifier).save(changes);
     } catch (error) {
       if (!mounted) return;
       final message = apiMessageOf(error);
@@ -146,7 +143,6 @@ class _EditAccountFormState extends ConsumerState<_EditAccountForm> {
       });
       return;
     }
-    container.invalidate(accountProvider);
     if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
 
     final pendingEmail = updated.pendingEmail;

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/features/auth/models/user_role.dart';
+import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/cuenta/models/account.dart';
 import 'package:agenda_medica/features/cuenta/models/account_changes.dart';
 import 'package:agenda_medica/features/cuenta/providers/account_repository_provider.dart';
@@ -9,6 +11,7 @@ import 'package:agenda_medica/features/cuenta/screens/account_routes.dart';
 import 'package:agenda_medica/features/cuenta/screens/account_screen.dart';
 import 'package:agenda_medica/features/cuenta/screens/edit_account_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -35,9 +38,7 @@ class _EditRepository extends RecordingAccountRepository {
     updates.add(changes.toJson());
     await saveGate?.future;
     if (saveError != null) throw saveError!;
-    final updated = result ?? lucia();
-    account = updated;
-    return updated;
+    return result ?? lucia();
   }
 }
 
@@ -115,6 +116,7 @@ void main() {
     ]);
     expect(locationOf(router), '/cuenta');
     expect(textOf(tester, 'account-address'), 'Av. Italia 1234');
+    expect(repo.calls, 1);
     expect(_saved, findsOneWidget);
     expect(find.text(_shortNotice), findsOneWidget);
   });
@@ -192,7 +194,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('si se vuelve durante el guardado, Mi cuenta se refresca', (
+  testWidgets('si se vuelve durante el guardado, Mi cuenta usa la respuesta', (
     tester,
   ) async {
     final repo = _EditRepository(
@@ -216,6 +218,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(locationOf(router), '/cuenta');
     expect(textOf(tester, 'account-address'), 'Av. Italia 1234');
+    expect(repo.calls, 1);
+  });
+
+  testWidgets('si el token se renueva al guardar, se publica la respuesta', (
+    tester,
+  ) async {
+    final repo = _EditRepository(
+      result: Account.fromJson({
+        ...luciaJson(),
+        'direccion': 'Av. Italia 1234',
+      }),
+    )..saveGate = Completer<void>();
+    await _pump(tester, repo);
+    final session = ProviderScope.containerOf(
+      tester.element(find.byType(EditAccountScreen)),
+      listen: false,
+    ).read(sessionProvider.notifier);
+    session.setAuthenticated(accessToken: 'original', role: UserRole.socio);
+    await tester.pumpAndSettle();
+    final readsBeforeSave = repo.calls;
+
+    await _enter(tester, 'address', 'Av. Italia 1234');
+    await _tapSave(tester);
+    session.setAuthenticated(accessToken: 'renovado', role: UserRole.socio);
+    await tester.pumpAndSettle();
+    repo.saveGate!.complete();
+    await tester.pumpAndSettle();
+
+    expect(textOf(tester, 'account-address'), 'Av. Italia 1234');
+    expect(repo.calls, readsBeforeSave);
   });
 
   testWidgets('avisa del correo nuevo y muestra el pendiente a 320 px', (
