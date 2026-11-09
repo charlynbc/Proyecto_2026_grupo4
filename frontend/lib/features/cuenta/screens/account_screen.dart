@@ -66,34 +66,55 @@ class _AccountDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleStyle = Theme.of(context).textTheme.titleMedium;
     final pendingEmail = account.pendingEmail;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Datos de la cuenta', style: titleStyle),
-        const SizedBox(height: 8),
-        _Field('Cédula', account.ci, 'account-ci'),
-        _Field('Nombre', account.name, 'account-name'),
-        _Field('Apellido', account.lastName, 'account-lastname'),
-        _Field('Rol', _roleLabel(account.role), 'account-role'),
-        const SizedBox(height: 24),
-        Text('Datos de contacto', style: titleStyle),
-        const SizedBox(height: 8),
-        _Field('Correo', account.email, 'account-email'),
-        if (pendingEmail != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Pediste cambiar tu correo a $pendingEmail. Abrí el enlace que '
-              'te enviamos a ese correo para confirmarlo. Hasta entonces '
-              'seguís usando ${account.email}.',
-              key: const Key('account-pending-email'),
+        _AccountSection(
+          title: 'Datos de la cuenta',
+          fields: [
+            _Field('Cédula', account.ci, 'account-ci'),
+            _Field('Nombre', account.name, 'account-name'),
+            _Field('Apellido', account.lastName, 'account-lastname'),
+            _Field('Rol', _roleLabel(account.role), 'account-role'),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _AccountSection(
+          title: 'Datos de contacto',
+          fields: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _Field('Correo', account.email, 'account-email'),
+                if (pendingEmail != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Pediste cambiar tu correo a $pendingEmail. Abrí el '
+                      'enlace que te enviamos a ese correo para confirmarlo. '
+                      'Hasta entonces seguís usando ${account.email}.',
+                      key: const Key('account-pending-email'),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+              ],
             ),
-          ),
-        _Field('Teléfono 1', account.phone1, 'account-phone1'),
-        _Field('Teléfono 2', account.phone2 ?? 'No cargado', 'account-phone2'),
-        _Field('Dirección', account.address, 'account-address'),
+            _Field('Teléfono 1', account.phone1, 'account-phone1'),
+            _Field(
+              'Teléfono 2',
+              account.phone2 ?? 'No cargado',
+              'account-phone2',
+              isMissing: account.phone2 == null,
+            ),
+            _Field('Dirección', account.address, 'account-address'),
+          ],
+        ),
         const SizedBox(height: 24),
         Wrap(
           spacing: 12,
@@ -116,31 +137,85 @@ class _AccountDetails extends StatelessWidget {
   }
 }
 
-/// Un dato con su etiqueta arriba. La key va en el valor, que es lo que
-/// cambia de una cuenta a otra.
-class _Field extends StatelessWidget {
-  const _Field(this.label, this.value, this.valueKey);
+class _AccountSection extends StatelessWidget {
+  const _AccountSection({required this.title, required this.fields});
 
-  final String label;
-  final String value;
-  final String valueKey;
+  final String title;
+  final List<Widget> fields;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              child: Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-          Text(value, key: Key(valueKey), style: theme.textTheme.bodyLarge),
-        ],
+            const SizedBox(height: 12),
+            for (var i = 0; i < fields.length; i++) ...[
+              if (i > 0) const Divider(height: 1),
+              fields[i],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Un dato con su etiqueta arriba. La key va en el valor, que es lo que
+/// cambia de una cuenta a otra.
+class _Field extends StatelessWidget {
+  const _Field(this.label, this.value, this.valueKey, {this.isMissing = false});
+
+  final String label;
+  final String value;
+  final String valueKey;
+  final bool isMissing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return MergeSemantics(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              key: Key(valueKey),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: isMissing ? FontWeight.normal : FontWeight.w600,
+                color: isMissing ? theme.colorScheme.onSurfaceVariant : null,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
