@@ -66,6 +66,24 @@ final _bruno = IssuedReferral(
   status: ReferralStatus.used,
 );
 
+final _ana = IssuedReferral(
+  id: 80,
+  patient: const IssuedReferralPatient(
+    id: 23,
+    ci: '11111111',
+    name: 'Ana',
+    lastName: 'Pérez',
+  ),
+  destination: const Specialty(
+    id: 2,
+    name: 'Dermatología',
+    requiresReferral: true,
+  ),
+  issuedAt: DateTime.utc(2026, 6, 1, 13),
+  expiresOn: DateTime.utc(2026, 8, 30),
+  status: ReferralStatus.expired,
+);
+
 Future<_Repository> _pump(
   WidgetTester tester, {
   List<IssuedReferral>? result,
@@ -266,6 +284,65 @@ void main() {
         find.text('Tu cuenta no tiene permiso para consultar pases.'),
         findsOneWidget,
       );
+    });
+  });
+
+  group('maquetación', () {
+    const wide = Size(1200, 800);
+    final allChip = find.byKey(const Key('referrals-filter-all'));
+
+    testWidgets('los controles no se mueven al cambiar de filtro', (
+      tester,
+    ) async {
+      final repository = await _pump(
+        tester,
+        result: [_lucia, _bruno, _ana],
+        size: wide,
+      );
+      final before = tester.getTopLeft(allChip).dy;
+      expect(find.byKey(const Key('referral-79')), findsOneWidget);
+
+      repository.result = [_lucia];
+      await _tapKey(tester, 'referrals-filter-available');
+
+      expect(find.byKey(const Key('referral-79')), findsNothing);
+      expect(tester.getTopLeft(allChip).dy, before);
+    });
+
+    testWidgets('los controles quedan en la parte alta', (tester) async {
+      // Una ventana alta: con el contenido centrado los controles bajan.
+      await _pump(
+        tester,
+        result: [_lucia, _bruno, _ana],
+        size: const Size(1200, 1800),
+      );
+
+      expect(tester.getTopLeft(allChip).dy, lessThan(200));
+    });
+
+    testWidgets('las tarjetas miden lo mismo', (tester) async {
+      await _pump(tester, result: [_lucia, _bruno, _ana], size: wide);
+
+      final w78 = tester.getSize(find.byKey(const Key('referral-78'))).width;
+      final w79 = tester.getSize(find.byKey(const Key('referral-79'))).width;
+      final w80 = tester.getSize(find.byKey(const Key('referral-80'))).width;
+      expect(w79, w78);
+      expect(w80, w78);
+    });
+
+    testWidgets('las tarjetas miden lo mismo a 320 px', (tester) async {
+      await _pump(
+        tester,
+        result: [_lucia, _bruno, _ana],
+        size: const Size(320, 640),
+      );
+
+      final w78 = tester.getSize(find.byKey(const Key('referral-78'))).width;
+      final w79 = tester.getSize(find.byKey(const Key('referral-79'))).width;
+      final w80 = tester.getSize(find.byKey(const Key('referral-80'))).width;
+      expect(w79, w78);
+      expect(w80, w78);
+      expect(tester.takeException(), isNull);
     });
   });
 
