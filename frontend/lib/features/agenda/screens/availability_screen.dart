@@ -181,7 +181,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
     final today = UruguayTime.today();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Disponibilidad'),
+        title: const Text('Reservar consulta'),
         actions: const [LogoutButton()],
       ),
       body: CenteredContent(

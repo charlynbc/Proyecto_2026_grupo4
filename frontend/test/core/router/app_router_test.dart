@@ -228,6 +228,7 @@ void main() {
       final labels = role.sections.map((s) => s.label).toSet();
       if (role.sections.length > 1) {
         for (final label in labels) {
+          if (role == UserRole.socio && label == 'Inicio') continue;
           expect(find.text(label), findsWidgets, reason: '${role.name}/$label');
         }
       }
@@ -260,13 +261,14 @@ void main() {
   });
 
   testWidgets(
-    'el médico, con una sola sección, no muestra barra de navegación',
+    'el médico conserva Mis turnos como inicio y tiene acceso a Cartelera',
     (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.medico);
 
       expect(find.byType(NavigationBar), findsNothing);
-      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.text('Cartelera'), findsOneWidget);
       expect(find.byType(DoctorShiftsScreen), findsOneWidget);
       await unmountApp(tester);
       container.invalidate(doctorAgendaControllerProvider);
@@ -696,6 +698,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(locationOf(container), '/login');
+    await unmountApp(tester);
   });
 
   testWidgets('una sesión caída lleva al login con un aviso comprensible', (

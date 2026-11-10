@@ -1628,12 +1628,12 @@ Preguntas relacionadas: P-14.
 
 ### 3.9 Estadísticas (administrador)
 
-Las tres usan el mismo `FiltroEstadisticaDTO`, que viaja en la query:
+RF-39 a RF-44 usan el mismo criterio de período, enviado en la query:
 
 | Parámetro | Tipo | Notas |
 |---|---|---|
-| `fechaDesde` | fecha | Opcional. Por defecto, el primer día del mes en curso (RF-44, CU 3.5.5). |
-| `fechaHasta` | fecha | Opcional. Por defecto, el último día del mes en curso. |
+| `desde` | fecha | Opcional. Por defecto, el primer día del mes en curso, en `America/Montevideo`. |
+| `hasta` | fecha | Opcional. Por defecto, el último día del mes en curso. |
 
 Cada respuesta repite `desde` y `hasta`, el período realmente aplicado. Un denominador cero se informa como **"Sin datos"** y un numerador cero con denominador positivo como **0 %** (RF-44): en el JSON, un porcentaje o tasa en `null` significa "Sin datos"; el `0` es 0 %. Los porcentajes van como número entre 0 y 100, con hasta 2 decimales (**PROPUESTA**, P-13). Estas consultas pueden demorar más que las demás (RNF-16): el cliente muestra que la operación está en curso.
 
@@ -1738,6 +1738,76 @@ Parámetros opcionales `desde` y `hasta` (`YYYY-MM-DD`, inclusivos); sin ellos, 
 ```
 
 `totalConsultas` cero: `porcentajeCancelacion` es `null` y `porcentajeCancelacionTexto` es `"Sin datos"`. Con consultas y ninguna cancelada por el socio: `0` y `"0 %"`. No incluye datos de pacientes.
+
+<a id="e69"></a>
+#### #69 · `GET /api/estadisticas/inasistencias`
+
+- **Roles:** ADMINISTRADOR. **RF:** RF-42. **Estado:** IMPLEMENTADA EN BACKEND en la rama del PR; pendiente de integración.
+- **Filtros:** `desde`, `hasta` y `agruparPor` (`ESPECIALIDAD` por defecto o `MEDICO`).
+- **Cómputo:** solo consultas no canceladas cuyo día ya terminó en `America/Montevideo`, por `turno.fecha`. Las `AGENDADA` de días terminados se clasifican como `NO_ASISTIO` sin aviso o `NO_ATENDIDA` con aviso. Porcentaje = (`noAsistio` + `noSePresento`) / `total` × 100; `noAtendidas` integra el denominador pero no el numerador. Orden descendente por porcentaje.
+
+```json
+{
+  "desde": "2026-10-01", "hasta": "2026-10-31", "agruparPor": "ESPECIALIDAD",
+  "items": [{"id": 3, "nombre": "Cardiología", "apellido": null,
+    "atendidas": 20, "noAsistio": 2, "noSePresento": 1, "noAtendidas": 2,
+    "total": 25, "porcentajeInasistencia": 12.00, "inasistencia": "12 %"}]
+}
+```
+
+Con `agruparPor=MEDICO`, `id`, `nombre` y `apellido` identifican al médico; con `ESPECIALIDAD`, `apellido` es `null`. Los grupos sin consultas no aparecen. `agruparPor` inválido: `400 VALIDACION`. La respuesta no expone pacientes.
+
+<a id="e70"></a>
+#### #70 · `GET /api/estadisticas/pases`
+
+- **Roles:** ADMINISTRADOR. **RF:** RF-43. **Estado:** IMPLEMENTADA EN BACKEND en la rama del PR; pendiente de integración.
+- **Filtros:** `desde`, `hasta` por `pase.emitido_en` en `America/Montevideo`; `especialidadOrigenId` positivo y opcional.
+- **Cómputo:** una fila por especialidad de destino, incluidas las que tienen cero pases. Utilizado si existe una consulta vinculada no cancelada; de lo contrario, disponible si `vence_el >= hoy`, o vencido. La cancelación devuelve el pase sin alterar su emisión ni vencimiento. Porcentaje = `utilizados / (utilizados + vencidos) × 100`.
+
+```json
+{
+  "desde": "2026-10-01", "hasta": "2026-10-31", "especialidadOrigenId": 1,
+  "items": [{"especialidadDestino": {"id": 3, "nombre": "Cardiología", "requierePase": true},
+    "emitidos": 10, "utilizados": 5, "disponibles": 3, "vencidos": 2,
+    "porcentajeUtilizados": 71.43, "utilizacion": "71.43 %"}]
+}
+```
+
+Sin pases resueltos, `porcentajeUtilizados` es `null` y `utilizacion` es `"Sin datos"`. ID no positivo: `400 VALIDACION`.
+
+<a id="e71"></a>
+#### #71 · `GET /api/estadisticas/franjas`
+
+- **Roles:** ADMINISTRADOR. **RF:** RF-44. **Estado:** IMPLEMENTADA EN BACKEND en la rama del PR; pendiente de integración.
+- **Filtros:** `desde`, `hasta` por fecha de consulta; `vista=CONSULTAS` (predeterminada) o `LLEGADAS`; `especialidadId` positivo y opcional.
+- **Cómputo:** en `CONSULTAS`, cada consulta no cancelada se ubica por el inicio de `numero.hora_inicio`. En `LLEGADAS`, cada consulta no cancelada a la que aplica el aviso del socio y día se ubica por la hora local de `aviso_llegada.registrada_en`; un aviso para dos consultas cuenta dos veces. El filtro de especialidad corresponde a cada consulta.
+
+```json
+{
+  "desde": "2026-10-01", "hasta": "2026-10-31", "vista": "LLEGADAS",
+  "especialidadId": null,
+  "celdas": [{"diaSemana": 1, "hora": 0, "cantidad": 0},
+             {"diaSemana": 1, "hora": 1, "cantidad": 0}]
+}
+```
+
+La respuesta contiene siempre 168 celdas, una por cada día ISO (lunes 1 a domingo 7) y hora (0 a 23); el ejemplo muestra las primeras dos. Vista o ID inválidos: `400 VALIDACION`. No se expone el aviso ni la identidad del socio.
+
+#### Guía para incorporar RF-42 a RF-44 en Flutter
+
+Las tres rutas son `GET`, usan el JWT de ADMINISTRADOR y no llevan cuerpo. Al abrir cada reporte se pueden omitir `desde` y `hasta`: el servidor devuelve el mes en curso y repite las fechas aplicadas en la respuesta. La pantalla debe mostrar esas fechas; al volver a calcular, enviar solo los filtros elegidos por el usuario, como hacen las pestañas actuales. Las fechas viajan como `YYYY-MM-DD`, inclusivas. Los porcentajes numéricos están entre 0 y 100, con hasta dos decimales; usar el texto adjunto para mostrar `"Sin datos"` o `"0 %"`.
+
+| RF | Selector adicional | Resultado que debe presentar la pantalla | Sin registros del período |
+|---|---|---|---|
+| 42 | `agruparPor=ESPECIALIDAD\|MEDICO` | Tabla ordenada por mayor porcentaje; nombre de especialidad o nombre y apellido del médico, cuatro conteos y porcentaje. El `id` es de especialidad o de cuenta médica según `agruparPor`. | `items: []`. |
+| 43 | `especialidadOrigenId` opcional; obtener opciones desde `GET /api/especialidades` | Por especialidad de destino: emitidos, utilizados, disponibles, vencidos y porcentaje de utilizados entre los resueltos. | Se conservan todas las especialidades con conteos cero; porcentaje `null` y texto `"Sin datos"`. |
+| 44 | `vista=CONSULTAS\|LLEGADAS` y `especialidadId` opcional | Tabla o mapa de calor con `diaSemana` ISO y franjas `hora:00` a `hora+1:00`, hora de Uruguay. | Se conservan las 168 celdas con cantidad cero. |
+
+Los valores de `agruparPor` y `vista` se aceptan sin distinguir mayúsculas; la respuesta los normaliza a mayúsculas. Los IDs opcionales deben ser enteros positivos; un ID válido sin coincidencias produce cero, no `404`. Fechas o filtros inválidos responden `400 VALIDACION`; sin sesión, `401`; con otro rol, `403`. No se debe mostrar ni solicitar información de pacientes.
+
+Ejemplo de RF-42 por médico: una fila conserva `id` de la cuenta médica, `nombre` y `apellido`; `agruparPor` cambia a `"MEDICO"`. Ejemplo de RF-44: si un aviso de llegada del martes se registró a las 09:10 y cubre dos consultas, `vista=LLEGADAS` devuelve `{"diaSemana":2,"hora":9,"cantidad":2}` en esa celda. En ambas vistas, las fechas del filtro corresponden a la fecha de la consulta.
+
+El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar estas rutas, agregar las constantes a `frontend/lib/core/network/api_routes.dart` y a `ApiRoutes.all` junto con sus modelos, repositorios, estados de carga/error y pestañas; seguir los patrones de RF-39 a RF-41. Agregar entonces las filas #69 a #71 a `docs/api/endpoints-usados.md` en el mismo cambio: `frontend/test/core/network/api_routes_test.dart` exige que cada ruta listada allí ya exista en `ApiRoutes.all`.
 
 ---
 
@@ -2622,6 +2692,9 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
 | 66 | `GET /api/anuncios` | | ✔ | ✔ | ✔ | ✔ |
 | 67 | `GET /api/anuncios/{id}` | | ✔ | ✔ | ✔ | ✔ |
 | 68 | `GET /api/usuarios/{id}` | | | | | ✔ |
+| 69 | `GET /api/estadisticas/inasistencias` | | | | | ✔ |
+| 70 | `GET /api/estadisticas/pases` | | | | | ✔ |
+| 71 | `GET /api/estadisticas/franjas` | | | | | ✔ |
 
 Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
@@ -2893,9 +2966,9 @@ Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el
 
 ## 8. Fuera de este contrato
 
-Los siguientes RF todavía no tienen implementación completa ni contrato confirmado. No deben tratarse como endpoints disponibles para el frontend.
+RF-42 a RF-44 salieron de esta lista con el contrato de backend de los endpoints #69 a #71 (sección 3.9); su integración y el frontend siguen pendientes.
 
-RF-07 y RF-28 cartelera de novedades, RF-42 a RF-44 estadísticas adicionales.
+RF-07 y RF-28 tienen contrato de backend en los endpoints #65 a #67 (sección 3.17).
 
 RF-45 salió de esta lista el 04/11/2026: tiene contrato confirmado en los endpoints #61 y #62 (sección 3.16).
 

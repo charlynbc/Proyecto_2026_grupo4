@@ -47,7 +47,7 @@ void main() {
     await loginAs(tester, container, UserRole.socio);
     final router = appRouter(container);
     final home = locationOf(router);
-    expect(home, '/socio/disponibilidad');
+    expect(home, '/socio/inicio');
 
     await tester.tap(find.byKey(const Key('open-account')));
     await tester.pumpAndSettle();
