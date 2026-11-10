@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../models/doctor_shift.dart';
 import '../providers/doctor_agenda_controller.dart';
+import '../widgets/doctor_number_actions.dart';
 import 'doctor_result_routes.dart';
 
 /// "Mis turnos" del médico (RF-21): fecha, turnos propios, números con sus
@@ -286,6 +287,7 @@ class _NumberTile extends StatelessWidget {
                     '${_statusLabel(item.appointmentStatus)} · '
                     '${item.arrivedAt == null ? 'Sin aviso de llegada' : 'Llegó a las ${_clock(item.arrivedAt!)}'}',
         ),
+        trailing: DoctorNumberActions(item: item),
       ),
     );
   }
