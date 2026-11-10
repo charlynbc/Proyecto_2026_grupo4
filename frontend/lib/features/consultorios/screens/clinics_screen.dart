@@ -14,6 +14,7 @@ import '../widgets/clinic_filter_bar.dart';
 const String kClinicsPath = '/admin/consultorios';
 const String kNewClinicPath = '/admin/consultorios/nuevo';
 const String kImportClinicsPath = '/admin/consultorios/importar';
+String clinicEditPath(int id) => '$kClinicsPath/$id/corregir';
 
 /// Consulta de consultorios con filtros (RF-37) y acceso al alta (RF-33).
 class ClinicsScreen extends ConsumerWidget {
@@ -118,6 +119,12 @@ class _ClinicTile extends StatelessWidget {
       child: ListTile(
         title: Text(clinic.name),
         subtitle: Text(clinic.location),
+        trailing: IconButton(
+          key: Key('clinic-edit-${clinic.id}'),
+          tooltip: 'Corregir',
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () => context.push(clinicEditPath(clinic.id)),
+        ),
       ),
     );
   }
