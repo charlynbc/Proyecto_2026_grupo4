@@ -11,13 +11,17 @@ import 'issued_referral_repository.dart';
 /// cancelaciones de consultas (RF-27), que en el servidor devuelven un pase
 /// utilizado a disponible.
 class FakeIssuedReferralRepository implements IssuedReferralRepository {
+  /// Con [referrals] (para pruebas) se usan esos pases en lugar de los de
+  /// ejemplo.
   FakeIssuedReferralRepository({
     this.latency = const Duration(milliseconds: 300),
-  });
+    List<IssuedReferral>? referrals,
+  }) : _referrals = referrals ?? _seed;
 
   final Duration latency;
+  final List<IssuedReferral> _referrals;
 
-  static final List<IssuedReferral> _referrals = [
+  static final List<IssuedReferral> _seed = [
     IssuedReferral(
       id: 78,
       patient: const IssuedReferralPatient(
