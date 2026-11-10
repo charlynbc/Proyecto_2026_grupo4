@@ -64,6 +64,9 @@ class ApiRoutes {
   static const String statsSpecialties = '/api/estadisticas/especialidades';
   static const String statsShifts = '/api/estadisticas/turnos';
   static const String statsAppointments = '/api/estadisticas/consultas';
+  static const String statsAbsences = '/api/estadisticas/inasistencias';
+  static const String statsReferrals = '/api/estadisticas/pases';
+  static const String statsTimeSlots = '/api/estadisticas/franjas';
 
   // --- RF-04, RF-05, RF-06 y RF-20: cuenta y recuperación (endpoints 45 a 51) ---
   // La edición de datos personales (PATCH) y el pedido de cambio de correo
@@ -169,6 +172,9 @@ class ApiRoutes {
     statsSpecialties,
     statsShifts,
     statsAppointments,
+    statsAbsences,
+    statsReferrals,
+    statsTimeSlots,
     authChangePassword,
     accountMe,
     authPasswordRecoveryRequest,
