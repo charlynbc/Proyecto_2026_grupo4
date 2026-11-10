@@ -6,6 +6,7 @@ import 'package:agenda_medica/features/estadisticas/consultas/providers/appointm
 import 'package:agenda_medica/features/estadisticas/consultas/repositories/appointment_statistics_repository.dart';
 import 'package:agenda_medica/features/estadisticas/consultas/repositories/fake_appointment_statistics_repository.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/appointment_statistics_tab.dart';
+import 'package:agenda_medica/features/estadisticas/consultas/widgets/appointment_summary_cards.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -121,21 +122,53 @@ void main() {
     );
   });
 
-  testWidgets('el texto del período sigue siendo el de los datos tras un rebuild', (
-    tester,
-  ) async {
+  testWidgets(
+    'el período de los datos no cambia aunque los campos tengan otras fechas y la pantalla se reconstruya',
+    (tester) async {
+      await _pump(tester, _Repository());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('stats-from')), '20/10/2026');
+      await tester.enterText(find.byKey(const Key('stats-to')), '05/10/2026');
+      await _consult(tester);
+
+      expect(find.byKey(const Key('stats-period-error')), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+        'Datos del 01/10/2026 al 31/10/2026',
+      );
+    },
+  );
+
+  testWidgets('el período queda encima del resultado', (tester) async {
     await _pump(tester, _Repository());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('stats-from')), '20/10/2026');
-    await tester.enterText(find.byKey(const Key('stats-to')), '05/10/2026');
+    expect(
+      tester.getBottomLeft(find.byKey(const Key('stats-period-label'))).dy,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.byType(AppointmentSummaryCards)).dy,
+      ),
+    );
+  });
+
+  testWidgets('si una consulta posterior falla no muestra el período', (
+    tester,
+  ) async {
+    var calls = 0;
+    final repository = _Repository((_) async {
+      if (calls++ == 0) return statisticsOf();
+      throw const ApiException();
+    });
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+
     await _consult(tester);
 
-    expect(find.byKey(const Key('stats-period-error')), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
-      'Datos del 01/10/2026 al 31/10/2026',
-    );
+    expect(find.byKey(const Key('stats-error')), findsOneWidget);
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
   });
 
   testWidgets('mientras una nueva consulta carga no muestra el texto', (
