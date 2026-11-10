@@ -70,7 +70,7 @@ PostgreSQL.
 | 40 | `GET /api/medico/pacientes/{socioId}/historia-clinica` | MEDICO | 22 | Historia clínica previa del paciente (requiere consulta AGENDADA vigente con él) | CONFIRMADA | - | [contrato #40](contrato-v1.md#e40) |
 | 41 | `GET /api/medico/atenciones` | MEDICO | 25 | Consultas atendidas por el médico (`fechaDesde`/`fechaHasta` obligatorias; `paciente`, `especialidadId`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #41](contrato-v1.md#e41) |
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | MEDICO | 25 | Detalle de una atención propia | CONFIRMADA | - | [contrato #42](contrato-v1.md#e42) |
-| 43 | `GET /api/medico/pases` | MEDICO | 26 | Pases emitidos por el médico (`situacion`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #43](contrato-v1.md#e43) |
+| 43 | `GET /api/medico/pases` | MEDICO | 26 | Pases emitidos por el médico (`situacion`, `orden`, `sentido`) | CONFIRMADA | feat/front-medico-pases 10/11/2026 | [contrato #43](contrato-v1.md#e43) |
 | 44 | `POST /api/funcionario/consultas/{id}/cancelar` | FUNCIONARIO | 19 | Cancelar consulta a pedido del socio | CONFIRMADA | feat/front-cancelar-funcionario 08/11/2026 | [contrato #44](contrato-v1.md#e44) |
 | 45 | `POST /api/auth/cambiar-contrasena` | autenticado | 04 | Cambio de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #45](contrato-v1.md#e45) |
 | 46 | `GET /api/cuentas/me` | autenticado | 06 | Datos personales (precarga del formulario) | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-mi-cuenta 06/11/2026 | [contrato #46](contrato-v1.md#e46) |
