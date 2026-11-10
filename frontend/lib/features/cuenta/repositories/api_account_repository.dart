@@ -37,6 +37,9 @@ class ApiAccountRepository implements AccountRepository {
       if (data is! Map<String, dynamic>) throw const ApiException();
       return Account.fromJson(data);
     } on DioException catch (e) {
+      // Dio envuelve un JSON inválido en DioException sin respuesta HTTP.
+      // El servidor respondió; no es una pérdida de conexión.
+      if (e.error is FormatException) throw const ApiException();
       final error = ApiException.fromDio(e);
       final data = e.response?.data;
       if (e.response?.statusCode == 400 &&

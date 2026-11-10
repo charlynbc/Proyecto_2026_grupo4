@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/core/forms/phone_field_rules.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/cuenta/models/account.dart';
@@ -53,6 +54,10 @@ Future<GoRouter> _pump(
     GoRoute(
       path: kAccountEditPath,
       builder: (_, _) => const EditAccountScreen(),
+    ),
+    GoRoute(
+      path: '/encima',
+      builder: (_, _) => const Scaffold(body: Text('Otra pantalla')),
     ),
   ],
   initialLocation: kAccountEditPath,
@@ -180,6 +185,48 @@ void main() {
     );
   });
 
+  testWidgets('acepta ambos teléfonos de exactamente 30 caracteres', (
+    tester,
+  ) async {
+    const phone = '0       9  9  1  2  3  4  5  6';
+    expect(phone.length, 30);
+    final repo = _EditRepository();
+    final router = await _pump(tester, repo);
+    await _enter(tester, 'phone1', phone);
+    await _enter(tester, 'phone2', phone);
+    await _tapSave(tester);
+
+    expect(repo.updates, [
+      {'telefono1': phone, 'telefono2': phone},
+    ]);
+    expect(locationOf(router), kAccountPath);
+  });
+
+  testWidgets('muestra los cuatro errores juntos sin desborde a 320 px', (
+    tester,
+  ) async {
+    final repo = _EditRepository();
+    await _pump(tester, repo, size: const Size(320, 640));
+    await _enter(tester, 'address', '');
+    await _enter(tester, 'phone1', '123');
+    await _enter(tester, 'phone2', '0' * 31);
+    await _enter(tester, 'email', 'sin-arroba');
+    await _tapSave(tester);
+
+    expect(find.text('Ingresá tu dirección.'), findsOneWidget);
+    expect(find.text(kInvalidPhoneMessage), findsOneWidget);
+    expect(
+      find.text('El teléfono no puede tener más de 30 caracteres.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Ingresá un correo válido, por ejemplo nombre@ejemplo.org.'),
+      findsOneWidget,
+    );
+    expect(repo.updates, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('dos toques seguidos solo guardan una vez', (tester) async {
     final repo = _EditRepository()..saveGate = Completer<void>();
     await _pump(tester, repo);
@@ -219,6 +266,26 @@ void main() {
     expect(locationOf(router), '/cuenta');
     expect(textOf(tester, 'account-address'), 'Av. Italia 1234');
     expect(repo.calls, 1);
+  });
+
+  testWidgets('una ruta encima no se cierra al terminar el guardado', (
+    tester,
+  ) async {
+    final repo = _EditRepository()..saveGate = Completer<void>();
+    final router = await _pump(tester, repo);
+    await _enter(tester, 'address', 'Av. Italia 1234');
+    await _tapSave(tester);
+    router.push('/encima');
+    await tester.pumpAndSettle();
+
+    expect(topOf(router), '/encima');
+    expect(find.byType(EditAccountScreen, skipOffstage: false), findsOneWidget);
+    repo.saveGate!.complete();
+    await tester.pumpAndSettle();
+
+    expect(repo.updates, hasLength(1));
+    expect(topOf(router), '/encima');
+    expect(_saved, findsNothing);
   });
 
   testWidgets('si el token se renueva al guardar, se publica la respuesta', (

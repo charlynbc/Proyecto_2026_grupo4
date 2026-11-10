@@ -57,6 +57,15 @@ void main() {
     expect(result.pendingEmail, isNull);
   });
 
+  test('acepta ambos teléfonos de exactamente 30 caracteres', () async {
+    final repo = _fake();
+    final updated = await repo.update(
+      AccountChanges(phone1: '1' * 30, phone2: (value: '2' * 30)),
+    );
+    expect(updated.phone1, '1' * 30);
+    expect(updated.phone2, '2' * 30);
+  });
+
   final invalid = [
     (const AccountChanges(), 'No hay ningún dato para actualizar'),
     (const AccountChanges(address: ' '), 'La dirección no puede quedar vacía'),

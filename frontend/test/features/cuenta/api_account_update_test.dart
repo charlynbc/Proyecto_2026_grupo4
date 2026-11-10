@@ -11,10 +11,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'account_test_support.dart';
 
 class _Adapter implements HttpClientAdapter {
-  _Adapter(this.status, this.response);
+  _Adapter(this.status, this.response, {this.rawResponse});
 
   final int status;
   final Object? response;
+  final String? rawResponse;
   RequestOptions? request;
   Object? body;
 
@@ -27,7 +28,7 @@ class _Adapter implements HttpClientAdapter {
     request = options;
     body = jsonDecode(await utf8.decoder.bind(requestStream!).join());
     return ResponseBody.fromString(
-      jsonEncode(response),
+      rawResponse ?? jsonEncode(response),
       status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -116,4 +117,24 @@ void main() {
       ),
     );
   });
+
+  for (final (name, adapter) in [
+    ('200 sin cuerpo', _Adapter(200, null)),
+    ('200 con JSON roto', _Adapter(200, null, rawResponse: '{roto')),
+    ('200 con cuenta sin ci', _Adapter(200, {...luciaJson()}..remove('ci'))),
+  ]) {
+    test('PATCH $name da el error genérico', () async {
+      await expectLater(
+        _repo(adapter).update(const AccountChanges(address: 'Av. Italia 1234')),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.message,
+            'message',
+            kApiGenericMessage,
+          ),
+        ),
+      );
+      expect(adapter.request!.method, 'PATCH');
+    });
+  }
 }
