@@ -49,9 +49,13 @@ class ApiDoctorCancellationRepository implements DoctorCancellationRepository {
     }
   }
 
-  /// Los mensajes de cada caso son propios: el texto del servidor no se
-  /// muestra. Un código desconocido cae en el error de [ApiException.fromDio].
+  /// Traduce el `code` a un fallo con mensaje propio. El 401
+  /// (`NO_AUTENTICADO` o `TOKEN_INVALIDO`) no tiene rama: lo resuelve el
+  /// interceptor de sesión. Ese 401, un 500 y cualquier otro código caen en
+  /// [ApiException.fromDio], que muestra el texto del servidor.
   ApiException _mapError(DioException e) {
+    // Un JSON que no se puede leer llega sin respuesta. No es falta de red.
+    if (e.error is FormatException) return const ApiException();
     final failure = switch (apiCodeOf(e)) {
       'VALIDACION' => DoctorCancellationFailure.validation,
       'ACCESO_DENEGADO' => DoctorCancellationFailure.forbidden,

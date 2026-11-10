@@ -22,8 +22,9 @@ enum DoctorCancellationFailure {
   shiftNotCancellable,
 }
 
-/// Una cancelación rechazada. El [message] es propio: el texto del servidor
-/// no se muestra.
+/// Una cancelación rechazada por un código conocido. El [message] es el texto
+/// propio de ese caso. Un 500 o un código sin rama no usa esta clase: es un
+/// [ApiException] y sí muestra el texto del servidor.
 class DoctorCancellationException extends ApiException {
   const DoctorCancellationException(this.failure, String message)
     : super(message);
@@ -37,7 +38,9 @@ String cancelAppointmentMessage(DoctorCancellationFailure failure) {
     DoctorCancellationFailure.validation => 'Revisá el motivo: es obligatorio y no puede superar los 1000 caracteres.',
     DoctorCancellationFailure.forbidden =>
       'Tu cuenta no tiene permiso para cancelar consultas.',
-    DoctorCancellationFailure.conflictOfInterest => 'No podés cancelar tu propia consulta. Pedile a otro empleado que lo haga.',
+    DoctorCancellationFailure.conflictOfInterest =>
+      'No podés cancelar una consulta en la que vos sos el socio. '
+          'Pedile a otra persona que lo haga.',
     DoctorCancellationFailure.notFound =>
       'No encontramos esta consulta entre las tuyas. Se actualizó la lista.',
     DoctorCancellationFailure.notScheduled =>

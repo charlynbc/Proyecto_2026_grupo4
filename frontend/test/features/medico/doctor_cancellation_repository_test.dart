@@ -8,10 +8,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _StubAdapter implements HttpClientAdapter {
-  _StubAdapter(this.status, this.body);
+  _StubAdapter(this.status, this.body, {this.raw});
 
   final int status;
   final Object? body;
+
+  /// Cuerpo tal cual, sin `jsonEncode`. Sirve para un 200 vacío o un JSON roto.
+  final String? raw;
   RequestOptions? last;
 
   @override
@@ -22,7 +25,7 @@ class _StubAdapter implements HttpClientAdapter {
   ) async {
     last = options;
     return ResponseBody.fromString(
-      jsonEncode(body),
+      raw ?? jsonEncode(body),
       status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -34,8 +37,12 @@ class _StubAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-(ApiDoctorCancellationRepository, _StubAdapter) _api(int status, Object? body) {
-  final adapter = _StubAdapter(status, body);
+(ApiDoctorCancellationRepository, _StubAdapter) _api(
+  int status,
+  Object? body, {
+  String? raw,
+}) {
+  final adapter = _StubAdapter(status, body, raw: raw);
   return (
     ApiDoctorCancellationRepository(Dio()..httpClientAdapter = adapter),
     adapter,
@@ -199,7 +206,8 @@ void main() {
       403,
       'CONFLICTO_DE_INTERES',
       DoctorCancellationFailure.conflictOfInterest,
-      'No podés cancelar tu propia consulta. Pedile a otro empleado que lo haga.',
+      'No podés cancelar una consulta en la que vos sos el socio. '
+          'Pedile a otra persona que lo haga.',
     ),
     (
       404,
@@ -232,6 +240,46 @@ void main() {
       );
     });
   }
+
+  test('un 200 sin cuerpo es el error genérico', () async {
+    final (repository, _) = _api(200, null, raw: '');
+
+    await expectLater(
+      repository.cancelAppointment(9001, 'Imprevisto de guardia'),
+      throwsA(_plainApi()),
+    );
+  });
+
+  test('un JSON roto es el error genérico', () async {
+    final (repository, _) = _api(200, null, raw: '{');
+
+    await expectLater(
+      repository.cancelAppointment(9001, 'Imprevisto de guardia'),
+      throwsA(_plainApi()),
+    );
+  });
+
+  test('una respuesta sin consultaId es el error genérico', () async {
+    final (repository, _) = _api(200, {
+      'estado': 'CANCELADA_INSTITUCION',
+      'canceladaEn': '2026-10-30T09:03:10-03:00',
+      'paseDevuelto': true,
+    });
+
+    await expectLater(
+      repository.cancelAppointment(9001, 'Imprevisto de guardia'),
+      throwsA(_plainApi()),
+    );
+  });
+
+  test('401 NO_AUTENTICADO no tiene rama propia', () async {
+    final (repository, _) = _api(401, _error('NO_AUTENTICADO'));
+
+    await expectLater(
+      repository.cancelAppointment(9001, 'Imprevisto de guardia'),
+      throwsA(_plainApi('texto del servidor')),
+    );
+  });
 
   test('un 500 es un ApiException liso', () async {
     final (repository, _) = _api(500, _error('ERROR_INTERNO'));

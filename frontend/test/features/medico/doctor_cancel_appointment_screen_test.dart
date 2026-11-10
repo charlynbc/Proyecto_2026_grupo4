@@ -32,7 +32,8 @@ const _notScheduled =
 const _notFound =
     'No encontramos esta consulta entre las tuyas. Se actualizó la lista.';
 const _conflict =
-    'No podés cancelar tu propia consulta. Pedile a otro empleado que lo haga.';
+    'No podés cancelar una consulta en la que vos sos el socio. '
+    'Pedile a otra persona que lo haga.';
 const _generic = 'No se pudo completar la cancelación.';
 const _luisBody =
     'Se cancela la consulta de Luis Gómez. Se le avisa al socio por '
@@ -468,6 +469,22 @@ void main() {
       (11, 'Imprevisto de guardia'),
     ]);
   });
+
+  testWidgets(
+    'el motivo llega a 1000 y el diálogo no se cierra al tocar afuera',
+    (tester) async {
+      await _pump(tester, _Agenda(), _Cancel());
+      await _open(tester, 11);
+
+      final field = tester.widget<TextField>(
+        find.byKey(const Key('cancel-reason-field')),
+      );
+      final route = ModalRoute.of(tester.element(find.byType(AlertDialog)));
+
+      expect(field.maxLength, 1000);
+      expect(route!.barrierDismissible, isFalse);
+    },
+  );
 
   group('a 320 px de ancho (con Roboto)', () {
     setUpAll(loadRoboto);

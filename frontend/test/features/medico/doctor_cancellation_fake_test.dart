@@ -56,6 +56,34 @@ void main() {
     expect(listed.single.numbersCount, 3);
   });
 
+  test('cancelar la 11 libera el número 2 y baja el cupo a 1', () async {
+    final shifts = FakeDoctorShiftRepository();
+    final repository = _repository(shifts);
+
+    final result = await repository.cancelAppointment(11, 'Imprevisto');
+
+    expect(result.appointmentId, 11);
+    expect(result.status, 'CANCELADA_INSTITUCION');
+    expect(result.cancelledAt, _clock);
+    expect(result.referralReturned, isFalse);
+
+    final numbers = await shifts.listNumbers(1);
+    expect(numbers.items[0].appointmentId, 10);
+    expect(numbers.items[0].patient!.name, 'Ana');
+    expect(
+      numbers.items[1],
+      const DoctorShiftNumber(
+        numberId: 2,
+        number: 2,
+        startTime: '09:20',
+        endTime: '09:40',
+      ),
+    );
+    final listed = await shifts.listShifts('2026-10-30');
+    expect(listed.single.reservedCount, 1);
+    expect(listed.single.numbersCount, 3);
+  });
+
   test(
     'cancelar la 10 de nuevo es una consulta que ya no está agendada',
     () async {
