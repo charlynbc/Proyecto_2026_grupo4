@@ -368,7 +368,7 @@ void main() {
   for (final errorCase in [
     (
       StaffCancellationFailure.outsideWindow,
-      'La solicitud llegó fuera del plazo permitido.',
+      'La cancelación debe solicitarse con al menos dos horas de anticipación.',
       false,
     ),
     (
@@ -376,14 +376,10 @@ void main() {
       'La consulta ya no está agendada.',
       true,
     ),
-    (
-      StaffCancellationFailure.notFound,
-      'No se encontró la consulta solicitada.',
-      true,
-    ),
+    (StaffCancellationFailure.notFound, 'No se encontró la consulta.', true),
     (
       StaffCancellationFailure.conflictOfInterest,
-      'No podés cancelar una consulta de un familiar.',
+      'Conflicto de interés con el socio.',
       false,
     ),
   ]) {
