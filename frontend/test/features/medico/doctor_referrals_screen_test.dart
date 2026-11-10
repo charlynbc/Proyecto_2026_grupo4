@@ -128,6 +128,31 @@ void main() {
       expect(_text(tester, 'referral-status-78'), 'Disponible');
     });
 
+    testWidgets('la situación viene del servidor: no se recalcula', (
+      tester,
+    ) async {
+      final vencidoPeroDisponible = IssuedReferral(
+        id: 90,
+        patient: _lucia.patient,
+        destination: _lucia.destination,
+        issuedAt: DateTime.utc(2020, 1, 1, 12),
+        expiresOn: DateTime.utc(2020, 4, 1),
+        status: ReferralStatus.available,
+      );
+      final futuroPeroVencido = IssuedReferral(
+        id: 91,
+        patient: _lucia.patient,
+        destination: _lucia.destination,
+        issuedAt: DateTime.utc(2026, 1, 1, 12),
+        expiresOn: DateTime.utc(2099, 1, 1),
+        status: ReferralStatus.expired,
+      );
+      await _pump(tester, result: [vencidoPeroDisponible, futuroPeroVencido]);
+
+      expect(_text(tester, 'referral-status-90'), 'Disponible');
+      expect(_text(tester, 'referral-status-91'), 'Vencido');
+    });
+
     testWidgets('muestra la situación de cada pase', (tester) async {
       await _pump(tester, result: [_lucia, _bruno]);
 
