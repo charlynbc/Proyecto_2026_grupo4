@@ -518,7 +518,7 @@ void main() {
           'Primero hay que suspender las fechas de turnos de este médico y '
           'cancelar sus consultas agendadas.',
         );
-        expect(_onPressed(tester, _confirm), isNotNull);
+        expect(_onPressed(tester, _confirm), isNull);
         expect(_onPressed(tester, _cancel), isNotNull);
         expect(h.users.listCalls, loadsBefore);
         expect(_tableStates(tester)[1], ('Méndez, Carla', 'Activo'));
@@ -546,7 +546,9 @@ void main() {
       );
     });
 
-    testWidgets('empleado duplicado: el mensaje y su ayuda', (tester) async {
+    testWidgets('empleado duplicado: solo el mensaje, sin ayuda repetida', (
+      tester,
+    ) async {
       await _pump(tester);
       await _open(tester, 3);
       await _choose(tester, _reactivate(3));
@@ -558,10 +560,7 @@ void main() {
         _textOf(tester, _error),
         'Ya hay otra cuenta de empleado habilitada con esa CI.',
       );
-      expect(
-        _textOf(tester, _help),
-        'Ya hay otra cuenta de empleado habilitada con esta CI.',
-      );
+      expect(_help, findsNothing);
     });
 
     for (final failure in [
@@ -619,6 +618,97 @@ void main() {
         expect(h.users.listCalls, loadsBefore + 1);
       });
     }
+  });
+
+  group('un rechazo que no cambia reintentando', () {
+    for (final size in [const Size(900, 1800), _narrow]) {
+      testWidgets('Carla con turnos, a ${size.width} px: confirmar queda '
+          'deshabilitado y Cancelar no', (tester) async {
+        await _pump(tester, size: size);
+        await _open(tester, 4);
+        await _choose(tester, _deactivate(4));
+
+        await _tapConfirm(tester);
+
+        expect(_onPressed(tester, _confirm), isNull);
+        expect(_onPressed(tester, _cancel), isNotNull);
+        expect(
+          _textOf(tester, _error),
+          'El médico tiene fechas de turnos activas.',
+        );
+        expect(
+          _textOf(tester, _help),
+          'Primero hay que suspender las fechas de turnos de este médico y '
+          'cancelar sus consultas agendadas.',
+        );
+      });
+
+      testWidgets('Bruno duplicado, a ${size.width} px: confirmar queda '
+          'deshabilitado y el mensaje sale una sola vez', (tester) async {
+        await _pump(tester, size: size);
+        await _open(tester, 3);
+        await _choose(tester, _reactivate(3));
+
+        await _tapConfirm(tester);
+
+        expect(_onPressed(tester, _confirm), isNull);
+        expect(_onPressed(tester, _cancel), isNotNull);
+        expect(
+          find.text('Ya hay otra cuenta de empleado habilitada con esa CI.'),
+          findsOneWidget,
+        );
+        expect(_help, findsNothing);
+        expect(
+          find.textContaining('Ya hay otra cuenta de empleado'),
+          findsOneWidget,
+        );
+      });
+
+      for (final failure in [
+        UserStatusFailure.validation,
+        UserStatusFailure.other,
+      ]) {
+        testWidgets('$failure, a ${size.width} px: se puede reintentar', (
+          tester,
+        ) async {
+          final h = await _pump(tester, size: size);
+          h.status.error = UserStatusException(failure, 'Falló un momento.');
+          await _open(tester, 2);
+          await _choose(tester, _deactivate(2));
+          await _tapConfirm(tester);
+          expect(_textOf(tester, _error), 'Falló un momento.');
+          expect(_onPressed(tester, _confirm), isNotNull);
+
+          h.status.error = null;
+          await _tapConfirm(tester);
+
+          expect(h.status.calls.length, 2);
+          expect(_dialog, findsNothing);
+          expect(find.text('Cuenta inactivada.'), findsOneWidget);
+        });
+      }
+    }
+
+    testWidgets('cerrar con el error y reabrir empieza limpio', (tester) async {
+      final h = await _pump(tester);
+      await _open(tester, 4);
+      await _choose(tester, _deactivate(4));
+      await _tapConfirm(tester);
+      expect(_error, findsOneWidget);
+      expect(_onPressed(tester, _confirm), isNull);
+
+      await tester.tap(_cancel);
+      await tester.pumpAndSettle();
+      expect(_dialog, findsNothing);
+      await _open(tester, 4);
+      await _choose(tester, _deactivate(4));
+
+      expect(_dialog, findsOneWidget);
+      expect(_error, findsNothing);
+      expect(_help, findsNothing);
+      expect(_onPressed(tester, _confirm), isNotNull);
+      expect(h.status.calls.length, 1);
+    });
   });
 
   group('según el ancho', () {
@@ -702,6 +792,20 @@ void main() {
 
       expect(_error, findsOneWidget);
       expect(_help, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('con el botón deshabilitado y el error visible no desborda', (
+      tester,
+    ) async {
+      await _pump(tester, size: phone);
+      await _open(tester, 3);
+      await _choose(tester, _reactivate(3));
+      await _tapConfirm(tester);
+
+      expect(_error, findsOneWidget);
+      expect(_onPressed(tester, _confirm), isNull);
+      expect(_onPressed(tester, _cancel), isNotNull);
       expect(tester.takeException(), isNull);
     });
   });
