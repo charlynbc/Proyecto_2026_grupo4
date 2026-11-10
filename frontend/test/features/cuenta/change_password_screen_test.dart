@@ -1,11 +1,35 @@
+import 'dart:async';
+
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
+import 'package:agenda_medica/features/cuenta/providers/change_password_controller.dart';
+import 'package:agenda_medica/features/cuenta/providers/password_change_repository_provider.dart';
+import 'package:agenda_medica/features/cuenta/repositories/password_change_repository.dart';
 import 'package:agenda_medica/features/cuenta/screens/account_routes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/load_roboto.dart';
 import 'account_test_support.dart';
+
+class RecordingPasswordRepository implements PasswordChangeRepository {
+  RecordingPasswordRepository({this.error, this.gate});
+
+  final Object? error;
+  final Completer<void>? gate;
+  int calls = 0;
+
+  @override
+  Future<void> change({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    calls++;
+    if (gate != null) await gate!.future;
+    if (error != null) throw error!;
+  }
+}
 
 Finder field(String key) => find.descendant(
   of: find.byKey(Key(key)),
@@ -34,6 +58,93 @@ Future<void> fill(
 }
 
 void main() {
+  test('el controlador ignora una segunda solicitud mientras guarda', () async {
+    final gate = Completer<void>();
+    final repo = RecordingPasswordRepository(gate: gate);
+    final container = ProviderContainer(
+      overrides: [
+        passwordChangeRepositoryProvider.overrideWith((ref) async => repo),
+      ],
+    );
+    addTearDown(container.dispose);
+    final subscription = container.listen(
+      changePasswordControllerProvider,
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+    final controller = container.read(
+      changePasswordControllerProvider.notifier,
+    );
+    final first = controller.submit(
+      currentPassword: 'actual',
+      newPassword: 'nueva123',
+    );
+    final second = await controller.submit(
+      currentPassword: 'actual',
+      newPassword: 'nueva123',
+    );
+    expect(second, isFalse);
+    await Future<void>.delayed(Duration.zero);
+    expect(repo.calls, 1);
+    gate.complete();
+    expect(await first, isTrue);
+  });
+
+  for (final testCase in [
+    (
+      PasswordChangeFailure.validation,
+      'Mensaje de validación del servidor',
+      'Mensaje de validación del servidor',
+    ),
+    (
+      PasswordChangeFailure.other,
+      'Error interno',
+      'No pudimos cambiar tu contraseña. Intentá de nuevo.',
+    ),
+  ]) {
+    testWidgets('muestra error general ${testCase.$1} y lo limpia al editar', (
+      tester,
+    ) async {
+      final repo = RecordingPasswordRepository(
+        error: PasswordChangeException(testCase.$1, testCase.$2),
+      );
+      final container = await pumpAccountApp(tester, passwordRepository: repo);
+      await loginAs(tester, container, UserRole.socio);
+      appRouter(container).go(kAccountPasswordPath);
+      await tester.pumpAndSettle();
+      await fill(tester);
+      await tester.tap(find.byKey(const Key('password-save')));
+      await tester.pumpAndSettle();
+      final errorFinder = find.byKey(const Key('password-error'));
+      final error = tester.widget<Text>(errorFinder);
+      expect(error.data, testCase.$3);
+      expect(
+        error.style?.color,
+        Theme.of(tester.element(errorFinder)).colorScheme.error,
+      );
+      await tester.enterText(field('password-current'), 'otra clave');
+      await tester.pump();
+      expect(errorFinder, findsNothing);
+    });
+  }
+
+  testWidgets('dos toques envían una sola solicitud', (tester) async {
+    final gate = Completer<void>();
+    final repo = RecordingPasswordRepository(gate: gate);
+    final container = await pumpAccountApp(tester, passwordRepository: repo);
+    await loginAs(tester, container, UserRole.socio);
+    appRouter(container).go(kAccountPasswordPath);
+    await tester.pumpAndSettle();
+    await fill(tester);
+    await tester.tap(find.byKey(const Key('password-save')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('password-save')));
+    await tester.pump();
+    expect(repo.calls, 1);
+    gate.complete();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('valida obligatorios y coincidencia', (tester) async {
     await openForm(tester);
     await tester.tap(find.byKey(const Key('password-save')));

@@ -118,6 +118,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                       ? state.message ?? 'Revisá las contraseñas.'
                       : 'No pudimos cambiar tu contraseña. Intentá de nuevo.',
                   key: const Key('password-error'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
                 const SizedBox(height: 16),
               ],

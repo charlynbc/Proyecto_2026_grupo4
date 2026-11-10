@@ -6,7 +6,7 @@ void main() {
   test(
     'guarda la nueva clave y exige la vigente en el siguiente cambio',
     () async {
-      final repository = FakeChangePasswordRepository(latency: Duration.zero);
+      final repository = FakePasswordChangeRepository(latency: Duration.zero);
       await repository.change(
         currentPassword: 'prueba1234',
         newPassword: 'claveNueva9',
@@ -32,7 +32,7 @@ void main() {
   );
 
   test('rechaza una clave nueva de siete caracteres', () async {
-    final repository = FakeChangePasswordRepository(latency: Duration.zero);
+    final repository = FakePasswordChangeRepository(latency: Duration.zero);
     await expectLater(
       repository.change(currentPassword: 'prueba1234', newPassword: '1234567'),
       throwsA(

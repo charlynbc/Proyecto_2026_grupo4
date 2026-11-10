@@ -8,7 +8,7 @@ import '../repositories/password_change_repository.dart';
 
 final passwordChangeRepositoryProvider =
     FutureProvider<PasswordChangeRepository>((ref) async {
-      if (ref.watch(useFakesProvider)) return FakeChangePasswordRepository();
+      if (ref.watch(useFakesProvider)) return FakePasswordChangeRepository();
       final dio = await ref.watch(dioProvider.future);
       return ApiPasswordChangeRepository(dio);
     });

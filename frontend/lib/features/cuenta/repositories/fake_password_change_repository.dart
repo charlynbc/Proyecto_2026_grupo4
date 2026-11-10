@@ -3,8 +3,8 @@ import 'password_change_repository.dart';
 
 /// Guarda la clave cambiada en memoria. El login falso conserva su clave de
 /// prueba y no consulta este repositorio.
-class FakeChangePasswordRepository implements PasswordChangeRepository {
-  FakeChangePasswordRepository({
+class FakePasswordChangeRepository implements PasswordChangeRepository {
+  FakePasswordChangeRepository({
     this.latency = const Duration(milliseconds: 300),
   });
 
