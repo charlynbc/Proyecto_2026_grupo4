@@ -67,6 +67,25 @@ void main() {
     expect(result.groupedBy, 'MEDICO');
   });
 
+  test(
+    'un solo día devuelve los grupos de siempre y ninguno con total 0',
+    () async {
+      final result = await _fake().statistics(
+        from: DateTime.utc(2026, 10, 5),
+        to: DateTime.utc(2026, 10, 5),
+        grouping: AbsenceGrouping.specialty,
+      );
+
+      expect(result.from, DateTime.utc(2026, 10, 5));
+      expect(result.to, DateTime.utc(2026, 10, 5));
+      expect(result.items.map((item) => item.name), [
+        'Cardiología',
+        'Pediatría',
+      ]);
+      expect(result.items.map((item) => item.total), [25, 10]);
+    },
+  );
+
   test('con desde posterior a hasta lanza VALIDACION', () async {
     await expectLater(
       _fake().statistics(

@@ -5,10 +5,10 @@ import 'absence_statistics_repository.dart';
 /// Implementación en memoria para `USE_FAKES=true`. No depende de otro fake.
 ///
 /// Devuelve siempre los mismos grupos, sin filtrar por fecha: solo repite el
-/// período pedido (o el mes en curso del reloj si no se pidió ninguno). El
-/// porcentaje es `(noAsistio + noSePresento) / total × 100`. Con total 0 no
-/// divide y queda en 0 %. La respuesta se arma desde JSON, como llega del
-/// servidor.
+/// período pedido (o el mes en curso del reloj si no se pidió ninguno). Un
+/// grupo sin consultas no aparece. El porcentaje es
+/// `(noAsistio + noSePresento) / total × 100`. La respuesta se arma desde
+/// JSON, como llega del servidor.
 class FakeAbsenceStatisticsRepository implements AbsenceStatisticsRepository {
   FakeAbsenceStatisticsRepository({
     this.latency = const Duration(milliseconds: 300),
@@ -63,12 +63,10 @@ class FakeAbsenceStatisticsRepository implements AbsenceStatisticsRepository {
       '${date.month.toString().padLeft(2, '0')}-'
       '${date.day.toString().padLeft(2, '0')}';
 
-  /// Porcentaje entero cuando cae justo. Total 0 no divide.
+  /// Porcentaje entero cuando cae justo.
   static ({int percentage, String text}) _rate(_Group group) {
-    final total = group.total;
-    if (total == 0) return (percentage: 0, text: '0 %');
     final numerator = group.noShow + group.missed;
-    final percentage = numerator * 100 ~/ total;
+    final percentage = numerator * 100 ~/ group.total;
     return (percentage: percentage, text: '$percentage %');
   }
 
