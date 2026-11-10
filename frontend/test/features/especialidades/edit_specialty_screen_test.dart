@@ -484,8 +484,78 @@ void main() {
     });
   }
 
+  testWidgets('a 900 px la fila deja "Requiere pase" y "Libre" a la derecha', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    for (final (name, label) in [
+      ('Dermatología', 'Requiere pase'),
+      ('Medicina General', 'Libre'),
+    ]) {
+      final tile = find.widgetWithText(ListTile, name);
+      final title = find.descendant(of: tile, matching: find.text(name));
+      final text = find.descendant(of: tile, matching: find.text(label));
+      expect(text, findsOneWidget, reason: name);
+      expect(
+        tester.getTopLeft(text).dx,
+        greaterThan(tester.getTopRight(title).dx),
+        reason: name,
+      );
+      expect(
+        tester.getCenter(text).dy,
+        closeTo(tester.getCenter(title).dy, 1),
+        reason: name,
+      );
+    }
+  });
+
   group('a 320 px con Roboto', () {
     const narrow = Size(320, 900);
+    testWidgets('el nombre "Dermatología" se dibuja en una sola línea', (
+      tester,
+    ) async {
+      await _pump(tester);
+      final name = find.text('Dermatología');
+      final wideHeight = tester.getSize(name).height;
+      expect(wideHeight, lessThan(40));
+
+      tester.view.physicalSize = narrow;
+      await tester.pumpAndSettle();
+
+      expect(tester.getSize(name).height, wideHeight);
+      expect(tester.getSize(name).height, lessThan(40));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('el texto del pase queda debajo del nombre y el lápiz sigue', (
+      tester,
+    ) async {
+      await _pump(tester, size: narrow);
+
+      for (final (id, name, label) in [
+        (3, 'Dermatología', 'Requiere pase'),
+        (1, 'Medicina General', 'Libre'),
+      ]) {
+        final tile = find.widgetWithText(ListTile, name);
+        final title = find.descendant(of: tile, matching: find.text(name));
+        final text = find.descendant(of: tile, matching: find.text(label));
+        expect(text, findsOneWidget, reason: name);
+        expect(
+          tester.getTopLeft(text).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(title).dy),
+          reason: name,
+        );
+        final pencil = find.descendant(of: tile, matching: _edit(id));
+        expect(pencil, findsOneWidget, reason: name);
+        expect(
+          tester.getTopLeft(pencil).dx,
+          greaterThan(tester.getTopRight(text).dx),
+          reason: name,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets('el listado con el lápiz no desborda', (tester) async {
       await _pump(tester, size: narrow);

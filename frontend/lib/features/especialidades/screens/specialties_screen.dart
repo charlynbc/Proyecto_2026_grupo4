@@ -130,26 +130,39 @@ class SpecialtiesScreen extends ConsumerWidget {
 class _SpecialtyTile extends StatelessWidget {
   const _SpecialtyTile(this.specialty);
 
+  /// Por debajo de este ancho de la fila, "Requiere pase" o "Libre" pasa
+  /// debajo del nombre. Es el mismo corte que usa la barra de filtros.
+  static const double _narrowWidth = 500;
+
   final Specialty specialty;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        title: Text(specialty.name),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(specialty.requiresReferral ? 'Requiere pase' : 'Libre'),
-            IconButton(
-              key: Key('specialty-edit-${specialty.id}'),
-              tooltip: 'Corregir',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => context.go(specialtyEditPath(specialty.id)),
-            ),
-          ],
-        ),
-      ),
+    final label = specialty.requiresReferral ? 'Requiere pase' : 'Libre';
+    final edit = IconButton(
+      key: Key('specialty-edit-${specialty.id}'),
+      tooltip: 'Corregir',
+      icon: const Icon(Icons.edit_outlined),
+      onPressed: () => context.go(specialtyEditPath(specialty.id)),
+    );
+    // Con poco ancho el texto a la derecha le saca lugar al nombre y lo parte
+    // a mitad de palabra: va debajo y a la derecha queda solo el lápiz.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < _narrowWidth;
+        return Card(
+          child: ListTile(
+            title: Text(specialty.name),
+            subtitle: narrow ? Text(label) : null,
+            trailing: narrow
+                ? edit
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [Text(label), edit],
+                  ),
+          ),
+        );
+      },
     );
   }
 }
