@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/agendas/models/schedule_entry.dart';
 import 'package:agenda_medica/features/agendas/models/schedule_filters.dart';
 import 'package:agenda_medica/features/agendas/models/schedule_page.dart';
@@ -36,7 +37,7 @@ class _ScheduleRepository implements ScheduleRepository {
 
 class _CancellationRepository implements StaffCancellationRepository {
   StaffCancellationResult? result;
-  StaffCancellationException? exception;
+  Object? exception;
   Completer<void>? completer;
   int cancelCalls = 0;
   final cancelledIds = <int>[];
@@ -449,6 +450,104 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('validación muestra el mensaje exacto y no refresca el listado', (
+    tester,
+  ) async {
+    final cancellation = _CancellationRepository()
+      ..exception = const StaffCancellationException(
+        StaffCancellationFailure.validation,
+        'El identificador de la consulta no es valido.',
+      );
+    final schedules = _ScheduleRepository(_entry('AGENDADA'));
+    await _pump(
+      tester,
+      entry: _entry('AGENDADA'),
+      cancellation: cancellation,
+      schedules: schedules,
+    );
+    await _openDialog(tester);
+    await tester.tap(find.byKey(const Key('confirm-cancel-schedule')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byType(AlertDialog),
+              matching: find.byKey(const Key('cancel-schedule-error')),
+            ),
+          )
+          .data,
+      'El identificador de la consulta no es valido.',
+    );
+    expect(schedules.searchCalls, 1);
+    expect(find.byType(AlertDialog), findsOneWidget);
+  });
+
+  testWidgets(
+    'otro error muestra el mensaje exacto y deja el diálogo abierto',
+    (tester) async {
+      final cancellation = _CancellationRepository()
+        ..exception = const StaffCancellationException(
+          StaffCancellationFailure.other,
+          'Fallo inesperado del servidor.',
+        );
+      await _pump(
+        tester,
+        entry: _entry('AGENDADA'),
+        cancellation: cancellation,
+      );
+      await _openDialog(tester);
+      await tester.tap(find.byKey(const Key('confirm-cancel-schedule')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byType(AlertDialog),
+                matching: find.byKey(const Key('cancel-schedule-error')),
+              ),
+            )
+            .data,
+        'Fallo inesperado del servidor.',
+      );
+      expect(find.byType(AlertDialog), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'error no esperado muestra el mensaje genérico y deja el diálogo abierto',
+    (tester) async {
+      final cancellation = _CancellationRepository()
+        ..exception = StateError('x');
+      await _pump(
+        tester,
+        entry: _entry('AGENDADA'),
+        cancellation: cancellation,
+      );
+      await _openDialog(tester);
+      await tester.tap(find.byKey(const Key('confirm-cancel-schedule')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byType(AlertDialog),
+                matching: find.byKey(const Key('cancel-schedule-error')),
+              ),
+            )
+            .data,
+        kApiGenericMessage,
+      );
+      expect(find.byType(AlertDialog), findsOneWidget);
+    },
+  );
 
   testWidgets('prohibido mantiene el diálogo abierto con el mensaje', (
     tester,
