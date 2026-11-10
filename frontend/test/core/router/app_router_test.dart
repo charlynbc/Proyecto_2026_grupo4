@@ -12,6 +12,7 @@ import 'package:agenda_medica/features/medico/screens/doctor_appointment_result_
 import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
+import 'package:agenda_medica/features/especialidades/screens/edit_specialty_screen.dart';
 import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
 import 'package:agenda_medica/features/especialidades/screens/specialties_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/new_weekly_shift_screen.dart';
@@ -513,6 +514,39 @@ void main() {
       await tester.pumpAndSettle();
       expect(locationOf(container), kSpecialtiesPath);
       expect(find.byType(SpecialtiesScreen), findsOneWidget);
+    });
+
+    testWidgets('corregir una especialidad se abre desde su lápiz y vuelve', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+
+      await tester.tap(find.text('Especialidades').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('specialty-edit-2')));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/admin/especialidades/2/corregir');
+      expect(find.byType(EditSpecialtyScreen), findsOneWidget);
+      expect(find.text('Corregir especialidad'), findsOneWidget);
+      expect(find.byType(NavigationRail), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Volver'));
+      await tester.pumpAndSettle();
+      expect(locationOf(container), kSpecialtiesPath);
+    });
+
+    testWidgets('corregir con un id que no es un número muestra que no se '
+        'encontró', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+
+      await goTo(tester, container, '/admin/especialidades/abc/corregir');
+
+      expect(find.byType(EditSpecialtyScreen), findsOneWidget);
+      expect(find.text('No encontramos esa especialidad.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('las subrutas de alta tampoco se abren sin sesión ni con '

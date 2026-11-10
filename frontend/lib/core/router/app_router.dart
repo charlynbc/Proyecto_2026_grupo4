@@ -33,6 +33,7 @@ import '../../features/novedades/screens/announcement_detail_screen.dart';
 import '../../features/novedades/screens/announcements_screen.dart';
 import '../../features/novedades/screens/new_announcement_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
+import '../../features/especialidades/screens/edit_specialty_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialty_import_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
@@ -308,6 +309,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
             GoRoute(
               path: 'importar',
               builder: (context, state) => const SpecialtyImportScreen(),
+            ),
+            GoRoute(
+              path: ':id/corregir',
+              builder: (context, state) => EditSpecialtyScreen(
+                id: int.tryParse(state.pathParameters['id'] ?? ''),
+              ),
             ),
           ],
         );
