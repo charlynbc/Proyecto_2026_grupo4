@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/utils/uruguay_time.dart';
-import '../../../core/widgets/centered_content.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../models/issued_referral.dart';
 import '../models/issued_referral_query.dart';
@@ -27,34 +26,44 @@ class DoctorReferralsScreen extends ConsumerWidget {
         title: const Text('Pases emitidos'),
         actions: const [LogoutButton()],
       ),
-      body: CenteredContent(
-        maxWidth: 720,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Filters(query: query),
-            const SizedBox(height: 16),
-            referrals.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => _ErrorMessage(
-                message: apiMessageOf(error),
-                onRetry: () => ref.invalidate(issuedReferralsProvider),
-              ),
-              data: (items) => items.isEmpty
-                  ? Text(
-                      query.status == null
-                          ? 'Todavía no emitiste pases.'
-                          : 'No hay pases con esa situación.',
-                      key: const Key('referrals-empty'),
-                    )
-                  : Column(
-                      children: [
-                        for (final referral in items)
-                          _ReferralCard(referral: referral),
-                      ],
-                    ),
+      // Alineado arriba (como Novedades): con `CenteredContent` los controles
+      // se centrarían en vertical y se moverían al cambiar de filtro.
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _Filters(query: query),
+                const SizedBox(height: 16),
+                referrals.when(
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, _) => _ErrorMessage(
+                    message: apiMessageOf(error),
+                    onRetry: () => ref.invalidate(issuedReferralsProvider),
+                  ),
+                  data: (items) => items.isEmpty
+                      ? Text(
+                          query.status == null
+                              ? 'Todavía no emitiste pases.'
+                              : 'No hay pases con esa situación.',
+                          key: const Key('referrals-empty'),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final referral in items)
+                              _ReferralCard(referral: referral),
+                          ],
+                        ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
