@@ -19,10 +19,41 @@ class FakeScheduleRepository implements ScheduleRepository {
   FakeScheduleRepository({
     this.latency = const Duration(milliseconds: 300),
     DateTime? today,
-  }) : _entries = _seed(today ?? UruguayTime.today());
+    List<ScheduleEntry>? entries,
+  }) : _entries = entries != null
+           ? List.of(entries)
+           : _seed(today ?? UruguayTime.today());
 
   final Duration latency;
   final List<ScheduleEntry> _entries;
+
+  /// Permite buscar consultas desde el fake de cancelación del funcionario.
+  ScheduleEntry? findById(int id) {
+    for (final entry in _entries) {
+      if (entry.appointmentId == id) return entry;
+    }
+    return null;
+  }
+
+  /// Permite cancelar consultas desde el fake del funcionario.
+  void markCancelled(int id) {
+    final index = _entries.indexWhere((entry) => entry.appointmentId == id);
+    if (index == -1) return;
+
+    final entry = _entries[index];
+    _entries[index] = ScheduleEntry(
+      appointmentId: entry.appointmentId,
+      member: entry.member,
+      doctor: entry.doctor,
+      specialty: entry.specialty,
+      date: entry.date,
+      startMinutes: entry.startMinutes,
+      endMinutes: entry.endMinutes,
+      clinic: entry.clinic,
+      status: 'CANCELADA_SOCIO',
+      arrivedAt: entry.arrivedAt,
+    );
+  }
 
   @override
   Future<SchedulePage> search(ScheduleFilters filters) async {
