@@ -93,6 +93,29 @@ void main() {
     expect(page.items.single.status, 'AGENDADA');
   });
 
+  test('consulta que ya empezó falla fuera de plazo con su mensaje', () async {
+    final (_, cancellations) = _repositories([
+      _entry(id: 9007, startMinutes: 540, status: 'AGENDADA'),
+    ]);
+
+    await expectLater(
+      cancellations.cancel(9007),
+      throwsA(
+        isA<StaffCancellationException>()
+            .having(
+              (error) => error.failure,
+              'failure',
+              StaffCancellationFailure.outsideWindow,
+            )
+            .having(
+              (error) => error.message,
+              'message',
+              'La cancelación debe solicitarse con al menos dos horas de anticipación.',
+            ),
+      ),
+    );
+  });
+
   test('faltan exactamente 2 h y se cancela', () async {
     final (_, cancellations) = _repositories([
       _entry(id: 9003, startMinutes: 720, status: 'AGENDADA'),

@@ -366,10 +366,26 @@ void main() {
   });
 
   for (final errorCase in [
-    (StaffCancellationFailure.outsideWindow, 'Fuera de plazo.', false),
-    (StaffCancellationFailure.notScheduled, 'No agendada.', true),
-    (StaffCancellationFailure.notFound, 'No encontrada.', true),
-    (StaffCancellationFailure.conflictOfInterest, 'Conflicto.', false),
+    (
+      StaffCancellationFailure.outsideWindow,
+      'La solicitud llegó fuera del plazo permitido.',
+      false,
+    ),
+    (
+      StaffCancellationFailure.notScheduled,
+      'La consulta ya no está agendada.',
+      true,
+    ),
+    (
+      StaffCancellationFailure.notFound,
+      'No se encontró la consulta solicitada.',
+      true,
+    ),
+    (
+      StaffCancellationFailure.conflictOfInterest,
+      'No podés cancelar una consulta de un familiar.',
+      false,
+    ),
   ]) {
     testWidgets('${errorCase.$1} muestra el error', (tester) async {
       final cancellation = _CancellationRepository()
@@ -396,6 +412,12 @@ void main() {
           matching: find.byKey(const Key('cancel-schedule-error')),
         ),
         findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('cancel-schedule-error')))
+            .data,
+        errorCase.$2,
       );
       expect(schedules.searchCalls, errorCase.$3 ? 2 : 1);
       expect(find.byType(AlertDialog), findsOneWidget);
