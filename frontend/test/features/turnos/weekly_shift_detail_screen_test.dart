@@ -425,6 +425,11 @@ void main() {
 
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(find.text(_overlap), findsOneWidget);
+
+      await _pickClinic(tester, 'Consultorio 12');
+
+      expect(find.byKey(const Key('weekly-shift-clinic-error')), findsNothing);
+      expect(_saveButton(tester).onPressed, isNotNull);
     });
 
     testWidgets('un 404 muestra el texto del servidor y sigue abierto', (

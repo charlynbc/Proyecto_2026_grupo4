@@ -7,6 +7,14 @@ import 'doctor_shift_repository.dart';
 /// turno baja un reservado.
 class FakeDoctorShiftRepository implements DoctorShiftRepository {
   final Set<int> _cancelled = {};
+  bool _suspended = false;
+
+  bool get isSuspended => _suspended;
+  void suspendShift(int id) {
+    if (id != 1) return;
+    _suspended = true;
+    _cancelled.addAll({10, 11});
+  }
 
   static const _patients = [
     DoctorPatient(ci: '1.111.111-1', name: 'Ana', lastName: 'Pérez'),
@@ -22,7 +30,7 @@ class FakeDoctorShiftRepository implements DoctorShiftRepository {
       endTime: '10:00',
       specialtyName: 'Medicina General',
       clinicName: 'Consultorio 1',
-      status: 'ACTIVO',
+      status: _suspended ? 'SUSPENDIDO' : 'ACTIVO',
       numbersCount: 3,
       reservedCount: 2 - _cancelled.length,
     ),

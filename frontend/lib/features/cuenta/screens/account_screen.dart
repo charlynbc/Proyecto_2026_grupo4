@@ -15,6 +15,7 @@ const String _loadErrorMessage =
 /// está logueado. Común a los cuatro roles y fuera de los shells, así que
 /// trae su propio Scaffold, sin barra de navegación.
 ///
+/// El cambio de contraseña se abre desde el botón de esta pantalla.
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
@@ -125,10 +126,10 @@ class _AccountDetails extends StatelessWidget {
               onPressed: () => context.push(kAccountEditPath),
               child: const Text('Editar mis datos'),
             ),
-            const OutlinedButton(
-              key: Key('account-password'),
-              onPressed: null,
-              child: Text('Cambiar contraseña'),
+            OutlinedButton(
+              key: const Key('account-password'),
+              onPressed: () => context.push(kAccountPasswordPath),
+              child: const Text('Cambiar contraseña'),
             ),
           ],
         ),
