@@ -67,6 +67,26 @@ void main() {
     expect(result.groupedBy, 'MEDICO');
   });
 
+  test('un solo día con total 0 queda en 0 %', () async {
+    final result = await _fake().statistics(
+      from: DateTime.utc(2026, 10, 5),
+      to: DateTime.utc(2026, 10, 5),
+      grouping: AbsenceGrouping.specialty,
+    );
+
+    final item = result.items.single;
+    expect(result.from, DateTime.utc(2026, 10, 5));
+    expect(result.to, DateTime.utc(2026, 10, 5));
+    expect(item.name, 'Neurología');
+    expect(item.attended, 0);
+    expect(item.noShow, 0);
+    expect(item.missed, 0);
+    expect(item.notAttended, 0);
+    expect(item.total, 0);
+    expect(item.percentage, 0.0);
+    expect(item.percentageText, '0 %');
+  });
+
   test('con desde posterior a hasta lanza VALIDACION', () async {
     await expectLater(
       _fake().statistics(

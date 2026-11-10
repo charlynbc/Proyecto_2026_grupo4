@@ -104,10 +104,23 @@ class FakeAbsenceStatisticsRepository implements AbsenceStatisticsRepository {
         'desde no puede ser posterior a hasta',
       );
     }
-    final groups = switch (grouping) {
-      AbsenceGrouping.specialty => _specialties,
-      AbsenceGrouping.doctor => _doctors,
-    };
+    // Un solo día no tiene consultas: el total queda en 0 y el porcentaje
+    // no puede dividir.
+    final groups = start == end
+        ? const [
+            _Group(
+              id: 9,
+              name: 'Neurología',
+              attended: 0,
+              noShow: 0,
+              missed: 0,
+              notAttended: 0,
+            ),
+          ]
+        : switch (grouping) {
+            AbsenceGrouping.specialty => _specialties,
+            AbsenceGrouping.doctor => _doctors,
+          };
     return AbsenceStatistics.fromJson({
       'desde': _day(start),
       'hasta': _day(end),
