@@ -7,7 +7,8 @@ import '../../../core/widgets/centered_content.dart';
 import '../turnos/models/shift_utilization.dart';
 import '../turnos/providers/shift_statistics_provider.dart';
 import '../turnos/repositories/shift_statistics_repository.dart';
-import '../turnos/widgets/shift_period_filter.dart';
+import '../widgets/period_filter.dart';
+import '../widgets/period_label.dart';
 import '../turnos/widgets/shift_utilization_results.dart';
 
 const String _sessionExpiredMessage =
@@ -127,7 +128,7 @@ class _ShiftStatisticsTabState extends ConsumerState<ShiftStatisticsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ShiftPeriodFilter(
+          PeriodFilter(
             fromController: _fromController,
             toController: _toController,
             onFromChanged: (date) => _chosenFrom = date,
@@ -204,13 +205,20 @@ class _Results extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (result.items.isEmpty) {
-      return const Text(
-        'No hay turnos en el período.',
-        key: Key('stats-empty'),
-        textAlign: TextAlign.center,
-      );
-    }
-    return ShiftUtilizationResults(items: result.items);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PeriodLabel(from: result.from, to: result.to),
+        const SizedBox(height: 12),
+        if (result.items.isEmpty)
+          const Text(
+            'No hay turnos en el período.',
+            key: Key('stats-empty'),
+            textAlign: TextAlign.center,
+          )
+        else
+          ShiftUtilizationResults(items: result.items),
+      ],
+    );
   }
 }

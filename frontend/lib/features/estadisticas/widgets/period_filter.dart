@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/ui_date_field.dart';
+import '../../../core/widgets/ui_date_field.dart';
 
 /// El selector de período de la pestaña: Desde, Hasta y "Consultar".
 ///
 /// No guarda estado: los textos viven en los controllers de quien lo usa, que
 /// también decide qué fechas se mandan. Cambiar una fecha solo avisa; la
 /// consulta sale al tocar "Consultar".
-class AppointmentPeriodFilter extends StatelessWidget {
-  const AppointmentPeriodFilter({
+class PeriodFilter extends StatelessWidget {
+  const PeriodFilter({
     super.key,
     required this.fromController,
     required this.toController,

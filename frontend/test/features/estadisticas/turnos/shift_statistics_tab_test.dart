@@ -8,6 +8,7 @@ import 'package:agenda_medica/features/estadisticas/tabs/shift_statistics_tab.da
 import 'package:agenda_medica/features/estadisticas/turnos/models/shift_utilization.dart';
 import 'package:agenda_medica/features/estadisticas/turnos/providers/shift_statistics_provider.dart';
 import 'package:agenda_medica/features/estadisticas/turnos/repositories/shift_statistics_repository.dart';
+import 'package:agenda_medica/features/estadisticas/turnos/widgets/shift_utilization_results.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -42,67 +43,70 @@ ShiftUtilizationItem _item({
   utilization: text,
 );
 
-ShiftUtilization _result({List<ShiftUtilizationItem>? items}) =>
-    ShiftUtilization(
-      from: DateTime.utc(2026, 10, 1),
-      to: DateTime.utc(2026, 10, 31),
-      items:
-          items ??
-          [
-            _item(
-              id: 120,
-              first: 'Marta',
-              last: 'Rodríguez',
-              specialty: 'Cardiología',
-              clinic: 'Consultorio 5',
-              location: 'Piso 2, ala norte',
-              weekday: 2,
-              offered: 12,
-              occupied: 9,
-              percentage: 75.0,
-              text: '75 %',
-            ),
-            _item(
-              id: 121,
-              first: 'Jorge',
-              last: 'Pereira',
-              specialty: 'Medicina General',
-              clinic: 'Consultorio 6',
-              location: 'Piso 2, ala sur',
-              weekday: 4,
-              offered: 0,
-              occupied: 0,
-              percentage: null,
-              text: 'Sin datos',
-            ),
-            _item(
-              id: 122,
-              first: 'Laura',
-              last: 'Gómez',
-              specialty: 'Pediatría',
-              clinic: 'Consultorio 2',
-              location: 'Planta baja',
-              weekday: 1,
-              offered: 8,
-              occupied: 3,
-              percentage: 37.5,
-              text: '37,5 %',
-            ),
-            _item(
-              id: 123,
-              first: 'Marta',
-              last: 'Rodríguez',
-              specialty: 'Cardiología',
-              clinic: 'Consultorio 5',
-              location: 'Piso 2, ala norte',
-              weekday: 5,
-              offered: 10,
-              occupied: 10,
-              percentage: 100.0,
-              text: '100 %',
-            ),
-          ],
-    );
+ShiftUtilization _result({
+  List<ShiftUtilizationItem>? items,
+  DateTime? from,
+  DateTime? to,
+}) => ShiftUtilization(
+  from: from ?? DateTime.utc(2026, 10, 1),
+  to: to ?? DateTime.utc(2026, 10, 31),
+  items:
+      items ??
+      [
+        _item(
+          id: 120,
+          first: 'Marta',
+          last: 'Rodríguez',
+          specialty: 'Cardiología',
+          clinic: 'Consultorio 5',
+          location: 'Piso 2, ala norte',
+          weekday: 2,
+          offered: 12,
+          occupied: 9,
+          percentage: 75.0,
+          text: '75 %',
+        ),
+        _item(
+          id: 121,
+          first: 'Jorge',
+          last: 'Pereira',
+          specialty: 'Medicina General',
+          clinic: 'Consultorio 6',
+          location: 'Piso 2, ala sur',
+          weekday: 4,
+          offered: 0,
+          occupied: 0,
+          percentage: null,
+          text: 'Sin datos',
+        ),
+        _item(
+          id: 122,
+          first: 'Laura',
+          last: 'Gómez',
+          specialty: 'Pediatría',
+          clinic: 'Consultorio 2',
+          location: 'Planta baja',
+          weekday: 1,
+          offered: 8,
+          occupied: 3,
+          percentage: 37.5,
+          text: '37,5 %',
+        ),
+        _item(
+          id: 123,
+          first: 'Marta',
+          last: 'Rodríguez',
+          specialty: 'Cardiología',
+          clinic: 'Consultorio 5',
+          location: 'Piso 2, ala norte',
+          weekday: 5,
+          offered: 10,
+          occupied: 10,
+          percentage: 100.0,
+          text: '100 %',
+        ),
+      ],
+);
 
 class _Repository implements ShiftStatisticsRepository {
   _Repository([this.responder]);
@@ -207,6 +211,149 @@ void main() {
       expect(_tableRow(3), findsOneWidget);
     },
   );
+
+  testWidgets('tras cargar muestra el período de los datos', (tester) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets(
+    'el período de los datos no cambia aunque los campos tengan otras fechas y la pantalla se reconstruya',
+    (tester) async {
+      await _pump(tester, _Repository());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('stats-from')), '20/10/2026');
+      await tester.enterText(find.byKey(const Key('stats-to')), '05/10/2026');
+      await _consult(tester);
+
+      expect(find.byKey(const Key('stats-period-error')), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+        'Datos del 01/10/2026 al 31/10/2026',
+      );
+    },
+  );
+
+  testWidgets('el período queda encima del resultado', (tester) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getBottomLeft(find.byKey(const Key('stats-period-label'))).dy,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.byType(ShiftUtilizationResults)).dy,
+      ),
+    );
+  });
+
+  testWidgets('si una consulta posterior falla no muestra el período', (
+    tester,
+  ) async {
+    var calls = 0;
+    final repository = _Repository((_) async {
+      if (calls++ == 0) return _result();
+      throw const ApiException();
+    });
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+
+    await _consult(tester);
+
+    expect(find.byKey(const Key('stats-error')), findsOneWidget);
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+  });
+
+  testWidgets('mientras una nueva consulta carga no muestra el texto', (
+    tester,
+  ) async {
+    final completer = Completer<ShiftUtilization>();
+    var calls = 0;
+    final repository = _Repository((_) {
+      if (calls++ == 0) return Future.value(_result());
+      return completer.future;
+    });
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('stats-consult')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('stats-loading')), findsOneWidget);
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+
+    completer.complete(_result());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+  });
+
+  testWidgets('editar Desde sin consultar no cambia el texto del período', (
+    tester,
+  ) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('stats-from')), '01/01/2026');
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('Consultar con otro Desde cambia el texto a la respuesta', (
+    tester,
+  ) async {
+    final repository = _Repository(
+      (call) async => _result(
+        from: call.from ?? DateTime.utc(2026, 10, 1),
+        to: call.to ?? DateTime.utc(2026, 10, 31),
+      ),
+    );
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('stats-from')), '05/10/2026');
+    await _consult(tester);
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 05/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('mientras carga no muestra el texto', (tester) async {
+    final completer = Completer<ShiftUtilization>();
+    final repository = _Repository((_) => completer.future);
+    await _pump(tester, repository);
+    await tester.pump();
+
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+
+    completer.complete(_result());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+  });
+
+  testWidgets('si hay error no muestra el texto', (tester) async {
+    final repository = _Repository((_) async => throw const ApiException());
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+    expect(find.byKey(const Key('stats-error')), findsOneWidget);
+  });
 
   group('pantalla ancha (tabla)', () {
     testWidgets('a 900 px aparece la tabla y no las tarjetas', (tester) async {
@@ -336,6 +483,7 @@ void main() {
 
       expect(find.byKey(const Key('stats-shift-table')), findsNothing);
       expect(_tableRow(0), findsNothing);
+      expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
       for (var i = 0; i < 4; i++) {
         expect(_card(i), findsOneWidget);
       }
@@ -486,6 +634,10 @@ void main() {
 
     expect(find.byKey(const Key('stats-empty')), findsOneWidget);
     expect(find.text('No hay turnos en el período.'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
   });
 
   group('errores', () {

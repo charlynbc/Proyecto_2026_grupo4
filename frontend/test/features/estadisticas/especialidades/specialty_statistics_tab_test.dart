@@ -117,6 +117,161 @@ void main() {
     },
   );
 
+  testWidgets('tras cargar muestra el período de los datos', (tester) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets(
+    'el período de los datos no cambia aunque los campos tengan otras fechas y la pantalla se reconstruya',
+    (tester) async {
+      await _pump(tester, _Repository());
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('stats-from')), '20/10/2026');
+      await tester.enterText(find.byKey(const Key('stats-to')), '05/10/2026');
+      await _consult(tester);
+
+      expect(find.byKey(const Key('stats-period-error')), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+        'Datos del 01/10/2026 al 31/10/2026',
+      );
+    },
+  );
+
+  testWidgets('el período queda encima del resultado', (tester) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getBottomLeft(find.byKey(const Key('stats-period-label'))).dy,
+      lessThanOrEqualTo(
+        tester.getTopLeft(find.text('Total de consultas: 177')).dy,
+      ),
+    );
+  });
+
+  testWidgets('si una consulta posterior falla no muestra el período', (
+    tester,
+  ) async {
+    var calls = 0;
+    final repository = _Repository((_) async {
+      if (calls++ == 0) return _demand();
+      throw const ApiException();
+    });
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+
+    await _consult(tester);
+
+    expect(find.byKey(const Key('stats-error')), findsOneWidget);
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+  });
+
+  testWidgets('mientras una nueva consulta carga no muestra el texto', (
+    tester,
+  ) async {
+    final completer = Completer<SpecialtyDemand>();
+    var calls = 0;
+    final repository = _Repository((_) {
+      if (calls++ == 0) return Future.value(_demand());
+      return completer.future;
+    });
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('stats-consult')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('stats-loading')), findsOneWidget);
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+
+    completer.complete(_demand());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+  });
+
+  testWidgets('editar Desde sin consultar no cambia el texto del período', (
+    tester,
+  ) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('stats-from')), '01/01/2026');
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+    expect(find.text('Total de consultas: 177'), findsOneWidget);
+  });
+
+  testWidgets('Consultar con otro Desde cambia el texto a la respuesta', (
+    tester,
+  ) async {
+    final repository = _Repository(
+      (call) async => SpecialtyDemand(
+        from: call.from ?? DateTime.utc(2026, 10, 1),
+        to: call.to ?? DateTime.utc(2026, 10, 31),
+        items: _demand().items,
+      ),
+    );
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('stats-from')), '05/10/2026');
+    await _consult(tester);
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 05/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('mientras carga no muestra el texto', (tester) async {
+    final completer = Completer<SpecialtyDemand>();
+    final repository = _Repository((_) => completer.future);
+    await _pump(tester, repository);
+    await tester.pump();
+
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+
+    completer.complete(_demand());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+  });
+
+  testWidgets('si hay error no muestra el texto', (tester) async {
+    final repository = _Repository((_) async => throw const ApiException());
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+    expect(find.byKey(const Key('stats-error')), findsOneWidget);
+  });
+
+  testWidgets('con la lista vacía igual muestra el período', (tester) async {
+    await _pump(tester, _Repository((_) async => _demand(items: const [])));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+  });
+
   testWidgets('muestra las filas en el orden del servidor y el total', (
     tester,
   ) async {
@@ -358,5 +513,6 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(find.text('Total de consultas: 177'), findsOneWidget);
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
   });
 }
