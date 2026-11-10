@@ -147,8 +147,9 @@ class _AbsenceStatisticsTabState extends ConsumerState<AbsenceStatisticsTab> {
                 onSelected: _loading
                     ? null
                     : (selected) {
-                        if (selected)
+                        if (selected) {
                           _selectGrouping(AbsenceGrouping.specialty);
+                        }
                       },
               ),
               ChoiceChip(
@@ -157,7 +158,9 @@ class _AbsenceStatisticsTabState extends ConsumerState<AbsenceStatisticsTab> {
                 onSelected: _loading
                     ? null
                     : (selected) {
-                        if (selected) _selectGrouping(AbsenceGrouping.doctor);
+                        if (selected) {
+                          _selectGrouping(AbsenceGrouping.doctor);
+                        }
                       },
               ),
             ],
