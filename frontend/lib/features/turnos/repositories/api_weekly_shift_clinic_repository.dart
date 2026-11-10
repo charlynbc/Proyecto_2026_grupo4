@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/api_routes.dart';
 import '../models/weekly_shift.dart';
+import '../models/clinic_change_preview.dart';
 import 'shift_repository.dart';
 import 'weekly_shift_clinic_repository.dart';
 
