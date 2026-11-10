@@ -150,10 +150,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Cardiología'), findsOneWidget);
-    expect(find.text('3 de 25'), findsOneWidget);
+    expect(find.text('3 inasistencias de 25'), findsOneWidget);
     expect(find.text('12 %'), findsOneWidget);
     expect(find.text('Pediatría'), findsOneWidget);
-    expect(find.text('0 de 10'), findsOneWidget);
+    expect(find.text('0 inasistencias de 10'), findsOneWidget);
     expect(find.text('0 %'), findsOneWidget);
     expect(find.text('Agrupar por'), findsOneWidget);
   });
@@ -300,7 +300,7 @@ void main() {
       grouping: AbsenceGrouping.doctor,
     ));
     expect(find.text('Carla Méndez'), findsOneWidget);
-    expect(find.text('4 de 10'), findsOneWidget);
+    expect(find.text('4 inasistencias de 10'), findsOneWidget);
     expect(find.text('40 %'), findsOneWidget);
     expect(find.text('Cardiología'), findsNothing);
   });
