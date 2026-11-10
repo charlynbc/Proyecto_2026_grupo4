@@ -71,10 +71,10 @@ class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
           message = 'Tu cuenta no tiene permiso para cancelar consultas.';
         case StaffCancellationFailure.notScheduled:
         case StaffCancellationFailure.notFound:
-          message = apiMessageOf(error);
+          message = error.message;
           widget.ref.invalidate(schedulesPageProvider);
         default:
-          message = apiMessageOf(error);
+          message = error.message;
       }
       setState(() {
         _sending = false;
