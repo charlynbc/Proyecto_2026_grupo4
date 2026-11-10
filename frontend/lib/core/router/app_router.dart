@@ -25,6 +25,8 @@ import '../../features/cuenta/screens/account_screen.dart';
 import '../../features/cuenta/screens/edit_account_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
+import '../../features/medico/screens/doctor_referral_routes.dart';
+import '../../features/medico/screens/doctor_referrals_screen.dart';
 import '../../features/medico/screens/doctor_result_routes.dart';
 import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
@@ -343,6 +345,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
     return GoRoute(
       path: path,
       builder: (context, state) => const DoctorShiftsScreen(),
+    );
+  }
+  if (role == UserRole.medico && path == kDoctorReferralsPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => const DoctorReferralsScreen(),
     );
   }
   if (role == UserRole.socio) {
