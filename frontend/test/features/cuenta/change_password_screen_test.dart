@@ -113,6 +113,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pump();
     expect(find.byKey(const Key('password-current-error')), findsOneWidget);
+    final error = tester.widget<Text>(
+      find.byKey(const Key('password-current-error')),
+    );
+    expect(error.data, 'La contraseña actual no es correcta.');
+    expect(
+      error.style?.color,
+      Theme.of(tester.element(find.byKey(const Key('password-current-error'))))
+          .colorScheme
+          .error,
+    );
     expect(
       tester.widget<TextFormField>(field('password-new')).controller!.text,
       'claveNueva9',

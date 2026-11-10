@@ -130,8 +130,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               ),
               if (wrongCurrent)
                 Text(
-                  state.message ?? 'La contraseña actual no es correcta.',
+                  'La contraseña actual no es correcta.',
                   key: const Key('password-current-error'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               const SizedBox(height: 16),
               PasswordFormField(
