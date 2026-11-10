@@ -9,6 +9,7 @@ import 'package:agenda_medica/features/consultorios/providers/clinic_repository_
 import 'package:agenda_medica/features/consultorios/repositories/clinic_repository.dart';
 import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_repository.dart';
 import 'package:agenda_medica/features/turnos/models/new_weekly_shift.dart';
+import 'package:agenda_medica/features/turnos/models/clinic_change_preview.dart';
 import 'package:agenda_medica/features/turnos/models/shift_number.dart';
 import 'package:agenda_medica/features/turnos/models/weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/providers/shift_repository_provider.dart';
@@ -56,6 +57,12 @@ class _RecordingClinicChange implements WeeklyShiftClinicRepository {
   final FakeShiftDatabase db;
   final Completer<void>? gate;
   int calls = 0;
+
+  @override
+  Future<ClinicChangePreview> previewClinicChange(
+    int weeklyShiftId,
+    int clinicId,
+  ) async => db.previewClinicChange(weeklyShiftId, clinicId);
 
   @override
   Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) async {
