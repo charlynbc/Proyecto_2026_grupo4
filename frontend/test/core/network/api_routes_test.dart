@@ -40,6 +40,12 @@ void main() {
       },
     );
 
+    test('estadísticas de inasistencias, pases y franjas (filas 69 a 71), valores escritos a mano', () {
+      expect(ApiRoutes.statsAbsences, '/api/estadisticas/inasistencias');
+      expect(ApiRoutes.statsReferrals, '/api/estadisticas/pases');
+      expect(ApiRoutes.statsTimeSlots, '/api/estadisticas/franjas');
+    });
+
     test('cubren las rutas de docs/api/endpoints-usados.md', () {
       final file = File('../docs/api/endpoints-usados.md');
       if (!file.existsSync()) {
