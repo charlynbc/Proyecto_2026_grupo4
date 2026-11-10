@@ -55,7 +55,7 @@ PostgreSQL.
 | 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | feat/front-rehabilitar-turnos 29/10/2026 | [contrato #25](contrato-v1.md#e25) |
 | 26 | `GET /api/avisos-llegada/consultas-hoy?ci=` | FUNCIONARIO | 16 | Buscar socio | CONFIRMADA | feat/front-llegada 29/10/2026 | [contrato #26](contrato-v1.md#e26) |
 | 27 | `POST /api/avisos-llegada` | FUNCIONARIO | 16 | Registrar llegada | CONFIRMADA | feat/front-llegada 29/10/2026 | [contrato #27](contrato-v1.md#e27) |
-| 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas | CONFIRMADA | feat/front-agendas 29/10/2026 | [contrato #28](contrato-v1.md#e28) |
+| 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas (pantalla Flutter `/funcionario/agendas`, `SchedulesScreen`; `ApiScheduleRepository` manda siempre `fecha`, `orden`, `sentido`, `page` y `size`, y `ci`, `consultaId`, `medicoId`, `estado` y `llegada` solo si se completaron) | CONFIRMADA | feat/front-agendas 29/10/2026 | [contrato #28](contrato-v1.md#e28) |
 | 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos (pantalla Flutter `/medico/turnos`, sondeo cada 15 s, PR #39) | CONFIRMADA | feat/cierre-rf21-tiempo-real 27/10/2026 | [contrato #29](contrato-v1.md#e29) |
 | 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21, 22 | Pacientes del turno (`consulta.paciente.id` para abrir historia #40; con `llegada`, `orden`, `sentido`; sondeo cada 15 s) | CONFIRMADA | feat/cierre-rf21-tiempo-real 27/10/2026 | [contrato #30](contrato-v1.md#e30) |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases (pantalla Flutter `/medico/consultas/:id/resultado`) | CONFIRMADA | PR #40 | [contrato #31](contrato-v1.md#e31) |
