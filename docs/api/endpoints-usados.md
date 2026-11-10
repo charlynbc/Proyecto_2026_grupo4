@@ -72,7 +72,7 @@ PostgreSQL.
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | MEDICO | 25 | Detalle de una atención propia | CONFIRMADA | - | [contrato #42](contrato-v1.md#e42) |
 | 43 | `GET /api/medico/pases` | MEDICO | 26 | Pases emitidos por el médico (`situacion`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #43](contrato-v1.md#e43) |
 | 44 | `POST /api/funcionario/consultas/{id}/cancelar` | FUNCIONARIO | 19 | Cancelar consulta a pedido del socio | CONFIRMADA | feat/front-cancelar-funcionario 08/11/2026 | [contrato #44](contrato-v1.md#e44) |
-| 45 | `POST /api/auth/cambiar-contrasena` | autenticado | 04 | Cambio de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | - | [contrato #45](contrato-v1.md#e45) |
+| 45 | `POST /api/auth/cambiar-contrasena` | autenticado | 04 | Cambio de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-cambiar-contrasena 09/11/2026 | [contrato #45](contrato-v1.md#e45) |
 | 46 | `GET /api/cuentas/me` | autenticado | 06 | Datos personales (precarga del formulario) | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-mi-cuenta 06/11/2026 | [contrato #46](contrato-v1.md#e46) |
 | 47 | `PATCH /api/cuentas/me` | autenticado | 06 | Edición de datos personales; el correo queda pendiente de confirmación | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-editar-datos-personales 09/11/2026 | [contrato #47](contrato-v1.md#e47) |
 | 48 | `POST /api/auth/recuperacion/solicitar` | público | 05 | Pedir recuperación de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20; correo verificado solo con proveedor simulado/Mailpit, falta Resend real) | feat/front-recuperar-contrasena 03/11/2026 | [contrato #48](contrato-v1.md#e48) |
