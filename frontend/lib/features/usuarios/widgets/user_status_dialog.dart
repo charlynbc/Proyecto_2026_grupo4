@@ -23,10 +23,16 @@ String? _helpFor(UserStatusFailure? failure) => switch (failure) {
   UserStatusFailure.doctorHasAppointments =>
     'Primero hay que suspender las fechas de turnos de este médico y cancelar '
         'sus consultas agendadas.',
-  UserStatusFailure.duplicateStaff =>
-    'Ya hay otra cuenta de empleado habilitada con esta CI.',
   _ => null,
 };
+
+/// Rechazos que no cambian si se vuelve a intentar: mientras el error está
+/// a la vista, confirmar queda deshabilitado. Con otros errores (validación,
+/// fallas pasajeras) se puede reintentar.
+bool _retryIsPointless(UserStatusFailure? failure) =>
+    failure == UserStatusFailure.doctorHasShifts ||
+    failure == UserStatusFailure.doctorHasAppointments ||
+    failure == UserStatusFailure.duplicateStaff;
 
 class UserStatusDialog extends ConsumerWidget {
   const UserStatusDialog({
@@ -63,6 +69,7 @@ class UserStatusDialog extends ConsumerWidget {
     final sending = state.isLoading;
     final failed = state.status == SubmitStatus.error;
     final help = failed ? _helpFor(state.failure) : null;
+    final blocked = failed && _retryIsPointless(state.failure);
     final name = '${account.firstName} ${account.lastName}';
     final body = deactivate
         ? '$name (${account.ci}) no va a poder ingresar y sus sesiones '
@@ -105,7 +112,7 @@ class UserStatusDialog extends ConsumerWidget {
           ),
           FilledButton(
             key: const Key('user-status-confirm'),
-            onPressed: sending
+            onPressed: sending || blocked
                 ? null
                 : () => ref
                       .read(changeUserStatusControllerProvider.notifier)
