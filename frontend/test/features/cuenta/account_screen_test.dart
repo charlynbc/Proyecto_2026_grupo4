@@ -15,8 +15,8 @@ import '../../helpers/pump_admin.dart';
 import 'account_test_support.dart';
 
 const _pendingNotice =
-    'Pediste cambiar tu correo a nuevo@example.org. Abrí el enlace que te '
-    'enviamos a ese correo para confirmarlo. Hasta entonces seguís usando '
+    'El cambio a nuevo@example.org está pendiente de confirmación. Revisá '
+    'esa casilla y abrí el enlace. Tu correo actual sigue siendo '
     'lucia@example.org.';
 const _loadError = 'No pudimos cargar tus datos. Intentá de nuevo.';
 
@@ -119,7 +119,9 @@ void main() {
     expect(find.byKey(const Key('account-pending-email')), findsNothing);
   });
 
-  testWidgets('los dos botones existen y están apagados', (tester) async {
+  testWidgets('edición está disponible y contraseña sigue apagado', (
+    tester,
+  ) async {
     await _pump(tester, RecordingAccountRepository());
 
     final edit = tester.widget<ButtonStyleButton>(
@@ -130,7 +132,7 @@ void main() {
     );
     expect(find.text('Editar mis datos'), findsOneWidget);
     expect(find.text('Cambiar contraseña'), findsOneWidget);
-    expect(edit.onPressed, isNull);
+    expect(edit.onPressed, isNotNull);
     expect(password.onPressed, isNull);
   });
 

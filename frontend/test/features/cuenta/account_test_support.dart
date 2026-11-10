@@ -9,6 +9,7 @@ import 'package:agenda_medica/features/auth/providers/auth_repository_provider.d
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/auth/repositories/fake_auth_repository.dart';
 import 'package:agenda_medica/features/cuenta/models/account.dart';
+import 'package:agenda_medica/features/cuenta/models/account_changes.dart';
 import 'package:agenda_medica/features/cuenta/repositories/account_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,6 +65,10 @@ class RecordingAccountRepository implements AccountRepository {
     if (error != null) throw error!;
     return account ?? lucia();
   }
+
+  @override
+  Future<Account> update(AccountChanges changes) =>
+      throw UnsupportedError('Este repositorio de prueba solo lee la cuenta');
 }
 
 /// El texto del [Text] con la key [key].
