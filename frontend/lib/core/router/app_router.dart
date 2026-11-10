@@ -23,6 +23,7 @@ import '../../features/consultorios/screens/new_clinic_screen.dart';
 import '../../features/cuenta/screens/account_routes.dart';
 import '../../features/cuenta/screens/account_screen.dart';
 import '../../features/cuenta/screens/edit_account_screen.dart';
+import '../../features/cuenta/screens/change_password_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
 import '../../features/medico/screens/doctor_result_routes.dart';
@@ -156,6 +157,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: kAccountEditPath,
         builder: (context, state) => const EditAccountScreen(),
+      ),
+      GoRoute(
+        path: kAccountPasswordPath,
+        builder: (context, state) => const ChangePasswordScreen(),
       ),
       GoRoute(
         path: kRecoveryPath,

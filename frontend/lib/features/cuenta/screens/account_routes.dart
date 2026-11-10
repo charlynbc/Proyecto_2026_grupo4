@@ -3,3 +3,4 @@
 /// la barra superior.
 const String kAccountPath = '/cuenta';
 const String kAccountEditPath = '/cuenta/editar';
+const String kAccountPasswordPath = '/cuenta/contrasena';
