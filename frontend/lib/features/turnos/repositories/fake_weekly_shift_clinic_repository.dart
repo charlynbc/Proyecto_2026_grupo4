@@ -1,5 +1,6 @@
 import '../../../core/fakes/fake_shift_database.dart';
 import '../models/weekly_shift.dart';
+import '../models/clinic_change_preview.dart';
 import 'weekly_shift_clinic_repository.dart';
 
 /// Implementación en memoria de [WeeklyShiftClinicRepository]. Las reglas
