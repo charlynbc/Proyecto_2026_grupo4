@@ -80,6 +80,16 @@ void main() {
     expect(page.items.single.status, 'CANCELADA_SOCIO');
   });
 
+  test('cancelada a las 10:00 devuelve la hora UTC correcta', () async {
+    final (_, cancellations) = _repositories([
+      _entry(id: 9008, startMinutes: 780, status: 'AGENDADA'),
+    ]);
+
+    final result = await cancellations.cancel(9008);
+
+    expect(result.cancelledAt, DateTime.utc(2026, 10, 30, 13));
+  });
+
   test('faltan 1 h 30 y la consulta sigue agendada', () async {
     final (schedules, cancellations) = _repositories([
       _entry(id: 9002, startMinutes: 690, status: 'AGENDADA'),
