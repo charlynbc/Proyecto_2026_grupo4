@@ -81,15 +81,17 @@ void main() {
   group('respuestas mal formadas', () {
     final cases = <Map<String, Object?>>[
       {
+        'consultaId': 9001,
         'estado': 'ATENDIDA',
         'canceladaEn': '2026-10-30T09:03:10-03:00',
         'paseDevuelto': true,
       },
-      {'estado': 'CANCELADA_SOCIO', 'paseDevuelto': true},
+      {'consultaId': 9001, 'estado': 'CANCELADA_SOCIO', 'paseDevuelto': true},
       {
+        'consultaId': 9001,
         'estado': 'CANCELADA_SOCIO',
         'canceladaEn': '2026-10-30T09:03:10-03:00',
-        'paseDevuelto': 'sí',
+        'paseDevuelto': 'si',
       },
     ];
 
