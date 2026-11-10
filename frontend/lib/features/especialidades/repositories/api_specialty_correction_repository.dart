@@ -28,10 +28,7 @@ class ApiSpecialtyCorrectionRepository
     try {
       final response = await _dio.patch<Map<String, dynamic>>(
         ApiRoutes.specialty(id),
-        data: {
-          'nombre': ?name,
-          'requierePase': ?requiresReferral,
-        },
+        data: {'nombre': ?name, 'requierePase': ?requiresReferral},
       );
       return Specialty.fromJson(
         response.data ?? (throw const FormatException()),
