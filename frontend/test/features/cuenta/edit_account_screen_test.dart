@@ -102,6 +102,46 @@ void main() {
     expect(repo.updates, isEmpty);
   });
 
+  testWidgets('espacios en la dirección no habilitan un guardado', (
+    tester,
+  ) async {
+    final repo = _EditRepository();
+    await _pump(tester, repo);
+    await _enter(tester, 'address', '  Av. 18 de Julio 1234, Montevideo  ');
+
+    expect(tester.widget<FilledButton>(_save).onPressed, isNull);
+    expect(repo.updates, isEmpty);
+  });
+
+  testWidgets('el correo actual con otras mayúsculas no se envía', (
+    tester,
+  ) async {
+    final repo = _EditRepository();
+    await _pump(tester, repo);
+    await _enter(tester, 'email', 'LUCIA@example.org');
+
+    expect(tester.widget<FilledButton>(_save).onPressed, isNull);
+    expect(repo.updates, isEmpty);
+  });
+
+  testWidgets('un callback anterior no guarda si ya no hay cambios', (
+    tester,
+  ) async {
+    final repo = _EditRepository();
+    final router = await _pump(tester, repo);
+    await _enter(tester, 'address', 'Av. Italia 1234');
+    final staleSave = tester.widget<FilledButton>(_save).onPressed;
+    expect(staleSave, isNotNull);
+
+    await _enter(tester, 'address', 'Av. 18 de Julio 1234, Montevideo');
+    expect(tester.widget<FilledButton>(_save).onPressed, isNull);
+    staleSave!();
+    await tester.pumpAndSettle();
+
+    expect(repo.updates, isEmpty);
+    expect(locationOf(router), kAccountEditPath);
+  });
+
   testWidgets('solo manda el cambio recortado y muestra el aviso corto', (
     tester,
   ) async {
@@ -188,7 +228,7 @@ void main() {
   testWidgets('acepta ambos teléfonos de exactamente 30 caracteres', (
     tester,
   ) async {
-    const phone = '0       9  9  1  2  3  4  5  6';
+    const phone = '0(9)-(9)-(1)-(2)-(3)-(4)(5)(6)';
     expect(phone.length, 30);
     final repo = _EditRepository();
     final router = await _pump(tester, repo);

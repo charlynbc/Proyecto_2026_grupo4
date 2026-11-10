@@ -103,7 +103,9 @@ class _EditAccountFormState extends ConsumerState<_EditAccountForm> {
       phone2: phone2 == (_original.phone2?.trim() ?? '')
           ? null
           : (value: phone2.isEmpty ? null : phone2),
-      email: email == _original.email.trim() ? null : email,
+      email: email.toLowerCase() == _original.email.trim().toLowerCase()
+          ? null
+          : email,
     );
   }
 
