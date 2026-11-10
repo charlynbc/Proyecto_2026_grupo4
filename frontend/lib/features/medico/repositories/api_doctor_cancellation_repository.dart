@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/api_routes.dart';
 import '../models/doctor_cancellation_result.dart';
+import '../models/doctor_shift_cancellation_result.dart';
 import 'doctor_cancellation_repository.dart';
 
 /// Implementación real de [DoctorCancellationRepository]. El plazo de 2 horas
@@ -11,6 +12,35 @@ class ApiDoctorCancellationRepository implements DoctorCancellationRepository {
   ApiDoctorCancellationRepository(this._dio);
 
   final Dio _dio;
+
+  @override
+  Future<DoctorShiftCancellationResult> cancelShift(
+    int shiftId,
+    String reason,
+  ) async {
+    final trimmed = reason.trim();
+    if (shiftId <= 0 || trimmed.isEmpty || trimmed.length > 1000) {
+      throw DoctorCancellationException(
+        DoctorCancellationFailure.validation,
+        cancelShiftMessage(DoctorCancellationFailure.validation),
+      );
+    }
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiRoutes.doctorShiftCancel(shiftId),
+        data: {'motivo': trimmed},
+      );
+      return DoctorShiftCancellationResult.fromJson(
+        response.data ?? (throw const ApiException()),
+      );
+    } on DioException catch (e) {
+      throw _mapError(e, shift: true);
+    } on FormatException {
+      throw const ApiException();
+    } on TypeError {
+      throw const ApiException();
+    }
+  }
 
   @override
   Future<DoctorCancellationResult> cancelAppointment(
@@ -53,7 +83,7 @@ class ApiDoctorCancellationRepository implements DoctorCancellationRepository {
   /// (`NO_AUTENTICADO` o `TOKEN_INVALIDO`) no tiene rama: lo resuelve el
   /// interceptor de sesión. Ese 401, un 500 y cualquier otro código caen en
   /// [ApiException.fromDio], que muestra el texto del servidor.
-  ApiException _mapError(DioException e) {
+  ApiException _mapError(DioException e, {bool shift = false}) {
     // Un JSON que no se puede leer llega sin respuesta. No es falta de red.
     if (e.error is FormatException) return const ApiException();
     final failure = switch (apiCodeOf(e)) {
@@ -63,12 +93,14 @@ class ApiDoctorCancellationRepository implements DoctorCancellationRepository {
       'NO_ENCONTRADO' => DoctorCancellationFailure.notFound,
       'CONSULTA_NO_AGENDADA' => DoctorCancellationFailure.notScheduled,
       'CANCELACION_FUERA_DE_PLAZO' => DoctorCancellationFailure.outsideWindow,
+      'TURNO_NO_SUSPENDIBLE' when shift =>
+        DoctorCancellationFailure.shiftNotCancellable,
       _ => null,
     };
     if (failure == null) return ApiException.fromDio(e);
     return DoctorCancellationException(
       failure,
-      cancelAppointmentMessage(failure),
+      shift ? cancelShiftMessage(failure) : cancelAppointmentMessage(failure),
     );
   }
 }

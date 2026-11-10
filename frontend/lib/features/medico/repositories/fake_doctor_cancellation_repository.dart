@@ -1,4 +1,6 @@
 import '../models/doctor_cancellation_result.dart';
+import '../models/doctor_shift_cancellation_result.dart';
+import '../../../core/utils/uruguay_time.dart';
 import 'doctor_cancellation_repository.dart';
 import 'fake_doctor_shift_repository.dart';
 
@@ -17,6 +19,33 @@ class FakeDoctorCancellationRepository implements DoctorCancellationRepository {
   final FakeDoctorShiftRepository _shifts;
   final Duration latency;
   final DateTime Function() clock;
+
+  @override
+  Future<DoctorShiftCancellationResult> cancelShift(
+    int shiftId,
+    String reason,
+  ) async {
+    await Future<void>.delayed(latency);
+    final trimmed = reason.trim();
+    DoctorCancellationException error(DoctorCancellationFailure failure) =>
+        DoctorCancellationException(failure, cancelShiftMessage(failure));
+    if (shiftId <= 0 || trimmed.isEmpty || trimmed.length > 1000) {
+      throw error(DoctorCancellationFailure.validation);
+    }
+    if (shiftId != 1) throw error(DoctorCancellationFailure.notFound);
+    if (_shifts.isSuspended) {
+      throw error(DoctorCancellationFailure.shiftNotCancellable);
+    }
+    final count = _scheduledIds.where((id) => !_shifts.isCancelled(id)).length;
+    _shifts.suspendShift(shiftId);
+    return DoctorShiftCancellationResult(
+      shiftId: shiftId,
+      date: UruguayTime.today(),
+      status: 'SUSPENDIDO',
+      cancelledCount: count,
+      returnedReferralsCount: 0,
+    );
+  }
 
   @override
   Future<DoctorCancellationResult> cancelAppointment(

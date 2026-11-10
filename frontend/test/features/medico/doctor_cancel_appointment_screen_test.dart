@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/medico/models/doctor_cancellation_result.dart';
+import 'package:agenda_medica/features/medico/models/doctor_shift_cancellation_result.dart';
 import 'package:agenda_medica/features/medico/models/doctor_shift.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_cancellation_repository_provider.dart';
@@ -74,6 +75,11 @@ class _Agenda implements DoctorShiftRepository {
 }
 
 class _Cancel implements DoctorCancellationRepository {
+  @override
+  Future<DoctorShiftCancellationResult> cancelShift(
+    int shiftId,
+    String reason,
+  ) => throw UnimplementedError();
   final calls = <(int, String)>[];
   Completer<void>? gate;
   final List<Object> errors = [];
