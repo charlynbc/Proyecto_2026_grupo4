@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/novedades/repositories/api_announcements_repository.dart';
+import 'package:agenda_medica/features/novedades/models/announcement_draft.dart';
 import 'package:agenda_medica/features/novedades/repositories/announcements_repository.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +13,7 @@ class _Adapter implements HttpClientAdapter {
   final Object? body;
   final int status;
   RequestOptions? request;
+  String? multipart;
 
   @override
   Future<ResponseBody> fetch(
@@ -20,6 +22,13 @@ class _Adapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     request = options;
+    if (requestStream != null) {
+      final bytes = BytesBuilder();
+      await for (final chunk in requestStream) {
+        bytes.add(chunk);
+      }
+      multipart = utf8.decode(bytes.takeBytes(), allowMalformed: true);
+    }
     return ResponseBody.fromString(
       jsonEncode(body),
       status,
@@ -56,6 +65,98 @@ Map<String, Object?> card({
 };
 
 void main() {
+  for (final (description, summary, text, images, expected) in [
+    ('solo título', null, null, true, {'titulo': 'Campaña'}),
+    ('campos en blanco', '  ', '  ', true, {'titulo': 'Campaña'}),
+    (
+      'título y resumen',
+      'Comienza el lunes',
+      null,
+      true,
+      {'titulo': 'Campaña', 'resumen': 'Comienza el lunes'},
+    ),
+    (
+      'título, resumen y texto',
+      'Comienza el lunes',
+      '**Texto**',
+      true,
+      {
+        'titulo': 'Campaña',
+        'resumen': 'Comienza el lunes',
+        'texto': '**Texto**',
+      },
+    ),
+    (
+      'texto sin imágenes',
+      null,
+      '**Texto**',
+      false,
+      {'titulo': 'Campaña', 'texto': '**Texto**'},
+    ),
+  ]) {
+    test('publica multipart con $description', () async {
+      final (repo, adapter) = repository({}, status: 201);
+      await repo.publish(
+        AnnouncementDraft(
+          title: 'Campaña',
+          summary: summary,
+          text: text,
+          images: images
+              ? [
+                  AnnouncementImageUpload(
+                    name: 'portada.png',
+                    bytes: Uint8List.fromList([1]),
+                    subtype: 'png',
+                  ),
+                  AnnouncementImageUpload(
+                    name: 'detalle.jpg',
+                    bytes: Uint8List.fromList([2]),
+                    subtype: 'jpeg',
+                  ),
+                ]
+              : [],
+        ),
+      );
+      expect(adapter.request!.method, 'POST');
+      expect(adapter.request!.path, '/api/anuncios');
+      final body = adapter.multipart!;
+      final boundary = (adapter.request!.data as FormData).boundary;
+      final dataPart = body
+          .split('--$boundary')
+          .singleWhere((part) => part.contains('name="datos"'));
+      final sections = dataPart.split('\r\n\r\n');
+      expect(sections, hasLength(2));
+      expect(sections.first, contains('content-type: application/json'));
+      expect(jsonDecode(sections.last), expected);
+      expect(
+        RegExp('name="imagenes"').allMatches(body),
+        hasLength(images ? 2 : 0),
+      );
+      if (images) {
+        expect(body, contains('content-type: image/png'));
+        expect(body, contains('content-type: image/jpeg'));
+        expect(
+          body.indexOf('portada.png'),
+          lessThan(body.indexOf('detalle.jpg')),
+        );
+      }
+    });
+  }
+
+  test('publicación conserva el rechazo de permisos del servidor', () async {
+    final (repo, _) = repository({'message': 'Acceso denegado'}, status: 403);
+    await expectLater(
+      repo.publish(const AnnouncementDraft(title: 'Título', text: 'Texto')),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          'Acceso denegado',
+        ),
+      ),
+    );
+  });
+
   test(
     'listado solicita diez por página y usa el total para avanzar',
     () async {

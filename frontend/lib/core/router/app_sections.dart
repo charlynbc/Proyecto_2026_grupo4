@@ -12,6 +12,13 @@ class AppSection {
   final IconData selectedIcon;
 }
 
+const _announcements = AppSection(
+  'cartelera',
+  'Cartelera',
+  Icons.campaign_outlined,
+  Icons.campaign,
+);
+
 /// Secciones de cada rol, en el orden del menú. La primera es la home del
 /// rol. Es una comodidad de navegación: la autorización real es del servidor.
 const Map<UserRole, List<AppSection>> kSectionsByRole = {
@@ -35,12 +42,7 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
       Icons.medical_information_outlined,
       Icons.medical_information,
     ),
-    AppSection(
-      'cartelera',
-      'Cartelera',
-      Icons.campaign_outlined,
-      Icons.campaign,
-    ),
+    _announcements,
   ],
   UserRole.funcionario: [
     AppSection(
@@ -61,6 +63,7 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
       Icons.view_agenda_outlined,
       Icons.view_agenda,
     ),
+    _announcements,
   ],
   UserRole.medico: [
     AppSection(
@@ -69,6 +72,7 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
       Icons.calendar_month_outlined,
       Icons.calendar_month,
     ),
+    _announcements,
   ],
   UserRole.administrador: [
     AppSection('usuarios', 'Usuarios', Icons.people_outline, Icons.people),
@@ -90,6 +94,7 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
       Icons.bar_chart_outlined,
       Icons.bar_chart,
     ),
+    _announcements,
   ],
 };
 
@@ -97,6 +102,8 @@ extension UserRoleSections on UserRole {
   List<AppSection> get sections => kSectionsByRole[this]!;
 
   String sectionPath(AppSection section) => '$routePrefix/${section.slug}';
+
+  String get announcementsPath => sectionPath(_announcements);
 
   /// Home del rol: su primera sección.
   String get homePath => sectionPath(sections.first);

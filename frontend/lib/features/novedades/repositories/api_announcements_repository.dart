@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/api_routes.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
+import '../models/announcement_draft.dart';
 import '../models/announcement_page.dart';
 import 'announcements_repository.dart';
 
@@ -11,6 +14,53 @@ class ApiAnnouncementsRepository implements AnnouncementsRepository {
   ApiAnnouncementsRepository(this._dio);
 
   final Dio _dio;
+
+  @override
+  Future<void> publish(AnnouncementDraft draft) async {
+    final form = FormData()
+      ..files.add(
+        MapEntry(
+          'datos',
+          MultipartFile.fromString(
+            jsonEncode({
+              'titulo': draft.title,
+              if (draft.summary?.trim().isNotEmpty ?? false)
+                'resumen': draft.summary,
+              if (draft.text?.trim().isNotEmpty ?? false) 'texto': draft.text,
+            }),
+            contentType: DioMediaType('application', 'json'),
+          ),
+        ),
+      )
+      ..files.addAll([
+        for (final image in draft.images)
+          MapEntry(
+            'imagenes',
+            MultipartFile.fromBytes(
+              image.bytes,
+              filename: image.name,
+              contentType: DioMediaType('image', image.subtype),
+            ),
+          ),
+      ]);
+    try {
+      final response = await _dio.post<Object?>(
+        ApiRoutes.announcements,
+        data: form,
+      );
+      if (response.statusCode != 201) throw _unconfirmedPublication;
+    } on DioException catch (error) {
+      final status = error.response?.statusCode;
+      if (status == null || status >= 500 && status != 503) {
+        throw _unconfirmedPublication;
+      }
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  static const _unconfirmedPublication = ApiException(
+    'No pudimos confirmar la publicación. Revisá la cartelera antes de volver a publicar.',
+  );
 
   @override
   Future<AnnouncementPage> list({int page = 0}) async {

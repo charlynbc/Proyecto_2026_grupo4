@@ -5,7 +5,7 @@ import 'app_sections.dart';
 
 /// Barra de navegación fija de las secciones de un rol: `NavigationBar` abajo
 /// en pantallas angostas, `NavigationRail` al costado en anchas. Un rol con
-/// una sola sección (médico) no muestra barra.
+/// una sola sección no muestra barra.
 /// Inicio usa sus accesos propios; el menú se conserva en las demás secciones.
 ///
 /// Intercepta el botón de atrás de Android con [PopScope]: parado en la raíz
@@ -79,6 +79,12 @@ class _NarrowShell extends StatelessWidget {
                   for (final section in shell.sections)
                     DefaultTextStyle.merge(
                       textAlign: TextAlign.center,
+                      // Mantener las etiquetas de una palabra en una línea.
+                      // El tooltip conserva el nombre completo.
+                      softWrap: section.label.contains(' '),
+                      overflow: section.label.contains(' ')
+                          ? null
+                          : TextOverflow.ellipsis,
                       child: NavigationDestination(
                         icon: Icon(section.icon),
                         selectedIcon: Icon(section.selectedIcon),

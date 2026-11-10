@@ -30,6 +30,7 @@ import '../../features/historia_clinica/screens/medical_history_detail_screen.da
 import '../../features/home/screens/home_screen.dart';
 import '../../features/novedades/screens/announcement_detail_screen.dart';
 import '../../features/novedades/screens/announcements_screen.dart';
+import '../../features/novedades/screens/new_announcement_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialty_import_screen.dart';
@@ -77,7 +78,8 @@ const String kArrivalPath = '/funcionario/llegada';
 /// - Sin sesión: solo `/login`, el primer ingreso y la recuperación; todo lo
 ///   demás va a login.
 /// - Con sesión: las pantallas de acceso y la raíz van a la home del rol, y
-///   las rutas de otro rol también.
+///   las rutas de otro rol también. Solo el administrador puede crear una
+///   novedad; los demás vuelven al listado si abren la ruta en su Cartelera.
 /// - El enlace de cambio de correo se abre con o sin sesión y también
 ///   mientras se verifica: quien lo abre desde el correo puede tener la
 ///   sesión iniciada. Sin token no tiene nada que mostrar y va a la raíz.
@@ -109,6 +111,10 @@ String? redirectFor(SessionState session, Uri uri) {
       final owner = UserRole.fromPath(path);
       if (owner != null && (owner != role || path == owner.routePrefix)) {
         return role.homePath;
+      }
+      if (role != UserRole.administrador &&
+          path == '${role.announcementsPath}/nueva') {
+        return role.announcementsPath;
       }
       return null;
   }
@@ -186,6 +192,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           patientName: state.uri.queryParameters['paciente'],
         ),
       ),
+      GoRoute(
+        path: '${UserRole.administrador.announcementsPath}/nueva',
+        builder: (context, state) => const NewAnnouncementScreen(),
+      ),
       for (final role in UserRole.values) _roleShell(role),
     ],
   );
@@ -210,6 +220,24 @@ RouteBase _roleShell(UserRole role) {
 /// "Próximamente".
 GoRoute _sectionRoute(UserRole role, AppSection section) {
   final path = role.sectionPath(section);
+  if (path == role.announcementsPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => AnnouncementsScreen(role: role),
+      routes: [
+        GoRoute(
+          path: ':id',
+          builder: (context, state) => AnnouncementDetailScreen(
+            id: _appointmentId(state),
+            role: role,
+            backToList:
+                role != UserRole.socio ||
+                state.uri.queryParameters['desde'] == 'cartelera',
+          ),
+        ),
+      ],
+    );
+  }
   if (role == UserRole.funcionario && path == kShiftsPath) {
     return GoRoute(
       path: path,
@@ -318,20 +346,6 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
         return GoRoute(
           path: path,
           builder: (context, state) => const HomeScreen(),
-        );
-      case '/socio/cartelera':
-        return GoRoute(
-          path: path,
-          builder: (context, state) => const AnnouncementsScreen(),
-          routes: [
-            GoRoute(
-              path: ':id',
-              builder: (context, state) => AnnouncementDetailScreen(
-                id: _appointmentId(state),
-                backToList: state.uri.queryParameters['desde'] == 'cartelera',
-              ),
-            ),
-          ],
         );
       case '/socio/historia':
         return GoRoute(

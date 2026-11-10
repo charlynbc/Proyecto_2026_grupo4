@@ -1,25 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/router/app_sections.dart';
+import '../../auth/models/user_role.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../models/announcement_detail.dart';
 import '../providers/announcements_provider.dart';
 import '../repositories/announcements_repository.dart';
 import '../widgets/announcement_gallery.dart';
+import '../widgets/announcement_markdown.dart';
 
 class AnnouncementDetailScreen extends ConsumerStatefulWidget {
   const AnnouncementDetailScreen({
     super.key,
     required this.id,
+    required this.role,
     this.backToList = false,
   });
 
   final int? id;
+  final UserRole role;
   final bool backToList;
 
   @override
@@ -70,7 +74,9 @@ class _AnnouncementDetailScreenState
   }
 
   void _back() {
-    context.go(widget.backToList ? '/socio/cartelera' : '/socio/inicio');
+    context.go(
+      widget.backToList ? widget.role.announcementsPath : widget.role.homePath,
+    );
   }
 
   Future<void> _openLink(String text, String? href, String title) async {
@@ -229,15 +235,7 @@ class _AnnouncementDetailScreenState
         ],
         if (text != null && text.trim().isNotEmpty) ...[
           const SizedBox(height: 24),
-          MarkdownBody(
-            data: text,
-            selectable: true,
-            onTapLink: _openLink,
-            styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-              p: theme.textTheme.bodyLarge?.copyWith(height: 1.65),
-              blockSpacing: 16,
-            ),
-          ),
+          AnnouncementMarkdown(text: text, onTapLink: _openLink),
         ],
       ],
     );

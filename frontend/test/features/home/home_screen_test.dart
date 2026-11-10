@@ -12,7 +12,7 @@ import 'package:agenda_medica/features/novedades/models/announcement.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_detail.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_page.dart';
 import 'package:agenda_medica/features/novedades/providers/announcements_provider.dart';
-import 'package:agenda_medica/features/novedades/repositories/announcements_repository.dart';
+import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,7 +30,7 @@ class _Session extends SessionNotifier {
   );
 }
 
-class _News implements AnnouncementsRepository {
+class _News extends FakeAnnouncementsRepository {
   @override
   Future<AnnouncementPage> list({int page = 0}) async => AnnouncementPage(
     items: items.take(10).toList(),
@@ -360,4 +360,31 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  // Con un ancho casi nulo (por ejemplo, al abrir las herramientas del
+  // navegador) el tamaño de los atajos no puede salir negativo. Los desbordes
+  // por debajo de ~56 px son otro tema y no se miran acá.
+  for (final width in [55.0, 40.0, 16.0, 8.0, 1.0, 0.0]) {
+    testWidgets('a $width px los atajos no tienen un tamaño negativo', (
+      tester,
+    ) async {
+      final errors = <FlutterErrorDetails>[];
+      final original = FlutterError.onError;
+      FlutterError.onError = errors.add;
+
+      try {
+        await _pumpHome(tester, _News()..items = [news(1)], width: width);
+      } on AssertionError catch (e) {
+        // Con el layout roto la pantalla nunca se asienta; no es lo que se mira.
+        if (!e.toString().contains('pumpAndSettle timed out')) rethrow;
+      } finally {
+        FlutterError.onError = original;
+      }
+
+      final negative = errors
+          .where((e) => e.exceptionAsString().contains('negative minimum'))
+          .toList();
+      expect(negative, isEmpty, reason: negative.join(' | '));
+    });
+  }
 }

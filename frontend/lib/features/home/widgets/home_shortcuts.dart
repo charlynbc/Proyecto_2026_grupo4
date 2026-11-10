@@ -26,9 +26,12 @@ class HomeShortcuts extends StatelessWidget {
             ? 1
             : 2;
         final gap = columns == 4 ? 24.0 : 16.0;
-        final size = math.min(
-          columns == 4 ? 176.0 : 200.0,
-          (constraints.maxWidth - gap * (columns - 1)) / columns,
+        final size = math.max(
+          0.0,
+          math.min(
+            columns == 4 ? 176.0 : 200.0,
+            (constraints.maxWidth - gap * (columns - 1)) / columns,
+          ),
         );
         return Wrap(
           alignment: columns == 4

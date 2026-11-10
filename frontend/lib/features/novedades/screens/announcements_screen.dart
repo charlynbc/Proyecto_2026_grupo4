@@ -4,12 +4,16 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/router/app_sections.dart';
+import '../../auth/models/user_role.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../models/announcement.dart';
 import '../providers/announcements_provider.dart';
 
 class AnnouncementsScreen extends ConsumerStatefulWidget {
-  const AnnouncementsScreen({super.key});
+  const AnnouncementsScreen({super.key, required this.role});
+
+  final UserRole role;
 
   @override
   ConsumerState<AnnouncementsScreen> createState() =>
@@ -19,6 +23,7 @@ class AnnouncementsScreen extends ConsumerStatefulWidget {
 class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
     with WidgetsBindingObserver {
   int _page = 0;
+  int _scrollReset = 0;
   DateTime? _loadedAt;
   bool _wasActive = false;
 
@@ -68,6 +73,17 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
     });
   }
 
+  Future<void> _create() async {
+    final published = await context.push<bool>(
+      '${widget.role.announcementsPath}/nueva',
+    );
+    if (!mounted || published != true) return;
+    setState(() {
+      _page = 0;
+      _scrollReset++;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(announcementsPageProvider(_page));
@@ -78,7 +94,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Volver al Inicio',
-          onPressed: () => context.go('/socio/inicio'),
+          onPressed: () => context.go(widget.role.homePath),
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text(
@@ -91,7 +107,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
       body: Align(
         alignment: Alignment.topCenter,
         child: SingleChildScrollView(
-          key: ValueKey('announcements-page-$_page'),
+          key: ValueKey(('announcements-page', _page, _scrollReset)),
           padding: EdgeInsets.all(
             MediaQuery.sizeOf(context).width < 600 ? 16 : 32,
           ),
@@ -102,10 +118,24 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
               children: [
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: state.isLoading ? null : _refresh,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Actualizar novedades'),
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: [
+                      TextButton.icon(
+                        onPressed: state.isLoading ? null : _refresh,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Actualizar novedades'),
+                      ),
+                      if (widget.role == UserRole.administrador)
+                        FilledButton.icon(
+                          onPressed: _create,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Crear nueva novedad'),
+                        ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -158,6 +188,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
                               const SizedBox(height: 12),
                           itemBuilder: (context, index) => _AnnouncementRow(
                             announcement: result.items[index],
+                            listPath: widget.role.announcementsPath,
                           ),
                         ),
                       const SizedBox(height: 24),
@@ -204,9 +235,10 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
 }
 
 class _AnnouncementRow extends StatelessWidget {
-  const _AnnouncementRow({required this.announcement});
+  const _AnnouncementRow({required this.announcement, required this.listPath});
 
   final Announcement announcement;
+  final String listPath;
 
   @override
   Widget build(BuildContext context) {
@@ -228,8 +260,7 @@ class _AnnouncementRow extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       margin: EdgeInsets.zero,
       child: InkWell(
-        onTap: () =>
-            context.go('/socio/cartelera/${announcement.id}?desde=cartelera'),
+        onTap: () => context.go('$listPath/${announcement.id}?desde=cartelera'),
         child: Padding(
           padding: EdgeInsets.all(narrow ? 12 : 20),
           child: Row(
