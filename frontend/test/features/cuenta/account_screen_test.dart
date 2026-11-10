@@ -15,8 +15,8 @@ import '../../helpers/pump_admin.dart';
 import 'account_test_support.dart';
 
 const _pendingNotice =
-    'Pediste cambiar tu correo a nuevo@example.org. Abrí el enlace que te '
-    'enviamos a ese correo para confirmarlo. Hasta entonces seguís usando '
+    'El cambio a nuevo@example.org está pendiente de confirmación. Revisá '
+    'esa casilla y abrí el enlace. Tu correo actual sigue siendo '
     'lucia@example.org.';
 const _loadError = 'No pudimos cargar tus datos. Intentá de nuevo.';
 

@@ -96,9 +96,9 @@ class _AccountDetails extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Pediste cambiar tu correo a $pendingEmail. Abrí el '
-                      'enlace que te enviamos a ese correo para confirmarlo. '
-                      'Hasta entonces seguís usando ${account.email}.',
+                      'El cambio a $pendingEmail está pendiente de '
+                      'confirmación. Revisá esa casilla y abrí el enlace. '
+                      'Tu correo actual sigue siendo ${account.email}.',
                       key: const Key('account-pending-email'),
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),

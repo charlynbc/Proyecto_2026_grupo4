@@ -53,7 +53,9 @@ void main() {
       expect(textOf(tester, 'account-ci'), ci);
       expect(
         textOf(tester, 'account-pending-email'),
-        contains('Pediste cambiar tu correo a nuevo@example.org.'),
+        contains(
+          'El cambio a nuevo@example.org está pendiente de confirmación.',
+        ),
       );
       expect(find.byKey(const Key('edit-saved')), findsOneWidget);
     });

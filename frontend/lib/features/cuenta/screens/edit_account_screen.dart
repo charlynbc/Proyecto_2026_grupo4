@@ -148,9 +148,10 @@ class _EditAccountFormState extends ConsumerState<_EditAccountForm> {
     final pendingEmail = updated.pendingEmail;
     final message =
         pendingEmail != null && pendingEmail != _original.pendingEmail
-        ? 'Guardamos tus datos. Para cambiar tu correo, abrí el enlace que te '
-              'enviamos a $pendingEmail. Vale 24 horas y, hasta entonces, seguís '
-              'usando ${updated.email}.'
+        ? 'Guardamos tus datos. El cambio de correo a $pendingEmail está '
+              'pendiente de confirmación. Revisá esa casilla y abrí el enlace '
+              'dentro de las 24 horas. Hasta entonces, seguís usando '
+              '${updated.email}.'
         : 'Guardamos tus datos.';
     final messenger = ScaffoldMessenger.of(context);
     _returnToAccount(context);

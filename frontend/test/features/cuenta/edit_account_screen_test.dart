@@ -21,9 +21,9 @@ import 'account_test_support.dart';
 
 const _shortNotice = 'Guardamos tus datos.';
 const _longNotice =
-    'Guardamos tus datos. Para cambiar tu correo, abrí el enlace que te '
-    'enviamos a nuevo@example.org. Vale 24 horas y, hasta entonces, seguís '
-    'usando lucia@example.org.';
+    'Guardamos tus datos. El cambio de correo a nuevo@example.org está '
+    'pendiente de confirmación. Revisá esa casilla y abrí el enlace dentro '
+    'de las 24 horas. Hasta entonces, seguís usando lucia@example.org.';
 
 class _EditRepository extends RecordingAccountRepository {
   _EditRepository({super.account, super.error, this.result, this.saveError});
