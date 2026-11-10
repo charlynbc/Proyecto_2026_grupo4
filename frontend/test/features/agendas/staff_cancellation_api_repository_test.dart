@@ -8,10 +8,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _StubAdapter implements HttpClientAdapter {
-  _StubAdapter.json(this.status, this.body);
+  _StubAdapter.json(this.status, Object? body)
+    : responseBody = jsonEncode(body);
+  _StubAdapter.raw(this.status, this.responseBody);
 
   final int status;
-  final Object? body;
+  final String responseBody;
   RequestOptions? last;
 
   @override
@@ -22,7 +24,7 @@ class _StubAdapter implements HttpClientAdapter {
   ) async {
     last = options;
     return ResponseBody.fromString(
-      jsonEncode(body),
+      responseBody,
       status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -43,6 +45,9 @@ class _StubAdapter implements HttpClientAdapter {
 
 (ApiStaffCancellationRepository, _StubAdapter) _ok(Object? body) =>
     _repository(_StubAdapter.json(200, body));
+
+(ApiStaffCancellationRepository, _StubAdapter) _rawOk(String body) =>
+    _repository(_StubAdapter.raw(200, body));
 
 (ApiStaffCancellationRepository, _StubAdapter) _fails(
   int status,
@@ -79,25 +84,38 @@ void main() {
   );
 
   group('respuestas mal formadas', () {
-    final cases = <Map<String, Object?>>[
-      {
-        'consultaId': 9001,
-        'estado': 'ATENDIDA',
-        'canceladaEn': '2026-10-30T09:03:10-03:00',
-        'paseDevuelto': true,
-      },
-      {'consultaId': 9001, 'estado': 'CANCELADA_SOCIO', 'paseDevuelto': true},
-      {
-        'consultaId': 9001,
-        'estado': 'CANCELADA_SOCIO',
-        'canceladaEn': '2026-10-30T09:03:10-03:00',
-        'paseDevuelto': 'si',
-      },
+    final cases = <({String name, Map<String, Object?> body})>[
+      (
+        name: 'estado ATENDIDA es error generico',
+        body: {
+          'consultaId': 9001,
+          'estado': 'ATENDIDA',
+          'canceladaEn': '2026-10-30T09:03:10-03:00',
+          'paseDevuelto': true,
+        },
+      ),
+      (
+        name: 'sin canceladaEn es error generico',
+        body: {
+          'consultaId': 9001,
+          'estado': 'CANCELADA_SOCIO',
+          'paseDevuelto': true,
+        },
+      ),
+      (
+        name: 'paseDevuelto no booleano es error generico',
+        body: {
+          'consultaId': 9001,
+          'estado': 'CANCELADA_SOCIO',
+          'canceladaEn': '2026-10-30T09:03:10-03:00',
+          'paseDevuelto': 'si',
+        },
+      ),
     ];
 
-    for (final body in cases) {
-      test('respuesta inválida', () async {
-        final (repository, _) = _ok(body);
+    for (final testCase in cases) {
+      test(testCase.name, () async {
+        final (repository, _) = _ok(testCase.body);
 
         await expectLater(
           repository.cancel(9001),
@@ -107,6 +125,37 @@ void main() {
         );
       });
     }
+  });
+
+  test('respuesta 200 sin cuerpo es error generico', () async {
+    final (repository, _) = _rawOk('');
+
+    await expectLater(
+      repository.cancel(9001),
+      throwsA(_staffError(StaffCancellationFailure.other, kApiGenericMessage)),
+    );
+  });
+
+  test('respuesta 200 con JSON roto es error generico', () async {
+    final (repository, _) = _rawOk('{');
+
+    await expectLater(
+      repository.cancel(9001),
+      throwsA(_staffError(StaffCancellationFailure.other, kApiGenericMessage)),
+    );
+  });
+
+  test('respuesta 200 sin consultaId es error generico', () async {
+    final (repository, _) = _ok({
+      'estado': 'CANCELADA_SOCIO',
+      'canceladaEn': '2026-10-30T09:03:10-03:00',
+      'paseDevuelto': true,
+    });
+
+    await expectLater(
+      repository.cancel(9001),
+      throwsA(_staffError(StaffCancellationFailure.other, kApiGenericMessage)),
+    );
   });
 
   group('identificadores inválidos', () {
