@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agenda_medica/core/utils/uruguay_time.dart';
 import 'package:agenda_medica/features/agenda/models/agenda_time.dart';
 import 'package:agenda_medica/features/medico/models/doctor_cancellation_result.dart';
@@ -9,6 +11,7 @@ import 'package:agenda_medica/features/medico/repositories/doctor_cancellation_r
 import 'package:agenda_medica/features/medico/repositories/doctor_shift_repository.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -50,6 +53,7 @@ class Agenda implements DoctorShiftRepository {
 class Cancel implements DoctorCancellationRepository {
   final calls = <(int, String)>[];
   Object? error;
+  Completer<void>? gate;
   int count = 2;
   int passes = 1;
   @override
@@ -61,6 +65,7 @@ class Cancel implements DoctorCancellationRepository {
     String reason,
   ) async {
     calls.add((id, reason));
+    if (gate != null) await gate!.future;
     if (error != null) throw error!;
     return DoctorShiftCancellationResult(
       shiftId: id,
@@ -168,19 +173,36 @@ void main() {
       expect(find.text(message), findsOneWidget);
     });
   }
-  for (final failure in [
-    DoctorCancellationFailure.outsideWindow,
-    DoctorCancellationFailure.conflictOfInterest,
-    DoctorCancellationFailure.notFound,
-    DoctorCancellationFailure.shiftNotCancellable,
+  for (final (failure, message) in [
+    (
+      DoctorCancellationFailure.outsideWindow,
+      'No se puede cancelar el turno completo porque hay consultas a menos de 2 horas de su hora. No se canceló ninguna. Si es un imprevisto, coordinalo con la administración.',
+    ),
+    (
+      DoctorCancellationFailure.conflictOfInterest,
+      'Tenés una consulta propia agendada en este turno, así que no podés cancelarlo completo. Pedile a la administración que suspenda la fecha.',
+    ),
+    (
+      DoctorCancellationFailure.notFound,
+      'No encontramos este turno entre los tuyos. Se actualizó la lista.',
+    ),
+    (
+      DoctorCancellationFailure.shiftNotCancellable,
+      'Este turno ya no se puede cancelar: ya está suspendido o su fecha pasó. Se actualizó la lista.',
+    ),
+    (
+      DoctorCancellationFailure.forbidden,
+      'Tu cuenta no tiene permiso para cancelar turnos.',
+    ),
+    (
+      DoctorCancellationFailure.validation,
+      'Revisá el motivo: es obligatorio y no puede superar los 1000 caracteres.',
+    ),
   ]) {
     testWidgets('mantiene diálogo ante $failure', (tester) async {
       final agenda = Agenda();
       final cancel = Cancel()
-        ..error = DoctorCancellationException(
-          failure,
-          cancelShiftMessage(failure),
-        );
+        ..error = DoctorCancellationException(failure, message);
       await pumpScreen(tester, agenda, cancel);
       await open(tester);
       await tester.enterText(
@@ -189,7 +211,7 @@ void main() {
       );
       await tester.tap(find.text('Cancelar turno').last);
       await tester.pumpAndSettle();
-      expect(find.text(cancelShiftMessage(failure)), findsOneWidget);
+      expect(find.text(message), findsOneWidget);
       expect(find.text('¿Cancelar todo el turno?'), findsOneWidget);
       expect(
         agenda.calls,
@@ -200,4 +222,44 @@ void main() {
       );
     });
   }
+  testWidgets('mientras envía no se cierra ni se envía dos veces', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    final cancel = Cancel()..gate = gate;
+    await pumpScreen(tester, Agenda(), cancel);
+    await open(tester);
+    await tester.enterText(
+      find.byKey(const Key('cancel-reason-field')),
+      'Motivo',
+    );
+    await tester.tap(find.byKey(const Key('confirm-cancel')));
+    await tester.pump();
+    expect(cancel.calls, hasLength(1));
+    expect(
+      tester
+          .widget<ButtonStyleButton>(find.byKey(const Key('confirm-cancel')))
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<ButtonStyleButton>(
+            find.byKey(const Key('dismiss-cancel-dialog')),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.tap(find.byKey(const Key('confirm-cancel')));
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.tapAt(const Offset(8, 8));
+    await tester.pump();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(cancel.calls, hasLength(1));
+    gate.complete();
+    await tester.pumpAndSettle();
+  });
 }

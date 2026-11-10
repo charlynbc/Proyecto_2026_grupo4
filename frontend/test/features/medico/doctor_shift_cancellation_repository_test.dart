@@ -89,6 +89,9 @@ void main() {
       {...body, 'estado': 'ACTIVO'},
       {...body}..remove('fecha'),
       {...body, 'consultasCanceladas': -1},
+      {...body, 'turnoId': '301'},
+      {...body, 'consultasCanceladas': '2'},
+      {...body, 'pasesDevueltos': '1'},
     ]) {
       final stub = Stub(200, value);
       await expectLater(
@@ -104,6 +107,28 @@ void main() {
       );
     }
   });
+  test(
+    'un código desconocido conserva el mensaje de ApiException.fromDio',
+    () async {
+      final stub = Stub(409, {
+        'code': 'OTRO_CODIGO',
+        'message': 'Mensaje seguro del servidor',
+      });
+      await expectLater(
+        ApiDoctorCancellationRepository(Dio()..httpClientAdapter = stub)
+            .cancelShift(301, 'Motivo'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.runtimeType, 'tipo', ApiException)
+              .having(
+                (e) => e.message,
+                'mensaje',
+                'Mensaje seguro del servidor',
+              ),
+        ),
+      );
+    },
+  );
   test('mapea los errores de la operación', () async {
     for (final (status, code, failure, message) in [
       (

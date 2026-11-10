@@ -1,6 +1,7 @@
 import 'package:agenda_medica/features/medico/repositories/doctor_cancellation_repository.dart';
 import 'package:agenda_medica/features/medico/repositories/fake_doctor_cancellation_repository.dart';
 import 'package:agenda_medica/features/medico/repositories/fake_doctor_shift_repository.dart';
+import 'package:agenda_medica/core/utils/uruguay_time.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -11,7 +12,11 @@ void main() {
       latency: Duration.zero,
       clock: DateTime.now,
     );
+    final before = UruguayTime.today();
     final result = await repo.cancelShift(1, 'Imprevisto');
+    final after = UruguayTime.today();
+    expect(result.date == before || result.date == after, isTrue);
+    expect(result.returnedReferralsCount, 0);
     expect(result.cancelledCount, 2);
     expect((await shifts.listShifts('2099-01-01')).single.status, 'SUSPENDIDO');
     expect(
