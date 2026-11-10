@@ -1,3 +1,7 @@
+/// Las columnas exactas del CSV de la carga masiva, en este orden. La usan
+/// la previsualización falsa y la descarga de las filas con error.
+const List<String> kClinicImportColumns = ['nombre', 'ubicacion'];
+
 /// Una fila de la carga masiva de consultorios (`Fila`, contrato #56 y #57).
 ///
 /// [number] cuenta desde 2 (la 1 es el encabezado). El nombre y la ubicación
