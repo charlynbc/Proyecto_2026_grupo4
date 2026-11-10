@@ -121,6 +121,49 @@ void main() {
     );
   });
 
+  testWidgets('el texto del período sigue siendo el de los datos tras un rebuild', (
+    tester,
+  ) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('stats-from')), '20/10/2026');
+    await tester.enterText(find.byKey(const Key('stats-to')), '05/10/2026');
+    await _consult(tester);
+
+    expect(find.byKey(const Key('stats-period-error')), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
+      'Datos del 01/10/2026 al 31/10/2026',
+    );
+  });
+
+  testWidgets('mientras una nueva consulta carga no muestra el texto', (
+    tester,
+  ) async {
+    final completer = Completer<AppointmentStatistics>();
+    var calls = 0;
+    final repository = _Repository((_) {
+      if (calls++ == 0) return Future.value(statisticsOf());
+      return completer.future;
+    });
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('stats-consult')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('stats-loading')), findsOneWidget);
+    expect(find.byKey(const Key('stats-period-label')), findsNothing);
+
+    completer.complete(statisticsOf());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+  });
+
   testWidgets('editar Desde sin consultar no cambia el texto del período', (
     tester,
   ) async {
