@@ -25,6 +25,7 @@ class ChangeWeeklyShiftClinicDialog extends ConsumerStatefulWidget {
 class _ChangeWeeklyShiftClinicDialogState
     extends ConsumerState<ChangeWeeklyShiftClinicDialog> {
   late int _clinicId;
+  final Set<int> _selectedTurnoIds = <int>{};
 
   @override
   void initState() {
@@ -39,6 +40,16 @@ class _ChangeWeeklyShiftClinicDialogState
         SubmitStatus.error) {
       ref.read(changeWeeklyShiftClinicControllerProvider.notifier).reset();
     }
+  }
+
+  void _toggleTurno(int turnoId, bool seleccionado) {
+    setState(() {
+      if (seleccionado) {
+        _selectedTurnoIds.add(turnoId);
+      } else {
+        _selectedTurnoIds.remove(turnoId);
+      }
+    });
   }
 
   Future<void> _save() async {
