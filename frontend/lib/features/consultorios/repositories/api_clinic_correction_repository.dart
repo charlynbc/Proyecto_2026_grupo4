@@ -16,10 +16,7 @@ class ApiClinicCorrectionRepository implements ClinicCorrectionRepository {
       throw const ClinicCorrectionException(ClinicCorrectionFailure.notFound);
     }
 
-    final data = <String, String>{
-      'nombre': ?name,
-      'ubicacion': ?location,
-    };
+    final data = <String, String>{'nombre': ?name, 'ubicacion': ?location};
     try {
       final response = await _dio.patch<Map<String, dynamic>>(
         ApiRoutes.clinic(id),
