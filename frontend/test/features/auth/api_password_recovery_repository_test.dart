@@ -145,6 +145,26 @@ void main() {
       );
     });
 
+    test(
+      'completar usa fallback si el mensaje contiene solo espacios',
+      () async {
+        final repo = _repo(
+          _Adapter(400, {'code': 'ENLACE_INVALIDO', 'message': '   '}),
+        );
+
+        await expectLater(
+          _complete(repo),
+          throwsA(
+            isA<InvalidRecoveryLinkException>().having(
+              (error) => error.message,
+              'message',
+              'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.',
+            ),
+          ),
+        );
+      },
+    );
+
     test('400 VALIDACION da AuthException con el mensaje del servidor', () {
       final repo = _repo(
         _Adapter(400, {

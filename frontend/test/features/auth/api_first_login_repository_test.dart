@@ -117,6 +117,23 @@ void main() {
       );
     });
 
+    test('activar usa fallback si el mensaje contiene solo espacios', () async {
+      final repo = _repo(
+        _Adapter(400, {'code': 'ENLACE_INVALIDO', 'message': '   '}),
+      );
+
+      await expectLater(
+        _activate(repo),
+        throwsA(
+          isA<InvalidActivationLinkException>().having(
+            (error) => error.message,
+            'message',
+            'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.',
+          ),
+        ),
+      );
+    });
+
     for (final body in <Map<String, dynamic>>[
       {'code': 'ENLACE_INVALIDO'},
       {'code': 'ENLACE_INVALIDO', 'message': ''},

@@ -124,6 +124,23 @@ void main() {
     );
   });
 
+  test('validar usa fallback si el mensaje contiene solo espacios', () async {
+    final repo = _repo(
+      _Adapter.json(400, {'code': 'ENLACE_INVALIDO', 'message': '   '}),
+    );
+
+    await expectLater(
+      _validate(repo),
+      throwsA(
+        isA<InvalidRecoveryLinkException>().having(
+          (error) => error.message,
+          'message',
+          'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.',
+        ),
+      ),
+    );
+  });
+
   group('cualquier otro resultado no es un enlace inválido', () {
     final cases = <String, _Adapter>{
       '500': _Adapter.json(500, {
