@@ -5,6 +5,7 @@ import '../../features/auth/models/user_role.dart';
 import '../../features/consultorios/models/clinic.dart';
 import '../../features/especialidades/models/specialty.dart';
 import '../../features/turnos/models/doctor.dart';
+import '../../features/turnos/models/clinic_change_preview.dart';
 import '../../features/turnos/models/new_weekly_shift.dart';
 import '../../features/turnos/models/shift.dart';
 import '../../features/turnos/models/shift_filters.dart';
@@ -72,6 +73,9 @@ class FakeShiftDatabase {
   /// Consultas agendadas por configuración, escrito a mano. La clave es el
   /// id de la configuración y el valor, la cantidad.
   final Map<int, int> agendadasPorTurnoSemanal = {};
+
+  /// Para la vista previa parcial, las reservas se asocian a una fecha concreta.
+  final Map<int, int> agendadasPorTurno = {};
 
   int _nextWeeklyShiftId = 1;
   int _nextShiftId = 1;
@@ -422,6 +426,68 @@ class FakeShiftDatabase {
     // Silva (configuración 2) tiene dos consultas agendadas, para ver el
     // error a mano.
     agendadasPorTurnoSemanal[2] = 2;
+    agendadasPorTurno[shifts.firstWhere((s) => s.weeklyShiftId == 2).id] = 2;
+  }
+
+  /// Calcula la vista previa sin tocar el estado de los turnos (RF-20).
+  /// Las fechas suspendidas se muestran, pero no generan solapamientos:
+  /// RF-15 los volverá a validar cuando se rehabiliten.
+  ClinicChangePreview previewClinicChange(int weeklyShiftId, int clinicId) {
+    if (weeklyShiftId <= 0 || clinicId <= 0) {
+      throw const ShiftValidationException('Identificadores no válidos');
+    }
+    final pattern = weeklyShiftById(weeklyShiftId);
+    if (pattern == null) {
+      throw const ShiftNotFoundException('No existe el turno semanal indicado');
+    }
+    if (!admin.clinics.any((clinic) => clinic.id == clinicId)) {
+      throw const ShiftNotFoundException('No existe el consultorio indicado');
+    }
+
+    final now = UruguayTime.toUruguay(admin.clock());
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final future = [
+      for (final shift in shifts)
+        if (shift.weeklyShiftId == weeklyShiftId &&
+            !shift.date.isBefore(today))
+          shift,
+    ]..sort((a, b) => a.date.compareTo(b.date));
+
+    return ClinicChangePreview(
+      dates: [
+        for (final shift in future)
+          ClinicChangePreviewDate(
+            shiftId: shift.id,
+            date: shift.date,
+            state: shift.state,
+            bookedAppointments: agendadasPorTurno[shift.id] ??
+                (shift == future.first
+                    ? (agendadasPorTurnoSemanal[weeklyShiftId] ?? 0)
+                    : 0),
+            currentClinicId: shift.clinicId,
+            currentClinicName: admin.clinics
+                .firstWhere((clinic) => clinic.id == shift.clinicId)
+                .name,
+            overlaps: [
+              if (shift.state == ShiftState.active)
+                for (final other in shifts)
+                  if (other.weeklyShiftId != weeklyShiftId &&
+                      other.state == ShiftState.active &&
+                      other.date == shift.date &&
+                      (other.doctorId == shift.doctorId ||
+                          other.clinicId == clinicId))
+                    for (final own in shift.numbers)
+                      for (final existing in other.numbers)
+                        if (own.startMinutes < existing.endMinutes &&
+                            existing.startMinutes < own.endMinutes)
+                          ClinicChangeOverlap(
+                            ownNumber: own.number,
+                            existingNumber: existing.number,
+                          ),
+            ],
+          ),
+      ],
+    );
   }
 
   /// Cambia el consultorio de una configuración. El orden de los chequeos es
