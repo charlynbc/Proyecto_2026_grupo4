@@ -205,6 +205,12 @@ public class SecurityConfig {
                                         )
 
                                         .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/turnos-semanales/*/consultorio/vista-previa"
+                                        )
+                                        .hasRole("FUNCIONARIO")
+
+                                        .requestMatchers(
                                                 HttpMethod.PATCH,
                                                 "/api/turnos-semanales/*"
                                         )
