@@ -108,6 +108,29 @@ void main() {
     );
   });
 
+  test(
+    'validar conserva los espacios iniciales y finales del mensaje',
+    () async {
+      final repo = _repo(
+        _Adapter.json(400, {
+          'code': 'ENLACE_INVALIDO',
+          'message': '  Enlace vencido  ',
+        }),
+      );
+
+      await expectLater(
+        _validate(repo),
+        throwsA(
+          isA<InvalidRecoveryLinkException>().having(
+            (error) => error.message,
+            'message',
+            '  Enlace vencido  ',
+          ),
+        ),
+      );
+    },
+  );
+
   test('400 ENLACE_INVALIDO sin mensaje usa el texto de siempre', () {
     final repo = _repo(_Adapter.json(400, {'code': 'ENLACE_INVALIDO'}));
 
@@ -119,6 +142,23 @@ void main() {
           'message',
           'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de '
               'ingreso.',
+        ),
+      ),
+    );
+  });
+
+  test('validar usa fallback si el mensaje contiene solo espacios', () async {
+    final repo = _repo(
+      _Adapter.json(400, {'code': 'ENLACE_INVALIDO', 'message': '   '}),
+    );
+
+    await expectLater(
+      _validate(repo),
+      throwsA(
+        isA<InvalidRecoveryLinkException>().having(
+          (error) => error.message,
+          'message',
+          'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.',
         ),
       ),
     );

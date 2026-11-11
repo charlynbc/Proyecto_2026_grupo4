@@ -309,6 +309,61 @@ void main() {
     expect(db.shifts.last.clinicId, room7.id);
   });
 
+  test('cruce solo en fecha pasada: no lanza solapamiento y cambia las fechas futuras', () {
+    final numbers = [_n('09:00', '09:20')];
+    plant(
+      id: 1,
+      doctorId: 10,
+      clinic: room3,
+      numbers: numbers,
+      dates: [
+        date(
+          id: 1,
+          weeklyShiftId: 1,
+          day: _past,
+          clinicId: room3.id,
+          doctorId: 10,
+          numbers: numbers,
+        ),
+        date(
+          id: 2,
+          weeklyShiftId: 1,
+          day: _future,
+          clinicId: room3.id,
+          doctorId: 10,
+          numbers: numbers,
+        ),
+      ],
+    );
+    plant(
+      id: 2,
+      doctorId: 20,
+      clinic: room7,
+      numbers: numbers,
+      dates: [
+        date(
+          id: 3,
+          weeklyShiftId: 2,
+          day: _past,
+          clinicId: room7.id,
+          doctorId: 20,
+          numbers: numbers,
+        ),
+      ],
+    );
+
+    final returned = db.changeClinic(1, room7.id);
+
+    expect(returned.clinic.name, 'Consultorio 7');
+    expect(returned.clinic.location, 'Piso 1');
+    expect(db.shifts[0].date, _past);
+    expect(db.shifts[0].clinicId, room3.id);
+    expect(db.shifts[1].date, _future);
+    expect(db.shifts[1].clinicId, room7.id);
+    expect(db.shifts[2].date, _past);
+    expect(db.shifts[2].clinicId, room7.id);
+  });
+
   test(
     'pasadas quedan, hoy y futuras cambian, la suspendida sigue suspendida',
     () {

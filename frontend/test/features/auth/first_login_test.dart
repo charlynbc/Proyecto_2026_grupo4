@@ -227,6 +227,46 @@ void main() {
       },
     );
 
+    testWidgets('al activar sin mensaje muestra el fallback y ambas ayudas', (
+      tester,
+    ) async {
+      final repo = RecordingFirstLoginRepository(
+        activateError: const InvalidActivationLinkException(),
+      );
+      final container = await _openActivation(tester, repo: repo);
+
+      await _fill(tester);
+      await tester.tap(_activate);
+      await tester.pumpAndSettle();
+
+      expect(repo.activations, hasLength(1));
+      expect(find.text('Este enlace ya no sirve'), findsOneWidget);
+      expect(
+        find.text(
+          'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Podés pedir un enlace nuevo con tu cédula.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Si el problema sigue, comunicate con la institución.'),
+        findsOneWidget,
+      );
+      expect(_fields, findsNothing);
+      expect(_activate, findsNothing);
+      final newLink = find.widgetWithText(
+        FilledButton,
+        'Pedir un enlace nuevo',
+      );
+      expect(newLink, findsOneWidget);
+      await tester.tap(newLink);
+      await tester.pumpAndSettle();
+      expect(locationOf(container), '/primer-ingreso/solicitar');
+    });
+
     testWidgets('otro error se muestra con su mensaje y deja reintentar', (
       tester,
     ) async {

@@ -6,6 +6,7 @@ import '../../auth/widgets/logout_button.dart';
 import '../models/doctor_shift.dart';
 import '../providers/doctor_agenda_controller.dart';
 import '../widgets/doctor_number_actions.dart';
+import '../widgets/cancel_shift_button.dart';
 import 'doctor_result_routes.dart';
 
 /// "Mis turnos" del médico (RF-21): fecha, turnos propios, números con sus
@@ -165,6 +166,7 @@ class _DoctorShiftsScreenState extends ConsumerState<DoctorShiftsScreen>
               '${shift.numbersCount} números reservados'
               '${shift.status == 'ACTIVO' ? '' : ' · Suspendido'}',
             ),
+            trailing: CancelShiftButton(shift: shift),
             onTap: () => controller.selectShift(shift.id),
           ),
         ),
