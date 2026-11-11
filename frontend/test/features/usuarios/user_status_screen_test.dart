@@ -6,6 +6,7 @@ import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/cuenta/models/account.dart';
 import 'package:agenda_medica/features/cuenta/providers/account_repository_provider.dart';
 import 'package:agenda_medica/features/usuarios/models/account_status_change.dart';
+import 'package:agenda_medica/features/usuarios/models/user_account.dart';
 import 'package:agenda_medica/features/usuarios/models/user_filters.dart';
 import 'package:agenda_medica/features/usuarios/models/user_page.dart';
 import 'package:agenda_medica/features/usuarios/providers/user_filters_controller.dart';
@@ -126,12 +127,13 @@ Future<_Harness> _pump(
   RecordingAccountRepository? account,
   FakeAdminDatabase? db,
   int? pageSize,
+  _Users? usersOverride,
 }) async {
   final database = db ?? _trimmedDb();
   final status = _Recording(
     FakeUserStatusRepository(database, latency: Duration.zero),
   );
-  final users = _Users(database, pageSize: pageSize);
+  final users = usersOverride ?? _Users(database, pageSize: pageSize);
   final accountRepository =
       account ?? RecordingAccountRepository(account: _diego);
   await pumpAdminScreens(
@@ -156,6 +158,95 @@ Future<_Harness> _pump(
   );
   return (status: status, users: users, db: database, container: container);
 }
+
+/// Una cuenta de empleado de prueba, creada el [day] de 2026.
+FakeAccount _account(
+  int id,
+  String ci,
+  String lastName,
+  String firstName,
+  DateTime createdAt, {
+  AccountStatus status = AccountStatus.active,
+  UserRole role = UserRole.funcionario,
+}) => FakeAccount(
+  id: id,
+  ci: ci,
+  firstName: firstName,
+  lastName: lastName,
+  birthDate: DateTime.utc(1990, 1, 1),
+  email: '$ci@example.org',
+  role: role,
+  status: status,
+  createdAt: createdAt,
+);
+
+/// Una base con exactamente estas cuentas.
+FakeAdminDatabase _dbWith(List<FakeAccount> accounts) {
+  final db = FakeAdminDatabase();
+  db.accounts
+    ..clear()
+    ..addAll(accounts);
+  return db;
+}
+
+/// Un padrón cuya página 1 en adelante llega vacía y sin total, como si el
+/// servidor ya no tuviera cuentas.
+class _EmptyBeyondFirst extends _Users {
+  _EmptyBeyondFirst(super.db, {super.pageSize});
+
+  @override
+  Future<UserPage> listUsers(UserFilters filters) {
+    if (filters.page == 0) return super.listUsers(filters);
+    listCalls++;
+    return Future.value(
+      UserPage(items: const [], page: filters.page, size: 2, total: 0),
+    );
+  }
+}
+
+/// Las cinco cuentas activas del padrón de las pruebas de paginación, por
+/// fecha de alta de más nueva a más vieja: Zorrilla (la sesión), Estévez,
+/// Duarte, Correa y Benítez.
+List<FakeAccount> _fiveActive() => [
+  _account(
+    5,
+    '45678905',
+    'Zorrilla',
+    'Zoe',
+    DateTime.utc(2026, 6, 1),
+    role: UserRole.administrador,
+  ),
+  _account(14, '50000140', 'Estévez', 'Eli', DateTime.utc(2026, 5, 1)),
+  _account(13, '50000130', 'Duarte', 'Dani', DateTime.utc(2026, 4, 1)),
+  _account(12, '50000120', 'Correa', 'Cora', DateTime.utc(2026, 3, 1)),
+  _account(11, '50000110', 'Benítez', 'Beto', DateTime.utc(2026, 2, 1)),
+];
+
+/// Activos, por fecha de alta de más nueva a más vieja, de a dos por página,
+/// parado en [page].
+Future<_Harness> _pumpPaged(
+  WidgetTester tester, {
+  required FakeAdminDatabase db,
+  required AccountStatus status,
+  required int page,
+  _Users? users,
+}) async {
+  final h = await _pump(tester, db: db, pageSize: 2, usersOverride: users);
+  final filters = h.container.read(userFiltersControllerProvider.notifier);
+  filters.search(status: status);
+  filters.sortBy(UserOrder.createdAt, ascending: false);
+  filters.goToPage(page);
+  await tester.pumpAndSettle();
+  return h;
+}
+
+Finder _pagerButton(String label) => find.ancestor(
+  of: find.text(label),
+  matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+);
+
+bool _enabled(WidgetTester tester, String label) =>
+    tester.widget<ButtonStyleButton>(_pagerButton(label)).onPressed != null;
 
 Finder _menu(int id) => find.byKey(Key('user-actions-$id'));
 Finder _deactivate(int id) => find.byKey(Key('user-deactivate-$id'));
@@ -709,6 +800,234 @@ void main() {
       expect(_onPressed(tester, _confirm), isNotNull);
       expect(h.status.calls.length, 1);
     });
+  });
+
+  group('la página que queda vacía', () {
+    testWidgets(
+      'la última con una sola cuenta: vuelve a la anterior con el filtro y el '
+      'orden',
+      (tester) async {
+        await _pumpPaged(
+          tester,
+          db: _dbWith(_fiveActive()),
+          status: AccountStatus.active,
+          page: 2,
+        );
+        expect(find.text('Página 3 de 3 · 5 cuentas'), findsOneWidget);
+        expect(find.text('Benítez, Beto'), findsOneWidget);
+
+        await _open(tester, 11);
+        await _choose(tester, _deactivate(11));
+        await _tapConfirm(tester);
+
+        expect(
+          find.text(
+            'No se encontraron usuarios con esos filtros. '
+            'Cambiá los criterios y volvé a buscar.',
+          ),
+          findsNothing,
+        );
+        expect(find.text('Página 2 de 2 · 4 cuentas'), findsOneWidget);
+        expect(find.text('Duarte, Dani'), findsOneWidget);
+        expect(find.text('Correa, Cora'), findsOneWidget);
+        // El orden es el de fecha de alta descendente: Duarte antes que Correa.
+        expect(
+          tester.getTopLeft(find.text('Duarte, Dani')).dy,
+          lessThan(tester.getTopLeft(find.text('Correa, Cora')).dy),
+        );
+        // El filtro "Activo" sigue: ni la recién inactivada ni las de la
+        // primera página.
+        expect(find.text('Benítez, Beto'), findsNothing);
+        expect(find.text('Estévez, Eli'), findsNothing);
+        expect(find.text('Zorrilla, Zoe'), findsNothing);
+        expect(_enabled(tester, 'Anterior'), isTrue);
+        expect(_enabled(tester, 'Siguiente'), isFalse);
+      },
+    );
+
+    testWidgets(
+      'si era la única cuenta, dice que no hay usuarios y no hay Anterior',
+      (tester) async {
+        final h = await _pump(
+          tester,
+          db: _dbWith([
+            _account(
+              5,
+              '45678905',
+              'Zorrilla',
+              'Zoe',
+              DateTime.utc(2026, 6, 1),
+              role: UserRole.administrador,
+            ),
+            _account(
+              11,
+              '50000110',
+              'Benítez',
+              'Beto',
+              DateTime.utc(2026, 2, 1),
+            ),
+          ]),
+          pageSize: 2,
+        );
+        h.container
+            .read(userFiltersControllerProvider.notifier)
+            .search(status: AccountStatus.active, query: 'Benitez');
+        await tester.pumpAndSettle();
+        expect(find.text('Benítez, Beto'), findsOneWidget);
+
+        await _open(tester, 11);
+        await _choose(tester, _deactivate(11));
+        await _tapConfirm(tester);
+
+        expect(
+          find.text(
+            'No se encontraron usuarios con esos filtros. Cambiá los criterios '
+            'y volvé a buscar.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Anterior'), findsNothing);
+      },
+    );
+
+    testWidgets('si el padrón queda sin cuentas, dice que no hay usuarios y no '
+        'muestra Anterior ni vuelve a pedir', (tester) async {
+      final db = _dbWith(_fiveActive());
+      final users = _EmptyBeyondFirst(db, pageSize: 2);
+      await _pumpPaged(
+        tester,
+        db: db,
+        status: AccountStatus.active,
+        page: 2,
+        users: users,
+      );
+
+      expect(
+        find.text(
+          'No se encontraron usuarios con esos filtros. '
+          'Cambiá los criterios y volvé a buscar.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Anterior'), findsNothing);
+      expect(find.text('Siguiente'), findsNothing);
+    });
+
+    testWidgets(
+      'una página del medio que queda con menos cuentas no se mueve',
+      (tester) async {
+        await _pumpPaged(
+          tester,
+          db: _dbWith(_fiveActive()),
+          status: AccountStatus.active,
+          page: 1,
+        );
+        expect(find.text('Duarte, Dani'), findsOneWidget);
+        expect(find.text('Correa, Cora'), findsOneWidget);
+
+        await _open(tester, 12);
+        await _choose(tester, _deactivate(12));
+        await _tapConfirm(tester);
+
+        // Quedan Zorrilla, Estévez, Duarte y Benítez: la página 2 trae a Duarte
+        // y Benítez.
+        expect(find.text('Página 2 de 2 · 4 cuentas'), findsOneWidget);
+        expect(find.text('Duarte, Dani'), findsOneWidget);
+        expect(find.text('Benítez, Beto'), findsOneWidget);
+        expect(find.text('Correa, Cora'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'al reactivar la última cuenta con el filtro "Inactivo", vuelve '
+      'a la anterior',
+      (tester) async {
+        await _pumpPaged(
+          tester,
+          db: _dbWith([
+            _account(
+              5,
+              '45678905',
+              'Zorrilla',
+              'Zoe',
+              DateTime.utc(2026, 6, 1),
+              role: UserRole.administrador,
+            ),
+            _account(
+              20,
+              '50000200',
+              'Gómez',
+              'Gus',
+              DateTime.utc(2026, 1, 1),
+              status: AccountStatus.inactive,
+            ),
+            _account(
+              21,
+              '50000210',
+              'Herrera',
+              'Hugo',
+              DateTime.utc(2026, 2, 1),
+              status: AccountStatus.inactive,
+            ),
+            _account(
+              22,
+              '50000220',
+              'Iglesias',
+              'Ines',
+              DateTime.utc(2026, 3, 1),
+              status: AccountStatus.inactive,
+            ),
+          ]),
+          status: AccountStatus.inactive,
+          page: 1,
+        );
+        expect(find.text('Página 2 de 2 · 3 cuentas'), findsOneWidget);
+        expect(find.text('Gómez, Gus'), findsOneWidget);
+
+        await _open(tester, 20);
+        await _choose(tester, _reactivate(20));
+        await _tapConfirm(tester);
+
+        expect(find.text('Página 1 de 1 · 2 cuentas'), findsOneWidget);
+        expect(find.text('Iglesias, Ines'), findsOneWidget);
+        expect(find.text('Herrera, Hugo'), findsOneWidget);
+        expect(find.text('Gómez, Gus'), findsNothing);
+        expect(_enabled(tester, 'Anterior'), isFalse);
+      },
+    );
+  });
+
+  group('la fila propia', () {
+    // PENDIENTE: la sesión no guarda el id de la cuenta y GET /api/cuentas/me
+    // tampoco lo devuelve, así que hoy la fila propia solo se reconoce por CI
+    // y rol. Cuando la sesión tenga el id, hay que reconocerla por id y sacar
+    // el `skip`. testWidgets solo admite `skip: true`, por eso el motivo va en
+    // el nombre y en este comentario.
+    testWidgets('PENDIENTE (falta el id de la cuenta en la sesión): si otro '
+        'administrador corrige mi CI, mi fila no ofrece inactivar', (
+      tester,
+    ) async {
+      // La sesión quedó con la CI vieja (45678905); el padrón ya trae la
+      // nueva (45678906) con el mismo id de cuenta (5).
+      await _pump(
+        tester,
+        db: _dbWith([
+          _account(
+            5,
+            '45678906',
+            'Zorrilla',
+            'Zoe',
+            DateTime.utc(2026, 6, 1),
+            role: UserRole.administrador,
+          ),
+          _account(11, '50000110', 'Benítez', 'Beto', DateTime.utc(2026, 2, 1)),
+        ]),
+        account: RecordingAccountRepository(account: _session('45678905')),
+      );
+
+      expect(_menu(11), findsOneWidget);
+      expect(_menu(5), findsNothing);
+    }, skip: true);
   });
 
   group('según el ancho', () {
