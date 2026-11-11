@@ -104,9 +104,12 @@ void main() {
 
     expect(find.text('Pase'), findsNothing);
     expect(find.text('7731'), findsNothing);
+    expect(find.textContaining('7731'), findsNothing);
   });
 
-  testWidgets('con pase conserva las demás filas y sus valores', (tester) async {
+  testWidgets('con pase conserva las demás filas y sus valores', (
+    tester,
+  ) async {
     await _pumpDetail(tester, _appointment(referralId: 7731));
 
     _expectDetails();
