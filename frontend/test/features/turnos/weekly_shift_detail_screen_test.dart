@@ -384,6 +384,34 @@ void main() {
       expect(find.text('Consultorio 3 (Planta baja)'), findsNothing);
     });
 
+    testWidgets('elegir solo algunas fechas conserva las demás', (
+      tester,
+    ) async {
+      final harness = await _pump(tester);
+      final patternId = harness.shiftDb.weeklyShifts.first.id;
+      final first = harness.shiftDb.shifts.firstWhere(
+        (shift) => shift.weeklyShiftId == patternId,
+      );
+      final originalClinic = first.clinicId;
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+
+      final checkbox = find.byKey(Key('weekly-shift-date-${first.id}'));
+      await tester.ensureVisible(checkbox);
+      await tester.tap(checkbox);
+      await tester.pumpAndSettle();
+      expect(tester.widget<CheckboxListTile>(checkbox).value, isFalse);
+
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+
+      expect(first.clinicId, originalClinic);
+      expect(harness.shiftDb.weeklyShiftById(patternId)!.clinicVariesByDate,
+          isTrue);
+      expect(find.textContaining('El consultorio varía según la fecha'),
+          findsOneWidget);
+    });
+
     testWidgets('consultas agendadas requieren confirmación expresa', (
       tester,
     ) async {
