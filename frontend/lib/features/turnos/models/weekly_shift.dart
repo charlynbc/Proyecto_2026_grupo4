@@ -17,6 +17,7 @@ class WeeklyShift {
     required this.endDate,
     required this.numbers,
     required this.shiftCount,
+    this.clinicVariesByDate = false,
   });
 
   factory WeeklyShift.fromJson(Map<String, dynamic> json) => WeeklyShift(
@@ -32,6 +33,7 @@ class WeeklyShift {
         ShiftNumber.fromJson(number as Map<String, dynamic>),
     ],
     shiftCount: json['cantidadTurnos'] as int,
+    clinicVariesByDate: json['consultorioVariaPorFecha'] as bool? ?? false,
   );
 
   final int id;
@@ -47,4 +49,7 @@ class WeeklyShift {
 
   /// Cuántas fechas concretas tiene (`cantidadTurnos`).
   final int shiftCount;
+
+  /// True cuando las fechas actuales/futuras no comparten el mismo consultorio.
+  final bool clinicVariesByDate;
 }
