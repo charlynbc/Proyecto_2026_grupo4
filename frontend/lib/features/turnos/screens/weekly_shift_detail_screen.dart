@@ -108,6 +108,10 @@ class _Detail extends ConsumerWidget {
           'Consultorio',
           '${weeklyShift.clinic.name} (${weeklyShift.clinic.location})',
         ),
+        if (weeklyShift.clinicVariesByDate)
+          const Text(
+            'El consultorio varía según la fecha. Revisá cada turno antes de informar al socio.',
+          ),
         _Field('Día', weekdayLabel(weeklyShift.weekday)),
         _Field(
           'Vigencia',
