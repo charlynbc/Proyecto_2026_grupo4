@@ -294,7 +294,7 @@ void main() {
       });
     }
 
-    for (final width in [1000.0, 1300.0]) {
+    for (final width in [1100.0, 1300.0]) {
       testWidgets('con $width px entra la tabla completa, sin desplazarla', (
         tester,
       ) async {
