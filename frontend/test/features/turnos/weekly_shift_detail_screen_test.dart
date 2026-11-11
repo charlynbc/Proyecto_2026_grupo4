@@ -65,10 +65,16 @@ class _RecordingClinicChange implements WeeklyShiftClinicRepository {
   ) async => db.previewClinicChange(weeklyShiftId, clinicId);
 
   @override
-  Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) async {
+  Future<WeeklyShift> changeClinic(
+    int weeklyShiftId,
+    int clinicId, {
+    List<int>? turnoIds,
+    bool confirmarConConsultas = false,
+  }) async {
     calls++;
     if (gate != null) await gate!.future;
-    return db.changeClinic(weeklyShiftId, clinicId);
+    return db.changeClinic(weeklyShiftId, clinicId,
+        turnoIds: turnoIds, confirmarConConsultas: confirmarConConsultas);
   }
 }
 
@@ -82,7 +88,12 @@ class _NotFoundClinic implements WeeklyShiftClinicRepository {
   }
 
   @override
-  Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) async {
+  Future<WeeklyShift> changeClinic(
+    int weeklyShiftId,
+    int clinicId, {
+    List<int>? turnoIds,
+    bool confirmarConConsultas = false,
+  }) async {
     throw const ShiftNotFoundException('No existe el consultorio indicado');
   }
 }
@@ -100,13 +111,6 @@ class _BrokenClinics implements ClinicRepository {
 const _currentClinic =
     'Consultorio actual: Consultorio 3 (Planta baja). Cambia las fechas de '
     'hoy en adelante; las fechas pasadas conservan su consultorio.';
-const _twoAppointments =
-    'El turno tiene 2 consulta(s) agendada(s) en fechas vigentes. '
-    'Suspenda las fechas correspondientes (RF-14) y dé de alta otro turno.';
-const _overlap =
-    'Se encontraron solapamientos: fecha 2026-10-20, número 1 con número '
-    'existente 1; fecha 2026-10-20, número 2 con número existente 1';
-
 /// Monta el detalle de la configuración [index] de `buildListingDb` (0 es la
 /// de Méndez; 2, la de Acosta), o del id indicado en [id].
 Future<_Harness> _pump(
@@ -380,32 +384,31 @@ void main() {
       expect(find.text('Consultorio 3 (Planta baja)'), findsNothing);
     });
 
-    testWidgets('con consultas agendadas muestra el texto y sigue abierto', (
+    testWidgets('consultas agendadas requieren confirmación expresa', (
       tester,
     ) async {
       final harness = await _pump(tester);
-      harness.shiftDb.agendadasPorTurnoSemanal[harness
-              .shiftDb
-              .weeklyShifts
-              .first
-              .id] =
-          2;
+      harness.shiftDb.agendadasPorTurnoSemanal[
+        harness.shiftDb.weeklyShifts.first.id
+      ] = 2;
       await _openDialog(tester);
       await _pickClinic(tester, 'Consultorio 7');
 
-      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      expect(_saveButton(tester).onPressed, isNull);
+      expect(find.textContaining('no notificará automáticamente'), findsOneWidget);
+
+      final confirm = find.byKey(const Key('weekly-shift-confirm-booked'));
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
       await tester.pumpAndSettle();
 
-      expect(find.byType(AlertDialog), findsOneWidget);
-      expect(
-        find.byKey(const Key('weekly-shift-clinic-error')),
-        findsOneWidget,
-      );
-      expect(find.text(_twoAppointments), findsOneWidget);
-      expect(find.text('Consultorio 3 (Planta baja)'), findsOneWidget);
+      expect(_saveButton(tester).onPressed, isNotNull);
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
     });
 
-    testWidgets('un solapamiento muestra el texto y sigue abierto', (
+    testWidgets('un solapamiento bloquea esa fecha, no las demás', (
       tester,
     ) async {
       final harness = await _pump(tester);
@@ -435,15 +438,18 @@ void main() {
       await _openDialog(tester);
       await _pickClinic(tester, 'Consultorio 7');
 
-      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AlertDialog), findsOneWidget);
-      expect(find.text(_overlap), findsOneWidget);
+      expect(find.textContaining('Solapamiento:'), findsWidgets);
+      final firstShiftId = harness.shiftDb.shifts
+          .firstWhere((shift) => shift.weeklyShiftId == harness.shiftDb.weeklyShifts.first.id)
+          .id;
+      final tile = tester.widget<CheckboxListTile>(
+        find.byKey(Key('weekly-shift-date-$firstShiftId')),
+      );
+      expect(tile.onChanged, isNull);
+      expect(tile.value, isFalse);
 
       await _pickClinic(tester, 'Consultorio 12');
-
-      expect(find.byKey(const Key('weekly-shift-clinic-error')), findsNothing);
+      expect(find.textContaining('Solapamiento:'), findsNothing);
       expect(_saveButton(tester).onPressed, isNotNull);
     });
 
@@ -454,9 +460,7 @@ void main() {
       await _openDialog(tester);
       await _pickClinic(tester, 'Consultorio 7');
 
-      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
-      await tester.pumpAndSettle();
-
+      expect(_saveButton(tester).onPressed, isNull);
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(find.text('No existe el consultorio indicado'), findsOneWidget);
     });
