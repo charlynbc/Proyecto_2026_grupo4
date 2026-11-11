@@ -17,6 +17,18 @@ class ApiWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
   final Dio _dio;
 
   @override
+  Future<ClinicChangePreview> previewClinicChange(
+    int weeklyShiftId,
+    int clinicId,
+  ) => _request(() async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      ApiRoutes.weeklyShiftClinicPreview(weeklyShiftId),
+      data: {'consultorioId': clinicId},
+    );
+    return ClinicChangePreview.fromJson(_body(response));
+  });
+
+  @override
   Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) =>
       _request(() async {
         final response = await _dio.patch<Map<String, dynamic>>(
