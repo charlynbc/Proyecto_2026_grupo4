@@ -411,6 +411,22 @@ public class TurnoSemanalRepository {
         );
     }
 
+    public Optional<Consultorio> obtenerConsultorioSinBloqueo(Long idConsultorio) {
+        return jdbcTemplate.query(
+                """
+                SELECT id_consultorio, nombre, ubicacion
+                FROM public.consultorio
+                WHERE id_consultorio = ?
+                """,
+                (rs, rowNum) -> new Consultorio(
+                        rs.getLong("id_consultorio"),
+                        rs.getString("nombre"),
+                        rs.getString("ubicacion")
+                ),
+                idConsultorio
+        ).stream().findFirst();
+    }
+
     /** Consulta el patrón sin bloquearlo: para la vista previa de solo lectura. */
     public Optional<PatronSemanal> obtenerPatronSinBloqueo(Long idTurnoSemanal) {
         return jdbcTemplate.query(
