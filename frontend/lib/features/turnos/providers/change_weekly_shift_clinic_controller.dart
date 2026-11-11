@@ -15,14 +15,24 @@ class ChangeWeeklyShiftClinicController extends Notifier<SubmitState> {
 
   /// Envía el cambio. Devuelve la configuración resultante, o `null` si falló:
   /// en ese caso [SubmitState.errorMessage] trae el mensaje del servidor.
-  Future<WeeklyShift?> submit(int weeklyShiftId, int clinicId) async {
+  Future<WeeklyShift?> submit(
+    int weeklyShiftId,
+    int clinicId, {
+    List<int>? turnoIds,
+    bool confirmarConConsultas = false,
+  }) async {
     final link = ref.keepAlive();
     state = const SubmitState(status: SubmitStatus.loading);
     try {
       final repository = await ref.read(
         weeklyShiftClinicRepositoryProvider.future,
       );
-      final updated = await repository.changeClinic(weeklyShiftId, clinicId);
+      final updated = await repository.changeClinic(
+        weeklyShiftId,
+        clinicId,
+        turnoIds: turnoIds,
+        confirmarConConsultas: confirmarConConsultas,
+      );
       ref.invalidate(weeklyShiftProvider(weeklyShiftId));
       ref.invalidate(shiftsPageProvider);
       state = const SubmitState(status: SubmitStatus.done);
