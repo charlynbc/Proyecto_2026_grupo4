@@ -39,7 +39,7 @@ class ApiWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
           ApiRoutes.weeklyShift(weeklyShiftId),
           data: {
             'consultorioId': clinicId,
-            if (turnoIds != null) 'turnoIds': turnoIds,
+            'turnoIds': ?turnoIds,
             if (confirmarConConsultas) 'confirmarConConsultas': true,
           },
         );
