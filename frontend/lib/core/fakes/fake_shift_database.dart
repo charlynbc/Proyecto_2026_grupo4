@@ -436,8 +436,7 @@ class FakeShiftDatabase {
     if (weeklyShiftId <= 0 || clinicId <= 0) {
       throw const ShiftValidationException('Identificadores no válidos');
     }
-    final pattern = weeklyShiftById(weeklyShiftId);
-    if (pattern == null) {
+    if (weeklyShiftById(weeklyShiftId) == null) {
       throw const ShiftNotFoundException('No existe el turno semanal indicado');
     }
     if (!admin.clinics.any((clinic) => clinic.id == clinicId)) {
