@@ -78,7 +78,7 @@ PostgreSQL.
 | 48 | `POST /api/auth/recuperacion/solicitar` | público | 05 | Pedir recuperación de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20; correo verificado solo con proveedor simulado/Mailpit, falta Resend real) | feat/front-recuperar-contrasena 03/11/2026 | [contrato #48](contrato-v1.md#e48) |
 | 49 | `POST /api/auth/recuperacion/completar` | público (token) | 05 | Definir contraseña nueva | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-recuperar-contrasena 03/11/2026 | [contrato #49](contrato-v1.md#e49) |
 | 50 | `POST /api/auth/cambio-correo/confirmar` | público (token) | 06 | Confirmar correo nuevo | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-confirmar-cambio-correo 04/11/2026 | [contrato #50](contrato-v1.md#e50) |
-| 51 | `PATCH /api/turnos-semanales/{id}` | FUNCIONARIO | 20 | Modificar el consultorio del turno semanal | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-rf20-cambiar-consultorio 06/11/2026 | [contrato #51](contrato-v1.md#e51) |
+| 51 | `PATCH /api/turnos-semanales/{id}` | FUNCIONARIO | 20 | Modificar el consultorio del turno semanal | AMPLIACIÓN RF-20 EN DESARROLLO (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-rf20-cambiar-consultorio 06/11/2026 | [contrato #51](contrato-v1.md#e51) |
 | 52 | `POST /api/especialidades/importaciones/previsualizar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | feat/front-especialidades-importar 05/11/2026 | [contrato #52](contrato-v1.md#e52) |
 | 53 | `POST /api/especialidades/importaciones/confirmar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | feat/front-especialidades-importar 05/11/2026 | [contrato #53](contrato-v1.md#e53) |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | feat/front-usuarios-importar 05/11/2026 | [contrato #54](contrato-v1.md#e54) |
@@ -99,6 +99,7 @@ PostgreSQL.
 | 69 | `GET /api/estadisticas/inasistencias` | ADMINISTRADOR | 42 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | - | [contrato #69](contrato-v1.md#e69) |
 | 70 | `GET /api/estadisticas/pases` | ADMINISTRADOR | 43 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | - | [contrato #70](contrato-v1.md#e70) |
 | 71 | `GET /api/estadisticas/franjas` | ADMINISTRADOR | 44 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | - | [contrato #71](contrato-v1.md#e71) |
+| 72 | `POST /api/turnos-semanales/{id}/consultorio/vista-previa` | FUNCIONARIO | 20 | Vista previa de fechas, consultas y cruces del consultorio destino (solo lectura) | EN DESARROLLO (rama feat/front-rf20-consultorio-parcial) | feat/front-rf20-consultorio-parcial 10/11/2026 | [contrato #72](contrato-v1.md#e72) |
 
 ## Rutas de la prueba de concepto
 
