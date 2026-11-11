@@ -26,6 +26,9 @@ import '../../features/cuenta/screens/edit_account_screen.dart';
 import '../../features/cuenta/screens/change_password_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
+import '../../features/medico/screens/doctor_attention_routes.dart';
+import '../../features/medico/screens/doctor_attentions_screen.dart';
+import '../../features/medico/screens/doctor_attention_detail_screen.dart';
 import '../../features/medico/screens/doctor_referral_routes.dart';
 import '../../features/medico/screens/doctor_referrals_screen.dart';
 import '../../features/medico/screens/doctor_result_routes.dart';
@@ -206,6 +209,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: kDoctorAttentionPath,
+        redirect: (context, state) =>
+            _appointmentId(state) == null ? kDoctorAttentionsPath : null,
+        builder: (context, state) =>
+            DoctorAttentionDetailScreen(id: _appointmentId(state)!),
+      ),
+      GoRoute(
         path: '${UserRole.administrador.announcementsPath}/nueva',
         builder: (context, state) => const NewAnnouncementScreen(),
       ),
@@ -363,6 +373,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
     return GoRoute(
       path: path,
       builder: (context, state) => const DoctorReferralsScreen(),
+    );
+  }
+  if (role == UserRole.medico && path == kDoctorAttentionsPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => const DoctorAttentionsScreen(),
     );
   }
   if (role == UserRole.socio) {
