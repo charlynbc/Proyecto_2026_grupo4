@@ -24,8 +24,16 @@ class FakeWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
   }
 
   @override
-  Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) async {
+  Future<WeeklyShift> changeClinic(
+    int weeklyShiftId,
+    int clinicId, {
+    List<int>? turnoIds,
+    bool confirmarConConsultas = false,
+  }) async {
     await Future<void>.delayed(latency);
-    return _db.changeClinic(weeklyShiftId, clinicId);
+    return _db.changeClinic(weeklyShiftId, clinicId,
+        turnoIds: turnoIds,
+        confirmarConConsultas: confirmarConConsultas,
+    );
   }
 }
