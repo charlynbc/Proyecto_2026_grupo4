@@ -17,8 +17,12 @@ import 'csv_parser.dart';
 /// se completa con celdas vacías, así `error` queda siempre en su columna. Las
 /// celdas de cada fila se ubican por su posición en el encabezado del archivo
 /// subido (`CsvTable.fileHeader`), aunque las columnas vinieran en otro orden.
-/// Una fila con más celdas conserva las de más después de las columnas
-/// conocidas y `error` va al final.
+/// Las celdas de más se conservan en columnas `extra_1`, `extra_2`... (tantas
+/// como la fila rechazada que más tiene), después de las conocidas y antes de
+/// `error`, que va siempre última con el motivo; las filas con menos sobrantes
+/// se completan con vacío. Sin celdas de más no hay columnas `extra_N`. Para
+/// volver a subir el archivo hay que borrar `error` y las `extra_N`: el
+/// servidor exige exactamente las columnas de la carga.
 ///
 /// Si una celda empieza con `=`, `@`, tabulación o retorno de carro (o con `+`
 /// o `-` sin ser un número o un teléfono) se le antepone un apóstrofo para que
@@ -39,11 +43,27 @@ Uint8List buildErrorRowsCsv({
       ..write('\r\n');
   }
 
-  line([...original.header, 'error']);
-  for (final number in numbers) {
+  final rows = [
+    for (final number in numbers)
+      _underHeader(original, original.rows[number - 2]),
+  ];
+  // Las celdas de más van bajo extra_1, extra_2... (tantas como la fila que
+  // más tiene) y `error` queda siempre última.
+  final extraColumns = rows.fold<int>(
+    0,
+    (most, row) => row.extra.length > most ? row.extra.length : most,
+  );
+  line([
+    ...original.header,
+    for (var i = 1; i <= extraColumns; i++) 'extra_$i',
+    'error',
+  ]);
+  for (var i = 0; i < rows.length; i++) {
     line([
-      ..._underHeader(original, original.rows[number - 2]),
-      errorsByRow[number]!,
+      ...rows[i].known,
+      ...rows[i].extra,
+      for (var j = rows[i].extra.length; j < extraColumns; j++) '',
+      errorsByRow[numbers[i]]!,
     ]);
   }
   return Uint8List.fromList(utf8.encode(out.toString()));
@@ -53,12 +73,21 @@ Uint8List buildErrorRowsCsv({
 /// cantidad esperada de celdas ya viene en el orden de `header`. Una corta o
 /// larga viene cruda, en el orden del archivo: cada celda se ubica por su
 /// posición en el encabezado del archivo, las que faltan quedan vacías y las
-/// de más se agregan al final.
-List<String> _underHeader(CsvTable table, List<String> cells) {
+/// de más se devuelven aparte, en su orden.
+({List<String> known, List<String> extra}) _underHeader(
+  CsvTable table,
+  List<String> cells,
+) {
   final fileHeader = table.fileHeader;
   final columns = table.header.length;
   if (fileHeader == null || cells.length == columns) {
-    return [...cells, for (var i = cells.length; i < columns; i++) ''];
+    return (
+      known: [
+        ...cells.take(columns),
+        for (var i = cells.length; i < columns; i++) '',
+      ],
+      extra: cells.skip(columns).toList(),
+    );
   }
   final placed = List<String>.filled(columns, '');
   final extra = <String>[];
@@ -72,7 +101,7 @@ List<String> _underHeader(CsvTable table, List<String> cells) {
       placed[column] = cells[i];
     }
   }
-  return [...placed, ...extra];
+  return (known: placed, extra: extra);
 }
 
 String _quote(String value) {

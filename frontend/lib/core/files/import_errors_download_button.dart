@@ -8,7 +8,8 @@ import 'picked_csv_file.dart';
 
 /// Botón para bajar un CSV con las filas rechazadas de una carga masiva: el
 /// archivo original, solo con las filas con error y una columna `error` con el
-/// motivo. Sin errores no muestra nada.
+/// motivo, más las columnas `extra_N` si alguna fila traía celdas de más. Sin
+/// errores no muestra nada.
 ///
 /// Las celdas se leen de [file] (las filas con error del servidor no las
 /// traen) con [expectedHeader]. Si algo falla muestra un aviso; si la persona

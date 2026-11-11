@@ -119,7 +119,7 @@ void main() {
       );
     });
 
-    test('una fila con celdas de más se copia entera', () {
+    test('una tabla armada a mano con una celda de más: va bajo extra_1', () {
       final bytes = buildErrorRowsCsv(
         original: const CsvTable(
           header: header,
@@ -132,7 +132,10 @@ void main() {
 
       expect(
         bytes,
-        _utf8('﻿"a";"b";"c";"error"\r\n"1";"2";"3";"4";"sobran"\r\n'),
+        _utf8(
+          '\uFEFF"a";"b";"c";"extra_1";"error"\r\n'
+          '"1";"2";"3";"4";"sobran"\r\n',
+        ),
       );
     });
 
@@ -195,26 +198,149 @@ void main() {
       );
     });
 
-    test('filas con distinta cantidad de celdas en el mismo archivo', () {
+    test(
+      'una fila corta y una con celdas de más: la de más va bajo extra_1 y el '
+      'motivo siempre bajo error',
+      () {
+        final bytes = download(
+          'requiere_pase,nombre\n'
+          'si,Ana\n'
+          'no\n'
+          'si,Luis,sobra\n',
+          const {2: 'Uno', 3: 'Dos', 4: 'Tres'},
+        );
+
+        expect(
+          bytes,
+          _utf8(
+            '\uFEFF"nombre";"requiere_pase";"extra_1";"error"\r\n'
+            '"Ana";"si";"";"Uno"\r\n'
+            '"";"no";"";"Dos"\r\n'
+            '"Luis";"si";"sobra";"Tres"\r\n',
+          ),
+        );
+      },
+    );
+
+    test('una fila con una celda de más: extra_1 antes de error', () {
+      final bytes = download('nombre,requiere_pase\nA,si,sobra\n', const {
+        2: 'Motivo',
+      });
+
+      expect(
+        bytes,
+        _utf8(
+          '\uFEFF"nombre";"requiere_pase";"extra_1";"error"\r\n'
+          '"A";"si";"sobra";"Motivo"\r\n',
+        ),
+      );
+    });
+
+    test('filas con 1 y 3 celdas de más: tres extra y la primera se completa', () {
       final bytes = download(
-        'requiere_pase,nombre\n'
-        'si,Ana\n'
-        'no\n'
-        'si,Luis,sobra\n',
-        const {2: 'Uno', 3: 'Dos', 4: 'Tres'},
+        'nombre,requiere_pase\n'
+        'A,si,x1\n'
+        'B,no,y1,y2,y3\n',
+        const {2: 'Uno', 3: 'Dos'},
       );
 
-      // La celda de más se copia después de las columnas conocidas.
+      expect(
+        bytes,
+        _utf8(
+          '\uFEFF"nombre";"requiere_pase";"extra_1";"extra_2";"extra_3";"error"'
+          '\r\n'
+          '"A";"si";"x1";"";"";"Uno"\r\n'
+          '"B";"no";"y1";"y2";"y3";"Dos"\r\n',
+        ),
+      );
+    });
+
+    test('con punto y coma en el archivo, las de más van bajo extra_1', () {
+      final bytes = download('nombre;requiere_pase\nA;si;sobra\n', const {
+        2: 'Motivo',
+      });
+
+      expect(
+        bytes,
+        _utf8(
+          '\uFEFF"nombre";"requiere_pase";"extra_1";"error"\r\n'
+          '"A";"si";"sobra";"Motivo"\r\n',
+        ),
+      );
+    });
+
+    test('sin celdas de más no hay columnas extra', () {
+      final bytes = download('requiere_pase,nombre\nsi,Ana\nno\n', const {
+        2: 'Uno',
+        3: 'Dos',
+      });
+
       expect(
         bytes,
         _utf8(
           '\uFEFF"nombre";"requiere_pase";"error"\r\n'
           '"Ana";"si";"Uno"\r\n'
-          '"";"no";"Dos"\r\n'
-          '"Luis";"si";"sobra";"Tres"\r\n',
+          '"";"no";"Dos"\r\n',
         ),
       );
     });
+
+    test(
+      'un valor de más solo cuenta si su fila está entre las rechazadas',
+      () {
+        // La fila 3 tiene una celda de más pero no está rechazada.
+        final bytes = download(
+          'nombre,requiere_pase\nA,si\nB,no,sobra\n',
+          const {2: 'Uno'},
+        );
+
+        expect(
+          bytes,
+          _utf8(
+            '\uFEFF"nombre";"requiere_pase";"error"\r\n'
+            '"A";"si";"Uno"\r\n',
+          ),
+        );
+      },
+    );
+
+    test(
+      'se puede leer y corregir: todas las filas tienen las mismas columnas',
+      () {
+        final bytes = download(
+          'nombre,requiere_pase\n'
+          'A,si,x1\n'
+          'B,no,y1,y2\n'
+          'C\n',
+          const {2: 'Uno', 3: 'Dos', 4: 'Tres'},
+        );
+
+        final table = parseCsv(
+          bytes,
+          expectedHeader: const [
+            'nombre',
+            'requiere_pase',
+            'extra_1',
+            'extra_2',
+            'error',
+          ],
+        );
+
+        expect(table.header, [
+          'nombre',
+          'requiere_pase',
+          'extra_1',
+          'extra_2',
+          'error',
+        ]);
+        expect(table.rows, [
+          ['A', 'si', 'x1', '', 'Uno'],
+          ['B', 'no', 'y1', 'y2', 'Dos'],
+          ['C', '', '', '', 'Tres'],
+        ]);
+        expect(table.rows.every((row) => row.length == 5), isTrue);
+      },
+    );
 
     test(
       'con punto y coma y cuatro columnas, la corta no corre sus celdas',
