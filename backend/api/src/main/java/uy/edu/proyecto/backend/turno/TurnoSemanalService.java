@@ -149,6 +149,234 @@ public class TurnoSemanalService {
     }
 
     /**
+     * RF-20: vista previa no persistente, válida para turnos ACTIVOS y
+     * SUSPENDIDOS. Los cruces de fechas suspendidas se revalidan en RF-15.
+     */
+    @Transactional(readOnly = true)
+    public VistaPreviaConsultorioResponse vistaPreviaConsultorio(
+            Long idPatron, ModificarTurnoSemanalRequest request
+    ) {
+        validarCambioConsultorio(idPatron, request);
+        PatronSemanal patron = repository.obtenerPatronSinBloqueo(idPatron)
+                .orElseThrow(() -> noEncontrado(
+                        "No existe el turno semanal indicado"
+                ));
+        repository.obtenerConsultorioSinBloqueo(request.consultorioId())
+                .orElseThrow(() -> noEncontrado(
+                        "No existe el consultorio indicado"
+                ));
+        LocalDate hoy = LocalDate.now(clock.withZone(ZONA));
+        List<TurnoSemanalRepository.FechaTurno> fechas =
+                repository.listarFechasDesde(idPatron, hoy, false);
+        java.util.Map<Long, Integer> agendadas =
+                repository.contarAgendadasPorFecha(idPatron, hoy);
+        var solapamientos = solapamientosPorFecha(
+                patron, request.consultorioId(), fechas
+        );
+        List<VistaPreviaConsultorioResponse.Fecha> respuesta = new ArrayList<>();
+        for (var fecha : fechas) {
+            respuesta.add(new VistaPreviaConsultorioResponse.Fecha(
+                    fecha.turnoId(),
+                    fecha.fecha(),
+                    fecha.estado(),
+                    agendadas.getOrDefault(fecha.turnoId(), 0),
+                    fecha.consultorio(),
+                    solapamientos.getOrDefault(fecha.fecha(), List.of())
+            ));
+        }
+        return new VistaPreviaConsultorioResponse(List.copyOf(respuesta));
+    }
+
+    private void validarCambioConsultorio(
+            Long idPatron, ModificarTurnoSemanalRequest request
+    ) {
+        if (idPatron == null || idPatron <= 0
+                || request == null || request.consultorioId() == null
+                || request.consultorioId() <= 0) {
+            throw validacion("Faltan datos obligatorios o no son válidos");
+        }
+    }
+
+    /**
+     * Cambio parcial atómico: no se aceptan IDs de otras configuraciones,
+     * fechas pasadas, duplicados ni conflictos. No cancela consultas.
+     */
+    private TurnoSemanalResponse modificarConsultorioPorFechas(
+            Long idPatron, ModificarTurnoSemanalRequest request
+    ) {
+        PatronSemanal patron = repository.bloquearPatron(idPatron)
+                .orElseThrow(() -> noEncontrado(
+                        "No existe el turno semanal indicado"
+                ));
+        Consultorio consultorioNuevo = repository
+                .bloquearConsultorio(request.consultorioId())
+                .orElseThrow(() -> noEncontrado(
+                        "No existe el consultorio indicado"
+                ));
+        LocalDate hoy = LocalDate.now(clock.withZone(ZONA));
+        // Bloqueo FOR UPDATE de las mismas filas que la reserva de consultas.
+        List<TurnoSemanalRepository.FechaTurno> futuras =
+                repository.listarFechasDesde(idPatron, hoy, true);
+        if (futuras.isEmpty()) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "TURNO_NO_MODIFICABLE",
+                    "El turno semanal ya finalizó; no tiene fechas actuales"
+                            + " ni futuras por modificar"
+            );
+        }
+
+        List<Long> solicitados = request.turnoIds();
+        if (solicitados != null) {
+            if (solicitados.isEmpty()
+                    || solicitados.stream().anyMatch(
+                            id -> id == null || id <= 0
+                    )
+                    || new HashSet<>(solicitados).size() != solicitados.size()) {
+                throw validacion("turnoIds debe incluir IDs válidos y únicos");
+            }
+            Set<Long> disponibles = futuras.stream()
+                    .map(TurnoSemanalRepository.FechaTurno::turnoId)
+                    .collect(Collectors.toSet());
+            if (!disponibles.containsAll(solicitados)) {
+                throw validacion(
+                        "Los turnoIds deben pertenecer al patrón y ser de hoy en adelante"
+                );
+            }
+        }
+
+        Set<Long> elegidos = solicitados == null
+                ? futuras.stream()
+                    .map(TurnoSemanalRepository.FechaTurno::turnoId)
+                    .collect(Collectors.toSet())
+                : new HashSet<>(solicitados);
+        List<TurnoSemanalRepository.FechaTurno> seleccionadas = futuras
+                .stream().filter(fecha -> elegidos.contains(fecha.turnoId()))
+                .toList();
+        List<TurnoSemanalRepository.FechaTurno> modificadas = seleccionadas
+                .stream()
+                .filter(fecha -> !fecha.consultorio().id()
+                        .equals(consultorioNuevo.id()))
+                .toList();
+
+        // La confirmación no autoriza forzar solapamientos.
+        var cruces = solapamientosPorFecha(
+                patron, consultorioNuevo.id(), modificadas
+        );
+        if (!cruces.isEmpty()) {
+            String detalles = cruces.entrySet().stream()
+                    .flatMap(entrada -> entrada.getValue().stream().map(
+                            numero -> "fecha " + entrada.getKey()
+                                    + ", número " + numero.numeroPropio()
+                                    + " con número existente "
+                                    + numero.numeroExistente()
+                    ))
+                    .collect(Collectors.joining("; "));
+            throw new ApiException(
+                    HttpStatus.CONFLICT, "SOLAPAMIENTO_TURNO",
+                    "Se encontraron solapamientos: " + detalles
+            );
+        }
+
+        java.util.Map<Long, Integer> agendadas =
+                repository.contarAgendadasPorFecha(idPatron, hoy);
+        List<LocalDate> fechasConConsultas = modificadas.stream()
+                .filter(fecha -> agendadas.getOrDefault(
+                        fecha.turnoId(), 0
+                ) > 0)
+                .map(TurnoSemanalRepository.FechaTurno::fecha)
+                .toList();
+        if (!fechasConConsultas.isEmpty()
+                && !Boolean.TRUE.equals(request.confirmarConConsultas())) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "TURNO_NO_MODIFICABLE",
+                    "Hay consultas agendadas en las fechas "
+                            + fechasConConsultas + ". Confirmá el cambio"
+                            + " para continuar."
+            );
+        }
+
+        repository.actualizarConsultorioDeFechas(
+                idPatron,
+                consultorioNuevo.id(),
+                modificadas.stream()
+                        .map(TurnoSemanalRepository.FechaTurno::turnoId)
+                        .toList(),
+                hoy
+        );
+        // El patrón se actualiza solamente si la selección cubre TODAS las
+        // fechas vigentes, incluso las suspendidas.
+        if (seleccionadas.size() == futuras.size()) {
+            repository.actualizarConsultorioDelPatron(
+                    idPatron, consultorioNuevo.id()
+            );
+        }
+        return consultaRepository.obtenerPatron(idPatron)
+                .orElseThrow(() -> noEncontrado(
+                        "No existe el turno semanal indicado"
+                ));
+    }
+
+    private java.util.Map<LocalDate,
+            List<VistaPreviaConsultorioResponse.Solapamiento>>
+            solapamientosPorFecha(
+                    PatronSemanal patron,
+                    Long consultorioNuevo,
+                    List<TurnoSemanalRepository.FechaTurno> fechas
+            ) {
+        List<LocalDate> fechasActivas = fechas.stream()
+                .filter(fecha -> "ACTIVO".equals(fecha.estado()))
+                .map(TurnoSemanalRepository.FechaTurno::fecha)
+                .distinct().sorted().toList();
+        if (fechasActivas.isEmpty()) {
+            return java.util.Map.of();
+        }
+        List<NumeroInstancia> propios =
+                repository.numerosDelPatron(patron.id());
+        List<NumeroExistente> existentes =
+                repository.buscarNumerosActivosDeOtrosPatrones(
+                        patron.idMedico(), consultorioNuevo,
+                        fechasActivas.getFirst(),
+                        fechasActivas.getLast(),
+                        patron.id()
+                );
+        Set<LocalDate> fechasElegidas = new HashSet<>(fechasActivas);
+        java.util.Map<LocalDate,
+                java.util.Set<VistaPreviaConsultorioResponse.Solapamiento>>
+                conflictos = new java.util.LinkedHashMap<>();
+        for (NumeroExistente existente : existentes) {
+            if (!fechasElegidas.contains(existente.fecha())) {
+                continue;
+            }
+            if (!existente.idMedico().equals(patron.idMedico())
+                    && !existente.idConsultorio().equals(consultorioNuevo)) {
+                continue;
+            }
+            for (NumeroInstancia propio : propios) {
+                boolean seCruzan = propio.horaInicio()
+                        .isBefore(existente.horaFin())
+                        && existente.horaInicio().isBefore(propio.horaFin());
+                if (!seCruzan) {
+                    continue;
+                }
+                conflictos.computeIfAbsent(existente.fecha(),
+                        key -> new java.util.LinkedHashSet<>())
+                        .add(new VistaPreviaConsultorioResponse.Solapamiento(
+                                propio.numero(), existente.numero()
+                        ));
+            }
+        }
+        java.util.Map<LocalDate,
+                List<VistaPreviaConsultorioResponse.Solapamiento>> respuesta =
+                new java.util.LinkedHashMap<>();
+        conflictos.forEach(
+                (fecha, numeros) -> respuesta.put(fecha, List.copyOf(numeros))
+        );
+        return respuesta;
+    }
+
+    /**
      * RF-20: modifica el consultorio de una configuracion semanal. Solo se
      * permite si ninguna fecha cuyo dia todavia no termino tiene consultas
      * Agendadas; la configuracion resultante se revalida como en el alta
@@ -162,6 +390,12 @@ public class TurnoSemanalService {
             Long idPatron,
             ModificarTurnoSemanalRequest request
     ) {
+        validarCambioConsultorio(idPatron, request);
+        if (request.turnoIds() != null
+                || Boolean.TRUE.equals(request.confirmarConConsultas())) {
+            return modificarConsultorioPorFechas(idPatron, request);
+        }
+
         if (idPatron == null || idPatron <= 0
                 || request == null || request.consultorioId() == null
                 || request.consultorioId() <= 0) {
