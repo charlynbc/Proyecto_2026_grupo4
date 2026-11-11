@@ -408,11 +408,20 @@ public class TurnoSemanalService {
                 ));
 
         if (patron.idConsultorio().equals(request.consultorioId())) {
-            // Sin cambios: responde el estado actual (operacion idempotente).
-            return consultaRepository.obtenerPatron(idPatron)
-                    .orElseThrow(() -> noEncontrado(
-                            "No existe el turno semanal indicado"
-                    ));
+            // El patrón puede coincidir aunque una fecha concreta tenga otro
+            // consultorio tras un cambio parcial anterior.
+            LocalDate hoy = LocalDate.now(clock.withZone(ZONA));
+            boolean todasEnDestino = repository.listarFechasDesde(
+                    idPatron, hoy, false
+            ).stream().allMatch(fecha -> fecha.consultorio().id()
+                    .equals(request.consultorioId()));
+            if (todasEnDestino) {
+                return consultaRepository.obtenerPatron(idPatron)
+                        .orElseThrow(() -> noEncontrado(
+                                "No existe el turno semanal indicado"
+                        ));
+            }
+            return modificarConsultorioPorFechas(idPatron, request);
         }
 
         Consultorio consultorioNuevo = repository
@@ -447,8 +456,8 @@ public class TurnoSemanalService {
                     "TURNO_NO_MODIFICABLE",
                     "El turno tiene " + agendadas
                             + " consulta(s) agendada(s) en fechas vigentes."
-                            + " Suspenda las fechas correspondientes (RF-14)"
-                            + " y dé de alta otro turno."
+                            + " Confirmá el cambio para continuar, o elegí"
+                            + " otras fechas."
             );
         }
 
