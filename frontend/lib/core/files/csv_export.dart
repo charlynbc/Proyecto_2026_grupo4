@@ -14,8 +14,11 @@ import 'csv_parser.dart';
 /// dobles (la comilla interna se duplica), fin de línea `\r\n` también en la
 /// última fila, el encabezado original más la columna `error` y solo las filas
 /// con error, en orden de número. Una fila con menos celdas que el encabezado
-/// se completa con celdas vacías, así `error` queda siempre en su columna. Una
-/// fila con más celdas se copia entera y `error` va al final.
+/// se completa con celdas vacías, así `error` queda siempre en su columna. Las
+/// celdas de cada fila se ubican por su posición en el encabezado del archivo
+/// subido (`CsvTable.fileHeader`), aunque las columnas vinieran en otro orden.
+/// Una fila con más celdas conserva las de más después de las columnas
+/// conocidas y `error` va al final.
 ///
 /// Si una celda empieza con `=`, `@`, tabulación o retorno de carro (o con `+`
 /// o `-` sin ser un número o un teléfono) se le antepone un apóstrofo para que
@@ -38,14 +41,38 @@ Uint8List buildErrorRowsCsv({
 
   line([...original.header, 'error']);
   for (final number in numbers) {
-    final cells = original.rows[number - 2];
     line([
-      ...cells,
-      for (var i = cells.length; i < original.header.length; i++) '',
+      ..._underHeader(original, original.rows[number - 2]),
       errorsByRow[number]!,
     ]);
   }
   return Uint8List.fromList(utf8.encode(out.toString()));
+}
+
+/// Las celdas de una fila bajo la columna que les corresponde. Una fila con la
+/// cantidad esperada de celdas ya viene en el orden de `header`. Una corta o
+/// larga viene cruda, en el orden del archivo: cada celda se ubica por su
+/// posición en el encabezado del archivo, las que faltan quedan vacías y las
+/// de más se agregan al final.
+List<String> _underHeader(CsvTable table, List<String> cells) {
+  final fileHeader = table.fileHeader;
+  final columns = table.header.length;
+  if (fileHeader == null || cells.length == columns) {
+    return [...cells, for (var i = cells.length; i < columns; i++) ''];
+  }
+  final placed = List<String>.filled(columns, '');
+  final extra = <String>[];
+  for (var i = 0; i < cells.length; i++) {
+    final column = i < fileHeader.length
+        ? table.header.indexOf(fileHeader[i])
+        : -1;
+    if (column < 0) {
+      extra.add(cells[i]);
+    } else {
+      placed[column] = cells[i];
+    }
+  }
+  return [...placed, ...extra];
 }
 
 String _quote(String value) {

@@ -145,6 +145,102 @@ void main() {
     });
   });
 
+  group('el archivo subido con las columnas en otro orden', () {
+    const expected = ['nombre', 'requiere_pase'];
+
+    /// El CSV de rechazadas del archivo [text] (lo que sube la persona), con
+    /// el motivo dado a cada fila de datos desde la 2.
+    Uint8List download(String text, Map<int, String> errors) {
+      final table = parseCsv(_utf8(text), expectedHeader: expected);
+      return buildErrorRowsCsv(original: table, errorsByRow: errors);
+    }
+
+    test('fila completa: cada celda queda bajo su columna', () {
+      final bytes = download('requiere_pase,nombre\nsi,Neurología\n', const {
+        2: 'Motivo',
+      });
+
+      expect(
+        bytes,
+        _utf8(
+          '\uFEFF"nombre";"requiere_pase";"error"\r\n'
+          '"Neurología";"si";"Motivo"\r\n',
+        ),
+      );
+    });
+
+    test('fila corta: "si" queda bajo requiere_pase y nombre queda vacío', () {
+      final bytes = download('requiere_pase,nombre\nsi\n', const {2: 'Motivo'});
+
+      expect(
+        bytes,
+        _utf8(
+          '\uFEFF"nombre";"requiere_pase";"error"\r\n'
+          '"";"si";"Motivo"\r\n',
+        ),
+      );
+    });
+
+    test('fila corta con las columnas en el orden esperado', () {
+      final bytes = download('nombre,requiere_pase\nNeurología\n', const {
+        2: 'Motivo',
+      });
+
+      expect(
+        bytes,
+        _utf8(
+          '\uFEFF"nombre";"requiere_pase";"error"\r\n'
+          '"Neurología";"";"Motivo"\r\n',
+        ),
+      );
+    });
+
+    test('filas con distinta cantidad de celdas en el mismo archivo', () {
+      final bytes = download(
+        'requiere_pase,nombre\n'
+        'si,Ana\n'
+        'no\n'
+        'si,Luis,sobra\n',
+        const {2: 'Uno', 3: 'Dos', 4: 'Tres'},
+      );
+
+      // La celda de más se copia después de las columnas conocidas.
+      expect(
+        bytes,
+        _utf8(
+          '\uFEFF"nombre";"requiere_pase";"error"\r\n'
+          '"Ana";"si";"Uno"\r\n'
+          '"";"no";"Dos"\r\n'
+          '"Luis";"si";"sobra";"Tres"\r\n',
+        ),
+      );
+    });
+
+    test(
+      'con punto y coma y cuatro columnas, la corta no corre sus celdas',
+      () {
+        final table = parseCsv(
+          _utf8('c;a;d;b\n3;1\n'),
+          expectedHeader: const ['a', 'b', 'c', 'd'],
+        );
+
+        final bytes = buildErrorRowsCsv(
+          original: table,
+          errorsByRow: const {2: 'm'},
+        );
+
+        // 3 es de c y 1 es de a: las otras quedan vacías.
+        expect(
+          bytes,
+          _utf8(
+            '\uFEFF"a";"b";"c";"d";"error"\r\n'
+            '"1";"";"3";"";"m"\r\n',
+          ),
+        );
+      },
+    );
+  });
+
   test('ida y vuelta: parseCsv devuelve las mismas celdas y motivos', () {
     final bytes = buildErrorRowsCsv(
       original: const CsvTable(
