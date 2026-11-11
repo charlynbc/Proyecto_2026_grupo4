@@ -17,8 +17,8 @@ const _finished =
     'El turno semanal ya finalizó; no tiene fechas actuales ni futuras '
     'por modificar';
 const _twoAppointments =
-    'El turno tiene 2 consulta(s) agendada(s) en fechas vigentes. '
-    'Suspenda las fechas correspondientes (RF-14) y dé de alta otro turno.';
+    'Hay consultas agendadas en las fechas 2026-10-27. '
+    'Confirmá el cambio para continuar.';
 const _overlap =
     'Se encontraron solapamientos: fecha 2026-10-20, número 1 con número '
     'existente 1';
