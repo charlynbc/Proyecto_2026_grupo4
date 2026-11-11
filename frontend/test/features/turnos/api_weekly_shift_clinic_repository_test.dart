@@ -62,6 +62,34 @@ Matcher get _genericError => isA<ApiException>()
     .having((e) => e.message, 'message', kApiGenericMessage);
 
 void main() {
+  test('pide POST de vista previa, sin modificar turnos', () async {
+    final (repository, adapter) = _ok(200, {
+      'fechas': [
+        {
+          'turnoId': 301,
+          'fecha': '2026-11-11',
+          'estado': 'ACTIVO',
+          'consultasAgendadas': 2,
+          'solapamientos': [
+            {'numeroPropio': 1, 'numeroExistente': 3},
+          ],
+        },
+      ],
+    });
+
+    final preview = await repository.previewClinicChange(120, 7);
+
+    expect(adapter.last!.method, 'POST');
+    expect(
+      adapter.last!.path,
+      '/api/turnos-semanales/120/consultorio/vista-previa',
+    );
+    expect(adapter.last!.data, {'consultorioId': 7});
+    expect(preview.dates.single.shiftId, 301);
+    expect(preview.dates.single.requiresConfirmation, isTrue);
+    expect(preview.dates.single.hasOverlaps, isTrue);
+  });
+
   test('pide PATCH con consultorioId', () async {
     final (repository, adapter) = _ok(200, weeklyShiftJson());
 
