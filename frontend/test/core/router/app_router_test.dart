@@ -284,6 +284,7 @@ void main() {
       expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.text('Cartelera'), findsOneWidget);
       expect(find.text('Pases'), findsOneWidget);
+      expect(find.text('Atenciones'), findsOneWidget);
       expect(find.byType(DoctorShiftsScreen), findsOneWidget);
       await unmountApp(tester);
       container.invalidate(doctorAgendaControllerProvider);
