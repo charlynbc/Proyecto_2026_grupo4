@@ -11,6 +11,8 @@ import 'package:agenda_medica/features/auth/repositories/fake_auth_repository.da
 import 'package:agenda_medica/features/cuenta/models/account.dart';
 import 'package:agenda_medica/features/cuenta/models/account_changes.dart';
 import 'package:agenda_medica/features/cuenta/repositories/account_repository.dart';
+import 'package:agenda_medica/features/cuenta/repositories/password_change_repository.dart';
+import 'package:agenda_medica/features/cuenta/providers/password_change_repository_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,6 +83,7 @@ String textOf(WidgetTester tester, String key) =>
 Future<ProviderContainer> pumpAccountApp(
   WidgetTester tester, {
   Size size = const Size(900, 1800),
+  PasswordChangeRepository? passwordRepository,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -89,6 +92,10 @@ Future<ProviderContainer> pumpAccountApp(
   final container = ProviderContainer(
     overrides: [
       useFakesProvider.overrideWithValue(true),
+      if (passwordRepository != null)
+        passwordChangeRepositoryProvider.overrideWith(
+          (ref) async => passwordRepository,
+        ),
       employeeAccessAvailableProvider.overrideWithValue(true),
       authRepositoryProvider.overrideWith(
         (ref) async => FakeAuthRepository(

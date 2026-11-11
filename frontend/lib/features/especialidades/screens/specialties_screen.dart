@@ -15,6 +15,9 @@ const String kSpecialtiesPath = '/admin/especialidades';
 const String kNewSpecialtyPath = '/admin/especialidades/nueva';
 const String kImportSpecialtiesPath = '/admin/especialidades/importar';
 
+/// La pantalla para corregir la especialidad [id] (RF-38).
+String specialtyEditPath(int id) => '$kSpecialtiesPath/$id/corregir';
+
 /// Consulta de especialidades con filtros (RF-36) y acceso al alta (RF-29).
 class SpecialtiesScreen extends ConsumerWidget {
   const SpecialtiesScreen({super.key});
@@ -127,15 +130,39 @@ class SpecialtiesScreen extends ConsumerWidget {
 class _SpecialtyTile extends StatelessWidget {
   const _SpecialtyTile(this.specialty);
 
+  /// Por debajo de este ancho de la fila, "Requiere pase" o "Libre" pasa
+  /// debajo del nombre. Es el mismo corte que usa la barra de filtros.
+  static const double _narrowWidth = 500;
+
   final Specialty specialty;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        title: Text(specialty.name),
-        trailing: Text(specialty.requiresReferral ? 'Requiere pase' : 'Libre'),
-      ),
+    final label = specialty.requiresReferral ? 'Requiere pase' : 'Libre';
+    final edit = IconButton(
+      key: Key('specialty-edit-${specialty.id}'),
+      tooltip: 'Corregir',
+      icon: const Icon(Icons.edit_outlined),
+      onPressed: () => context.go(specialtyEditPath(specialty.id)),
+    );
+    // Con poco ancho el texto a la derecha le saca lugar al nombre y lo parte
+    // a mitad de palabra: va debajo y a la derecha queda solo el lápiz.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < _narrowWidth;
+        return Card(
+          child: ListTile(
+            title: Text(specialty.name),
+            subtitle: narrow ? Text(label) : null,
+            trailing: narrow
+                ? edit
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [Text(label), edit],
+                  ),
+          ),
+        );
+      },
     );
   }
 }

@@ -36,6 +36,6 @@ class ApiPasswordRecoveryLinkRepository
   String? _serverMessage(DioException e) {
     final data = e.response?.data;
     final message = data is Map ? data['message'] as String? : null;
-    return message == null || message.isEmpty ? null : message;
+    return message == null || message.trim().isEmpty ? null : message;
   }
 }

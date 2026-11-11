@@ -366,52 +366,53 @@ class CancelacionMedicoIT extends BaseIntegracionIT {
 
     @Test
     void unaConsultaFueraDePlazoRechazaTodaLaOperacion() {
-        // Los dos números deben quedar en la misma fecha y nunca cruzar medianoche.
-        // De noche ya no hay espacio para combinar un número cercano y otro a más
-        // de dos horas en el mismo día: usamos dos números vencidos para verificar
-        // igualmente que la cancelación masiva se rechaza sin modificar datos.
-        LocalDateTime ahora = LocalDateTime.now(ZONA);
-        LocalTime inicioCercano;
-        LocalTime inicioLejano;
-        if (ahora.toLocalTime().isAfter(LocalTime.of(20, 5))) {
-            inicioCercano = LocalTime.of(10, 0);
-            inicioLejano = LocalTime.of(13, 0);
-        } else {
-            LocalDateTime base = ahora.plusMinutes(60).withSecond(0).withNano(0);
-            inicioCercano = base.toLocalTime().minusMinutes(base.getMinute() % 5);
-            inicioLejano = inicioCercano.plusMinutes(150);
-        }
-        long turno = sembrarTurno(hoy(), 0);
-        long semanal = jdbc.queryForObject(
-                "SELECT id_turno_semanal FROM turno WHERE id_turno = ?", Long.class, turno);
-        for (int i = 0; i < 2; i++) {
-            LocalTime inicio = i == 0 ? inicioCercano : inicioLejano;
-            long patron = jdbc.queryForObject(
-                    "INSERT INTO numero_semanal (id_turno_semanal, numero, hora_inicio, hora_fin)"
-                            + " VALUES (?, ?, ?::time, ?::time) RETURNING id_numero_semanal",
-                    Long.class, semanal, i + 1, inicio.toString(),
-                    inicio.plusMinutes(20).toString());
-            jdbc.update("INSERT INTO numero (id_turno, id_numero_semanal, numero, hora_inicio,"
-                    + " hora_fin) VALUES (?, ?, ?, ?::time, ?::time)",
-                    turno, patron, i + 1, inicio.toString(), inicio.plusMinutes(20).toString());
-        }
-        long c1 = sembrarConsulta(idSocio1, numeroId(turno, 1));
-        long c2 = sembrarConsulta(idSocio2, numeroId(turno, 2));
+        // Con el reloj detenido a mediodía siempre hay, en la misma fecha, un número
+        // a menos de 2 horas (13:00) y otro a más (16:00), se corra a la hora que se
+        // corra. Con la hora real, de noche los dos quedaban vencidos y el test no
+        // distinguía "rechaza todo" de "cancela el que está en plazo".
+        LocalDate dia = hoy();
+        reloj.fijar(dia.atTime(12, 0));
+        long turno = turnoConNumeros(dia, LocalTime.of(13, 0), LocalTime.of(16, 0));
+        long cercana = sembrarConsulta(idSocio1, numeroId(turno, 1));
+        long lejana = sembrarConsulta(idSocio2, numeroId(turno, 2));
 
         Respuesta r = cancelarTurno(tokenMedico(), turno, "{\"motivo\":\"Guardia\"}");
 
         assertEquals(409, r.estado(), r.cuerpo());
         assertEquals("CANCELACION_FUERA_DE_PLAZO", r.codigo());
-        // No se modificó ningún dato.
+        // No se modificó ningún dato, tampoco la consulta lejana.
         assertEquals("ACTIVO", jdbc.queryForObject(
                 "SELECT estado FROM turno WHERE id_turno = ?", String.class, turno));
-        assertEquals("AGENDADA", estadoConsulta(c1));
-        assertEquals("AGENDADA", estadoConsulta(c2));
+        assertEquals("AGENDADA", estadoConsulta(cercana));
+        assertEquals("AGENDADA", estadoConsulta(lejana));
         assertEquals(0, jdbc.queryForObject(
                 "SELECT count(*) FROM turno_evento WHERE id_turno = ?", Integer.class, turno));
         assertEquals(0, jdbc.queryForObject(
                 "SELECT count(*) FROM notificacion WHERE id_consulta IN (?, ?)",
-                Integer.class, c1, c2));
+                Integer.class, cercana, lejana));
+
+        // El escenario es el buscado: la lejana sola sí estaba en plazo.
+        Respuesta sola = cancelarConsulta(tokenMedico(), lejana, "{\"motivo\":\"x\"}");
+        assertEquals(200, sola.estado(), sola.cuerpo());
+    }
+
+    /** Turno de esa fecha con un número de 20 minutos por cada hora de inicio. */
+    private long turnoConNumeros(LocalDate fecha, LocalTime... inicios) {
+        long turno = sembrarTurno(fecha, 0);
+        long semanal = jdbc.queryForObject(
+                "SELECT id_turno_semanal FROM turno WHERE id_turno = ?", Long.class, turno);
+        for (int i = 0; i < inicios.length; i++) {
+            String inicio = inicios[i].toString();
+            String fin = inicios[i].plusMinutes(20).toString();
+            long patron = jdbc.queryForObject(
+                    "INSERT INTO numero_semanal (id_turno_semanal, numero, hora_inicio, hora_fin)"
+                            + " VALUES (?, ?, ?::time, ?::time) RETURNING id_numero_semanal",
+                    Long.class, semanal, i + 1, inicio, fin);
+            jdbc.update("INSERT INTO numero (id_turno, id_numero_semanal, numero, hora_inicio,"
+                    + " hora_fin) VALUES (?, ?, ?, ?::time, ?::time)",
+                    turno, patron, i + 1, inicio, fin);
+        }
+        return turno;
     }
 
     @Test

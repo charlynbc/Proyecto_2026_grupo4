@@ -939,6 +939,45 @@ void main() {
     );
   });
 
+  testWidgets('con 700 px la tarjeta abre la configuración', (tester) async {
+    final admin = FakeAdminDatabase();
+    final shiftDb = buildListingDb(admin);
+    final page = shiftDb.listShifts(const ShiftFilters());
+    final router = await pumpAdminScreens(
+      tester,
+      size: const Size(700, 1800),
+      initialLocation: kShiftsPath,
+      routes: [
+        GoRoute(path: kShiftsPath, builder: (_, _) => const ShiftsScreen()),
+        GoRoute(
+          path: kWeeklyShiftDetailPath,
+          builder: (_, state) =>
+              Scaffold(body: Text('Detalle ${state.pathParameters['id']}')),
+        ),
+      ],
+      overrides: [
+        shiftRepositoryProvider.overrideWith(
+          (ref) async => FakeShiftRepository(shiftDb, latency: Duration.zero),
+        ),
+        specialtyRepositoryProvider.overrideWith(
+          (ref) async => FakeSpecialtyRepository(admin, latency: Duration.zero),
+        ),
+      ],
+    );
+
+    final first = page.items.first;
+    expect(first.weeklyShiftId, isNot(first.id));
+    final link = find.byKey(Key('shift-config-link-${first.id}'));
+    await tester.ensureVisible(link);
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+
+    expect(
+      currentLocation(router),
+      weeklyShiftDetailLocation(first.weeklyShiftId),
+    );
+  });
+
   testWidgets('con 700 px la tarjeta dice Ver configuración', (tester) async {
     final admin = FakeAdminDatabase();
     final shiftDb = buildListingDb(admin);

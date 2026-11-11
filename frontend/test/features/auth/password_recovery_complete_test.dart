@@ -195,6 +195,35 @@ void main() {
     expect(locationOf(container), '/recuperacion/solicitar');
   });
 
+  testWidgets('al guardar sin mensaje muestra el fallback de recuperación', (
+    tester,
+  ) async {
+    final repo = RecordingPasswordRecoveryRepository(
+      completeError: const InvalidRecoveryLinkException(),
+    );
+    final container = await _open(tester, repo: repo);
+
+    await _fill(tester, password: 'claveNueva9');
+    await _tapSave(tester);
+
+    expect(repo.completions, hasLength(1));
+    expect(find.text('No pudimos cambiar tu contraseña'), findsOneWidget);
+    expect(find.text('Este enlace ya no sirve'), findsNothing);
+    expect(
+      find.text(
+        'El enlace ya no es válido. Pedí uno nuevo desde la pantalla de ingreso.',
+      ),
+      findsOneWidget,
+    );
+    expect(_fields, findsNothing);
+    expect(_save, findsNothing);
+    final newLink = find.widgetWithText(FilledButton, 'Pedir un enlace nuevo');
+    expect(newLink, findsOneWidget);
+    await tester.tap(newLink);
+    await tester.pumpAndSettle();
+    expect(locationOf(container), '/recuperacion/solicitar');
+  });
+
   testWidgets('VALIDACION: muestra el mensaje y deja reintentar', (
     tester,
   ) async {
@@ -238,6 +267,45 @@ void main() {
 
   group('a 320 px con Roboto', () {
     const size = Size(320, 640);
+
+    testWidgets('el aviso al guardar conserva su título y no desborda', (
+      tester,
+    ) async {
+      final repo = RecordingPasswordRecoveryRepository(
+        completeError: const InvalidRecoveryLinkException(
+          'No podemos aceptar este enlace. Pedí uno nuevo.',
+        ),
+      );
+      final container = await _open(tester, size: size, repo: repo);
+
+      await _fill(tester, password: 'claveNueva9');
+      await tester.ensureVisible(_save);
+      await _tapSave(tester);
+
+      expect(tester.view.physicalSize, const Size(320, 640));
+      expect(tester.view.devicePixelRatio, 1);
+      expect(repo.completions, hasLength(1));
+      expect(find.text('No pudimos cambiar tu contraseña'), findsOneWidget);
+      expect(find.text('Este enlace ya no sirve'), findsNothing);
+      expect(
+        find.text('No podemos aceptar este enlace. Pedí uno nuevo.'),
+        findsOneWidget,
+      );
+      expect(_fields, findsNothing);
+      expect(_save, findsNothing);
+      final newLink = find.widgetWithText(
+        FilledButton,
+        'Pedir un enlace nuevo',
+      );
+      expect(newLink, findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.ensureVisible(newLink);
+      await tester.tap(newLink);
+      await tester.pumpAndSettle();
+      expect(locationOf(container), '/recuperacion/solicitar');
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets('el formulario con los errores a la vista no desborda', (
       tester,

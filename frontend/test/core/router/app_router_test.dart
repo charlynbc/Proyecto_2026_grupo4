@@ -9,9 +9,11 @@ import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart'
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
 import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_appointment_result_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_referrals_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
+import 'package:agenda_medica/features/especialidades/screens/edit_specialty_screen.dart';
 import 'package:agenda_medica/features/especialidades/screens/new_specialty_screen.dart';
 import 'package:agenda_medica/features/especialidades/screens/specialties_screen.dart';
 import 'package:agenda_medica/features/turnos/screens/new_weekly_shift_screen.dart';
@@ -281,11 +283,29 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
       expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.text('Cartelera'), findsOneWidget);
+      expect(find.text('Pases'), findsOneWidget);
       expect(find.byType(DoctorShiftsScreen), findsOneWidget);
       await unmountApp(tester);
       container.invalidate(doctorAgendaControllerProvider);
     },
   );
+
+  testWidgets('el médico llega a Pases desde el menú y por su ruta', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.medico);
+
+    await tester.tap(find.text('Pases'));
+    await tester.pumpAndSettle();
+
+    expect(locationOf(container), '/medico/pases');
+    expect(find.byType(DoctorReferralsScreen), findsOneWidget);
+    expect(find.text('Pases emitidos'), findsOneWidget);
+    expect(find.text('Próximamente'), findsNothing);
+    await unmountApp(tester);
+    container.invalidate(doctorAgendaControllerProvider);
+  });
 
   testWidgets('un rol no puede entrar a las rutas de otro', (tester) async {
     for (final role in UserRole.values) {
@@ -440,7 +460,7 @@ void main() {
       expect(UserRole.administrador.sectionPath(section), kStatisticsPath);
     });
 
-    testWidgets('estadísticas abre su pantalla con las tres pestañas y no '
+    testWidgets('estadísticas abre su pantalla con las cuatro pestañas y no '
         '"Próximamente"', (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.administrador);
@@ -449,7 +469,8 @@ void main() {
 
       expect(locationOf(container), kStatisticsPath);
       expect(find.byType(StatisticsScreen), findsOneWidget);
-      expect(find.byType(Tab), findsNWidgets(3));
+      expect(find.byType(Tab), findsNWidgets(4));
+      expect(find.text('Inasistencias'), findsOneWidget);
       expect(find.text('Próximamente'), findsNothing);
       // Sigue dentro del menú del administrador.
       expect(find.byType(NavigationRail), findsOneWidget);
@@ -513,6 +534,39 @@ void main() {
       await tester.pumpAndSettle();
       expect(locationOf(container), kSpecialtiesPath);
       expect(find.byType(SpecialtiesScreen), findsOneWidget);
+    });
+
+    testWidgets('corregir una especialidad se abre desde su lápiz y vuelve', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+
+      await tester.tap(find.text('Especialidades').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('specialty-edit-2')));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/admin/especialidades/2/corregir');
+      expect(find.byType(EditSpecialtyScreen), findsOneWidget);
+      expect(find.text('Corregir especialidad'), findsOneWidget);
+      expect(find.byType(NavigationRail), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Volver'));
+      await tester.pumpAndSettle();
+      expect(locationOf(container), kSpecialtiesPath);
+    });
+
+    testWidgets('corregir con un id que no es un número muestra que no se '
+        'encontró', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+
+      await goTo(tester, container, '/admin/especialidades/abc/corregir');
+
+      expect(find.byType(EditSpecialtyScreen), findsOneWidget);
+      expect(find.text('No encontramos esa especialidad.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('las subrutas de alta tampoco se abren sin sesión ni con '
