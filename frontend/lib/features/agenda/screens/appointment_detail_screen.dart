@@ -91,7 +91,6 @@ class AppointmentDetailScreen extends ConsumerWidget {
         'Consultorio',
         '${appointment.clinic.name} (${appointment.clinic.location})',
       ),
-      if (appointment.referralId != null) ('Pase', '${appointment.referralId}'),
       ('Agendada el', bookedAt),
       if (appointment.cancelledAt != null)
         (
