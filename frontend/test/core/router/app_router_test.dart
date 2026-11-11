@@ -9,6 +9,7 @@ import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart'
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
 import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_appointment_result_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_referrals_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
@@ -282,11 +283,29 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
       expect(find.byType(NavigationRail), findsOneWidget);
       expect(find.text('Cartelera'), findsOneWidget);
+      expect(find.text('Pases'), findsOneWidget);
       expect(find.byType(DoctorShiftsScreen), findsOneWidget);
       await unmountApp(tester);
       container.invalidate(doctorAgendaControllerProvider);
     },
   );
+
+  testWidgets('el médico llega a Pases desde el menú y por su ruta', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.medico);
+
+    await tester.tap(find.text('Pases'));
+    await tester.pumpAndSettle();
+
+    expect(locationOf(container), '/medico/pases');
+    expect(find.byType(DoctorReferralsScreen), findsOneWidget);
+    expect(find.text('Pases emitidos'), findsOneWidget);
+    expect(find.text('Próximamente'), findsNothing);
+    await unmountApp(tester);
+    container.invalidate(doctorAgendaControllerProvider);
+  });
 
   testWidgets('un rol no puede entrar a las rutas de otro', (tester) async {
     for (final role in UserRole.values) {
