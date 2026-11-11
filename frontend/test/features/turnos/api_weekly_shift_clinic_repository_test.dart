@@ -100,6 +100,34 @@ void main() {
     expect(adapter.last!.data, {'consultorioId': 5});
   });
 
+  test('PATCH parcial manda turnoIds y confirmarConConsultas', () async {
+    final (repository, adapter) = _ok(200, weeklyShiftJson());
+
+    await repository.changeClinic(
+      120, 7,
+      turnoIds: [301, 303],
+      confirmarConConsultas: true,
+    );
+
+    expect(adapter.last!.method, 'PATCH');
+    expect(adapter.last!.data, {
+      'consultorioId': 7,
+      'turnoIds': [301, 303],
+      'confirmarConConsultas': true,
+    });
+  });
+
+  test('PATCH parcial sin confirmación no envía el flag', () async {
+    final (repository, adapter) = _ok(200, weeklyShiftJson());
+
+    await repository.changeClinic(120, 7, turnoIds: [301]);
+
+    expect(adapter.last!.data, {
+      'consultorioId': 7,
+      'turnoIds': [301],
+    });
+  });
+
   test('el 200 se lee como la configuración', () async {
     final (repository, _) = _ok(200, weeklyShiftJson());
 
