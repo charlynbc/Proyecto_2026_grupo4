@@ -68,8 +68,8 @@ PostgreSQL.
 | 38 | `POST /api/medico/consultas/{id}/cancelar` | MEDICO | 27 | Cancelar una consulta del médico (motivo obligatorio) | CONFIRMADA | feat/front-medico-cancelar-consulta 09/11/2026 | [contrato #38](contrato-v1.md#e38) |
 | 39 | `POST /api/medico/turnos/{id}/cancelar` | MEDICO | 27 | Cancelar todo el turno de una fecha y suspenderla (motivo obligatorio) | CONFIRMADA | feat/front-medico-cancelar-turno 10/11/2026 | [contrato #39](contrato-v1.md#e39) |
 | 40 | `GET /api/medico/pacientes/{socioId}/historia-clinica` | MEDICO | 22 | Historia clínica previa del paciente (requiere consulta AGENDADA vigente con él) | CONFIRMADA | - | [contrato #40](contrato-v1.md#e40) |
-| 41 | `GET /api/medico/atenciones` | MEDICO | 25 | Consultas atendidas por el médico (`fechaDesde`/`fechaHasta` obligatorias; `paciente`, `especialidadId`, `orden`, `sentido`) | CONFIRMADA | - | [contrato #41](contrato-v1.md#e41) |
-| 42 | `GET /api/medico/atenciones/{idAtencion}` | MEDICO | 25 | Detalle de una atención propia | CONFIRMADA | - | [contrato #42](contrato-v1.md#e42) |
+| 41 | `GET /api/medico/atenciones` | MEDICO | 25 | Consultas atendidas por el médico (`fechaDesde`/`fechaHasta` obligatorias; `paciente`, `especialidadId`, `orden`, `sentido`) | CONFIRMADA | feat/front-medico-atenciones 11/11/2026 | [contrato #41](contrato-v1.md#e41) |
+| 42 | `GET /api/medico/atenciones/{idAtencion}` | MEDICO | 25 | Detalle de una atención propia | CONFIRMADA | feat/front-medico-atenciones 11/11/2026 | [contrato #42](contrato-v1.md#e42) |
 | 43 | `GET /api/medico/pases` | MEDICO | 26 | Pases emitidos por el médico (`situacion`, `orden`, `sentido`) | CONFIRMADA | feat/front-medico-pases 10/11/2026 | [contrato #43](contrato-v1.md#e43) |
 | 44 | `POST /api/funcionario/consultas/{id}/cancelar` | FUNCIONARIO | 19 | Cancelar consulta a pedido del socio | CONFIRMADA | feat/front-cancelar-funcionario 08/11/2026 | [contrato #44](contrato-v1.md#e44) |
 | 45 | `POST /api/auth/cambiar-contrasena` | autenticado | 04 | Cambio de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-cambiar-contrasena 09/11/2026 | [contrato #45](contrato-v1.md#e45) |

@@ -155,7 +155,7 @@ void main() {
     }
   });
 
-  testWidgets('médico a 320 px muestra sus tres secciones sin cortar', (
+  testWidgets('médico a 320 px muestra sus cuatro secciones sin cortar', (
     tester,
   ) async {
     final container = await pumpApp(tester, size: const Size(320, 800));
@@ -164,17 +164,20 @@ void main() {
       _expectNarrowShell(tester);
 
       final turnos = _labelHeight(tester, 'Mis turnos');
+      final atenciones = _labelHeight(tester, 'Atenciones');
       final pases = _labelHeight(tester, 'Pases');
       final cartelera = _labelHeight(tester, 'Cartelera');
 
       expect(pases, closeTo(cartelera, 0.01), reason: 'Pases en una línea');
+      expect(atenciones, closeTo(cartelera, 0.01));
+      _expectCenteredLines(tester, 'Atenciones', [const TextSelection(baseOffset: 0, extentOffset: 10)]);
       expect(turnos, greaterThan(0));
       expect(
         find.descendant(
           of: find.byType(NavigationBar),
           matching: find.byType(NavigationDestination),
         ),
-        findsNWidgets(3),
+        findsNWidgets(4),
       );
       expect(tester.takeException(), isNull);
     } finally {
