@@ -411,6 +411,127 @@ public class TurnoSemanalRepository {
         );
     }
 
+    /** Consulta el patrón sin bloquearlo: para la vista previa de solo lectura. */
+    public Optional<PatronSemanal> obtenerPatronSinBloqueo(Long idTurnoSemanal) {
+        return jdbcTemplate.query(
+                """
+                SELECT id_turno_semanal, id_medico, id_especialidad,
+                       id_consultorio, dia_semana, fecha_inicio, fecha_fin
+                FROM public.turno_semanal
+                WHERE id_turno_semanal = ?
+                """,
+                (rs, rowNum) -> new PatronSemanal(
+                        rs.getLong("id_turno_semanal"),
+                        rs.getLong("id_medico"),
+                        rs.getLong("id_especialidad"),
+                        rs.getLong("id_consultorio"),
+                        rs.getInt("dia_semana"),
+                        rs.getObject("fecha_inicio", LocalDate.class),
+                        rs.getObject("fecha_fin", LocalDate.class)
+                ),
+                idTurnoSemanal
+        ).stream().findFirst();
+    }
+
+    /** Incluye ACTIVO y SUSPENDIDO. Para PATCH bloquea las filas del turno. */
+    public List<FechaTurno> listarFechasDesde(
+            Long idTurnoSemanal, LocalDate hoy, boolean bloquear
+    ) {
+        String sql = """
+                SELECT t.id_turno, t.fecha, t.estado, t.id_consultorio,
+                       c.nombre AS consultorio_nombre,
+                       c.ubicacion AS consultorio_ubicacion
+                FROM public.turno t
+                JOIN public.consultorio c ON c.id_consultorio = t.id_consultorio
+                WHERE t.id_turno_semanal = ? AND t.fecha >= ?
+                ORDER BY t.fecha, t.id_turno
+                """ + (bloquear ? " FOR UPDATE OF t" : "");
+        return jdbcTemplate.query(
+                sql,
+                (rs, rowNum) -> new FechaTurno(
+                        rs.getLong("id_turno"),
+                        rs.getObject("fecha", LocalDate.class),
+                        rs.getString("estado"),
+                        new Consultorio(
+                                rs.getLong("id_consultorio"),
+                                rs.getString("consultorio_nombre"),
+                                rs.getString("consultorio_ubicacion")
+                        )
+                ),
+                idTurnoSemanal, hoy
+        );
+    }
+
+    /** Cantidad de consultas AGENDADA por turno concreto, en una sola consulta. */
+    public java.util.Map<Long, Integer> contarAgendadasPorFecha(
+            Long idTurnoSemanal, LocalDate hoy
+    ) {
+        java.util.Map<Long, Integer> cantidades = new java.util.HashMap<>();
+        jdbcTemplate.query(
+                """
+                SELECT t.id_turno, COUNT(*) AS cantidad
+                FROM public.consulta c
+                JOIN public.numero n ON n.id_numero = c.id_numero
+                JOIN public.turno t ON t.id_turno = n.id_turno
+                WHERE t.id_turno_semanal = ?
+                  AND t.fecha >= ?
+                  AND c.estado = 'AGENDADA'
+                GROUP BY t.id_turno
+                """,
+                rs -> {
+                    cantidades.put(rs.getLong("id_turno"),
+                            rs.getInt("cantidad"));
+                },
+                idTurnoSemanal, hoy
+        );
+        return cantidades;
+    }
+
+    /** Actualiza únicamente las fechas seleccionadas; caller usa @Transactional. */
+    public void actualizarConsultorioDeFechas(
+            Long idPatron, Long nuevoConsultorio, List<Long> turnoIds,
+            LocalDate hoy
+    ) {
+        for (Long turnoId : turnoIds) {
+            int modificadas = jdbcTemplate.update(
+                    """
+                    UPDATE public.turno
+                    SET id_consultorio = ?
+                    WHERE id_turno_semanal = ?
+                      AND id_turno = ?
+                      AND fecha >= ?
+                    """,
+                    nuevoConsultorio, idPatron, turnoId, hoy
+            );
+            if (modificadas != 1) {
+                throw new IllegalStateException(
+                        "El turno seleccionado cambió durante la operación"
+                );
+            }
+        }
+    }
+
+    public void actualizarConsultorioDelPatron(
+            Long idPatron, Long nuevoConsultorio
+    ) {
+        jdbcTemplate.update(
+                """
+                UPDATE public.turno_semanal
+                SET id_consultorio = ?
+                WHERE id_turno_semanal = ?
+                """,
+                nuevoConsultorio, idPatron
+        );
+    }
+
+    public record FechaTurno(
+            Long turnoId,
+            LocalDate fecha,
+            String estado,
+            Consultorio consultorio
+    ) {
+    }
+
     public record PatronSemanal(
             Long id,
             Long idMedico,
