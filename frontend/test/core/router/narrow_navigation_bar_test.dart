@@ -121,6 +121,7 @@ void main() {
     final container = await pumpApp(tester, size: const Size(320, 800));
     try {
       await _loginAs(tester, container, UserRole.administrador);
+      await goTo(tester, container, '/admin/usuarios');
       _expectNarrowShell(tester);
 
       final usuarios = _labelHeight(tester, 'Usuarios');
@@ -161,6 +162,7 @@ void main() {
     final container = await pumpApp(tester, size: const Size(320, 800));
     try {
       await _loginAs(tester, container, UserRole.medico);
+      await goTo(tester, container, '/medico/turnos');
       _expectNarrowShell(tester);
 
       final turnos = _labelHeight(tester, 'Mis turnos');
@@ -351,6 +353,7 @@ void main() {
     final container = await pumpApp(tester, size: const Size(320, 800));
     try {
       await _loginAs(tester, container, UserRole.funcionario);
+      await goTo(tester, container, '/funcionario/turnos');
       _expectNarrowShell(tester);
 
       final turnos = _labelHeight(tester, 'Turnos');
@@ -365,30 +368,46 @@ void main() {
     }
   });
 
-  testWidgets('a 900 px los tres roles conservan NavigationRail', (
+  testWidgets('a 900 px todos los roles conservan Inicio en NavigationRail', (
     tester,
   ) async {
     for (final role in [
       UserRole.administrador,
       UserRole.socio,
       UserRole.funcionario,
+      UserRole.medico,
     ]) {
       final container = await pumpApp(tester, size: const Size(900, 800));
       try {
         await _loginAs(tester, container, role);
 
-        if (role == UserRole.socio) {
-          expect(find.byType(NavigationRail), findsNothing);
-          await goTo(tester, container, '/socio/disponibilidad');
-        }
+        expect(find.byType(NavigationRail), findsNothing);
+        final path = switch (role) {
+          UserRole.socio => '/socio/disponibilidad',
+          UserRole.funcionario => '/funcionario/turnos',
+          UserRole.administrador => '/admin/usuarios',
+          UserRole.medico => '/medico/turnos',
+        };
+        await goTo(tester, container, path);
 
         expect(tester.view.physicalSize, const Size(900, 800));
         expect(tester.view.devicePixelRatio, 1);
         expect(find.byType(NavigationRail), findsOneWidget, reason: role.name);
+        expect(
+          find.descendant(
+            of: find.byType(NavigationRail),
+            matching: find.text('Inicio'),
+          ),
+          findsOneWidget,
+          reason: role.name,
+        );
         expect(find.byType(NavigationBar), findsNothing, reason: role.name);
         expect(tester.takeException(), isNull, reason: role.name);
       } finally {
         await unmountApp(tester);
+        if (role == UserRole.medico) {
+          container.invalidate(doctorAgendaControllerProvider);
+        }
       }
     }
   });

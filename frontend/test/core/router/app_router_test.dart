@@ -242,7 +242,7 @@ void main() {
       final labels = role.sections.map((s) => s.label).toSet();
       if (role.sections.length > 1) {
         for (final label in labels) {
-          if (role == UserRole.socio && label == 'Inicio') continue;
+          if (label == 'Inicio') continue;
           expect(find.text(label), findsWidgets, reason: '${role.name}/$label');
         }
       }
@@ -253,9 +253,7 @@ void main() {
           expect(find.text(section.label), findsNothing);
         }
       }
-      // Lo que no existe todavía va a "Próximamente"; la home del
-      // administrador ya es el padrón de usuarios y la del funcionario, la
-      // consulta de turnos.
+      // Todos los roles cuentan con pantalla de Inicio.
       final hasHomeScreen =
           role == UserRole.administrador ||
           role == UserRole.funcionario ||
@@ -274,21 +272,22 @@ void main() {
     await unmountApp(tester);
   });
 
-  testWidgets(
-    'el médico conserva Mis turnos como inicio y tiene acceso a Cartelera',
-    (tester) async {
-      final container = await pumpApp(tester);
-      await _loginAs(tester, container, UserRole.medico);
+  testWidgets('el médico inicia en Inicio y accede a sus secciones', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.medico);
 
-      expect(find.byType(NavigationBar), findsNothing);
-      expect(find.byType(NavigationRail), findsOneWidget);
-      expect(find.text('Cartelera'), findsOneWidget);
-      expect(find.text('Pases'), findsOneWidget);
-      expect(find.byType(DoctorShiftsScreen), findsOneWidget);
-      await unmountApp(tester);
-      container.invalidate(doctorAgendaControllerProvider);
-    },
-  );
+    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(locationOf(container), '/medico/inicio');
+    expect(find.text('Cartelera'), findsOneWidget);
+    expect(find.text('Pases'), findsOneWidget);
+    await goTo(tester, container, '/medico/turnos');
+    expect(find.byType(DoctorShiftsScreen), findsOneWidget);
+    await unmountApp(tester);
+    container.invalidate(doctorAgendaControllerProvider);
+  });
 
   testWidgets('el médico llega a Pases desde el menú y por su ruta', (
     tester,
@@ -432,6 +431,7 @@ void main() {
     testWidgets('cada sección abre su pantalla', (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.administrador);
+      await goTo(tester, container, kUsersPath);
       expect(find.byType(UsersScreen), findsOneWidget);
 
       final screens = {
@@ -449,6 +449,7 @@ void main() {
         expect(entry.value, findsOneWidget, reason: entry.key);
       }
       expect(find.text('Próximamente'), findsNothing);
+      await unmountApp(tester);
     });
 
     test('la ruta de estadísticas cuelga de la sección del administrador', () {
@@ -473,6 +474,7 @@ void main() {
       expect(find.text('Próximamente'), findsNothing);
       // Sigue dentro del menú del administrador.
       expect(find.byType(NavigationRail), findsOneWidget);
+      await unmountApp(tester);
     });
 
     testWidgets('estadísticas se abre desde el menú del administrador', (
@@ -486,6 +488,7 @@ void main() {
 
       expect(locationOf(container), kStatisticsPath);
       expect(find.byType(StatisticsScreen), findsOneWidget);
+      await unmountApp(tester);
     });
 
     testWidgets('socio, funcionario y médico no entran a estadísticas', (
@@ -578,8 +581,6 @@ void main() {
       await _loginAs(tester, container, UserRole.funcionario);
       await goTo(tester, container, kNewClinicPath);
       expect(locationOf(container), UserRole.funcionario.homePath);
-      // La home del funcionario ya es la consulta de turnos, con providers
-      // `autoDispose` que dejan un timer al desmontar.
       await unmountApp(tester);
     });
   });
@@ -598,17 +599,18 @@ void main() {
         (s) => s.slug == 'turnos',
       );
       expect(kShiftsPath, UserRole.funcionario.sectionPath(turnos));
-      expect(kShiftsPath, UserRole.funcionario.homePath);
+      expect(UserRole.funcionario.homePath, '/funcionario/inicio');
       expect(kNewWeeklyShiftPath, startsWith('$kShiftsPath/'));
       expect(kWeeklyShiftDetailPath, startsWith('$kShiftsPath/'));
       expect(kReinstateShiftsPath, startsWith('$kShiftsPath/'));
     });
 
-    testWidgets('al entrar, el funcionario ve la consulta de turnos y "Turnos" '
+    testWidgets('el funcionario abre la consulta de turnos y ve "Turnos" '
         'en el menú', (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.funcionario);
 
+      await goTo(tester, container, kShiftsPath);
       expect(locationOf(container), kShiftsPath);
       expect(find.byType(ShiftsScreen), findsOneWidget);
       expect(find.byType(NavigationRail), findsOneWidget);
@@ -683,6 +685,7 @@ void main() {
         final container = await pumpApp(tester);
         await _loginAs(tester, container, UserRole.funcionario);
 
+        await goTo(tester, container, kShiftsPath);
         await tester.tap(find.text('Nuevo turno semanal'));
         await tester.pumpAndSettle();
         expect(locationOf(container), kNewWeeklyShiftPath);
@@ -781,6 +784,7 @@ void main() {
       find.textContaining('comunicate con la institución'),
       findsOneWidget,
     );
+    await unmountApp(tester);
   });
 
   group('redirectFor en Mi cuenta (/cuenta)', () {

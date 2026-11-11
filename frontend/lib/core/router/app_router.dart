@@ -218,8 +218,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 /// pantalla muestran "Próximamente".
 RouteBase _roleShell(UserRole role) {
   return StatefulShellRoute.indexedStack(
-    builder: (context, state, navigationShell) =>
-        AppShell(navigationShell: navigationShell, sections: role.sections),
+    builder: (context, state, navigationShell) => AppShell(
+      navigationShell: navigationShell,
+      sections: role.sections,
+      role: role,
+    ),
     branches: [
       for (final section in role.sections)
         StatefulShellBranch(routes: [_sectionRoute(role, section)]),
@@ -233,6 +236,12 @@ RouteBase _roleShell(UserRole role) {
 /// "Próximamente".
 GoRoute _sectionRoute(UserRole role, AppSection section) {
   final path = role.sectionPath(section);
+  if (section.slug == 'inicio') {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => HomeScreen(role: role),
+    );
+  }
   if (path == role.announcementsPath) {
     return GoRoute(
       path: path,
@@ -367,11 +376,6 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
   }
   if (role == UserRole.socio) {
     switch (path) {
-      case '/socio/inicio':
-        return GoRoute(
-          path: path,
-          builder: (context, state) => const HomeScreen(role: UserRole.socio),
-        );
       case '/socio/historia':
         return GoRoute(
           path: path,

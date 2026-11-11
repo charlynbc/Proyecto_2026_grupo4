@@ -83,6 +83,7 @@ void main() {
     (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.funcionario);
+      await goTo(tester, container, kShiftsPath);
       expect(find.byType(ShiftsScreen), findsOneWidget);
 
       await tester.tap(find.text('Suspender fechas'));

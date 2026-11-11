@@ -45,6 +45,7 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
     _announcements,
   ],
   UserRole.funcionario: [
+    AppSection('inicio', 'Inicio', Icons.home_outlined, Icons.home),
     AppSection(
       'turnos',
       'Turnos',
@@ -66,6 +67,7 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
     _announcements,
   ],
   UserRole.medico: [
+    AppSection('inicio', 'Inicio', Icons.home_outlined, Icons.home),
     AppSection(
       'turnos',
       'Mis turnos',
@@ -81,6 +83,7 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
     _announcements,
   ],
   UserRole.administrador: [
+    AppSection('inicio', 'Inicio', Icons.home_outlined, Icons.home),
     AppSection('usuarios', 'Usuarios', Icons.people_outline, Icons.people),
     AppSection(
       'especialidades',

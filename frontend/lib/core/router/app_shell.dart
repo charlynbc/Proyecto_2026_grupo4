@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/models/user_role.dart';
 import 'app_sections.dart';
 
 /// Barra de navegación fija de las secciones de un rol: `NavigationBar` abajo
@@ -19,10 +20,12 @@ class AppShell extends StatelessWidget {
     super.key,
     required this.navigationShell,
     required this.sections,
+    required this.role,
   });
 
   final StatefulNavigationShell navigationShell;
   final List<AppSection> sections;
+  final UserRole role;
 
   bool get _showNavigation =>
       sections[navigationShell.currentIndex].slug != 'inicio';
@@ -63,9 +66,11 @@ class _NarrowShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final offset = shell.role == UserRole.socio ? 0 : 1;
+    final destinations = shell.sections.skip(offset).toList();
     return Scaffold(
       body: shell.navigationShell,
-      bottomNavigationBar: shell._showNavigation
+      bottomNavigationBar: shell._showNavigation && destinations.length >= 2
           ? NavigationBarTheme(
               data: const NavigationBarThemeData(
                 labelTextStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
@@ -73,10 +78,11 @@ class _NarrowShell extends StatelessWidget {
               ),
               child: NavigationBar(
                 labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                selectedIndex: shell.navigationShell.currentIndex,
-                onDestinationSelected: shell._onDestinationSelected,
+                selectedIndex: shell.navigationShell.currentIndex - offset,
+                onDestinationSelected: (index) =>
+                    shell._onDestinationSelected(index + offset),
                 destinations: [
-                  for (final section in shell.sections)
+                  for (final section in destinations)
                     DefaultTextStyle.merge(
                       textAlign: TextAlign.center,
                       // Mantener las etiquetas de una palabra en una línea.
