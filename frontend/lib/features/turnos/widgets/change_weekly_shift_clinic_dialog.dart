@@ -52,6 +52,7 @@ class _ChangeWeeklyShiftClinicDialogState
 
   /// La vista previa no guarda nada; cada cambio de consultorio la invalida.
   Future<void> _loadPreview() async {
+    ref.read(changeWeeklyShiftClinicControllerProvider.notifier).reset();
     final requestedClinic = _clinicId;
     setState(() {
       _loadingPreview = true;
@@ -170,6 +171,12 @@ class _ChangeWeeklyShiftClinicDialogState
                     DropdownMenuItem(value: clinic.id, child: Text(clinic.name)),
                 ],
                 onChanged: _loadingPreview || state.isLoading ? null : _select,
+              ),
+            if (!_loadingPreview && _preview == null &&
+                _previewError == null && clinics.hasValue)
+              TextButton(
+                onPressed: state.isLoading ? null : _loadPreview,
+                child: const Text('Consultar fechas'),
               ),
             if (_loadingPreview) ...[
               const SizedBox(height: 16),
