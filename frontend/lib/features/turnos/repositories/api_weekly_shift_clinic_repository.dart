@@ -29,11 +29,19 @@ class ApiWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
   });
 
   @override
-  Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) =>
-      _request(() async {
+  Future<WeeklyShift> changeClinic(
+    int weeklyShiftId,
+    int clinicId, {
+    List<int>? turnoIds,
+    bool confirmarConConsultas = false,
+  }) => _request(() async {
         final response = await _dio.patch<Map<String, dynamic>>(
           ApiRoutes.weeklyShift(weeklyShiftId),
-          data: {'consultorioId': clinicId},
+          data: {
+            'consultorioId': clinicId,
+            if (turnoIds != null) 'turnoIds': turnoIds,
+            if (confirmarConConsultas) 'confirmarConConsultas': true,
+          },
         );
         return WeeklyShift.fromJson(_body(response));
       });
