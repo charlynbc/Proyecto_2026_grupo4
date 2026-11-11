@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
 import '../../../core/network/api_exception.dart';
-import '../../auth/models/user_role.dart';
 import '../../auth/providers/session_provider.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
@@ -50,10 +49,10 @@ final announcementDetailProvider = FutureProvider.autoDispose
 /// Observar la sesión invalida respuestas anteriores al cambiar de usuario.
 final latestAnnouncementsProvider =
     FutureProvider.autoDispose<List<Announcement>>((ref) async {
-      final (status, role, _) = ref.watch(
+      final (status, _, _) = ref.watch(
         sessionProvider.select((s) => (s.status, s.role, s.accessToken)),
       );
-      if (status != SessionStatus.authenticated || role != UserRole.socio) {
+      if (status != SessionStatus.authenticated) {
         return const [];
       }
       final repository = await ref.watch(

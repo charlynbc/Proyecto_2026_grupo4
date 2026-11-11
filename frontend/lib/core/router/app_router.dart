@@ -355,7 +355,7 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
       case '/socio/inicio':
         return GoRoute(
           path: path,
-          builder: (context, state) => const HomeScreen(),
+          builder: (context, state) => const HomeScreen(role: UserRole.socio),
         );
       case '/socio/historia':
         return GoRoute(
