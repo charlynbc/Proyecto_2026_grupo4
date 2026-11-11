@@ -8,8 +8,8 @@ import 'package:agenda_medica/features/consultorios/models/clinic.dart';
 import 'package:agenda_medica/features/consultorios/providers/clinic_repository_provider.dart';
 import 'package:agenda_medica/features/consultorios/repositories/clinic_repository.dart';
 import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_repository.dart';
-import 'package:agenda_medica/features/turnos/models/new_weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/models/clinic_change_preview.dart';
+import 'package:agenda_medica/features/turnos/models/new_weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/models/shift_number.dart';
 import 'package:agenda_medica/features/turnos/models/weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/providers/shift_repository_provider.dart';
@@ -73,6 +73,14 @@ class _RecordingClinicChange implements WeeklyShiftClinicRepository {
 }
 
 class _NotFoundClinic implements WeeklyShiftClinicRepository {
+  @override
+  Future<ClinicChangePreview> previewClinicChange(
+    int weeklyShiftId,
+    int clinicId,
+  ) async {
+    throw const ShiftNotFoundException('No existe el consultorio indicado');
+  }
+
   @override
   Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) async {
     throw const ShiftNotFoundException('No existe el consultorio indicado');
