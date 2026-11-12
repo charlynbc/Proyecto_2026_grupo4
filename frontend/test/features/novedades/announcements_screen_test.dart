@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/app_lifecycle.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_app.dart';
 import '../cuenta/account_test_support.dart' show RecordingAccountRepository;
@@ -682,6 +683,19 @@ void main() {
     await tester.tap(find.text('Actualizar novedades'));
     await tester.pumpAndSettle();
     expect(repo.pages, [0, 0]);
+  });
+
+  testWidgets('volver a resumed antes de 55 minutos no vuelve a pedir la '
+      'lista', (tester) async {
+    final repo = _News();
+    await _pumpList(tester, repo);
+    expect(repo.pages, [0]);
+
+    backgroundAndReturn(tester);
+    await tester.pump();
+    await tester.pump();
+
+    expect(repo.pages, [0]);
   });
 
   for (final width in [320.0, 600.0, 1440.0]) {
