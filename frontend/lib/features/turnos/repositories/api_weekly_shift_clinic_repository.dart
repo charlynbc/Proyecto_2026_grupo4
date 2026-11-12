@@ -66,10 +66,16 @@ class ApiWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
   ApiException _mapError(DioException e) {
     final error = ApiException.fromDio(e);
     return switch (apiCodeOf(e)) {
-      'VALIDACION' => ShiftValidationException(error.message),
-      'NO_ENCONTRADO' => ShiftNotFoundException(error.message),
-      'TURNO_NO_MODIFICABLE' => ShiftNotModifiableException(error.message),
-      'SOLAPAMIENTO_TURNO' => OverlappingShiftException(error.message),
+      'VALIDACION' => const ShiftValidationException(
+        kClinicChangeInvalidMessage,
+      ),
+      'NO_ENCONTRADO' => const ShiftNotFoundException(),
+      'TURNO_NO_MODIFICABLE' => const ShiftNotModifiableException(
+        kClinicChangeBookedMessage,
+      ),
+      'SOLAPAMIENTO_TURNO' => const OverlappingShiftException(
+        kClinicChangeOverlapMessage,
+      ),
       _ => error,
     };
   }

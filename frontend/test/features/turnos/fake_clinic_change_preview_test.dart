@@ -138,13 +138,21 @@ void main() {
     final db = FakeShiftDatabase(admin);
     final other = db.shifts.firstWhere((shift) => shift.weeklyShiftId == 2);
 
+    const text =
+        'No pudimos aplicar el cambio. Actualizá la vista previa e intentá de '
+        'nuevo.';
+    Matcher invalid() => isA<ShiftValidationException>()
+        .having((e) => e.message, 'message', text)
+        .having((e) => e.message, 'sin turnoIds', isNot(contains('turnoIds')));
+
     expect(
       () => db.changeClinic(1, admin.clinics.last.id, turnoIds: [other.id]),
-      throwsA(isA<ShiftValidationException>()),
+      throwsA(invalid()),
     );
     expect(
       () => db.changeClinic(1, admin.clinics.last.id, turnoIds: []),
-      throwsA(isA<ShiftValidationException>()),
+      throwsA(invalid()),
     );
+    expect(() => db.previewClinicChange(0, 1), throwsA(invalid()));
   });
 }

@@ -61,6 +61,41 @@ Matcher get _genericError => isA<ApiException>()
     .having((e) => e.runtimeType, 'es un ApiException liso', ApiException)
     .having((e) => e.message, 'message', kApiGenericMessage);
 
+const _overlapText =
+    'Alguna de las fechas elegidas se superpone con otro turno del consultorio '
+    'nuevo. Revisá la vista previa y desmarcá esas fechas.';
+const _bookedText =
+    'Hay consultas agendadas en las fechas elegidas. Revisá la vista previa y '
+    'confirmá el cambio para continuar.';
+const _invalidText =
+    'No pudimos aplicar el cambio. Actualizá la vista previa e intentá de '
+    'nuevo.';
+const _notFoundText =
+    'No encontramos lo que buscabas. Puede que ya no exista: volvé al listado '
+    'y probá de nuevo.';
+
+/// Mensajes como los da el servidor real: con fecha ISO, corchetes de lista y
+/// el nombre técnico del campo.
+const _serverOverlap =
+    'Se encontraron solapamientos: fecha 2026-10-20, número 1 con número '
+    'existente 1';
+const _serverBooked =
+    'Hay consultas agendadas en las fechas [2026-11-11, 2026-11-18]. '
+    'Confirmá el cambio para continuar.';
+const _serverInvalid = 'turnoIds debe incluir IDs válidos y únicos';
+const _serverNotFound = 'No existe el consultorio indicado';
+
+/// El texto que ve el usuario no trae datos técnicos.
+Matcher _withoutTechnicalData(String text) => isA<ApiException>()
+    .having((e) => e.message, 'message', text)
+    .having((e) => e.message, 'sin turnoIds', isNot(contains('turnoIds')))
+    .having((e) => e.message, 'sin corchetes', isNot(contains('[')))
+    .having(
+      (e) => e.message,
+      'sin fecha aaaa-mm-dd',
+      isNot(matches(RegExp(r'\d{4}-\d{2}-\d{2}'))),
+    );
+
 void main() {
   test('pide POST de vista previa, sin modificar turnos', () async {
     final (repository, adapter) = _ok(200, {
@@ -140,83 +175,122 @@ void main() {
     expect(shift.clinic.location, 'Piso 2, ala norte');
   });
 
-  test('400 VALIDACION trae el mensaje del servidor', () async {
+  test('400 VALIDACION muestra el texto propio, no el del servidor', () async {
     final (repository, _) = _ok(400, {
       'code': 'VALIDACION',
-      'message': 'Faltan datos obligatorios o no son válidos',
+      'message': _serverInvalid,
     });
 
     await expectLater(
       repository.changeClinic(120, 5),
       throwsA(
-        isA<ShiftValidationException>().having(
-          (e) => e.message,
-          'message',
-          'Faltan datos obligatorios o no son válidos',
+        allOf(
+          isA<ShiftValidationException>(),
+          _withoutTechnicalData(_invalidText),
         ),
       ),
     );
   });
 
-  test('404 NO_ENCONTRADO trae el mensaje del servidor', () async {
+  test('404 NO_ENCONTRADO muestra el texto propio', () async {
     final (repository, _) = _ok(404, {
       'code': 'NO_ENCONTRADO',
-      'message': 'No existe el turno semanal indicado',
+      'message': _serverNotFound,
     });
 
     await expectLater(
       repository.changeClinic(120, 5),
       throwsA(
-        isA<ShiftNotFoundException>().having(
-          (e) => e.message,
-          'message',
-          'No existe el turno semanal indicado',
+        allOf(
+          isA<ShiftNotFoundException>(),
+          _withoutTechnicalData(_notFoundText),
         ),
       ),
     );
   });
 
-  test('409 TURNO_NO_MODIFICABLE trae el mensaje del servidor', () async {
-    const message =
-        'El turno semanal ya finalizó; no tiene fechas actuales ni futuras '
-        'por modificar';
+  test('409 TURNO_NO_MODIFICABLE muestra el texto propio', () async {
     final (repository, _) = _ok(409, {
       'code': 'TURNO_NO_MODIFICABLE',
-      'message': message,
+      'message': _serverBooked,
     });
 
     await expectLater(
       repository.changeClinic(120, 5),
       throwsA(
-        isA<ShiftNotModifiableException>().having(
-          (e) => e.message,
-          'message',
-          message,
+        allOf(
+          isA<ShiftNotModifiableException>(),
+          _withoutTechnicalData(_bookedText),
         ),
       ),
     );
   });
 
-  test('409 SOLAPAMIENTO_TURNO trae el mensaje del servidor', () async {
-    const message =
-        'Se encontraron solapamientos: fecha 2026-10-20, número 1 con número '
-        'existente 1';
+  test('409 SOLAPAMIENTO_TURNO muestra el texto propio', () async {
     final (repository, _) = _ok(409, {
       'code': 'SOLAPAMIENTO_TURNO',
-      'message': message,
+      'message': _serverOverlap,
     });
 
     await expectLater(
       repository.changeClinic(120, 5),
       throwsA(
-        isA<OverlappingShiftException>().having(
-          (e) => e.message,
-          'message',
-          message,
+        allOf(
+          isA<OverlappingShiftException>(),
+          _withoutTechnicalData(_overlapText),
         ),
       ),
     );
   });
+
+  test('la vista previa muestra el texto propio en el 400 y el 404', () async {
+    final (invalid, _) = _ok(400, {
+      'code': 'VALIDACION',
+      'message': _serverInvalid,
+    });
+    await expectLater(
+      invalid.previewClinicChange(120, 5),
+      throwsA(
+        allOf(
+          isA<ShiftValidationException>(),
+          _withoutTechnicalData(_invalidText),
+        ),
+      ),
+    );
+
+    final (missing, _) = _ok(404, {
+      'code': 'NO_ENCONTRADO',
+      'message': _serverNotFound,
+    });
+    await expectLater(
+      missing.previewClinicChange(120, 5),
+      throwsA(
+        allOf(
+          isA<ShiftNotFoundException>(),
+          _withoutTechnicalData(_notFoundText),
+        ),
+      ),
+    );
+  });
+
+  test(
+    'un código fuera del contrato conserva el mensaje del servidor',
+    () async {
+      final (repository, _) = _ok(409, {
+        'code': 'OTRO_CODIGO',
+        'message': 'Mensaje del servidor',
+      });
+
+      await expectLater(
+        repository.changeClinic(120, 5),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.runtimeType, 'ApiException liso', ApiException)
+              .having((e) => e.message, 'message', 'Mensaje del servidor'),
+        ),
+      );
+    },
+  );
 
   test('sin conexión avisa que no hay red', () async {
     final (repository, _) = _repository(_StubAdapter.offline());

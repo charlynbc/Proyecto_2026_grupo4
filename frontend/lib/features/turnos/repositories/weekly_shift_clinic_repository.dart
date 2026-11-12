@@ -19,6 +19,19 @@ abstract class WeeklyShiftClinicRepository {
   });
 }
 
+/// Textos propios del cambio de consultorio. El servidor manda mensajes con
+/// fechas aaaa-mm-dd, listas entre corchetes y nombres de campos; el usuario
+/// ve estos (RNF-16 y RNF-23).
+const String kClinicChangeOverlapMessage =
+    'Alguna de las fechas elegidas se superpone con otro turno del consultorio '
+    'nuevo. Revisá la vista previa y desmarcá esas fechas.';
+const String kClinicChangeBookedMessage =
+    'Hay consultas agendadas en las fechas elegidas. Revisá la vista previa y '
+    'confirmá el cambio para continuar.';
+const String kClinicChangeInvalidMessage =
+    'No pudimos aplicar el cambio. Actualizá la vista previa e intentá de '
+    'nuevo.';
+
 /// El turno no se puede modificar (`TURNO_NO_MODIFICABLE`, 409).
 class ShiftNotModifiableException extends ApiException {
   const ShiftNotModifiableException([

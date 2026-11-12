@@ -434,13 +434,13 @@ class FakeShiftDatabase {
   /// RF-15 los volverá a validar cuando se rehabiliten.
   ClinicChangePreview previewClinicChange(int weeklyShiftId, int clinicId) {
     if (weeklyShiftId <= 0 || clinicId <= 0) {
-      throw const ShiftValidationException('Identificadores no válidos');
+      throw const ShiftValidationException(kClinicChangeInvalidMessage);
     }
     if (weeklyShiftById(weeklyShiftId) == null) {
-      throw const ShiftNotFoundException('No existe el turno semanal indicado');
+      throw const ShiftNotFoundException();
     }
     if (!admin.clinics.any((clinic) => clinic.id == clinicId)) {
-      throw const ShiftNotFoundException('No existe el consultorio indicado');
+      throw const ShiftNotFoundException();
     }
 
     final now = UruguayTime.toUruguay(admin.clock());
@@ -498,17 +498,15 @@ class FakeShiftDatabase {
     bool confirmarConConsultas = false,
   }) {
     if (weeklyShiftId <= 0 || clinicId <= 0) {
-      throw const ShiftValidationException(
-        'Faltan datos obligatorios o no son válidos',
-      );
+      throw const ShiftValidationException(kClinicChangeInvalidMessage);
     }
     final current = weeklyShiftById(weeklyShiftId);
     if (current == null) {
-      throw const ShiftNotFoundException('No existe el turno semanal indicado');
+      throw const ShiftNotFoundException();
     }
     final clinics = admin.clinics.where((c) => c.id == clinicId);
     if (clinics.isEmpty) {
-      throw const ShiftNotFoundException('No existe el consultorio indicado');
+      throw const ShiftNotFoundException();
     }
     final clinic = clinics.first;
     final now = UruguayTime.toUruguay(admin.clock());
@@ -519,9 +517,7 @@ class FakeShiftDatabase {
           shift,
     ];
     if (future.isEmpty) {
-      throw const ShiftNotModifiableException(
-        'El turno semanal ya finalizó; no tiene fechas actuales ni futuras por modificar',
-      );
+      throw const ShiftNotModifiableException(kClinicChangeBookedMessage);
     }
 
     final List<FakeShift> selected;
@@ -533,9 +529,7 @@ class FakeShiftDatabase {
           ids.length != turnoIds.length ||
           turnoIds.any((id) => id <= 0) ||
           !ids.every((id) => future.any((shift) => shift.id == id))) {
-        throw const ShiftValidationException(
-          'Los turnoIds deben ser únicos y pertenecer a fechas actuales o futuras del patrón.',
-        );
+        throw const ShiftValidationException(kClinicChangeInvalidMessage);
       }
       selected = [
         for (final shift in future)
@@ -573,13 +567,7 @@ class FakeShiftDatabase {
           shift,
     ];
     if (withBookings.isNotEmpty && !confirmarConConsultas) {
-      final dates = withBookings
-          .map((shift) => _isoDate(shift.date))
-          .join(', ');
-      throw ShiftNotModifiableException(
-        'Hay consultas agendadas en las fechas $dates. '
-        'Confirmá el cambio para continuar.',
-      );
+      throw const ShiftNotModifiableException(kClinicChangeBookedMessage);
     }
 
     // Las fechas suspendidas mantienen su estado.
@@ -617,7 +605,7 @@ class FakeShiftDatabase {
     required int newClinicId,
     required List<FakeShift> activeDates,
   }) {
-    final messages = <String>[];
+    var overlaps = false;
     final sorted = [...activeDates]..sort((a, b) => a.date.compareTo(b.date));
     for (final mine in sorted) {
       for (final other in shifts) {
@@ -637,25 +625,13 @@ class FakeShiftDatabase {
                 own.startMinutes < existing.endMinutes &&
                 existing.startMinutes < own.endMinutes;
             if (!crosses) continue;
-            messages.add(
-              'fecha ${_isoDate(mine.date)}, número ${own.number} '
-              'con número existente ${existing.number}',
-            );
+            overlaps = true;
           }
         }
       }
     }
-    if (messages.isEmpty) return;
-    throw OverlappingShiftException(
-      'Se encontraron solapamientos: ${messages.join('; ')}',
-    );
-  }
-
-  static String _isoDate(DateTime date) {
-    final year = date.year.toString().padLeft(4, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '$year-$month-$day';
+    if (!overlaps) return;
+    throw const OverlappingShiftException(kClinicChangeOverlapMessage);
   }
 
   /// Vuelve a habilitar una fecha concreta. Si no está suspendida, lanza

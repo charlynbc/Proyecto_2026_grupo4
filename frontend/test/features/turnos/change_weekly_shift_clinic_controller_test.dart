@@ -15,8 +15,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _twoAppointments =
-    'Hay consultas agendadas en las fechas 2026-10-20. '
-    'Confirmá el cambio para continuar.';
+    'Hay consultas agendadas en las fechas elegidas. Revisá la vista previa y '
+    'confirmá el cambio para continuar.';
 
 void main() {
   late FakeAdminDatabase admin;
