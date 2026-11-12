@@ -21,6 +21,8 @@ class ChangeWeeklyShiftClinicController extends Notifier<SubmitState> {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
   }) async {
+    // Con un envío en curso, un segundo toque no manda otro pedido.
+    if (state.isLoading) return null;
     final link = ref.keepAlive();
     state = const SubmitState(status: SubmitStatus.loading);
     try {

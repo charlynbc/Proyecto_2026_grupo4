@@ -611,6 +611,31 @@ void main() {
       },
     );
 
+    testWidgets('dos toques seguidos en Guardar mandan un solo pedido', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      late _RecordingClinicChange recording;
+      await _pump(
+        tester,
+        clinicChange: (db) =>
+            recording = _RecordingClinicChange(db, gate: gate),
+      );
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+
+      // Sin pump entre los toques: el botón todavía no se reconstruyó.
+      final save = find.byKey(const Key('weekly-shift-clinic-save'));
+      await tester.tap(save);
+      await tester.tap(save);
+      await tester.pump();
+
+      expect(recording.calls, 1);
+    });
+
     testWidgets('si no cargan los consultorios muestra Reintentar', (
       tester,
     ) async {

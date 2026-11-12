@@ -105,6 +105,9 @@ class _ChangeWeeklyShiftClinicDialogState
   }
 
   Future<void> _save() async {
+    // El botón se deshabilita recién en el próximo cuadro: dos toques
+    // seguidos no deben mandar dos pedidos.
+    if (ref.read(changeWeeklyShiftClinicControllerProvider).isLoading) return;
     final dates = _preview?.dates ?? const <ClinicChangePreviewDate>[];
     final chosen = [
       for (final date in dates)
