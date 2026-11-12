@@ -1,4 +1,5 @@
 import 'package:agenda_medica/features/home/widgets/announcements_carousel.dart';
+import 'package:agenda_medica/features/novedades/announcement_image_provider.dart';
 import 'package:agenda_medica/features/novedades/announcement_images.dart';
 import 'package:agenda_medica/features/novedades/models/announcement.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_detail.dart';
@@ -6,19 +7,22 @@ import 'package:agenda_medica/features/novedades/widgets/announcement_gallery.da
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Anota las URL que se mandan a precargar, en orden.
+/// Anota las URL y los ids de imagen que se mandan a precargar, en orden.
 class _Recorder {
   final calls = <String>[];
+  final ids = <int>[];
 
   void call(BuildContext context, ImageProvider provider) {
-    final resize = provider as ResizeImage;
-    expect(resize.width, 1280);
-    calls.add((resize.imageProvider as NetworkImage).url);
+    final announcementImage = provider as AnnouncementImageProvider;
+    expect(announcementImage.cacheWidth, 1280);
+    calls.add(announcementImage.url);
+    ids.add(announcementImage.imageId);
   }
 
   List<String> take() {
     final copy = [...calls];
     calls.clear();
+    ids.clear();
     return copy;
   }
 }
@@ -29,6 +33,7 @@ Announcement _news(int id, {bool cover = true}) => Announcement(
   id: id,
   publishedAt: DateTime.utc(2026, 11, 1),
   coverUrl: cover ? _url(id) : null,
+  coverImageId: cover ? 100 + id : null,
 );
 
 Future<void> _pumpCarousel(
@@ -69,6 +74,8 @@ void main() {
 
         await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], recorder);
 
+        // Se precarga por id de imagen, el de la portada de cada novedad.
+        expect(recorder.ids, [101, 102, 103]);
         expect(recorder.take(), [_url(1), _url(2), _url(3)]);
       },
     );
@@ -169,6 +176,7 @@ void main() {
 
       await pumpGallery(tester, [image(1), image(2), image(3)], recorder);
 
+      expect(recorder.ids, [2, 3]);
       expect(recorder.take(), [
         'https://example.invalid/imagen-2.png',
         'https://example.invalid/imagen-3.png',
@@ -207,7 +215,11 @@ void main() {
       expect(context.mounted, isFalse);
       precacheAnnouncementImage(
         context,
-        announcementNetworkImage('https://example.invalid/x.png'),
+        announcementImageProvider(
+          imageId: 1,
+          url: 'https://example.invalid/x.png',
+          cacheWidth: kAnnouncementImageCacheWidth,
+        ),
       );
       expect(tester.takeException(), isNull);
     });

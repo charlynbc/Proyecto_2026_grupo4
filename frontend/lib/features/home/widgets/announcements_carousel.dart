@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../novedades/announcement_images.dart';
 import '../../novedades/models/announcement.dart';
+import '../../novedades/widgets/announcement_network_image.dart';
 
 /// Una portada por novedad. No consulta ni representa su detalle.
 class AnnouncementsCarousel extends StatefulWidget {
@@ -65,9 +66,17 @@ class _AnnouncementsCarouselState extends State<AnnouncementsCarousel> {
   void _prefetch(List<int> indexes) {
     for (final index in indexes) {
       if (index < 0 || index >= widget.announcements.length) continue;
-      final url = widget.announcements[index].coverUrl;
+      final announcement = widget.announcements[index];
+      final url = announcement.coverUrl;
       if (url == null) continue;
-      widget.precache(context, announcementNetworkImage(url));
+      widget.precache(
+        context,
+        announcementImageProvider(
+          imageId: announcement.coverImageId,
+          url: url,
+          cacheWidth: kAnnouncementImageCacheWidth,
+        ),
+      );
     }
   }
 
@@ -221,14 +230,14 @@ class _AnnouncementCard extends StatelessWidget {
               if (announcement.coverUrl == null)
                 placeholder()
               else
-                Image.network(
-                  announcement.coverUrl!,
-                  fit: BoxFit.cover,
+                AnnouncementNetworkImage(
+                  imageId: announcement.coverImageId,
+                  url: announcement.coverUrl!,
                   cacheWidth: kAnnouncementImageCacheWidth,
+                  fit: BoxFit.cover,
                   excludeFromSemantics: true,
-                  loadingBuilder: (context, image, progress) =>
-                      progress == null ? image : placeholder(),
-                  errorBuilder: (_, _, _) => placeholder(),
+                  placeholder: (_) => placeholder(),
+                  error: (_) => placeholder(),
                 ),
               Positioned(
                 left: 0,
