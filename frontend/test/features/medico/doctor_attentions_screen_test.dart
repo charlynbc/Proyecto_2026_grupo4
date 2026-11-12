@@ -18,7 +18,11 @@ import '../../helpers/load_roboto.dart';
 
 class RecordingRepository implements DoctorAttentionRepository {
   final queries = <DoctorAttentionQuery>[];
-  final fake = FakeDoctorAttentionRepository(latency: Duration.zero);
+  // Con este reloj, hoy es el 12/11/2026 y la atención 5530 es de hoy.
+  final fake = FakeDoctorAttentionRepository(
+    latency: Duration.zero,
+    clock: () => DateTime.utc(2026, 11, 12, 15),
+  );
   @override
   Future<List<DoctorAttention>> list(DoctorAttentionQuery query) async {
     queries.add(query);
@@ -129,8 +133,8 @@ void main() {
     await tester.tap(find.byKey(const Key('attention-5530')));
     await tester.pumpAndSettle();
     expect(find.text('Lucía Fernández'), findsOneWidget);
-    expect(find.text('20/10/2026'), findsOneWidget);
-    expect(find.text('Vence el 18/01/2027'), findsOneWidget);
+    expect(find.text('12/11/2026'), findsOneWidget);
+    expect(find.text('Vence el 10/02/2027'), findsOneWidget);
     expect(find.text('Observaciones'), findsNothing);
   });
   testWidgets('controles a 320 píxeles sin desbordes', (tester) async {
