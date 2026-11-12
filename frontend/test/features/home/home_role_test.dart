@@ -127,7 +127,7 @@ void main() {
   const shortcuts = {
     UserRole.socio: ['disponibilidad', 'consultas', 'historia', 'cartelera'],
     UserRole.funcionario: ['turnos', 'llegada', 'agendas', 'cartelera'],
-    UserRole.medico: ['turnos', 'pases', 'cartelera'],
+    UserRole.medico: ['turnos', 'atenciones', 'pases', 'cartelera'],
     UserRole.administrador: [
       'usuarios',
       'especialidades',

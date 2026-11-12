@@ -26,6 +26,7 @@ void main() {
       '/medico/inicio',
       {
         'turnos': '/medico/turnos',
+        'atenciones': '/medico/atenciones',
         'pases': '/medico/pases',
         'cartelera': '/medico/cartelera',
       },

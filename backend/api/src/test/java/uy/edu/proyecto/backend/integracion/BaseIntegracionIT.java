@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +30,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -84,6 +86,9 @@ abstract class BaseIntegracionIT {
     @Autowired
     CapturaEnlaces capturaEnlaces;
 
+    @Autowired
+    RelojAjustable reloj;
+
     long idAdmin;
     long idFuncionario;
     long idFuncionario2;
@@ -112,6 +117,17 @@ abstract class BaseIntegracionIT {
         @Bean
         CapturaEnlaces capturaEnlaces() {
             return new CapturaEnlaces();
+        }
+
+        /**
+         * Reemplaza al reloj de la aplicación en todos los IT. Da la hora real
+         * salvo que un test la fije: los servicios que reciben un Clock pasan a
+         * depender de la hora que elige el test, no de cuándo se corre.
+         */
+        @Bean
+        @Primary
+        RelojAjustable relojPrueba() {
+            return new RelojAjustable(ZONA);
         }
     }
 
@@ -284,6 +300,12 @@ abstract class BaseIntegracionIT {
             sentencia.execute("COMMENT ON DATABASE " + GuardaBaseE2E.identificador(nombre)
                     + " IS '" + GuardaBaseE2E.MARCA + "'");
         }
+    }
+
+    /** Un reloj fijado por un test no se filtra a los siguientes, aunque el test falle. */
+    @AfterEach
+    void volverALaHoraReal() {
+        reloj.usarHoraReal();
     }
 
     @BeforeEach

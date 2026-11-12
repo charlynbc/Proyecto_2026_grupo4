@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/core/files/csv_file_picker.dart';
+import 'package:agenda_medica/core/files/csv_file_saver.dart';
+import 'package:agenda_medica/core/files/csv_parser.dart';
 import 'package:agenda_medica/core/files/picked_csv_file.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/consultorios/models/clinic_import.dart';
@@ -21,6 +23,7 @@ import 'package:go_router/go_router.dart';
 import '../../helpers/clinic_import_csv.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
+import '../../helpers/recording_csv_saver.dart';
 
 class _FakePicker implements CsvFilePicker {
   _FakePicker(this.result);
@@ -97,17 +100,24 @@ class _CountingRepository implements ClinicImportRepository {
   }
 }
 
-typedef _Env = ({GoRouter router, FakeAdminDatabase db, _FakePicker picker});
+typedef _Env = ({
+  GoRouter router,
+  FakeAdminDatabase db,
+  _FakePicker picker,
+  RecordingCsvSaver saver,
+});
 
 Future<_Env> _pump(
   WidgetTester tester, {
   Size size = const Size(900, 1800),
   String initialLocation = kImportClinicsPath,
   PickedCsvFile? file,
+  RecordingCsvSaver? saver,
   ClinicImportRepository Function(FakeAdminDatabase db)? repository,
 }) async {
   final db = FakeAdminDatabase();
   final picker = _FakePicker(file ?? clinicImportFile());
+  final recording = saver ?? RecordingCsvSaver();
   final router = await pumpAdminScreens(
     tester,
     size: size,
@@ -128,6 +138,7 @@ Future<_Env> _pump(
     ],
     overrides: [
       csvFilePickerProvider.overrideWithValue(picker),
+      csvFileSaverProvider.overrideWithValue(recording),
       clinicRepositoryProvider.overrideWith(
         (ref) async => FakeClinicRepository(db, latency: Duration.zero),
       ),
@@ -141,7 +152,7 @@ Future<_Env> _pump(
       ),
     ],
   );
-  return (router: router, db: db, picker: picker);
+  return (router: router, db: db, picker: picker, saver: recording);
 }
 
 Future<void> _tap(WidgetTester tester, String key) async {
@@ -493,6 +504,93 @@ void main() {
   // Van al final: Roboto se carga una sola vez por archivo y los tests que
   // vinieran después dejarían de usar la fuente de prueba. Con Roboto el texto
   // mide como en un celular.
+  group('descarga de las filas con error', () {
+    setUpAll(loadRoboto);
+    const columns = ['nombre', 'ubicacion', 'error'];
+
+    testWidgets('la previsualización ofrece bajar las filas con error', (
+      tester,
+    ) async {
+      final env = await _pump(tester);
+      await _preview(tester);
+
+      expect(find.text('Descargar filas con error'), findsOneWidget);
+      await _tap(tester, 'import-download-button');
+
+      expect(env.saver.saved.length, 1);
+      expect(env.saver.saved.single.name, 'consultorios-prueba-errores.csv');
+      final table = parseCsv(
+        env.saver.saved.single.bytes,
+        expectedHeader: columns,
+      );
+      expect(table.rows.map((r) => r.sublist(0, 2)), [
+        ['Consultorio 7', 'Piso 1'],
+        ['Consultorio 21', ''],
+        ['Consultorio 20', 'Piso 4'],
+        ['', 'Planta baja'],
+        ['consultorio 12', 'Piso 2'],
+      ]);
+      expect(table.rows.every((r) => r[2].isNotEmpty), isTrue);
+    });
+
+    testWidgets('el resultado ofrece bajar las filas rechazadas', (
+      tester,
+    ) async {
+      final env = await _pump(tester);
+      await _preview(tester);
+      await _tap(tester, 'import-confirm-button');
+
+      expect(find.text('Descargar filas rechazadas'), findsOneWidget);
+      await _tap(tester, 'import-download-button');
+
+      final table = parseCsv(
+        env.saver.saved.single.bytes,
+        expectedHeader: columns,
+      );
+      expect(table.rows.map((r) => r[0]), [
+        'Consultorio 7',
+        'Consultorio 21',
+        'Consultorio 20',
+        '',
+        'consultorio 12',
+      ]);
+    });
+
+    testWidgets('con un archivo sin errores no hay botón', (tester) async {
+      await _pump(
+        tester,
+        file: clinicCsvFile('nombre,ubicacion\nConsultorio 20,Piso 3\n'),
+      );
+      await _preview(tester);
+
+      expect(find.byKey(const Key('import-confirm-button')), findsOneWidget);
+      expect(find.byKey(const Key('import-download-button')), findsNothing);
+
+      await _tap(tester, 'import-confirm-button');
+
+      expect(find.byKey(const Key('import-imported')), findsOneWidget);
+      expect(find.byKey(const Key('import-download-button')), findsNothing);
+    });
+
+    testWidgets('a 320 px con Roboto no desborda, ni con el aviso', (
+      tester,
+    ) async {
+      final saver = RecordingCsvSaver()..error = StateError('falló');
+      await _pump(tester, size: const Size(320, 640), saver: saver);
+      await _preview(tester);
+      expect(tester.takeException(), isNull);
+
+      await _tap(tester, 'import-download-button');
+
+      expect(find.byKey(const Key('import-download-error')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await _tap(tester, 'import-confirm-button');
+      expect(find.text('Descargar filas rechazadas'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('a 320 px de ancho (con Roboto)', () {
     setUpAll(loadRoboto);
 

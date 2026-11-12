@@ -1,5 +1,6 @@
 import 'package:agenda_medica/features/auth/widgets/logout_button.dart';
 import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
+import 'package:agenda_medica/features/estadisticas/tabs/absence_statistics_tab.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/appointment_statistics_tab.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/shift_statistics_tab.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/specialty_statistics_tab.dart';
@@ -10,16 +11,18 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/load_roboto.dart';
 
-/// Las keys y los textos de las tres pestañas de la barra, en orden.
+/// Las keys y los textos de las pestañas de la barra, en orden.
 const _tabKeys = [
   'stats-tab-specialties',
   'stats-tab-shifts',
   'stats-tab-appointments',
+  'stats-tab-absences',
 ];
 const _tabTexts = [
   'Demanda por especialidad',
   'Utilización por turno',
   'Consultas por estado',
+  'Inasistencias',
 ];
 
 /// El `Text` de la etiqueta de la pestaña [key].
@@ -95,10 +98,10 @@ void main() {
   });
 
   group('pestañas', () {
-    testWidgets('son tres, en este orden y con estos textos', (tester) async {
+    testWidgets('son cuatro, en este orden y con estos textos', (tester) async {
       await _pump(tester);
 
-      expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(3));
+      expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(4));
       expect([
         for (final key in _tabKeys) tester.widget<Text>(_tabLabel(key)).data,
       ], _tabTexts);
@@ -115,10 +118,12 @@ void main() {
         const Key('stats-tab-specialties'),
         const Key('stats-tab-shifts'),
         const Key('stats-tab-appointments'),
+        const Key('stats-tab-absences'),
       ]);
       expect(find.byKey(const Key('stats-tab-specialties')), findsOneWidget);
       expect(find.byKey(const Key('stats-tab-shifts')), findsOneWidget);
       expect(find.byKey(const Key('stats-tab-appointments')), findsOneWidget);
+      expect(find.byKey(const Key('stats-tab-absences')), findsOneWidget);
     });
 
     testWidgets('el texto de cada pestaña se ve en la barra', (tester) async {
@@ -127,6 +132,7 @@ void main() {
       expect(find.text('Demanda por especialidad'), findsOneWidget);
       expect(find.text('Utilización por turno'), findsOneWidget);
       expect(find.text('Consultas por estado'), findsOneWidget);
+      expect(find.text('Inasistencias'), findsOneWidget);
     });
 
     testWidgets('al abrir se ve la primera', (tester) async {
@@ -151,6 +157,14 @@ void main() {
       expect(find.byType(AppointmentStatisticsTab), findsOneWidget);
     });
 
+    testWidgets('la cuarta muestra su widget', (tester) async {
+      await _pump(tester);
+
+      await _openTab(tester, 'stats-tab-absences');
+
+      expect(find.byType(AbsenceStatisticsTab), findsOneWidget);
+    });
+
     testWidgets('se puede volver a la primera', (tester) async {
       await _pump(tester);
       await _openTab(tester, 'stats-tab-appointments');
@@ -162,7 +176,7 @@ void main() {
 
     for (final width in [400.0, 360.0, 320.0]) {
       testWidgets('con $width px de ancho no hay desbordes y se llega a las '
-          'tres', (tester) async {
+          'cuatro', (tester) async {
         await _pump(tester, size: Size(width, 800));
         expect(tester.takeException(), isNull);
 
@@ -172,6 +186,9 @@ void main() {
         await _openTab(tester, 'stats-tab-appointments');
         expect(find.byType(AppointmentStatisticsTab), findsOneWidget);
 
+        await _openTab(tester, 'stats-tab-absences');
+        expect(find.byType(AbsenceStatisticsTab), findsOneWidget);
+
         await _openTab(tester, 'stats-tab-specialties');
         expect(find.byType(SpecialtyStatisticsTab), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -179,7 +196,7 @@ void main() {
     }
   });
 
-  group('las tres pestañas se ven siempre enteras', () {
+  group('las pestañas se ven siempre enteras', () {
     setUpAll(loadRoboto);
 
     for (final width in [320.0, 360.0, 400.0, 900.0]) {
@@ -273,7 +290,7 @@ void main() {
       expect(third.left, lessThan(360));
     });
 
-    testWidgets('las tres pestañas se reparten el ancho de la barra', (
+    testWidgets('las pestañas se reparten el ancho de la barra', (
       tester,
     ) async {
       await _pump(tester, size: const Size(900, 800));
@@ -283,10 +300,12 @@ void main() {
       ];
       expect(centers[0], lessThan(centers[1]));
       expect(centers[1], lessThan(centers[2]));
-      // Cada una en su tercio de la pantalla.
-      expect(centers[0], lessThan(300));
-      expect(centers[1], inInclusiveRange(300, 600));
-      expect(centers[2], greaterThan(600));
+      expect(centers[2], lessThan(centers[3]));
+      // Cada una en su cuarto de la pantalla.
+      expect(centers[0], lessThan(225));
+      expect(centers[1], inInclusiveRange(225, 450));
+      expect(centers[2], inInclusiveRange(450, 675));
+      expect(centers[3], greaterThan(675));
     });
   });
 
@@ -296,12 +315,14 @@ void main() {
         SpecialtyStatisticsTab(key: Key('a')),
         ShiftStatisticsTab(key: Key('b')),
         AppointmentStatisticsTab(key: Key('c')),
+        AbsenceStatisticsTab(key: Key('d')),
       ];
 
       expect(keyed.map((widget) => widget.key), [
         const Key('a'),
         const Key('b'),
         const Key('c'),
+        const Key('d'),
       ]);
     });
   });

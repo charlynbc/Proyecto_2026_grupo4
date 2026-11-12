@@ -48,6 +48,29 @@ Future<void> _loginAs(
 }
 
 void main() {
+  testWidgets('ruta real de corrección abre un consultorio válido', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.administrador);
+    await goTo(tester, container, '/admin/consultorios/1/corregir');
+    expect(find.text('Corregir consultorio'), findsOneWidget);
+    expect(find.text('Consultorio 3'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
+  for (final id in ['0', '-3', 'abc']) {
+    testWidgets('ruta real de corrección con id $id no encontrado', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+      await goTo(tester, container, '/admin/consultorios/$id/corregir');
+      expect(find.text('No encontramos ese consultorio.'), findsOneWidget);
+      await unmountApp(tester);
+    });
+  }
+
   group('redirectFor', () {
     const checking = SessionState(status: SessionStatus.checking);
     const anonymous = SessionState();
@@ -283,6 +306,7 @@ void main() {
     expect(locationOf(container), '/medico/inicio');
     expect(find.text('Cartelera'), findsOneWidget);
     expect(find.text('Pases'), findsOneWidget);
+    expect(find.text('Atenciones'), findsOneWidget);
     await goTo(tester, container, '/medico/turnos');
     expect(find.byType(DoctorShiftsScreen), findsOneWidget);
     await unmountApp(tester);
@@ -461,7 +485,7 @@ void main() {
       expect(UserRole.administrador.sectionPath(section), kStatisticsPath);
     });
 
-    testWidgets('estadísticas abre su pantalla con las tres pestañas y no '
+    testWidgets('estadísticas abre su pantalla con las cuatro pestañas y no '
         '"Próximamente"', (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.administrador);
@@ -470,7 +494,8 @@ void main() {
 
       expect(locationOf(container), kStatisticsPath);
       expect(find.byType(StatisticsScreen), findsOneWidget);
-      expect(find.byType(Tab), findsNWidgets(3));
+      expect(find.byType(Tab), findsNWidgets(4));
+      expect(find.text('Inasistencias'), findsOneWidget);
       expect(find.text('Próximamente'), findsNothing);
       // Sigue dentro del menú del administrador.
       expect(find.byType(NavigationRail), findsOneWidget);
