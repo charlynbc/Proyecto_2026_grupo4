@@ -934,7 +934,7 @@ El `socioId` sale del token. Toda la validación y la inserción ocurren en una 
 { "numeroId": 4501, "paseId": 77 }
 ```
 
-**Respuesta 201** (`ConsultaDTO`, sección 1.9). Es el comprobante de RF-09: identificador, número, médico, fecha, hora y consultorio.
+**Respuesta 201** (`ConsultaDTO`, sección 1.9). Es el comprobante de RF-09: número, médico, fecha, hora y consultorio. El DTO conserva el id para uso interno.
 
 ```json
 {
@@ -2838,7 +2838,7 @@ En #53, #55 y #57 los errores por fila viajan en el campo `error` de cada fila d
 
 Esta sección sale de las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), vistas pantalla por pantalla. Para cada una: lo que se ve, el endpoint que alimenta cada parte y las diferencias con el contrato. Cuando una pantalla muestra algo que el contrato no cubre, o el contrato tiene algo que ninguna pantalla usa, la diferencia está anotada acá y en la sección 9 (P-23 en adelante). Las pantallas de empleados son web; las del socio son móviles (y también existen en web, RNF-01, RNF-02). Todas las pantallas de empleados muestran arriba a la derecha "Nombre Apellido · Cerrar sesión" (`nombre` y `apellido` de #1 y #2, y #3).
 
-Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2") son de relleno. Los formatos que muestran (`dd/mm/aaaa`, hora de 24 h, CI como `1.234.567-8`, identificador de consulta con ceros `000123`) los arma el cliente a partir del JSON ISO de la sección 1.2.
+Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2") son de relleno. Los formatos que muestran (`dd/mm/aaaa`, hora de 24 h, CI como `1.234.567-8`) los arma el cliente a partir del JSON ISO de la sección 1.2.
 
 ### 6.1 Web, empleados
 
@@ -2940,7 +2940,7 @@ Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis
 
 #### 6.2.4 Consultar histórico de agendas (imagen 9) · RF-11
 
-- **Se ve:** título "Mis consultas". Campo "Buscar por especialidad o médico". Chips: "Todas", "Agendada", "Atendida", "Canceladas", "No asistió" y "Rango de fechas ▾". "Orden: más reciente primero ▾". Tarjetas: "13/10/2026 · 09:20" con el estado a la derecha ("Agendada", "Atendida", "No asistió", "Cancelada por la institución"), "Cardiología · Dra. Apellido" y "Consultorio 12 · Número 4 · ID 000123". La tarjeta cancelada solo muestra fecha, hora, especialidad y médico.
+- **Se ve:** título "Mis consultas". Campo "Buscar por especialidad o médico". Chips: "Todas", "Agendada", "Atendida", "Canceladas", "No asistió" y "Rango de fechas ▾". "Orden: más reciente primero ▾". Tarjetas: "13/10/2026 · 09:20" con el estado a la derecha ("Agendada", "Atendida", "No asistió", "Cancelada por la institución"), "Cardiología · Dra. Apellido" y "Consultorio 12 · Número 4". La tarjeta cancelada solo muestra fecha, hora, especialidad y médico.
 - **Endpoints:** lista → #18 (`estado`, `fechaDesde`, `fechaHasta`, `especialidadId`, `medicoId`, `orden`: `fecha` o `especialidad`, `sentido`).
 - **Brechas:** el campo de búsqueda libre y el chip "Canceladas" (que agrupa dos estados) no tienen equivalente en #18; no hay chips para "No atendida" ni "No se presentó a la consulta"; la tarjeta cancelada no muestra consultorio ni número; no hay botón para cancelar ni pantalla de detalle (P-30, P-32).
 
