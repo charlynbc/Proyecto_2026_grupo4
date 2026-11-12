@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/api_routes.dart';
 import '../models/weekly_shift.dart';
+import '../models/clinic_change_preview.dart';
 import 'shift_repository.dart';
 import 'weekly_shift_clinic_repository.dart';
 
@@ -16,14 +17,34 @@ class ApiWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
   final Dio _dio;
 
   @override
-  Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) =>
-      _request(() async {
-        final response = await _dio.patch<Map<String, dynamic>>(
-          ApiRoutes.weeklyShift(weeklyShiftId),
-          data: {'consultorioId': clinicId},
-        );
-        return WeeklyShift.fromJson(_body(response));
-      });
+  Future<ClinicChangePreview> previewClinicChange(
+    int weeklyShiftId,
+    int clinicId,
+  ) => _request(() async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      ApiRoutes.weeklyShiftClinicPreview(weeklyShiftId),
+      data: {'consultorioId': clinicId},
+    );
+    return ClinicChangePreview.fromJson(_body(response));
+  });
+
+  @override
+  Future<WeeklyShift> changeClinic(
+    int weeklyShiftId,
+    int clinicId, {
+    List<int>? turnoIds,
+    bool confirmarConConsultas = false,
+  }) => _request(() async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      ApiRoutes.weeklyShift(weeklyShiftId),
+      data: {
+        'consultorioId': clinicId,
+        'turnoIds': ?turnoIds,
+        if (confirmarConConsultas) 'confirmarConConsultas': true,
+      },
+    );
+    return WeeklyShift.fromJson(_body(response));
+  });
 
   /// Corre el pedido y traduce sus fallas: las de la red o del servidor por su
   /// `code`, y una respuesta mal formada como el error genérico.
@@ -45,10 +66,16 @@ class ApiWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
   ApiException _mapError(DioException e) {
     final error = ApiException.fromDio(e);
     return switch (apiCodeOf(e)) {
-      'VALIDACION' => ShiftValidationException(error.message),
-      'NO_ENCONTRADO' => ShiftNotFoundException(error.message),
-      'TURNO_NO_MODIFICABLE' => ShiftNotModifiableException(error.message),
-      'SOLAPAMIENTO_TURNO' => OverlappingShiftException(error.message),
+      'VALIDACION' => const ShiftValidationException(
+        kClinicChangeInvalidMessage,
+      ),
+      'NO_ENCONTRADO' => const ShiftNotFoundException(),
+      'TURNO_NO_MODIFICABLE' => const ShiftNotModifiableException(
+        kClinicChangeBookedMessage,
+      ),
+      'SOLAPAMIENTO_TURNO' => const OverlappingShiftException(
+        kClinicChangeOverlapMessage,
+      ),
       _ => error,
     };
   }

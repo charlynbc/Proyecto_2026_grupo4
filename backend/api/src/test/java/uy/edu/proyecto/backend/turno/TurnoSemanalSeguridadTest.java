@@ -201,4 +201,53 @@ class TurnoSemanalSeguridadTest {
 
         verify(service).modificarConsultorio(eq(41L), any());
     }
+    @Test
+    void vistaPreviaExigeAutenticacion() throws Exception {
+        mockMvc.perform(post("/api/turnos-semanales/41/consultorio/vista-previa")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consultorioId\":7}"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void socioNoPuedeConsultarVistaPrevia() throws Exception {
+        mockMvc.perform(post("/api/turnos-semanales/41/consultorio/vista-previa")
+                        .with(jwt().jwt(token -> token.subject("91"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_SOCIO")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consultorioId\":7}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void funcionarioPuedeConsultarVistaPrevia() throws Exception {
+        when(service.vistaPreviaConsultorio(eq(41L), any())).thenReturn(
+                new VistaPreviaConsultorioResponse(
+                        java.util.List.of(
+                                new VistaPreviaConsultorioResponse.Fecha(
+                                        301L,
+                                        java.time.LocalDate.of(2026, 11, 11),
+                                        "ACTIVO", 2,
+                                        new uy.edu.proyecto.backend.consultorio.Consultorio(
+                                                5L, "Consultorio 5", "Piso 1"
+                                        ),
+                                        java.util.List.of()
+                                )
+                        )
+                )
+        );
+        mockMvc.perform(post("/api/turnos-semanales/41/consultorio/vista-previa")
+                        .with(jwt().jwt(token -> token.subject("91"))
+                                .authorities(new SimpleGrantedAuthority("ROLE_FUNCIONARIO")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consultorioId\":7}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fechas[0].turnoId").value(301))
+                .andExpect(jsonPath("$.fechas[0].consultasAgendadas").value(2));
+
+        verify(service).vistaPreviaConsultorio(eq(41L), any());
+    }
+
 }
