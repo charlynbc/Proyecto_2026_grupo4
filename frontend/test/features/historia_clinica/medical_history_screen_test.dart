@@ -323,7 +323,7 @@ void main() {
       _expectCards([12]);
 
       await _select(tester, 'medical-history-order', 'Especialidad');
-      await _select(tester, 'medical-history-direction', 'Ascendente');
+      await _tap(tester, find.byKey(const Key('medical-history-direction')));
       await _apply(tester);
 
       expect(repository.queries.last.order, MedicalHistoryOrder.specialty);
@@ -526,6 +526,81 @@ void main() {
       },
     );
   }
+
+  group('sentido del orden como botón', () {
+    setUpAll(loadRoboto);
+    final direction = find.byKey(const Key('medical-history-direction'));
+
+    testWidgets('arranca en Descendente y alterna; se aplica con Buscar', (
+      tester,
+    ) async {
+      final repository = _RecordingRepository();
+      await _pump(tester, repository);
+
+      expect(find.text('Sentido'), findsNothing);
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_downward),
+        ),
+        findsOneWidget,
+      );
+
+      await _tap(tester, direction);
+
+      expect(
+        find.descendant(of: direction, matching: find.text('Ascendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_upward),
+        ),
+        findsOneWidget,
+      );
+      // Todavía no se buscó: el listado sigue con el sentido anterior.
+      expect(
+        repository.queries.last.direction,
+        MedicalHistoryDirection.descending,
+      );
+
+      await _apply(tester);
+      expect(
+        repository.queries.last.direction,
+        MedicalHistoryDirection.ascending,
+      );
+
+      await _tap(tester, direction);
+      await _apply(tester);
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(
+        repository.queries.last.direction,
+        MedicalHistoryDirection.descending,
+      );
+    });
+
+    testWidgets('a 320 px se ve completo y no desborda', (tester) async {
+      await _pump(tester, _RecordingRepository(), size: const Size(320, 640));
+
+      await tester.ensureVisible(direction);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Descendente'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('Descendente')).right,
+        lessThanOrEqualTo(320),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
 
   group('RF-03', () {
     setUpAll(loadRoboto);
