@@ -95,6 +95,25 @@ void main() {
     });
   }
 
+  testWidgets('"Corregir datos" del menú abre la corrección de esa cuenta', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.administrador);
+    await goTo(tester, container, '/admin/usuarios');
+    // Ana Rodríguez es la cuenta 1, de socio: también se puede corregir.
+    await tester.ensureVisible(find.byKey(const Key('user-actions-1')));
+    await tester.tap(find.byKey(const Key('user-actions-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('user-edit-1')));
+    await tester.pumpAndSettle();
+
+    expect(locationOf(container), '/admin/usuarios/1/corregir');
+    expect(find.text('Corregir usuario'), findsOneWidget);
+    expect(find.text('Ana'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
   testWidgets('la corrección de usuario no se abre con otro rol', (
     tester,
   ) async {
