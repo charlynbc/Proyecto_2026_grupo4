@@ -73,7 +73,9 @@ class _ChangeWeeklyShiftClinicDialogState
       setState(() {
         _preview = result;
         _selectedTurnoIds.addAll(
-          result.dates.where((date) => _isSelectable(date)).map((date) => date.shiftId),
+          result.dates
+              .where((date) => _isSelectable(date))
+              .map((date) => date.shiftId),
         );
       });
     } catch (error) {
@@ -130,7 +132,8 @@ class _ChangeWeeklyShiftClinicDialogState
     final bookedSelected = dates
         .where((date) => _selectedTurnoIds.contains(date.shiftId))
         .fold<int>(0, (total, date) => total + date.bookedAppointments);
-    final canSave = clinics.hasValue &&
+    final canSave =
+        clinics.hasValue &&
         _preview != null &&
         _selectedTurnoIds.isNotEmpty &&
         (bookedSelected == 0 || _confirmarConConsultas) &&
@@ -157,7 +160,8 @@ class _ChangeWeeklyShiftClinicDialogState
               const Center(child: CircularProgressIndicator())
             else if (clinics.hasError)
               _ClinicsNotice(
-                message: 'No pudimos cargar los consultorios. Intentá de nuevo.',
+                message:
+                    'No pudimos cargar los consultorios. Intentá de nuevo.',
                 onRetry: () => ref.invalidate(clinicsProvider),
               )
             else
@@ -165,15 +169,22 @@ class _ChangeWeeklyShiftClinicDialogState
                 key: const Key('weekly-shift-clinic-select'),
                 initialValue: _listed(_clinicId, clinics.value!),
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Consultorio nuevo'),
+                decoration: const InputDecoration(
+                  labelText: 'Consultorio nuevo',
+                ),
                 items: [
                   for (final clinic in clinics.value!)
-                    DropdownMenuItem(value: clinic.id, child: Text(clinic.name)),
+                    DropdownMenuItem(
+                      value: clinic.id,
+                      child: Text(clinic.name),
+                    ),
                 ],
                 onChanged: _loadingPreview || state.isLoading ? null : _select,
               ),
-            if (!_loadingPreview && _preview == null &&
-                _previewError == null && clinics.hasValue)
+            if (!_loadingPreview &&
+                _preview == null &&
+                _previewError == null &&
+                clinics.hasValue)
               TextButton(
                 onPressed: state.isLoading ? null : _loadPreview,
                 child: const Text('Consultar fechas'),
@@ -192,7 +203,10 @@ class _ChangeWeeklyShiftClinicDialogState
             ],
             if (_preview != null) ...[
               const SizedBox(height: 16),
-              Text('Fechas de hoy en adelante', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Fechas de hoy en adelante',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 6),
               if (dates.isEmpty)
                 const Text('No hay fechas actuales ni futuras para cambiar.')
@@ -212,8 +226,10 @@ class _ChangeWeeklyShiftClinicDialogState
                       final date = dates[index];
                       final selectable = _isSelectable(date);
                       final overlapText = date.overlaps
-                          .map((overlap) =>
-                              'Número ${overlap.ownNumber} con número ${overlap.existingNumber}')
+                          .map(
+                            (overlap) =>
+                                'Número ${overlap.ownNumber} con número ${overlap.existingNumber}',
+                          )
                           .join('; ');
                       return CheckboxListTile(
                         key: Key('weekly-shift-date-${date.shiftId}'),
@@ -222,7 +238,8 @@ class _ChangeWeeklyShiftClinicDialogState
                         controlAffinity: ListTileControlAffinity.leading,
                         value: _selectedTurnoIds.contains(date.shiftId),
                         onChanged: selectable && !state.isLoading
-                            ? (value) => _toggleTurno(date.shiftId, value ?? false)
+                            ? (value) =>
+                                  _toggleTurno(date.shiftId, value ?? false)
                             : null,
                         title: Text(formatUiDate(date.date)),
                         subtitle: Column(
@@ -233,7 +250,9 @@ class _ChangeWeeklyShiftClinicDialogState
                               '${date.currentClinicName ?? date.currentClinicId?.toString() ?? "sin dato"}',
                             ),
                             if (date.bookedAppointments > 0)
-                              Text('${date.bookedAppointments} consulta(s) agendada(s)'),
+                              Text(
+                                '${date.bookedAppointments} consulta(s) agendada(s)',
+                              ),
                             if (date.hasOverlaps)
                               Text(
                                 'Solapamiento: $overlapText',
@@ -266,11 +285,16 @@ class _ChangeWeeklyShiftClinicDialogState
                 value: _confirmarConConsultas,
                 onChanged: state.isLoading
                     ? null
-                    : (value) => setState(() => _confirmarConConsultas = value ?? false),
-                title: const Text('Confirmo el cambio con consultas agendadas.'),
+                    : (value) => setState(
+                        () => _confirmarConConsultas = value ?? false,
+                      ),
+                title: const Text(
+                  'Confirmo el cambio con consultas agendadas.',
+                ),
               ),
             ],
-            if (state.status == SubmitStatus.error && state.errorMessage != null) ...[
+            if (state.status == SubmitStatus.error &&
+                state.errorMessage != null) ...[
               const SizedBox(height: 12),
               Container(
                 key: const Key('weekly-shift-clinic-error'),
@@ -292,7 +316,9 @@ class _ChangeWeeklyShiftClinicDialogState
       actions: [
         TextButton(
           key: const Key('weekly-shift-clinic-cancel'),
-          onPressed: state.isLoading ? null : () => Navigator.of(context).pop(false),
+          onPressed: state.isLoading
+              ? null
+              : () => Navigator.of(context).pop(false),
           child: const Text('Cancelar'),
         ),
         FilledButton(

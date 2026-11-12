@@ -447,8 +447,7 @@ class FakeShiftDatabase {
     final today = DateTime.utc(now.year, now.month, now.day);
     final future = [
       for (final shift in shifts)
-        if (shift.weeklyShiftId == weeklyShiftId &&
-            !shift.date.isBefore(today))
+        if (shift.weeklyShiftId == weeklyShiftId && !shift.date.isBefore(today))
           shift,
     ]..sort((a, b) => a.date.compareTo(b.date));
 
@@ -459,7 +458,8 @@ class FakeShiftDatabase {
             shiftId: shift.id,
             date: shift.date,
             state: shift.state,
-            bookedAppointments: agendadasPorTurno[shift.id] ??
+            bookedAppointments:
+                agendadasPorTurno[shift.id] ??
                 (shift == future.first
                     ? (agendadasPorTurnoSemanal[weeklyShiftId] ?? 0)
                     : 0),
@@ -515,8 +515,7 @@ class FakeShiftDatabase {
     final today = DateTime.utc(now.year, now.month, now.day);
     final future = [
       for (final shift in shifts)
-        if (shift.weeklyShiftId == weeklyShiftId &&
-            !shift.date.isBefore(today))
+        if (shift.weeklyShiftId == weeklyShiftId && !shift.date.isBefore(today))
           shift,
     ];
     if (future.isEmpty) {
@@ -530,14 +529,18 @@ class FakeShiftDatabase {
       selected = future;
     } else {
       final ids = turnoIds.toSet();
-      if (ids.isEmpty || ids.length != turnoIds.length ||
+      if (ids.isEmpty ||
+          ids.length != turnoIds.length ||
           turnoIds.any((id) => id <= 0) ||
           !ids.every((id) => future.any((shift) => shift.id == id))) {
         throw const ShiftValidationException(
           'Los turnoIds deben ser únicos y pertenecer a fechas actuales o futuras del patrón.',
         );
       }
-      selected = [for (final shift in future) if (ids.contains(shift.id)) shift];
+      selected = [
+        for (final shift in future)
+          if (ids.contains(shift.id)) shift,
+      ];
     }
 
     final changing = [
@@ -563,13 +566,16 @@ class FakeShiftDatabase {
     final withBookings = [
       for (final shift in changing)
         if ((agendadasPorTurno[shift.id] ??
-              (shift == future.first
-                  ? agendadasPorTurnoSemanal[weeklyShiftId] ?? 0
-                  : 0)) > 0)
+                (shift == future.first
+                    ? agendadasPorTurnoSemanal[weeklyShiftId] ?? 0
+                    : 0)) >
+            0)
           shift,
     ];
     if (withBookings.isNotEmpty && !confirmarConConsultas) {
-      final dates = withBookings.map((shift) => _isoDate(shift.date)).join(', ');
+      final dates = withBookings
+          .map((shift) => _isoDate(shift.date))
+          .join(', ');
       throw ShiftNotModifiableException(
         'Hay consultas agendadas en las fechas $dates. '
         'Confirmá el cambio para continuar.',
@@ -595,7 +601,8 @@ class FakeShiftDatabase {
       endDate: current.endDate,
       numbers: current.numbers,
       shiftCount: current.shiftCount,
-      clinicVariesByDate: future.map((shift) => shift.clinicId).toSet().length > 1,
+      clinicVariesByDate:
+          future.map((shift) => shift.clinicId).toSet().length > 1,
     );
     final index = weeklyShifts.indexWhere((item) => item.id == current.id);
     weeklyShifts[index] = updated;

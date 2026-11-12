@@ -5,7 +5,10 @@ import '../models/clinic_change_preview.dart';
 /// Cambia el consultorio de una configuración semanal (fila 51).
 abstract class WeeklyShiftClinicRepository {
   /// Consulta sin modificar los turnos de hoy en adelante.
-  Future<ClinicChangePreview> previewClinicChange(int weeklyShiftId, int clinicId);
+  Future<ClinicChangePreview> previewClinicChange(
+    int weeklyShiftId,
+    int clinicId,
+  );
 
   /// Devuelve la configuración resultante. El consultorio actual es un no-op.
   Future<WeeklyShift> changeClinic(

@@ -104,7 +104,8 @@ void main() {
     final (repository, adapter) = _ok(200, weeklyShiftJson());
 
     await repository.changeClinic(
-      120, 7,
+      120,
+      7,
       turnoIds: [301, 303],
       confirmarConConsultas: true,
     );

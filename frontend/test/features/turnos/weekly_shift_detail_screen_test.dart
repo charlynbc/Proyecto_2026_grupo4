@@ -73,8 +73,12 @@ class _RecordingClinicChange implements WeeklyShiftClinicRepository {
   }) async {
     calls++;
     if (gate != null) await gate!.future;
-    return db.changeClinic(weeklyShiftId, clinicId,
-        turnoIds: turnoIds, confirmarConConsultas: confirmarConConsultas);
+    return db.changeClinic(
+      weeklyShiftId,
+      clinicId,
+      turnoIds: turnoIds,
+      confirmarConConsultas: confirmarConConsultas,
+    );
   }
 }
 
@@ -111,6 +115,7 @@ class _BrokenClinics implements ClinicRepository {
 const _currentClinic =
     'Consultorio actual: Consultorio 3 (Planta baja). Cambia las fechas de '
     'hoy en adelante; las fechas pasadas conservan su consultorio.';
+
 /// Monta el detalle de la configuración [index] de `buildListingDb` (0 es la
 /// de Méndez; 2, la de Acosta), o del id indicado en [id].
 Future<_Harness> _pump(
@@ -406,24 +411,34 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(first.clinicId, originalClinic);
-      expect(harness.shiftDb.weeklyShiftById(patternId)!.clinicVariesByDate,
-          isTrue);
-      expect(find.textContaining('El consultorio varía según la fecha'),
-          findsOneWidget);
+      expect(
+        harness.shiftDb.weeklyShiftById(patternId)!.clinicVariesByDate,
+        isTrue,
+      );
+      expect(
+        find.textContaining('El consultorio varía según la fecha'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('consultas agendadas requieren confirmación expresa', (
       tester,
     ) async {
       final harness = await _pump(tester);
-      harness.shiftDb.agendadasPorTurnoSemanal[
-        harness.shiftDb.weeklyShifts.first.id
-      ] = 2;
+      harness.shiftDb.agendadasPorTurnoSemanal[harness
+              .shiftDb
+              .weeklyShifts
+              .first
+              .id] =
+          2;
       await _openDialog(tester);
       await _pickClinic(tester, 'Consultorio 7');
 
       expect(_saveButton(tester).onPressed, isNull);
-      expect(find.textContaining('no notificará automáticamente'), findsOneWidget);
+      expect(
+        find.textContaining('no notificará automáticamente'),
+        findsOneWidget,
+      );
 
       final confirm = find.byKey(const Key('weekly-shift-confirm-booked'));
       await tester.ensureVisible(confirm);
@@ -468,7 +483,10 @@ void main() {
 
       expect(find.textContaining('Solapamiento:'), findsWidgets);
       final firstShiftId = harness.shiftDb.shifts
-          .firstWhere((shift) => shift.weeklyShiftId == harness.shiftDb.weeklyShifts.first.id)
+          .firstWhere(
+            (shift) =>
+                shift.weeklyShiftId == harness.shiftDb.weeklyShifts.first.id,
+          )
           .id;
       final tile = tester.widget<CheckboxListTile>(
         find.byKey(Key('weekly-shift-date-$firstShiftId')),

@@ -35,16 +35,16 @@ class ApiWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
   }) => _request(() async {
-        final response = await _dio.patch<Map<String, dynamic>>(
-          ApiRoutes.weeklyShift(weeklyShiftId),
-          data: {
-            'consultorioId': clinicId,
-            'turnoIds': ?turnoIds,
-            if (confirmarConConsultas) 'confirmarConConsultas': true,
-          },
-        );
-        return WeeklyShift.fromJson(_body(response));
-      });
+    final response = await _dio.patch<Map<String, dynamic>>(
+      ApiRoutes.weeklyShift(weeklyShiftId),
+      data: {
+        'consultorioId': clinicId,
+        'turnoIds': ?turnoIds,
+        if (confirmarConConsultas) 'confirmarConConsultas': true,
+      },
+    );
+    return WeeklyShift.fromJson(_body(response));
+  });
 
   /// Corre el pedido y traduce sus fallas: las de la red o del servidor por su
   /// `code`, y una respuesta mal formada como el error genérico.

@@ -40,8 +40,8 @@ class ClinicChangePreviewDate {
       state: ShiftState.fromApi(json['estado'] as String),
       bookedAppointments: appointments,
       overlaps: [
-        for (final overlap in (json['solapamientos'] as List<dynamic>? ??
-            const <dynamic>[]))
+        for (final overlap
+            in (json['solapamientos'] as List<dynamic>? ?? const <dynamic>[]))
           ClinicChangeOverlap.fromJson(overlap as Map<String, dynamic>),
       ],
       currentClinicId: currentClinic?['id'] as int?,
