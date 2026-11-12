@@ -52,6 +52,7 @@ class _EditClinicScreenState extends ConsumerState<EditClinicScreen> {
       _locationController.text.trim() != clinic.location.trim();
 
   Future<void> _submit(Clinic clinic) async {
+    if (!_hasChanges(clinic)) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final name = _nameController.text.trim();
     final location = _locationController.text.trim();
@@ -79,7 +80,7 @@ class _EditClinicScreenState extends ConsumerState<EditClinicScreen> {
       }
     });
     final state = ref.watch(correctClinicControllerProvider);
-    // Keep the covered list's derived data live while its search is invalidated.
+    // Mantiene activa la lista mientras se actualiza la búsqueda.
     ref.watch(clinicListProvider);
     final clinics = ref.watch(clinicsProvider);
     return Scaffold(

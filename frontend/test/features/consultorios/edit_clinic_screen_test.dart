@@ -138,6 +138,41 @@ void main() {
     );
   });
 
+  testWidgets('Enter sin cambios no envía la corrección', (tester) async {
+    final db = FakeAdminDatabase();
+    final correction = _RecordingCorrectionRepository(
+      FakeClinicCorrectionRepository(db, latency: Duration.zero),
+    );
+    await _pump(
+      tester,
+      correction: correction,
+      database: db,
+      initialLocation: '/admin/consultorios/1/corregir',
+    );
+    await tester.tap(_editFields().at(1));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(correction.calls, isEmpty);
+    expect(find.text('Corregir consultorio'), findsOneWidget);
+  });
+
+  testWidgets('renombrar mantiene el orden natural ascendente', (tester) async {
+    await _pump(tester);
+    await _openEdit(tester, 1);
+    await tester.enterText(_editFields().at(0), 'Consultorio 30');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('edit-clinic-save')));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('Consultorio 7')).dy,
+      lessThan(tester.getTopLeft(find.text('Consultorio 12')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Consultorio 12')).dy,
+      lessThan(tester.getTopLeft(find.text('Consultorio 30')).dy),
+    );
+  });
+
   testWidgets('guardar solo ubicación envía solo ese campo y vuelve', (
     tester,
   ) async {
