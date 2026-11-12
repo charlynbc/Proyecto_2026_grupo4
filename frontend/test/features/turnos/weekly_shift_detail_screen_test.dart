@@ -636,6 +636,76 @@ void main() {
       expect(recording.calls, 1);
     });
 
+    testWidgets(
+      'con el mismo consultorio las 5 fechas están y hay un solo scroll',
+      (tester) async {
+        // Patrón de Acosta, miércoles del 21/10 al 18/11/2026 (hoy es el 20/10):
+        // 21/10 (suspendida), 28/10, 04/11, 11/11 y 18/11. Todas usan ya el
+        // Consultorio 3, el mismo que se elige en el diálogo.
+        final harness = await _pump(tester);
+        final acosta = harness.admin.accounts.firstWhere(
+          (account) =>
+              account.role == UserRole.medico && account.lastName == 'Acosta',
+        );
+        final weekly = harness.shiftDb.createWeeklyShift(
+          NewWeeklyShift(
+            doctorId: acosta.id,
+            specialtyId: 3,
+            clinicId: harness.admin.clinics.first.id,
+            weekday: 3,
+            startDate: DateTime.utc(2026, 10, 21),
+            endDate: DateTime.utc(2026, 11, 18),
+            numbers: [
+              ShiftNumber(
+                number: 1,
+                startMinutes: 10 * 60,
+                endMinutes: 10 * 60 + 20,
+              ),
+            ],
+          ),
+        );
+        final dates =
+            harness.shiftDb.shifts
+                .where((shift) => shift.weeklyShiftId == weekly.id)
+                .toList()
+              ..sort((a, b) => a.date.compareTo(b.date));
+        expect(dates, hasLength(5));
+        harness.shiftDb.suspendShift(dates.first.id);
+        harness.router.go(weeklyShiftDetailLocation(weekly.id));
+        await tester.pumpAndSettle();
+
+        await _openDialog(tester);
+        // Es el mismo consultorio: el desplegable no consulta solo.
+        await tester.tap(find.text('Consultar fechas'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Seleccionadas: 0 de 5.'), findsOneWidget);
+
+        // Un solo scroll vertical: el del diálogo (SingleChildScrollView de
+        // `scrollable: true`). Una lista interna sumaría un segundo Scrollable.
+        final verticalScrolls = find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+          ),
+        );
+        expect(verticalScrolls, findsOneWidget);
+
+        expect(find.text('Ya usa el consultorio elegido.'), findsNWidgets(5));
+
+        final dialog = tester.getRect(find.byType(AlertDialog));
+        for (final date in dates) {
+          final row = find.byKey(Key('weekly-shift-date-${date.id}'));
+          expect(row, findsOneWidget);
+          await tester.ensureVisible(row);
+          await tester.pumpAndSettle();
+          final rect = tester.getRect(row);
+          expect(rect.top, greaterThanOrEqualTo(dialog.top));
+          expect(rect.bottom, lessThanOrEqualTo(dialog.bottom));
+        }
+      },
+    );
+
     testWidgets('si no cargan los consultorios muestra Reintentar', (
       tester,
     ) async {

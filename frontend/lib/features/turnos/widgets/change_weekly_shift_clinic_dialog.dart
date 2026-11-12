@@ -219,56 +219,47 @@ class _ChangeWeeklyShiftClinicDialogState
                   'Las fechas con solapamiento no se pueden seleccionar.',
                 ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  height: 270,
-                  width: double.maxFinite,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: dates.length,
-                    itemBuilder: (context, index) {
-                      final date = dates[index];
-                      final selectable = _isSelectable(date);
-                      final overlapText = date.overlaps
-                          .map(
-                            (overlap) =>
-                                'Número ${overlap.ownNumber} con número ${overlap.existingNumber}',
-                          )
-                          .join('; ');
-                      return CheckboxListTile(
-                        key: Key('weekly-shift-date-${date.shiftId}'),
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        value: _selectedTurnoIds.contains(date.shiftId),
-                        onChanged: selectable && !state.isLoading
-                            ? (value) =>
-                                  _toggleTurno(date.shiftId, value ?? false)
-                            : null,
-                        title: Text(formatUiDate(date.date)),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${date.state.label} · Consultorio actual: '
-                              '${date.currentClinicName ?? date.currentClinicId?.toString() ?? "sin dato"}',
-                            ),
-                            if (date.bookedAppointments > 0)
-                              Text(
-                                '${date.bookedAppointments} consulta(s) agendada(s)',
-                              ),
-                            if (date.hasOverlaps)
-                              Text(
-                                'Solapamiento: $overlapText',
-                                style: TextStyle(color: colorScheme.error),
-                              ),
-                            if (!date.hasOverlaps && !selectable)
-                              const Text('Ya usa el consultorio elegido.'),
-                          ],
+                // Sin lista interna: el diálogo ya desplaza todo junto.
+                ...dates.map((date) {
+                  final selectable = _isSelectable(date);
+                  final overlapText = date.overlaps
+                      .map(
+                        (overlap) =>
+                            'Número ${overlap.ownNumber} con número ${overlap.existingNumber}',
+                      )
+                      .join('; ');
+                  return CheckboxListTile(
+                    key: Key('weekly-shift-date-${date.shiftId}'),
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _selectedTurnoIds.contains(date.shiftId),
+                    onChanged: selectable && !state.isLoading
+                        ? (value) => _toggleTurno(date.shiftId, value ?? false)
+                        : null,
+                    title: Text(formatUiDate(date.date)),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${date.state.label} · Consultorio actual: '
+                          '${date.currentClinicName ?? date.currentClinicId?.toString() ?? "sin dato"}',
                         ),
-                      );
-                    },
-                  ),
-                ),
+                        if (date.bookedAppointments > 0)
+                          Text(
+                            '${date.bookedAppointments} consulta(s) agendada(s)',
+                          ),
+                        if (date.hasOverlaps)
+                          Text(
+                            'Solapamiento: $overlapText',
+                            style: TextStyle(color: colorScheme.error),
+                          ),
+                        if (!date.hasOverlaps && !selectable)
+                          const Text('Ya usa el consultorio elegido.'),
+                      ],
+                    ),
+                  );
+                }),
                 TextButton(
                   onPressed: state.isLoading ? null : _loadPreview,
                   child: const Text('Actualizar vista previa'),
