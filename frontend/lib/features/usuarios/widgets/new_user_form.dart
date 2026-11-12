@@ -248,7 +248,9 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
           UiDateField(
             controller: _birthDateController,
             enabled: enabled,
-            label: 'Fecha de nacimiento (dd/mm/aaaa)',
+            // El formato queda como pista del campo (`dd/mm/aaaa`): una
+            // etiqueta más larga se corta con puntos a 320 px.
+            label: 'Fecha de nacimiento',
             pickerHelpText: 'Fecha de nacimiento',
             pickerTooltip: 'Elegir fecha de nacimiento',
             // Solo pasado: desde 1900 hasta hoy, en la hora de Uruguay.

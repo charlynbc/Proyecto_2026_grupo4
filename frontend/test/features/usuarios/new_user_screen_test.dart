@@ -14,9 +14,11 @@ import 'package:agenda_medica/features/usuarios/repositories/user_repository.dar
 import 'package:agenda_medica/features/usuarios/screens/new_user_screen.dart';
 import 'package:agenda_medica/features/usuarios/screens/user_routes.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 
 /// Un repository que rechaza todas las altas con [error].
@@ -106,7 +108,7 @@ Future<void> _fill(
   await _enter(tester, 'Cédula de identidad', ci);
   await _enter(tester, 'Nombre', firstName);
   await _enter(tester, 'Apellido', lastName);
-  await _enter(tester, 'Fecha de nacimiento (dd/mm/aaaa)', birthDate);
+  await _enter(tester, 'Fecha de nacimiento', birthDate);
   await _enter(tester, 'Correo electrónico', email);
   await _enter(tester, 'Teléfono 1', phone1);
 }
@@ -194,7 +196,7 @@ void main() {
       tester,
     ) async {
       await _pump(tester);
-      const fieldLabel = 'Fecha de nacimiento (dd/mm/aaaa)';
+      const fieldLabel = 'Fecha de nacimiento';
 
       // 2021 no fue bisiesto.
       await _enter(tester, fieldLabel, '29/02/2021');
@@ -214,7 +216,7 @@ void main() {
 
     testWidgets('la fecha tiene que existir y no ser futura', (tester) async {
       await _pump(tester);
-      const fieldLabel = 'Fecha de nacimiento (dd/mm/aaaa)';
+      const fieldLabel = 'Fecha de nacimiento';
 
       await _enter(tester, fieldLabel, '1978-03-15');
       await _submit(tester);
@@ -513,7 +515,7 @@ void main() {
   });
 
   group('fecha de nacimiento como la cédula', () {
-    const dateLabel = 'Fecha de nacimiento (dd/mm/aaaa)';
+    const dateLabel = 'Fecha de nacimiento';
     const formatError =
         'Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.';
     const missingError =
@@ -632,7 +634,7 @@ void main() {
   });
 
   group('fecha de nacimiento con el campo compartido', () {
-    const dateLabel = 'Fecha de nacimiento (dd/mm/aaaa)';
+    const dateLabel = 'Fecha de nacimiento';
     const futureError = 'La fecha de nacimiento no puede ser futura.';
     const yearError = 'Revisá el año de nacimiento.';
     final dateField = find.byType(UiDateField);
@@ -767,6 +769,40 @@ void main() {
 
       final previous = find.widgetWithIcon(IconButton, Icons.chevron_left);
       expect(tester.widget<IconButton>(previous).onPressed, isNull);
+    });
+
+    testWidgets('a 320 px la etiqueta no se corta con puntos', (tester) async {
+      await loadRoboto();
+      await _pump(tester);
+      tester.view.physicalSize = const Size(320, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(dateField);
+      final label = find
+          .descendant(
+            of: dateField,
+            matching: find.textContaining('Fecha de nacimiento'),
+          )
+          .first;
+      bool cut() =>
+          tester.renderObject<RenderParagraph>(label).didExceedMaxLines;
+
+      // Vacío, con la etiqueta entera a la vista.
+      expect(cut(), isFalse);
+
+      // Con la fecha escrita, la cruz le quita lugar a la etiqueta.
+      await tester.enterText(
+        find.descendant(of: dateField, matching: find.byType(TextFormField)),
+        '15/03/1978',
+      );
+      await tester.pump();
+      expect(cut(), isFalse);
+
+      // El formato sigue a la vista como pista del campo.
+      expect(find.text('dd/mm/aaaa'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('a 320 px de ancho no desborda, con cruz y con error', (
@@ -1067,7 +1103,7 @@ void main() {
     testWidgets('el de la fecha mal escrita no se corta', (tester) async {
       await expectErrorNotCut(
         tester,
-        label: 'Fecha de nacimiento (dd/mm/aaaa)',
+        label: 'Fecha de nacimiento',
         input: '15/03',
         message: 'Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.',
       );
@@ -1076,7 +1112,7 @@ void main() {
     testWidgets('el de la fecha inexistente no se corta', (tester) async {
       await expectErrorNotCut(
         tester,
-        label: 'Fecha de nacimiento (dd/mm/aaaa)',
+        label: 'Fecha de nacimiento',
         input: '29/02/2021',
         message:
             'Esa fecha no existe en el calendario. Revisá el día y el mes.',
