@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/sort_direction_button.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../models/doctor_shift.dart';
 import '../providers/doctor_agenda_controller.dart';
@@ -221,13 +222,13 @@ class _DoctorShiftsScreenState extends ConsumerState<DoctorShiftsScreen>
               ascending: state.ascending,
             ),
           ),
-          IconButton(
-            key: const Key('doctor-direction'),
-            tooltip: state.ascending ? 'Orden ascendente' : 'Orden descendente',
-            onPressed: () =>
-                controller.setOrder(state.order, ascending: !state.ascending),
-            icon: Icon(
-              state.ascending ? Icons.arrow_upward : Icons.arrow_downward,
+          Tooltip(
+            message: state.ascending ? 'Orden ascendente' : 'Orden descendente',
+            child: SortDirectionButton(
+              key: const Key('doctor-direction'),
+              ascending: state.ascending,
+              onPressed: () =>
+                  controller.setOrder(state.order, ascending: !state.ascending),
             ),
           ),
         ],
