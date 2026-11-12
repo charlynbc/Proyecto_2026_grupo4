@@ -171,6 +171,38 @@ void main() {
     expect(find.byTooltip('Volver'), findsOneWidget);
   });
 
+  testWidgets('el aviso usa surfaceContainerHigh del tema, con padding 12 y '
+      'borde de 8', (tester) async {
+    // Un tema donde cada color de superficie es distinguible a simple vista.
+    final scheme = const ColorScheme.light().copyWith(
+      surfaceContainerHigh: const Color(0xFFABCDEF),
+      surfaceContainerLow: const Color(0xFF123456),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        key: UniqueKey(),
+        overrides: [
+          doctorPatientHistoryRepositoryProvider.overrideWith(
+            (ref) async => _StubDoctorPatientHistoryRepository(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: ThemeData(colorScheme: scheme),
+          home: const DoctorPatientHistoryScreen(socioId: 101),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final notice = tester.widget<Container>(
+      find.byKey(const ValueKey('patient-history-notice')),
+    );
+    final decoration = notice.decoration! as BoxDecoration;
+    expect(decoration.color, const Color(0xFFABCDEF));
+    expect(decoration.borderRadius, BorderRadius.circular(8));
+    expect(notice.padding, const EdgeInsets.all(12));
+  });
+
   testWidgets('no muestra la etiqueta de paciente cuando no hay nombre', (
     tester,
   ) async {

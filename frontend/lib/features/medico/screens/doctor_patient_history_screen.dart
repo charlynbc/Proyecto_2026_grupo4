@@ -49,7 +49,7 @@ class DoctorPatientHistoryScreen extends ConsumerWidget {
                 Text('Paciente: $name'),
                 const SizedBox(height: 12),
               ],
-              _notice(),
+              _notice(context),
               const SizedBox(height: 16),
               history.when(
                 skipLoadingOnRefresh: false,
@@ -98,11 +98,11 @@ class DoctorPatientHistoryScreen extends ConsumerWidget {
     );
   }
 
-  Widget _notice() => Container(
+  Widget _notice(BuildContext context) => Container(
     key: const ValueKey('patient-history-notice'),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: Colors.blue.withValues(alpha: 0.08),
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(8),
     ),
     child: const Text(
