@@ -14,6 +14,7 @@ class AnnouncementImage {
         order < 0 ||
         uri == null ||
         !uri.hasAuthority ||
+        uri.host.isEmpty ||
         !['https', 'http'].contains(uri.scheme)) {
       throw const FormatException('Imagen inválida');
     }

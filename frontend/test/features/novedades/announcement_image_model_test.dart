@@ -44,20 +44,13 @@ void main() {
       'file:///etc/passwd',
       'data:image/png;base64,AAAA',
       'https:///sin-host',
+      'https://:8080/x',
       'https:sin-host',
       '',
     ]) {
-      test(
-        '"$url" lanza FormatException',
-        () {
-          expect(() => AnnouncementImage.fromJson(_json(url: url)), _rejected);
-        },
-        // Defecto conocido de producción: con host vacío, Uri.hasAuthority es
-        // true y fromJson acepta la URL. Se arregla con un host no vacío.
-        skip: url == 'https:///sin-host'
-            ? 'fromJson acepta una URL con host vacío'
-            : null,
-      );
+      test('"$url" lanza FormatException', () {
+        expect(() => AnnouncementImage.fromJson(_json(url: url)), _rejected);
+      });
     }
   });
 
