@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/files/csv_file_picker_field.dart';
+import '../../../core/files/import_errors_download_button.dart';
+import '../../../core/files/picked_csv_file.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../models/clinic_import.dart';
 import '../providers/clinic_import_controller.dart';
@@ -67,10 +69,11 @@ class ClinicImportScreen extends ConsumerWidget {
               ),
             ],
             if (state.result case final result?)
-              _Result(result: result)
+              _Result(result: result, file: state.file)
             else if (state.preview case final preview?)
               _Preview(
                 preview: preview,
+                file: state.file,
                 confirming: stage == ClinicImportStage.confirming,
                 onConfirm: controller.confirm,
               ),
@@ -85,16 +88,19 @@ class ClinicImportScreen extends ConsumerWidget {
 class _Preview extends StatelessWidget {
   const _Preview({
     required this.preview,
+    required this.file,
     required this.confirming,
     required this.onConfirm,
   });
 
   final ClinicImportPreview preview;
+  final PickedCsvFile? file;
   final bool confirming;
   final VoidCallback onConfirm;
 
   @override
   Widget build(BuildContext context) {
+    final file = this.file;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -103,6 +109,15 @@ class _Preview extends StatelessWidget {
         Text('Válidas: ${preview.valid}', key: const Key('import-valid')),
         Text('Con error: ${preview.invalid}', key: const Key('import-invalid')),
         _ErrorRows(rows: preview.errors),
+        if (file != null)
+          ImportErrorsDownloadButton(
+            file: file,
+            expectedHeader: kClinicImportColumns,
+            errorsByRow: {
+              for (final row in preview.errors) row.number: row.error ?? '',
+            },
+            label: 'Descargar filas con error',
+          ),
         if (preview.valid > 0) ...[
           const SizedBox(height: 16),
           FilledButton(
@@ -118,12 +133,14 @@ class _Preview extends StatelessWidget {
 
 /// Importadas y rechazadas, y los botones para seguir.
 class _Result extends ConsumerWidget {
-  const _Result({required this.result});
+  const _Result({required this.result, required this.file});
 
   final ClinicImportResult result;
+  final PickedCsvFile? file;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final file = this.file;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -137,6 +154,15 @@ class _Result extends ConsumerWidget {
           key: const Key('import-rejected'),
         ),
         _ErrorRows(rows: result.errors),
+        if (file != null)
+          ImportErrorsDownloadButton(
+            file: file,
+            expectedHeader: kClinicImportColumns,
+            errorsByRow: {
+              for (final row in result.errors) row.number: row.error ?? '',
+            },
+            label: 'Descargar filas rechazadas',
+          ),
         const SizedBox(height: 16),
         Wrap(
           spacing: 8,

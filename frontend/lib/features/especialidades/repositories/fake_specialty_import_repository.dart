@@ -24,13 +24,12 @@ class FakeSpecialtyImportRepository implements SpecialtyImportRepository {
   final FakeAdminDatabase _db;
   final Duration latency;
 
-  static const List<String> _header = ['nombre', 'requiere_pase'];
   static const int _maxNameLength = 120;
 
   @override
   Future<SpecialtyImportPreview> preview(PickedCsvFile file) async {
     await Future<void>.delayed(latency);
-    final table = parseCsv(file.bytes, expectedHeader: _header);
+    final table = parseCsv(file.bytes, expectedHeader: kSpecialtyImportColumns);
     final rows = _process(table, confirm: false);
     final errors = [
       for (final row in rows)
@@ -48,7 +47,7 @@ class FakeSpecialtyImportRepository implements SpecialtyImportRepository {
   @override
   Future<SpecialtyImportResult> confirm(PickedCsvFile file) async {
     await Future<void>.delayed(latency);
-    final table = parseCsv(file.bytes, expectedHeader: _header);
+    final table = parseCsv(file.bytes, expectedHeader: kSpecialtyImportColumns);
     final rows = _process(table, confirm: true);
     final errors = [
       for (final row in rows)
@@ -96,7 +95,7 @@ class FakeSpecialtyImportRepository implements SpecialtyImportRepository {
     List<String> cells,
     Map<String, int> seen,
   ) {
-    if (cells.length != _header.length) {
+    if (cells.length != kSpecialtyImportColumns.length) {
       return SpecialtyImportRow(
         number: number,
         error: 'La fila debe tener exactamente 2 columnas.',

@@ -27,6 +27,18 @@ void main() {
       ]);
     });
 
+    test('guarda el encabezado del archivo en su orden', () {
+      final table = _parse('requiere_pase,nombre\nsi,A\nno\n');
+
+      expect(table.header, ['nombre', 'requiere_pase']);
+      expect(table.fileHeader, ['requiere_pase', 'nombre']);
+      // La completa se reordena; la corta queda cruda, en el orden del archivo.
+      expect(table.rows, [
+        ['A', 'si'],
+        ['no'],
+      ]);
+    });
+
     test('BOM inicial, punto y coma y fin de línea CRLF', () {
       final table = _parse('﻿nombre;requiere_pase\r\nA;si\r\n');
 
