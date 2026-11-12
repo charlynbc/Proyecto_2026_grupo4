@@ -27,7 +27,132 @@ class RecordingRepository implements DoctorAttentionRepository {
   Future<DoctorAttention> get(int id) => fake.get(id);
 }
 
+Future<RecordingRepository> _pumpScreen(
+  WidgetTester tester, {
+  Size size = const Size(900, 1800),
+}) async {
+  final repo = RecordingRepository();
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        doctorAttentionRepositoryProvider.overrideWith((ref) async => repo),
+        specialtiesProvider.overrideWith(
+          (ref) async => [
+            const Specialty(id: 3, name: 'Cardiología', requiresReferral: true),
+          ],
+        ),
+      ],
+      child: const MaterialApp(home: DoctorAttentionsScreen()),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return repo;
+}
+
 void main() {
+  group('sentido del orden como botón', () {
+    final direction = find.byKey(const Key('attentions-direction'));
+
+    testWidgets('muestra el texto y el ícono del estado actual', (
+      tester,
+    ) async {
+      final repo = await _pumpScreen(tester);
+
+      expect(
+        find.descendant(of: direction, matching: find.byType(TextButton)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: direction, matching: find.byType(OutlinedButton)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_downward),
+        ),
+        findsOneWidget,
+      );
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
+    });
+
+    testWidgets('alterna al tocarlo y se aplica con Buscar', (tester) async {
+      final repo = await _pumpScreen(tester);
+
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(of: direction, matching: find.text('Ascendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_upward),
+        ),
+        findsOneWidget,
+      );
+      // Todavía no se buscó: el último pedido sigue siendo el anterior.
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
+
+      await tester.tap(find.byKey(const Key('attentions-search')));
+      await tester.pumpAndSettle();
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+
+      await tester.tap(direction);
+      await tester.tap(find.byKey(const Key('attentions-search')));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
+    });
+
+    testWidgets('cambiar de campo reinicia el sentido', (tester) async {
+      await _pumpScreen(tester);
+
+      await tester.tap(find.byKey(const Key('attentions-order')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apellido del paciente').last);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: direction, matching: find.text('Ascendente')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('attentions-order')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Fecha').last);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a 320 px se ve completo y no desborda', (tester) async {
+      await loadRoboto();
+      await _pumpScreen(tester, size: const Size(320, 900));
+
+      expect(find.text('Descendente'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('Descendente')).right,
+        lessThanOrEqualTo(320),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets('busca con CI normalizada y abre el detalle', (tester) async {
     final repo = RecordingRepository();
     final router = GoRouter(

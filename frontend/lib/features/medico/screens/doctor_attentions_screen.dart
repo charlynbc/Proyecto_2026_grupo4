@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
+import '../../../core/widgets/sort_direction_button.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../models/doctor_attention_query.dart';
@@ -207,18 +208,15 @@ class _DoctorAttentionsScreenState
                         }
                       },
                     ),
-                    OutlinedButton(
+                    SortDirectionButton(
                       key: const Key('attentions-direction'),
+                      ascending:
+                          direction == DoctorAttentionDirection.ascending,
                       onPressed: () => setState(
                         () => direction =
                             direction == DoctorAttentionDirection.ascending
                             ? DoctorAttentionDirection.descending
                             : DoctorAttentionDirection.ascending,
-                      ),
-                      child: Text(
-                        direction == DoctorAttentionDirection.ascending
-                            ? 'Ascendente'
-                            : 'Descendente',
                       ),
                     ),
                   ],

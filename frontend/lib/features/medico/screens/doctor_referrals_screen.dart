@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/utils/uruguay_time.dart';
+import '../../../core/widgets/sort_direction_button.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../models/issued_referral.dart';
 import '../models/issued_referral_query.dart';
@@ -130,15 +131,14 @@ class _Filters extends ConsumerWidget {
                 if (order != null) controller.setOrder(order);
               },
             ),
-            OutlinedButton.icon(
+            SortDirectionButton(
               key: const Key('referrals-direction'),
+              ascending: ascending,
               onPressed: () => controller.setDirection(
                 ascending
                     ? IssuedReferralDirection.descending
                     : IssuedReferralDirection.ascending,
               ),
-              icon: Icon(ascending ? Icons.arrow_upward : Icons.arrow_downward),
-              label: Text(ascending ? 'Ascendente' : 'Descendente'),
             ),
           ],
         ),
