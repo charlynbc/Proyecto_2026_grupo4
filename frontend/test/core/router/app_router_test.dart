@@ -48,6 +48,29 @@ Future<void> _loginAs(
 }
 
 void main() {
+  testWidgets('ruta real de corrección abre un consultorio válido', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.administrador);
+    await goTo(tester, container, '/admin/consultorios/1/corregir');
+    expect(find.text('Corregir consultorio'), findsOneWidget);
+    expect(find.text('Consultorio 3'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
+  for (final id in ['0', '-3', 'abc']) {
+    testWidgets('ruta real de corrección con id $id no encontrado', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+      await goTo(tester, container, '/admin/consultorios/$id/corregir');
+      expect(find.text('No encontramos ese consultorio.'), findsOneWidget);
+      await unmountApp(tester);
+    });
+  }
+
   group('redirectFor', () {
     const checking = SessionState(status: SessionStatus.checking);
     const anonymous = SessionState();
