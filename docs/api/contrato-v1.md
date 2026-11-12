@@ -750,7 +750,7 @@ Puede haber huecos entre números; los números no se solapan entre sí.
 
 Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 
-**Respuesta 200**: la misma forma que la respuesta de #13. `cantidadTurnos` es la cantidad de fechas concretas que tiene el patrón (**PROPUESTA**).
+**Respuesta 200**: la misma forma que la respuesta de #13. `cantidadTurnos` es la cantidad de fechas concretas que tiene el patrón (**PROPUESTA**). Incluye también `consultorioVariaPorFecha` (booleano): es verdadero cuando las fechas de hoy en adelante del turno (activas y suspendidas) están en más de un consultorio, igual que en la respuesta del PATCH de este mismo turno semanal. El `consultorio` de la respuesta es el del patrón.
 
 **Errores:** `404 NO_ENCONTRADO` si el id no existe.
 
