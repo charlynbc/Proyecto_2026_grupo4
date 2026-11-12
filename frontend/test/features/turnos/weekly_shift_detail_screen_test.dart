@@ -315,6 +315,47 @@ void main() {
     });
   });
 
+  group('cuando el consultorio varía según la fecha', () {
+    const warning =
+        'El consultorio varía según la fecha. Consultá el listado de Turnos '
+        'para ver el de cada una y revisá cada turno antes de informar al '
+        'socio.';
+
+    testWidgets('no muestra un consultorio único y avisa', (tester) async {
+      // Dos de las 5 fechas pasan al Consultorio 7; el patrón sigue en el 3.
+      await _pumpFiveDates(
+        tester,
+        prepare: (db, weeklyShiftId, dates) {
+          final room7 = db.admin.clinics.firstWhere(
+            (clinic) => clinic.name == 'Consultorio 7',
+          );
+          db.changeClinic(
+            weeklyShiftId,
+            room7.id,
+            turnoIds: [dates[1].id, dates[2].id],
+          );
+        },
+      );
+
+      expect(find.text('Consultorio'), findsOneWidget);
+      expect(find.text('Varía según la fecha'), findsOneWidget);
+      expect(find.text('Consultorio 3 (Planta baja)'), findsNothing);
+      expect(find.text(warning), findsOneWidget);
+      expect(find.text('5 fechas'), findsOneWidget);
+    });
+
+    testWidgets('si no varía muestra el consultorio y no avisa', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      expect(find.text('Consultorio'), findsOneWidget);
+      expect(find.text('Consultorio 3 (Planta baja)'), findsOneWidget);
+      expect(find.text('Varía según la fecha'), findsNothing);
+      expect(find.textContaining('El consultorio varía'), findsNothing);
+    });
+  });
+
   group('errores de carga', () {
     testWidgets('si falla, avisa y "Reintentar" vuelve a pedir', (
       tester,
