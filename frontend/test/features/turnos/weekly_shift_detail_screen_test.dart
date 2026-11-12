@@ -421,6 +421,62 @@ void main() {
       );
     });
 
+    testWidgets('cambiar de consultorio vuelve a marcar todas las fechas', (
+      tester,
+    ) async {
+      // La configuración de Méndez tiene 4 fechas desde hoy (20/10/2026):
+      // 20/10, 27/10 (suspendida), 03/11 y 10/11. Se agrega un turno de
+      // Acosta en el Consultorio 7 el 20/10 que se solapa con el número 1:
+      // en el 7 esa fecha no se puede elegir; en el 12 las 4 sí.
+      final harness = await _pump(tester);
+      final acosta = harness.admin.accounts.firstWhere(
+        (account) =>
+            account.role == UserRole.medico && account.lastName == 'Acosta',
+      );
+      harness.shiftDb.createWeeklyShift(
+        NewWeeklyShift(
+          doctorId: acosta.id,
+          specialtyId: 3,
+          clinicId: harness.admin.clinics
+              .firstWhere((clinic) => clinic.name == 'Consultorio 7')
+              .id,
+          weekday: 2,
+          startDate: DateTime.utc(2026, 10, 20),
+          endDate: DateTime.utc(2026, 10, 20),
+          numbers: [
+            ShiftNumber(
+              number: 1,
+              startMinutes: 9 * 60 + 10,
+              endMinutes: 9 * 60 + 30,
+            ),
+          ],
+        ),
+      );
+      final patternId = harness.shiftDb.weeklyShifts.first.id;
+      final dates = harness.shiftDb.shifts
+          .where((shift) => shift.weeklyShiftId == patternId)
+          .toList();
+      final third = find.byKey(Key('weekly-shift-date-${dates[2].id}'));
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 12');
+      expect(find.textContaining('Seleccionadas: 4 de 4.'), findsOneWidget);
+
+      await tester.ensureVisible(third);
+      await tester.tap(third);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Seleccionadas: 3 de 4.'), findsOneWidget);
+      expect(tester.widget<CheckboxListTile>(third).value, isFalse);
+
+      await _pickClinic(tester, 'Consultorio 7');
+
+      // Vuelven a marcarse las 3 elegibles (27/10, 03/11 y 10/11); la del
+      // 20/10 queda bloqueada y sin marcar.
+      expect(find.textContaining('Seleccionadas: 3 de 4.'), findsOneWidget);
+      expect(tester.widget<CheckboxListTile>(third).value, isTrue);
+      final blocked = find.byKey(Key('weekly-shift-date-${dates[0].id}'));
+      expect(tester.widget<CheckboxListTile>(blocked).value, isFalse);
+    });
+
     testWidgets('consultas agendadas requieren confirmación expresa', (
       tester,
     ) async {
