@@ -150,15 +150,13 @@ Future<void> _changeClinic(
   WeeklyShift weeklyShift,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
-  final saved = await showDialog<bool>(
+  final saved = await showDialog<ClinicChangeResult>(
     context: context,
     builder: (context) =>
         ChangeWeeklyShiftClinicDialog(weeklyShift: weeklyShift),
   );
-  if (saved == true) {
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Consultorio actualizado.')),
-    );
+  if (saved != null) {
+    messenger.showSnackBar(SnackBar(content: Text(saved.message)));
   }
 }
 

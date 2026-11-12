@@ -11,6 +11,29 @@ import '../models/weekly_shift.dart';
 import '../providers/change_weekly_shift_clinic_controller.dart';
 import '../providers/weekly_shift_clinic_repository_provider.dart';
 
+/// Lo que el diálogo informa al cerrarse después de guardar.
+class ClinicChangeResult {
+  const ClinicChangeResult({
+    required this.changedDates,
+    required this.totalDates,
+    required this.allInClinic,
+  });
+
+  /// Cuántas fechas se eligieron y se mandaron a cambiar.
+  final int changedDates;
+
+  /// Cuántas fechas tenía la vista previa.
+  final int totalDates;
+
+  /// Si, después del cambio, todas las fechas usan el consultorio elegido
+  /// (las elegidas más las que ya lo usaban).
+  final bool allInClinic;
+
+  String get message => allInClinic
+      ? 'Consultorio actualizado.'
+      : 'Consultorio actualizado en $changedDates de $totalDates fechas.';
+}
+
 /// RF-20: el funcionario ve las fechas y decide cuáles cambiar.
 class ChangeWeeklyShiftClinicDialog extends ConsumerStatefulWidget {
   const ChangeWeeklyShiftClinicDialog({super.key, required this.weeklyShift});
@@ -123,7 +146,19 @@ class _ChangeWeeklyShiftClinicDialogState
           turnoIds: chosen,
           confirmarConConsultas: _confirmarConConsultas,
         );
-    if (updated != null && mounted) Navigator.of(context).pop(true);
+    if (updated != null && mounted) {
+      Navigator.of(context).pop(
+        ClinicChangeResult(
+          changedDates: chosen.length,
+          totalDates: dates.length,
+          allInClinic: dates.every(
+            (date) =>
+                chosen.contains(date.shiftId) ||
+                date.currentClinicId == _clinicId,
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -310,9 +345,7 @@ class _ChangeWeeklyShiftClinicDialogState
       actions: [
         TextButton(
           key: const Key('weekly-shift-clinic-cancel'),
-          onPressed: state.isLoading
-              ? null
-              : () => Navigator.of(context).pop(false),
+          onPressed: state.isLoading ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
         ),
         FilledButton(
