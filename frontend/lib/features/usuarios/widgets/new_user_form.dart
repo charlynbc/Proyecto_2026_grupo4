@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/forms/early_ci_validation.dart';
 import '../../../core/forms/early_field_validation.dart';
 import '../../../core/forms/phone_field_rules.dart';
 import '../../../core/forms/submit_state.dart';
+import '../../../core/utils/ui_date.dart';
 import '../../../core/utils/uruguay_time.dart';
+import '../../../core/widgets/ui_date_field.dart';
 import '../../auth/models/user_role.dart';
 import '../../auth/widgets/credential_fields.dart';
 import '../../especialidades/providers/specialties_provider.dart';
@@ -17,26 +17,7 @@ import '../models/role_label.dart';
 import '../providers/create_user_controller.dart';
 import '../screens/user_routes.dart';
 
-final DateFormat _uiDate = DateFormat('dd/MM/yyyy');
-final RegExp _datePattern = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$');
 final RegExp _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-
-/// Si [text] tiene la forma `dd/mm/aaaa`, exista o no esa fecha.
-bool hasUiDateFormat(String text) => _datePattern.hasMatch(text.trim());
-
-/// Una fecha `dd/mm/aaaa` que existe en el calendario (no `31/02/2000`), o
-/// `null` si no tiene esa forma o no existe. Para distinguir los dos casos,
-/// [hasUiDateFormat].
-DateTime? parseUiDate(String text) {
-  final match = _datePattern.firstMatch(text.trim());
-  if (match == null) return null;
-  final day = int.parse(match.group(1)!);
-  final month = int.parse(match.group(2)!);
-  final year = int.parse(match.group(3)!);
-  final date = DateTime(year, month, day);
-  if (date.year != year || date.month != month || date.day != day) return null;
-  return date;
-}
 
 /// Formulario del alta de usuario (RF-31, CU 3.5.2). El cliente valida para
 /// ayudar; las reglas definitivas son del servidor.
@@ -50,9 +31,6 @@ class NewUserForm extends ConsumerStatefulWidget {
 class _NewUserFormState extends ConsumerState<NewUserForm> {
   static const int _firstYear = 1900;
 
-  /// Largo de `dd/mm/aaaa`.
-  static const int _dateLength = 10;
-
   /// Los mensajes de fecha, correo y teléfono son largos: con una sola línea
   /// (lo normal) se cortan con "…".
   static const int _errorMaxLines = 3;
@@ -64,13 +42,6 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _birthDateController = TextEditingController();
-  final _birthDateFocus = FocusNode();
-  late final _birthDateValidation = EarlyFieldValidation(
-    focusNode: _birthDateFocus,
-    emptyMessage: 'Ingresá la fecha de nacimiento.',
-    completeLength: _dateLength,
-    check: _checkBirthDate,
-  );
   final _emailController = TextEditingController();
   final _phone1Controller = TextEditingController();
   final _phone1Focus = FocusNode();
@@ -92,6 +63,12 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   final _addressController = TextEditingController();
 
   AutovalidateMode _autovalidate = AutovalidateMode.disabled;
+
+  /// Ya se intentó enviar: desde ahí, la fecha vacía se reclama.
+  bool _submitAttempted = false;
+
+  /// Mientras se valida el envío, la fecha a medias avisa aunque tenga foco.
+  bool _validatingSubmit = false;
   UserRole? _role;
   final Set<int> _specialtyIds = {};
   bool _specialtyMissing = false;
@@ -99,9 +76,8 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   @override
   void initState() {
     super.initState();
-    // Sin esto no se revalidan la cédula ni la fecha al perder el foco.
+    // Sin esto no se revalidan la cédula ni los teléfonos al perder el foco.
     _ciFocus.addListener(_onFocusChanged);
-    _birthDateFocus.addListener(_onFocusChanged);
     _phone1Focus.addListener(_onFocusChanged);
     _phone2Focus.addListener(_onFocusChanged);
   }
@@ -113,7 +89,6 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   @override
   void dispose() {
     _ciFocus.dispose();
-    _birthDateFocus.dispose();
     _phone1Focus.dispose();
     _phone2Focus.dispose();
     _ciController.dispose();
@@ -130,17 +105,15 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   String? _required(String? value, String message) =>
       (value ?? '').trim().isEmpty ? message : null;
 
-  /// El error de una fecha no vacía, o `null` si está bien.
-  String? _checkBirthDate(String text) {
-    if (!hasUiDateFormat(text)) {
-      return 'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.';
+  /// Las reglas propias de la fecha de nacimiento. `UiDateField` ya resolvió
+  /// el formato y la fecha inexistente: acá llega vacía o como fecha válida.
+  String? _validateBirthDate(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) {
+      return _submitAttempted ? 'Ingresá la fecha de nacimiento.' : null;
     }
-    final date = parseUiDate(text);
-    if (date == null) {
-      return 'Esa fecha no existe en el calendario. Revisá el día y el mes.';
-    }
-    final today = UruguayTime.today();
-    if (date.isAfter(DateTime(today.year, today.month, today.day))) {
+    final date = parseUiDate(text)!;
+    if (date.isAfter(UruguayTime.today())) {
       return 'La fecha de nacimiento no puede ser futura.';
     }
     if (date.year < _firstYear) return 'Revisá el año de nacimiento.';
@@ -154,23 +127,6 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
       return 'Ingresá un correo válido, por ejemplo nombre@ejemplo.org.';
     }
     return null;
-  }
-
-  Future<void> _pickBirthDate() async {
-    final today = UruguayTime.today();
-    final last = DateTime(today.year, today.month, today.day);
-    final initial = parseUiDate(_birthDateController.text);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial != null && !initial.isAfter(last) ? initial : last,
-      firstDate: DateTime(_firstYear),
-      lastDate: last,
-      helpText: 'Fecha de nacimiento',
-      cancelText: 'Cancelar',
-      confirmText: 'Aceptar',
-    );
-    if (picked == null || !mounted) return;
-    _birthDateController.text = _uiDate.format(picked);
   }
 
   void _onRoleChanged(UserRole? role) {
@@ -193,13 +149,23 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
     // Sin foco en ningún campo, los errores del envío no se borran al
     // reconstruir el formulario.
     FocusScope.of(context).unfocus();
-    setState(() => _autovalidate = AutovalidateMode.onUserInteraction);
-    final formValid = EarlyFieldValidation.validateAllOf([
-      _ciValidation,
-      _birthDateValidation,
-      _phone1Validation,
-      _phone2Validation,
-    ], () => _formKey.currentState?.validate() ?? false);
+    setState(() {
+      _autovalidate = AutovalidateMode.onUserInteraction;
+      _submitAttempted = true;
+    });
+    // Soltar el foco no es inmediato: mientras se valida, la fecha tiene que
+    // avisar de un dato a medias aunque todavía "tenga" el foco.
+    _validatingSubmit = true;
+    final bool formValid;
+    try {
+      formValid = EarlyFieldValidation.validateAllOf([
+        _ciValidation,
+        _phone1Validation,
+        _phone2Validation,
+      ], () => _formKey.currentState?.validate() ?? false);
+    } finally {
+      _validatingSubmit = false;
+    }
     final specialtiesMissing =
         _role == UserRole.medico && _specialtyIds.isEmpty;
     setState(() => _specialtyMissing = specialtiesMissing);
@@ -214,7 +180,7 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
             ci: _ciController.text.trim(),
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
-            birthDate: parseUiDate(_birthDateController.text)!,
+            birthDate: parseUiDate(_birthDateController.text.trim())!,
             email: _emailController.text.trim(),
             phone1: _phone1Controller.text.trim(),
             phone2: phone2.isEmpty ? null : phone2,
@@ -279,27 +245,19 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
             validator: (v) => _required(v, 'Ingresá el apellido.'),
           ),
           const SizedBox(height: 16),
-          TextFormField(
+          UiDateField(
             controller: _birthDateController,
-            focusNode: _birthDateFocus,
             enabled: enabled,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            keyboardType: TextInputType.datetime,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
-              LengthLimitingTextInputFormatter(_dateLength),
-            ],
+            label: 'Fecha de nacimiento (dd/mm/aaaa)',
+            pickerHelpText: 'Fecha de nacimiento',
+            pickerTooltip: 'Elegir fecha de nacimiento',
+            // Solo pasado: desde 1900 hasta hoy, en la hora de Uruguay.
+            firstDate: DateTime.utc(_firstYear),
+            lastDate: UruguayTime.today(),
             textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              labelText: 'Fecha de nacimiento (dd/mm/aaaa)',
-              errorMaxLines: _errorMaxLines,
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.calendar_today_outlined),
-                tooltip: 'Elegir fecha de nacimiento',
-                onPressed: enabled ? _pickBirthDate : null,
-              ),
-            ),
-            validator: _birthDateValidation.validate,
+            errorMaxLines: _errorMaxLines,
+            showErrorsNow: () => _validatingSubmit,
+            validator: _validateBirthDate,
           ),
           const SizedBox(height: 16),
           TextFormField(

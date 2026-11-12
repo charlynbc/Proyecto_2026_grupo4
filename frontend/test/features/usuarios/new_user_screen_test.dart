@@ -1,5 +1,7 @@
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/core/utils/uruguay_time.dart';
+import 'package:agenda_medica/core/widgets/ui_date_field.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialty_repository_provider.dart';
 import 'package:agenda_medica/features/especialidades/repositories/fake_specialty_repository.dart';
@@ -25,6 +27,17 @@ class _RejectingUserRepository implements UserRepository {
 
   @override
   Future<void> createUser(NewUser user) async => throw error;
+
+  @override
+  Future<UserPage> listUsers(UserFilters filters) => throw UnimplementedError();
+}
+
+/// Un repository que guarda lo que se le manda para dar de alta.
+class _CapturingUserRepository implements UserRepository {
+  final List<NewUser> created = [];
+
+  @override
+  Future<void> createUser(NewUser user) async => created.add(user);
 
   @override
   Future<UserPage> listUsers(UserFilters filters) => throw UnimplementedError();
@@ -194,7 +207,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.text('Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.'),
+        find.text('Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.'),
         findsNothing,
       );
     });
@@ -206,7 +219,7 @@ void main() {
       await _enter(tester, fieldLabel, '1978-03-15');
       await _submit(tester);
       expect(
-        find.text('Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.'),
+        find.text('Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.'),
         findsOneWidget,
       );
 
@@ -502,7 +515,7 @@ void main() {
   group('fecha de nacimiento como la cédula', () {
     const dateLabel = 'Fecha de nacimiento (dd/mm/aaaa)';
     const formatError =
-        'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.';
+        'Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.';
     const missingError =
         'Esa fecha no existe en el calendario. Revisá el día y el mes.';
 
@@ -615,6 +628,163 @@ void main() {
 
       await focusAndType(tester, '15/03/19781');
       expect(dateText(tester), '15/03/1978');
+    });
+  });
+
+  group('fecha de nacimiento con el campo compartido', () {
+    const dateLabel = 'Fecha de nacimiento (dd/mm/aaaa)';
+    const futureError = 'La fecha de nacimiento no puede ser futura.';
+    const yearError = 'Revisá el año de nacimiento.';
+    final dateField = find.byType(UiDateField);
+    final cross = find.descendant(
+      of: dateField,
+      matching: find.byIcon(Icons.close),
+    );
+
+    testWidgets('es el campo compartido, con etiqueta y calendario', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      expect(dateField, findsOneWidget);
+      expect(_field(dateLabel), findsOneWidget);
+      expect(
+        find.descendant(
+          of: dateField,
+          matching: find.byIcon(Icons.calendar_today_outlined),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Elegir fecha de nacimiento'), findsOneWidget);
+      // Vacío: todavía no hay nada que borrar.
+      expect(cross, findsNothing);
+    });
+
+    testWidgets('la cruz borra la fecha', (tester) async {
+      await _pump(tester);
+      await _enter(tester, dateLabel, '15/03/1978');
+      await tester.pump();
+
+      expect(cross, findsOneWidget);
+      await tester.ensureVisible(cross);
+      await tester.tap(cross);
+      await tester.pump();
+
+      expect(
+        tester.widget<TextFormField>(_field(dateLabel)).controller!.text,
+        isEmpty,
+      );
+      expect(cross, findsNothing);
+    });
+
+    testWidgets('una fecha válida se acepta y se envía como yyyy-MM-dd', (
+      tester,
+    ) async {
+      final repository = _CapturingUserRepository();
+      await _pump(tester, repository: repository);
+      await _fill(tester, birthDate: '15/03/1978');
+      await _chooseRole(tester, 'Funcionario');
+
+      await _submit(tester);
+
+      expect(repository.created, hasLength(1));
+      expect(repository.created.single.birthDate, DateTime.utc(1978, 3, 15));
+      expect(
+        repository.created.single.toJson()['fechaNacimiento'],
+        '1978-03-15',
+      );
+    });
+
+    testWidgets('hoy se acepta y mañana es futura', (tester) async {
+      await _pump(tester);
+      final today = UruguayTime.today();
+
+      await _enter(tester, dateLabel, _formatDate(today));
+      await _submit(tester);
+      expect(find.text(futureError), findsNothing);
+
+      await _enter(
+        tester,
+        dateLabel,
+        _formatDate(today.add(const Duration(days: 1))),
+      );
+      await _submit(tester);
+      expect(find.text(futureError), findsOneWidget);
+    });
+
+    testWidgets('1900 se acepta y antes de 1900 se rechaza', (tester) async {
+      await _pump(tester);
+
+      await _enter(tester, dateLabel, '01/01/1900');
+      await _submit(tester);
+      expect(find.text(yearError), findsNothing);
+
+      await _enter(tester, dateLabel, '31/12/1899');
+      await _submit(tester);
+      expect(find.text(yearError), findsOneWidget);
+    });
+
+    testWidgets('un formato inválido da el mensaje del campo compartido', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await _enter(tester, dateLabel, '15/03');
+      await _submit(tester);
+
+      expect(
+        find.text('Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('vacío se reclama al enviar', (tester) async {
+      await _pump(tester);
+
+      await _submit(tester);
+
+      expect(find.text('Ingresá la fecha de nacimiento.'), findsOneWidget);
+    });
+
+    testWidgets('el calendario no pasa de hoy', (tester) async {
+      await _pump(tester);
+
+      await tester.ensureVisible(find.byTooltip('Elegir fecha de nacimiento'));
+      await tester.tap(find.byTooltip('Elegir fecha de nacimiento'));
+      await tester.pumpAndSettle();
+
+      final next = find.widgetWithIcon(IconButton, Icons.chevron_right);
+      expect(tester.widget<IconButton>(next).onPressed, isNull);
+    });
+
+    testWidgets('el calendario no baja de 1900', (tester) async {
+      await _pump(tester);
+      await _enter(tester, dateLabel, '01/01/1900');
+
+      await tester.ensureVisible(find.byTooltip('Elegir fecha de nacimiento'));
+      await tester.tap(find.byTooltip('Elegir fecha de nacimiento'));
+      await tester.pumpAndSettle();
+
+      final previous = find.widgetWithIcon(IconButton, Icons.chevron_left);
+      expect(tester.widget<IconButton>(previous).onPressed, isNull);
+    });
+
+    testWidgets('a 320 px de ancho no desborda, con cruz y con error', (
+      tester,
+    ) async {
+      await _pump(tester);
+      tester.view.physicalSize = const Size(320, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpAndSettle();
+
+      await _enter(tester, dateLabel, '01/01/${DateTime.now().year + 1}');
+      await _submit(tester);
+
+      expect(find.text(futureError), findsOneWidget);
+      expect(cross, findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 
@@ -899,7 +1069,7 @@ void main() {
         tester,
         label: 'Fecha de nacimiento (dd/mm/aaaa)',
         input: '15/03',
-        message: 'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.',
+        message: 'Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.',
       );
     });
 
