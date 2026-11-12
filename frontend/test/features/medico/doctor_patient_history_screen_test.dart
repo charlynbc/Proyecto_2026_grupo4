@@ -164,12 +164,13 @@ void main() {
     expect(find.text('Paciente: Ana Pérez'), findsOneWidget);
   });
 
-  testWidgets('la flecha de volver de la barra superior tiene el tooltip '
-      '"Volver"', (tester) async {
+  testWidgets('la flecha de volver de la barra superior dice a dónde lleva: '
+      '"Volver a mis turnos"', (tester) async {
     await _pumpHistoryScreen(tester, _StubDoctorPatientHistoryRepository());
     await tester.pumpAndSettle();
 
-    expect(find.byTooltip('Volver'), findsOneWidget);
+    expect(find.byTooltip('Volver a mis turnos'), findsOneWidget);
+    expect(find.byTooltip('Volver'), findsNothing);
   });
 
   testWidgets('el aviso usa surfaceContainerHigh del tema, con padding 12 y '
