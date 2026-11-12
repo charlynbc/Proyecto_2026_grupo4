@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/error_text_fit.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 
@@ -595,4 +596,19 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+
+  for (final scale in [1.0, 1.15]) {
+    testWidgets('a 320 px con el texto al $scale el mensaje del nombre vacío '
+        'se lee entero', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pump(tester, size: const Size(320, 900));
+      await _open(tester, 1);
+
+      await _enterName(tester, '');
+      await _tapSave(tester);
+
+      expectErrorFits(tester, 'Ingresá el nombre de la especialidad.');
+    });
+  }
 }

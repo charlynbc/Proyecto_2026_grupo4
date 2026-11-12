@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/error_text_fit.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 
@@ -53,12 +54,32 @@ class _RecordingSearchRepository extends FakeClinicSearchRepository {
   }
 }
 
+/// Un catálogo que falla las primeras [failures] veces que se le pide la lista.
+class _FlakyCatalog extends FakeClinicRepository {
+  _FlakyCatalog(super.db, {required this.failures})
+    : super(latency: Duration.zero);
+
+  int failures;
+  int listCalls = 0;
+
+  @override
+  Future<List<Clinic>> list() {
+    listCalls++;
+    if (failures > 0) {
+      failures--;
+      return Future.error(StateError('sin conexión'));
+    }
+    return super.list();
+  }
+}
+
 Future<(GoRouter, FakeAdminDatabase)> _pump(
   WidgetTester tester, {
   Size size = const Size(900, 1200),
   String initialLocation = kClinicsPath,
   _RecordingCorrectionRepository? correction,
   FakeAdminDatabase? database,
+  FakeClinicRepository? catalog,
 }) async {
   final db = database ?? FakeAdminDatabase();
   _RecordingSearchRepository.calls = 0;
@@ -87,7 +108,8 @@ Future<(GoRouter, FakeAdminDatabase)> _pump(
     ],
     overrides: [
       clinicRepositoryProvider.overrideWith(
-        (ref) async => FakeClinicRepository(db, latency: Duration.zero),
+        (ref) async =>
+            catalog ?? FakeClinicRepository(db, latency: Duration.zero),
       ),
       clinicSearchRepositoryProvider.overrideWith((ref) async => search),
       clinicCorrectionRepositoryProvider.overrideWith(
@@ -356,5 +378,122 @@ void main() {
 
     expect(find.byKey(const Key('edit-clinic-error')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a 320 px los mensajes de nombre y ubicación vacíos se leen '
+      'enteros', (tester) async {
+    await _pump(tester, size: const Size(320, 900));
+    await _openEdit(tester, 1);
+    await tester.enterText(_editFields().at(0), '');
+    await tester.enterText(_editFields().at(1), '');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('edit-clinic-save')));
+    await tester.pumpAndSettle();
+
+    expectErrorFits(tester, 'Ingresá el nombre o número del consultorio.');
+    expectErrorFits(tester, 'Ingresá la ubicación.');
+  });
+
+  testWidgets('un nombre vacío o de solo espacios avisa y no guarda', (
+    tester,
+  ) async {
+    final db = FakeAdminDatabase();
+    final correction = _RecordingCorrectionRepository(
+      FakeClinicCorrectionRepository(db, latency: Duration.zero),
+    );
+    await _pump(tester, correction: correction, database: db);
+    await _openEdit(tester, 1);
+    await tester.enterText(_editFields().at(0), '   ');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('edit-clinic-save')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Ingresá el nombre o número del consultorio.'),
+      findsOneWidget,
+    );
+    expect(find.text('Ingresá la ubicación.'), findsNothing);
+    expect(correction.calls, isEmpty);
+    expect(find.text('Corregir consultorio'), findsOneWidget);
+  });
+
+  testWidgets('una ubicación vacía avisa y no guarda', (tester) async {
+    final db = FakeAdminDatabase();
+    final correction = _RecordingCorrectionRepository(
+      FakeClinicCorrectionRepository(db, latency: Duration.zero),
+    );
+    await _pump(tester, correction: correction, database: db);
+    await _openEdit(tester, 1);
+    await tester.enterText(_editFields().at(1), '');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('edit-clinic-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ingresá la ubicación.'), findsOneWidget);
+    expect(
+      find.text('Ingresá el nombre o número del consultorio.'),
+      findsNothing,
+    );
+    expect(correction.calls, isEmpty);
+    expect(find.text('Corregir consultorio'), findsOneWidget);
+  });
+
+  testWidgets('cada fila tiene el lápiz "Corregir" y abre la corrección', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    expect(find.byTooltip('Corregir'), findsNWidgets(3));
+    await tester.tap(find.byTooltip('Corregir').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Corregir consultorio'), findsOneWidget);
+  });
+
+  testWidgets('Cancelar vuelve al listado sin guardar los cambios', (
+    tester,
+  ) async {
+    final db = FakeAdminDatabase();
+    final correction = _RecordingCorrectionRepository(
+      FakeClinicCorrectionRepository(db, latency: Duration.zero),
+    );
+    await _pump(tester, correction: correction, database: db);
+    await _openEdit(tester, 1);
+    await tester.enterText(_editFields().at(1), 'Planta alta');
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Cancelar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Consultorios'), findsOneWidget);
+    expect(find.text('Corregir consultorio'), findsNothing);
+    expect(find.text('Consultorio corregido.'), findsNothing);
+    expect(correction.calls, isEmpty);
+    expect(db.clinics.first.location, 'Planta baja');
+  });
+
+  testWidgets('si no carga el consultorio avisa y Reintentar lo vuelve a '
+      'pedir', (tester) async {
+    final db = FakeAdminDatabase();
+    final catalog = _FlakyCatalog(db, failures: 1);
+    await _pump(
+      tester,
+      initialLocation: clinicEditPath(1),
+      database: db,
+      catalog: catalog,
+    );
+
+    expect(find.text('No pudimos cargar el consultorio.'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Reintentar'), findsOneWidget);
+    expect(_editFields(), findsNothing);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Reintentar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No pudimos cargar el consultorio.'), findsNothing);
+    expect(find.widgetWithText(OutlinedButton, 'Reintentar'), findsNothing);
+    expect(find.text('Corregir consultorio'), findsOneWidget);
+    expect(_editFields(), findsNWidgets(2));
+    expect(catalog.listCalls, 2);
   });
 }

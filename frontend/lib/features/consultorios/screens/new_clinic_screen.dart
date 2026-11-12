@@ -75,7 +75,10 @@ class _NewClinicScreenState extends ConsumerState<NewClinicScreen> {
                 enabled: enabled,
                 maxLength: _maxNameLength,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(labelText: 'Nombre o número'),
+                decoration: const InputDecoration(
+                  labelText: 'Nombre o número',
+                  errorMaxLines: 2,
+                ),
                 validator: (v) =>
                     _required(v, 'Ingresá el nombre o número del consultorio.'),
               ),
