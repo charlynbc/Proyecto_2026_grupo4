@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/utils/uruguay_time.dart';
 import '../../../core/widgets/centered_content.dart';
+import '../../../core/widgets/sort_direction_button.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialties_provider.dart';
@@ -339,9 +340,13 @@ class _AppointmentsPendingScreenState
           ],
         ),
         const SizedBox(height: 8),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(
+            SizedBox(
+              width: 190,
               child: DropdownButtonFormField<AppointmentHistoryOrder>(
                 key: const Key('history-filter-order'),
                 isExpanded: true,
@@ -363,28 +368,15 @@ class _AppointmentsPendingScreenState
                 }),
               ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: DropdownButtonFormField<AppointmentHistoryDirection>(
-                key: const Key('history-filter-direction'),
-                isExpanded: true,
-                initialValue: _direction,
-                decoration: const InputDecoration(labelText: 'Sentido'),
-                items: const [
-                  DropdownMenuItem(
-                    value: AppointmentHistoryDirection.ascending,
-                    child: Text('Ascendente'),
-                  ),
-                  DropdownMenuItem(
-                    value: AppointmentHistoryDirection.descending,
-                    child: Text('Descendente'),
-                  ),
-                ],
-                onChanged: (value) => setState(() {
-                  if (value != null) _direction = value;
-                  _page = 0;
-                }),
-              ),
+            SortDirectionButton(
+              key: const Key('history-filter-direction'),
+              ascending: _direction == AppointmentHistoryDirection.ascending,
+              onPressed: () => setState(() {
+                _direction = _direction == AppointmentHistoryDirection.ascending
+                    ? AppointmentHistoryDirection.descending
+                    : AppointmentHistoryDirection.ascending;
+                _page = 0;
+              }),
             ),
           ],
         ),

@@ -1084,8 +1084,98 @@ void main() {
   // vinieran después dejarían de usar la fuente de prueba. Con Roboto el texto
   // mide como en un celular; Ahem ensancha todo y daría desbordes que no
   // existen.
+  group('sentido del orden como botón', () {
+    final direction = find.byKey(const Key('history-filter-direction'));
+
+    testWidgets('ya no hay un desplegable "Sentido": arranca en Descendente', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAna(tester, repository);
+
+      expect(find.text('Sentido'), findsNothing);
+      expect(
+        find.byType(DropdownButtonFormField<AppointmentHistoryDirection>),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_downward),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        repository.listRequests.last.toQueryParameters()['sentido'],
+        'desc',
+      );
+    });
+
+    testWidgets('al tocarlo alterna y pide asc, y vuelve a pedir desc', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAna(tester, repository);
+
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(of: direction, matching: find.text('Ascendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_upward),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        repository.listRequests.last.toQueryParameters()['sentido'],
+        'asc',
+      );
+
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      // Vuelve a mostrar Descendente sin repetir el pedido: la consulta
+      // descendente ya estaba guardada.
+      expect(
+        [
+          for (final q in repository.listRequests)
+            q.toQueryParameters()['sentido'],
+        ],
+        ['desc', 'asc'],
+      );
+    });
+  });
+
   group('filtros a 320 px de ancho (con Roboto)', () {
     setUpAll(loadRoboto);
+
+    testWidgets('el botón del sentido se ve completo y no desborda', (
+      tester,
+    ) async {
+      await _pumpAna(tester, _AnaRepository());
+      tester.view.physicalSize = const Size(320, 640);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Descendente'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('Descendente')).right,
+        lessThanOrEqualTo(320),
+      );
+      expect(tester.takeException(), isNull);
+    });
 
     testWidgets('los desplegables de filtros no desbordan', (tester) async {
       await _pump(
