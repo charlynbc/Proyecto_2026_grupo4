@@ -9,9 +9,10 @@ import 'announcement_image_provider.dart';
 /// puede llegar a 6000x6000 px. No baja el peso de la descarga.
 const int kAnnouncementImageCacheWidth = 1280;
 
-/// Descarga y decodifica [provider] antes de que se muestre. Se inyecta en el
-/// carrusel y en la galería para poder ver qué se precarga.
-typedef AnnouncementImagePrecache = void Function(
+/// Descarga y decodifica [provider] antes de que se muestre, y completa cuando
+/// termina de cargar o falla (nunca con error). Se inyecta en el carrusel y en
+/// la galería para poder ver qué se precarga y controlar cuándo termina.
+typedef AnnouncementImagePrecache = Future<void> Function(
   BuildContext context,
   ImageProvider provider,
 );
@@ -39,8 +40,11 @@ ImageProvider announcementImageProvider({
 /// Precarga [provider]. Si la descarga falla no hace nada: la pantalla ya
 /// muestra su propio placeholder o mensaje cuando llega a la imagen. Tampoco
 /// hace nada si [context] ya se desmontó (por ejemplo, el usuario salió de la
-/// pantalla mientras esperaba).
-void precacheAnnouncementImage(BuildContext context, ImageProvider provider) {
-  if (!context.mounted) return;
-  precacheImage(provider, context, onError: (_, _) {});
+/// pantalla mientras esperaba): en ese caso completa enseguida.
+Future<void> precacheAnnouncementImage(
+  BuildContext context,
+  ImageProvider provider,
+) {
+  if (!context.mounted) return Future<void>.value();
+  return precacheImage(provider, context, onError: (_, _) {});
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agenda_medica/features/home/widgets/announcements_carousel.dart';
 import 'package:agenda_medica/features/novedades/announcement_image_provider.dart';
 import 'package:agenda_medica/features/novedades/announcement_images.dart';
@@ -7,16 +9,39 @@ import 'package:agenda_medica/features/novedades/widgets/announcement_gallery.da
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Anota las URL y los ids de imagen que se mandan a precargar, en orden.
-class _Recorder {
+/// Una precarga controlada por la prueba: anota qué se pidió, en orden, y cada
+/// pedido queda pendiente hasta que la prueba lo completa o lo hace fallar.
+class _Gate {
   final calls = <String>[];
   final ids = <int>[];
+  final pending = <Completer<void>>[];
 
-  void call(BuildContext context, ImageProvider provider) {
+  Future<void> call(BuildContext context, ImageProvider provider) {
     final announcementImage = provider as AnnouncementImageProvider;
     expect(announcementImage.cacheWidth, 1280);
     calls.add(announcementImage.url);
     ids.add(announcementImage.imageId);
+    final done = Completer<void>();
+    pending.add(done);
+    return done.future;
+  }
+
+  void complete(int index) => pending[index].complete();
+
+  void fail(int index) => pending[index].completeError(Exception('Sin red'));
+}
+
+/// Una precarga que termina enseguida, para la galería.
+class _Instant {
+  final calls = <String>[];
+  final ids = <int>[];
+
+  Future<void> call(BuildContext context, ImageProvider provider) {
+    final announcementImage = provider as AnnouncementImageProvider;
+    expect(announcementImage.cacheWidth, 1280);
+    calls.add(announcementImage.url);
+    ids.add(announcementImage.imageId);
+    return Future<void>.value();
   }
 
   List<String> take() {
@@ -29,17 +54,17 @@ class _Recorder {
 
 String _url(int n) => 'https://example.invalid/portada-$n.png';
 
-Announcement _news(int id, {bool cover = true}) => Announcement(
+Announcement _news(int id, {bool cover = true, String? url}) => Announcement(
   id: id,
   publishedAt: DateTime.utc(2026, 11, 1),
-  coverUrl: cover ? _url(id) : null,
+  coverUrl: cover ? (url ?? _url(id)) : null,
   coverImageId: cover ? 100 + id : null,
 );
 
 Future<void> _pumpCarousel(
   WidgetTester tester,
   List<Announcement> items,
-  _Recorder recorder,
+  AnnouncementImagePrecache precache,
 ) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -47,99 +72,222 @@ Future<void> _pumpCarousel(
         body: AnnouncementsCarousel(
           announcements: items,
           onOpen: (_) {},
-          precache: recorder.call,
+          precache: precache,
         ),
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  // Deja correr el cuadro con la precarga y los microtasks de la cadena.
+  await tester.pump();
+  await tester.pump();
 }
 
-Future<void> _next(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Novedad siguiente'));
-  await tester.pumpAndSettle();
+/// Termina el pedido [index] y deja que la cadena avance.
+Future<void> _complete(WidgetTester tester, _Gate gate, int index) async {
+  gate.complete(index);
+  await tester.pump();
+  await tester.pump();
 }
 
-Future<void> _previous(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Novedad anterior'));
-  await tester.pumpAndSettle();
+Future<void> _fail(WidgetTester tester, _Gate gate, int index) async {
+  gate.fail(index);
+  await tester.pump();
+  await tester.pump();
 }
 
 void main() {
-  group('carrusel', () {
-    testWidgets(
-      'al llegar la lista precarga todas las portadas, la visible primero',
-      (tester) async {
-        final recorder = _Recorder();
-
-        await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], recorder);
-
-        // Se precarga por id de imagen, el de la portada de cada novedad.
-        expect(recorder.ids, [101, 102, 103]);
-        expect(recorder.take(), [_url(1), _url(2), _url(3)]);
-      },
-    );
-
-    testWidgets('al cambiar de página precarga la anterior y la siguiente', (
-      tester,
-    ) async {
-      final recorder = _Recorder();
-      await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], recorder);
-      recorder.take();
-
-      await _next(tester);
-      expect(recorder.take(), [_url(1), _url(3)]);
-
-      await _next(tester);
-      expect(recorder.take(), [_url(2)]);
-
-      await _previous(tester);
-      expect(recorder.take(), [_url(1), _url(3)]);
-
-      await _previous(tester);
-      expect(recorder.take(), [_url(2)]);
+  group('orden de la precarga del carrusel', () {
+    // La visible, la siguiente, la anterior y las restantes de menor a mayor.
+    test('con la primera visible', () {
+      expect(carouselPrefetchOrder(visible: 0, count: 5), [0, 1, 2, 3, 4]);
     });
 
-    testWidgets('una novedad sin portada no se precarga', (tester) async {
-      final recorder = _Recorder();
+    test('con una del medio visible', () {
+      expect(carouselPrefetchOrder(visible: 2, count: 5), [2, 3, 1, 0, 4]);
+    });
 
+    test('con la última visible', () {
+      expect(carouselPrefetchOrder(visible: 4, count: 5), [4, 3, 0, 1, 2]);
+    });
+
+    test('con tres portadas y la del medio visible', () {
+      expect(carouselPrefetchOrder(visible: 1, count: 3), [1, 2, 0]);
+    });
+
+    test('con una sola portada', () {
+      expect(carouselPrefetchOrder(visible: 0, count: 1), [0]);
+    });
+
+    test('sin portadas', () {
+      expect(carouselPrefetchOrder(visible: 0, count: 0), isEmpty);
+    });
+  });
+
+  group('carrusel: precarga de a una', () {
+    testWidgets('al llegar la lista solo se pide la portada visible', (
+      tester,
+    ) async {
+      final gate = _Gate();
+
+      await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], gate.call);
+
+      expect(gate.calls, [_url(1)]);
+      expect(gate.ids, [101]);
+    });
+
+    testWidgets('recién cuando termina una se pide la que sigue', (
+      tester,
+    ) async {
+      final gate = _Gate();
+      await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], gate.call);
+
+      await _complete(tester, gate, 0);
+      expect(gate.calls, [_url(1), _url(2)]);
+      expect(gate.ids, [101, 102]);
+
+      await _complete(tester, gate, 1);
+      expect(gate.calls, [_url(1), _url(2), _url(3)]);
+      expect(gate.ids, [101, 102, 103]);
+
+      await _complete(tester, gate, 2);
+      expect(gate.calls, [_url(1), _url(2), _url(3)]);
+    });
+
+    testWidgets('si la visible falla igual sigue con las demás', (
+      tester,
+    ) async {
+      final gate = _Gate();
+      await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], gate.call);
+
+      await _fail(tester, gate, 0);
+      expect(gate.calls, [_url(1), _url(2)]);
+
+      await _complete(tester, gate, 1);
+      expect(gate.calls, [_url(1), _url(2), _url(3)]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('un error en el medio no corta la cadena', (tester) async {
+      final gate = _Gate();
+      await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], gate.call);
+
+      await _complete(tester, gate, 0);
+      await _fail(tester, gate, 1);
+
+      expect(gate.calls, [_url(1), _url(2), _url(3)]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('si el contexto se desmonta después de la primera no se pide '
+        'ninguna más', (tester) async {
+      final gate = _Gate();
+      await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], gate.call);
+      expect(gate.calls, [_url(1)]);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _complete(tester, gate, 0);
+
+      expect(gate.calls, [_url(1)]);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('si el contexto se desmonta a mitad de la cadena no se pide '
+        'ninguna más', (tester) async {
+      final gate = _Gate();
+      await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], gate.call);
+      await _complete(tester, gate, 0);
+      expect(gate.calls, [_url(1), _url(2)]);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _complete(tester, gate, 1);
+
+      expect(gate.calls, [_url(1), _url(2)]);
+    });
+
+    testWidgets('cambiar de página mientras corre no reinicia la cadena ni '
+        'pide en paralelo', (tester) async {
+      final gate = _Gate();
+      await _pumpCarousel(tester, [_news(1), _news(2), _news(3)], gate.call);
+
+      await tester.tap(find.byTooltip('Novedad siguiente'));
+      await tester.pumpAndSettle();
+      expect(gate.calls, [_url(1)]);
+
+      await _complete(tester, gate, 0);
+      expect(gate.calls, [_url(1), _url(2)]);
+
+      await tester.tap(find.byTooltip('Novedad siguiente'));
+      await tester.pumpAndSettle();
+      expect(gate.calls, [_url(1), _url(2)]);
+
+      await _complete(tester, gate, 1);
+      expect(gate.calls, [_url(1), _url(2), _url(3)]);
+    });
+
+    testWidgets('una novedad sin portada se salta', (tester) async {
+      final gate = _Gate();
       await _pumpCarousel(tester, [
         _news(1),
         _news(2, cover: false),
         _news(3),
-      ], recorder);
+      ], gate.call);
 
-      expect(recorder.take(), [_url(1), _url(3)]);
+      await _complete(tester, gate, 0);
+
+      expect(gate.calls, [_url(1), _url(3)]);
     });
 
-    testWidgets('sin ninguna portada no precarga nada', (tester) async {
-      final recorder = _Recorder();
+    testWidgets('sin ninguna portada no pide nada', (tester) async {
+      final gate = _Gate();
 
       await _pumpCarousel(tester, [
         _news(1, cover: false),
         _news(2, cover: false),
-      ], recorder);
-      await _next(tester);
+      ], gate.call);
 
-      expect(recorder.take(), isEmpty);
+      expect(gate.calls, isEmpty);
     });
 
-    testWidgets('si llega otra lista precarga sus portadas', (tester) async {
-      final recorder = _Recorder();
-      await _pumpCarousel(tester, [_news(1), _news(2)], recorder);
-      recorder.take();
+    testWidgets('con una sola portada la pide una vez', (tester) async {
+      final gate = _Gate();
 
-      await _pumpCarousel(tester, [_news(8), _news(9)], recorder);
+      await _pumpCarousel(tester, [_news(5)], gate.call);
+      await _complete(tester, gate, 0);
 
-      expect(recorder.take(), [_url(8), _url(9)]);
+      expect(gate.calls, [_url(5)]);
     });
 
-    testWidgets('con una sola portada la precarga una vez', (tester) async {
-      final recorder = _Recorder();
+    testWidgets('si llega otra lista empieza una cadena nueva y corta la '
+        'vieja', (tester) async {
+      final gate = _Gate();
+      await _pumpCarousel(tester, [_news(1), _news(2)], gate.call);
+      expect(gate.calls, [_url(1)]);
 
-      await _pumpCarousel(tester, [_news(5)], recorder);
+      await _pumpCarousel(tester, [_news(8), _news(9)], gate.call);
+      expect(gate.calls, [_url(1), _url(8)]);
 
-      expect(recorder.take(), [_url(5)]);
+      // Termina la primera pedida de la lista vieja: no sigue con la 2.
+      await _complete(tester, gate, 0);
+      expect(gate.calls, [_url(1), _url(8)]);
+
+      await _complete(tester, gate, 1);
+      expect(gate.calls, [_url(1), _url(8), _url(9)]);
+    });
+
+    testWidgets('si la lista cambia solo de URL firmada también empieza de '
+        'nuevo', (tester) async {
+      final gate = _Gate();
+      await _pumpCarousel(tester, [_news(1)], gate.call);
+      await _complete(tester, gate, 0);
+
+      await _pumpCarousel(tester, [
+        _news(1, url: 'https://example.invalid/portada-1.png?firma=2'),
+      ], gate.call);
+
+      expect(gate.calls, [
+        _url(1),
+        'https://example.invalid/portada-1.png?firma=2',
+      ]);
     });
   });
 
@@ -153,7 +301,7 @@ void main() {
     Future<void> pumpGallery(
       WidgetTester tester,
       List<AnnouncementImage> images,
-      _Recorder recorder,
+      _Instant recorder,
     ) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -172,7 +320,7 @@ void main() {
     }
 
     testWidgets('con tres imágenes precarga las otras dos', (tester) async {
-      final recorder = _Recorder();
+      final recorder = _Instant();
 
       await pumpGallery(tester, [image(1), image(2), image(3)], recorder);
 
@@ -184,7 +332,7 @@ void main() {
     });
 
     testWidgets('con una sola imagen no precarga nada', (tester) async {
-      final recorder = _Recorder();
+      final recorder = _Instant();
 
       await pumpGallery(tester, [image(1)], recorder);
 
@@ -194,7 +342,7 @@ void main() {
     testWidgets('con cinco imágenes precarga las cuatro restantes', (
       tester,
     ) async {
-      final recorder = _Recorder();
+      final recorder = _Instant();
 
       await pumpGallery(tester, [
         for (var n = 1; n <= 5; n++) image(n),
@@ -222,6 +370,25 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('con el contexto desmontado el resultado ya está completo', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const MaterialApp(home: SizedBox(key: Key('a'))));
+      final context = tester.element(find.byKey(const Key('a')));
+      await tester.pumpWidget(const SizedBox.shrink());
+
+      // Si se esperara algo que nunca termina, la cadena del carrusel se
+      // colgaría: tiene que completarse enseguida.
+      await precacheAnnouncementImage(
+        context,
+        announcementImageProvider(
+          imageId: 1,
+          url: 'https://example.invalid/x.png',
+          cacheWidth: kAnnouncementImageCacheWidth,
+        ),
+      ).timeout(const Duration(seconds: 1));
     });
 
     testWidgets('un error de descarga no se informa', (tester) async {

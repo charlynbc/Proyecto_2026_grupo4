@@ -6,6 +6,18 @@ import '../../novedades/announcement_images.dart';
 import '../../novedades/models/announcement.dart';
 import '../../novedades/widgets/announcement_network_image.dart';
 
+/// El orden en que se precargan las portadas: la visible, la siguiente, la
+/// anterior y las restantes de menor a mayor posición.
+List<int> carouselPrefetchOrder({required int visible, required int count}) {
+  final first = [visible, visible + 1, visible - 1];
+  return [
+    for (final index in first)
+      if (index >= 0 && index < count) index,
+    for (var index = 0; index < count; index++)
+      if (!first.contains(index)) index,
+  ];
+}
+
 /// Una portada por novedad. No consulta ni representa su detalle.
 class AnnouncementsCarousel extends StatefulWidget {
   const AnnouncementsCarousel({
@@ -47,36 +59,47 @@ class _AnnouncementsCarouselState extends State<AnnouncementsCarousel> {
     for (final announcement in carousel.announcements) announcement.coverUrl,
   ];
 
-  /// Apenas llega la lista: la portada visible primero y después las demás
-  /// (son cinco como máximo).
+  /// La cadena de precarga que está vigente. Una lista nueva empieza otra y
+  /// corta la anterior.
+  int _chain = 0;
+
+  /// Apenas llega la lista: precarga las portadas de a una, para que no
+  /// compitan por ancho de banda con la portada visible, que es la que más
+  /// importa.
   void _prefetchAllAfterFrame() {
+    final chain = ++_chain;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final count = widget.announcements.length;
-      _prefetch([
-        _index,
-        for (var i = 0; i < count; i++)
-          if (i != _index) i,
-      ]);
+      if (!mounted || chain != _chain) return;
+      _prefetchInOrder(chain);
     });
   }
 
-  /// Precarga las portadas de las posiciones [indexes] que existen y tienen
-  /// imagen.
-  void _prefetch(List<int> indexes) {
-    for (final index in indexes) {
-      if (index < 0 || index >= widget.announcements.length) continue;
-      final announcement = widget.announcements[index];
+  /// Primero espera a que la portada visible termine de cargar o falle; recién
+  /// después sigue con la siguiente, la anterior y las restantes, de a una y
+  /// esperando a que termine la anterior. Un error de descarga no corta la
+  /// cadena. Cambiar de página mientras corre no la reinicia: el orden queda
+  /// el de la portada que estaba visible al llegar la lista.
+  Future<void> _prefetchInOrder(int chain) async {
+    final items = widget.announcements;
+    final order = carouselPrefetchOrder(visible: _index, count: items.length);
+    for (final index in order) {
+      // Si se desmontó o llegó otra lista, no se pide nada más.
+      if (!mounted || chain != _chain) return;
+      final announcement = items[index];
       final url = announcement.coverUrl;
       if (url == null) continue;
-      widget.precache(
-        context,
-        announcementImageProvider(
-          imageId: announcement.coverImageId,
-          url: url,
-          cacheWidth: kAnnouncementImageCacheWidth,
-        ),
-      );
+      try {
+        await widget.precache(
+          context,
+          announcementImageProvider(
+            imageId: announcement.coverImageId,
+            url: url,
+            cacheWidth: kAnnouncementImageCacheWidth,
+          ),
+        );
+      } catch (_) {
+        // La pantalla ya muestra su propio placeholder si la imagen falla.
+      }
     }
   }
 
@@ -113,10 +136,7 @@ class _AnnouncementsCarouselState extends State<AnnouncementsCarousel> {
                     child: PageView.builder(
                       controller: _controller,
                       itemCount: count,
-                      onPageChanged: (index) {
-                        setState(() => _index = index);
-                        _prefetch([index - 1, index + 1]);
-                      },
+                      onPageChanged: (index) => setState(() => _index = index),
                       itemBuilder: (context, index) => _AnnouncementCard(
                         announcement: widget.announcements[index],
                         onOpen: () =>
