@@ -72,6 +72,18 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
       Icons.calendar_month_outlined,
       Icons.calendar_month,
     ),
+    AppSection(
+      'atenciones',
+      'Atenciones',
+      Icons.assignment_outlined,
+      Icons.assignment,
+    ),
+    AppSection(
+      'pases',
+      'Pases',
+      Icons.confirmation_number_outlined,
+      Icons.confirmation_number,
+    ),
     _announcements,
   ],
   UserRole.administrador: [

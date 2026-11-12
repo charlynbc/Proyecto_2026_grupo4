@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/centered_content.dart';
-import '../../auth/models/user_role.dart';
+import '../../auth/models/user_role_label.dart';
 import '../models/account.dart';
 import '../providers/account_provider.dart';
 import 'account_routes.dart';
@@ -77,7 +77,7 @@ class _AccountDetails extends StatelessWidget {
             _Field('Cédula', account.ci, 'account-ci'),
             _Field('Nombre', account.name, 'account-name'),
             _Field('Apellido', account.lastName, 'account-lastname'),
-            _Field('Rol', _roleLabel(account.role), 'account-role'),
+            _Field('Rol', userRoleLabel(account.role), 'account-role'),
           ],
         ),
         const SizedBox(height: 16),
@@ -221,10 +221,3 @@ class _Field extends StatelessWidget {
     );
   }
 }
-
-String _roleLabel(UserRole role) => switch (role) {
-  UserRole.socio => 'Socio',
-  UserRole.funcionario => 'Funcionario',
-  UserRole.medico => 'Médico',
-  UserRole.administrador => 'Administrador',
-};

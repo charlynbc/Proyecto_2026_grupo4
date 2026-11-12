@@ -8,13 +8,14 @@ import '../models/user_account.dart';
 import '../models/user_page.dart';
 import '../providers/user_filters_controller.dart';
 import '../providers/users_page_provider.dart';
+import 'user_actions_menu.dart';
 
 /// Ancho disponible desde el que el padrón se muestra como tabla; con menos,
-/// cada cuenta es una tarjeta. La tabla mide 864 px con Roboto y las cuentas
-/// del seed de los datos falsos (`columnSpacing: 24`, `horizontalMargin: 16`);
-/// se suma ~7 % para correos más largos que los del seed. Si la tabla igual no
-/// entra, queda el desplazamiento horizontal.
-const double kUsersTableMinWidth = 925;
+/// cada cuenta es una tarjeta. La tabla mide 947 px con Roboto y las cuentas
+/// del seed de los datos falsos (`columnSpacing: 24`, `horizontalMargin: 16`,
+/// con la columna "Acciones"); se suma ~7 % para correos más largos que los
+/// del seed. Si la tabla igual no entra, queda el desplazamiento horizontal.
+const double kUsersTableMinWidth = 1014;
 
 final DateFormat _uiDate = DateFormat('dd/MM/yyyy');
 
@@ -123,6 +124,7 @@ class _UsersTableState extends State<_UsersTable> {
             DataColumn(label: Text('Estado')),
             DataColumn(label: Text('Activada')),
             DataColumn(label: Text('Alta')),
+            DataColumn(label: Text('Acciones')),
           ],
           rows: [
             for (final a in widget.items)
@@ -135,6 +137,7 @@ class _UsersTableState extends State<_UsersTable> {
                   DataCell(Text(a.status.label)),
                   DataCell(Text(a.activated ? 'Sí' : 'No')),
                   DataCell(Text(_createdOn(a))),
+                  DataCell(UserActionsMenu(account: a)),
                 ],
               ),
           ],
@@ -155,18 +158,26 @@ class _UserCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(_fullName(account), style: textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text('CI ${account.ci} · ${roleLabel(account.role)}'),
-            Text(account.email),
-            Text(
-              '${account.status.label} · '
-              'Activada: ${account.activated ? 'Sí' : 'No'} · '
-              'Alta: ${_createdOn(account)}',
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_fullName(account), style: textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text('CI ${account.ci} · ${roleLabel(account.role)}'),
+                  Text(account.email),
+                  Text(
+                    '${account.status.label} · '
+                    'Activada: ${account.activated ? 'Sí' : 'No'} · '
+                    'Alta: ${_createdOn(account)}',
+                  ),
+                ],
+              ),
             ),
+            UserActionsMenu(account: account),
           ],
         ),
       ),

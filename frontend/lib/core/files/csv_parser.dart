@@ -14,10 +14,16 @@ class CsvFormatException extends ApiException {
 /// datos `i` es la número `i + 2` del archivo contando solo las líneas no
 /// vacías (la 1 es el encabezado), igual que la numeración del servidor.
 class CsvTable {
-  const CsvTable({required this.header, required this.rows});
+  const CsvTable({required this.header, required this.rows, this.fileHeader});
 
   final List<String> header;
   final List<List<String>> rows;
+
+  /// El encabezado del archivo tal como vino, en su orden. Una fila con otra
+  /// cantidad de celdas que las esperadas se devuelve cruda, en este orden y no
+  /// en el de [header]. Es `null` si la tabla no sale de un archivo y sus
+  /// filas ya están en el orden de [header].
+  final List<String>? fileHeader;
 }
 
 /// Lee un CSV con las mismas reglas que el servidor (`CsvArchivo.parsear`):
@@ -108,7 +114,11 @@ CsvTable parseCsv(
       'El archivo supera el máximo de $maxRows filas de datos',
     );
   }
-  return CsvTable(header: List.of(expectedHeader), rows: rows);
+  return CsvTable(
+    header: List.of(expectedHeader),
+    rows: rows,
+    fileHeader: header,
+  );
 }
 
 /// `;` si la línea de encabezado tiene algún punto y coma; si no `,`.

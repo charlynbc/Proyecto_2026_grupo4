@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../models/doctor_cancellation_result.dart';
 import '../models/doctor_shift.dart';
 import '../providers/doctor_agenda_controller.dart';
 import '../providers/doctor_cancellation_repository_provider.dart';
 import '../repositories/doctor_cancellation_repository.dart';
+import '../screens/doctor_history_routes.dart';
 import 'cancel_with_reason_dialog.dart';
 
 /// Acciones de un número. Hoy solo cancelar una consulta agendada (RF-27).
@@ -19,24 +21,45 @@ class DoctorNumberActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!_canCancel) return const SizedBox.shrink();
-    final appointmentId = item.appointmentId!;
     final patient = item.patient;
+    final appointmentId = item.appointmentId;
+    final canViewHistory =
+        item.appointmentStatus == 'AGENDADA' &&
+        appointmentId != null &&
+        patient?.id != null;
+    if (!_canCancel && !canViewHistory) return const SizedBox.shrink();
+
     final name = patient == null
         ? 'esta consulta'
+        : '${patient.name} ${patient.lastName}';
+    final patientName = patient == null
+        ? null
         : '${patient.name} ${patient.lastName}';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          key: Key('cancel-appointment-$appointmentId'),
-          tooltip: 'Cancelar consulta',
-          style: IconButton.styleFrom(
-            foregroundColor: Theme.of(context).colorScheme.primary,
+        if (_canCancel)
+          IconButton(
+            key: Key('cancel-appointment-$appointmentId'),
+            tooltip: 'Cancelar consulta',
+            style: IconButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.primary,
+            ),
+            onPressed: () => _cancel(context, ref, appointmentId!, name),
+            icon: const Icon(Icons.event_busy_outlined),
           ),
-          onPressed: () => _cancel(context, ref, appointmentId, name),
-          icon: const Icon(Icons.event_busy_outlined),
-        ),
+        if (canViewHistory)
+          IconButton(
+            key: Key('patient-history-$appointmentId'),
+            tooltip: 'Ver historia clínica',
+            onPressed: () => context.push(
+              doctorPatientHistoryLocation(
+                patient!.id!,
+                patientName: patientName!,
+              ),
+            ),
+            icon: const Icon(Icons.medical_information_outlined),
+          ),
       ],
     );
   }

@@ -26,19 +26,6 @@ class FakeUserImportRepository implements UserImportRepository {
   final FakeAdminDatabase _db;
   final Duration latency;
 
-  static const List<String> _header = [
-    'ci',
-    'nombre',
-    'apellido',
-    'fecha_nacimiento',
-    'correo',
-    'telefono_1',
-    'telefono_2',
-    'direccion',
-    'rol',
-    'especialidades',
-  ];
-
   static const String _missingField =
       'Falta un campo obligatorio (ci, nombre, apellido, fecha_nacimiento, '
       'correo, telefono_1, rol)';
@@ -49,7 +36,7 @@ class FakeUserImportRepository implements UserImportRepository {
   @override
   Future<UserImportPreview> preview(PickedCsvFile file) async {
     await Future<void>.delayed(latency);
-    final table = parseCsv(file.bytes, expectedHeader: _header);
+    final table = parseCsv(file.bytes, expectedHeader: kUserImportColumns);
     final rows = _process(table, confirm: false);
     final errors = [
       for (final row in rows)
@@ -67,7 +54,7 @@ class FakeUserImportRepository implements UserImportRepository {
   @override
   Future<UserImportResult> confirm(PickedCsvFile file) async {
     await Future<void>.delayed(latency);
-    final table = parseCsv(file.bytes, expectedHeader: _header);
+    final table = parseCsv(file.bytes, expectedHeader: kUserImportColumns);
     final rows = _process(table, confirm: true);
     final errors = [
       for (final row in rows)
@@ -119,7 +106,7 @@ class FakeUserImportRepository implements UserImportRepository {
     List<String> cells,
     Map<String, int> seen,
   ) {
-    if (cells.length != _header.length) {
+    if (cells.length != kUserImportColumns.length) {
       return (
         row: UserImportRow(
           number: number,

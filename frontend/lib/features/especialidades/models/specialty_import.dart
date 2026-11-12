@@ -1,3 +1,7 @@
+/// Las columnas exactas del CSV de la carga masiva, en este orden. La usan
+/// la previsualización falsa y la descarga de las filas con error.
+const List<String> kSpecialtyImportColumns = ['nombre', 'requiere_pase'];
+
 /// Una fila de la carga masiva de especialidades (`Fila`, contrato #52 y
 /// #53).
 ///

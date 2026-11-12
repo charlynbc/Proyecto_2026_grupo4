@@ -17,8 +17,8 @@ class FakeDoctorShiftRepository implements DoctorShiftRepository {
   }
 
   static const _patients = [
-    DoctorPatient(ci: '1.111.111-1', name: 'Ana', lastName: 'Pérez'),
-    DoctorPatient(ci: '2.222.222-2', name: 'Luis', lastName: 'Gómez'),
+    DoctorPatient(id: 101, ci: '1.111.111-1', name: 'Ana', lastName: 'Pérez'),
+    DoctorPatient(id: 102, ci: '2.222.222-2', name: 'Luis', lastName: 'Gómez'),
   ];
 
   @override
