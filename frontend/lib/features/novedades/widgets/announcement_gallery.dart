@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import '../announcement_images.dart';
@@ -9,10 +10,14 @@ class AnnouncementGallery extends StatefulWidget {
     super.key,
     required this.images,
     required this.onReload,
+    this.precache = precacheAnnouncementImage,
   });
 
   final List<AnnouncementImage> images;
   final VoidCallback? onReload;
+
+  /// Precarga las demás imágenes; se inyecta en las pruebas.
+  final AnnouncementImagePrecache precache;
 
   @override
   State<AnnouncementGallery> createState() => _AnnouncementGalleryState();
@@ -21,6 +26,35 @@ class AnnouncementGallery extends StatefulWidget {
 class _AnnouncementGalleryState extends State<AnnouncementGallery> {
   final _controller = PageController();
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefetchOthersAfterFrame();
+  }
+
+  @override
+  void didUpdateWidget(AnnouncementGallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final before = [for (final image in oldWidget.images) image.url];
+    final after = [for (final image in widget.images) image.url];
+    if (!listEquals(before, after)) _prefetchOthersAfterFrame();
+  }
+
+  /// Cuando llega el detalle: precarga las imágenes que todavía no se ven.
+  /// La visible la pide la propia galería.
+  void _prefetchOthersAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (var i = 0; i < widget.images.length; i++) {
+        if (i == _index) continue;
+        widget.precache(
+          context,
+          announcementNetworkImage(widget.images[i].url),
+        );
+      }
+    });
+  }
 
   @override
   void dispose() {

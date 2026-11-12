@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -10,10 +11,14 @@ class AnnouncementsCarousel extends StatefulWidget {
     super.key,
     required this.announcements,
     required this.onOpen,
+    this.precache = precacheAnnouncementImage,
   });
 
   final List<Announcement> announcements;
   final ValueChanged<int> onOpen;
+
+  /// Precarga las portadas; se inyecta en las pruebas.
+  final AnnouncementImagePrecache precache;
 
   @override
   State<AnnouncementsCarousel> createState() => _AnnouncementsCarouselState();
@@ -22,6 +27,49 @@ class AnnouncementsCarousel extends StatefulWidget {
 class _AnnouncementsCarouselState extends State<AnnouncementsCarousel> {
   final _controller = PageController();
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefetchAllAfterFrame();
+  }
+
+  @override
+  void didUpdateWidget(AnnouncementsCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(_coverUrls(oldWidget), _coverUrls(widget))) {
+      _prefetchAllAfterFrame();
+    }
+  }
+
+  List<String?> _coverUrls(AnnouncementsCarousel carousel) => [
+    for (final announcement in carousel.announcements) announcement.coverUrl,
+  ];
+
+  /// Apenas llega la lista: la portada visible primero y después las demás
+  /// (son cinco como máximo).
+  void _prefetchAllAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final count = widget.announcements.length;
+      _prefetch([
+        _index,
+        for (var i = 0; i < count; i++)
+          if (i != _index) i,
+      ]);
+    });
+  }
+
+  /// Precarga las portadas de las posiciones [indexes] que existen y tienen
+  /// imagen.
+  void _prefetch(List<int> indexes) {
+    for (final index in indexes) {
+      if (index < 0 || index >= widget.announcements.length) continue;
+      final url = widget.announcements[index].coverUrl;
+      if (url == null) continue;
+      widget.precache(context, announcementNetworkImage(url));
+    }
+  }
 
   @override
   void dispose() {
@@ -56,7 +104,10 @@ class _AnnouncementsCarouselState extends State<AnnouncementsCarousel> {
                     child: PageView.builder(
                       controller: _controller,
                       itemCount: count,
-                      onPageChanged: (index) => setState(() => _index = index),
+                      onPageChanged: (index) {
+                        setState(() => _index = index);
+                        _prefetch([index - 1, index + 1]);
+                      },
                       itemBuilder: (context, index) => _AnnouncementCard(
                         announcement: widget.announcements[index],
                         onOpen: () =>
