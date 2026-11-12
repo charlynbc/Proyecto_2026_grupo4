@@ -379,8 +379,19 @@ void main() {
         items.single.coverUrl,
         'https://example.org/portada?token=temporal',
       );
+      // El id de la imagen (no el de la novedad, 42) es la clave de la caché.
+      expect(items.single.coverImageId, 101);
     },
   );
+
+  test('sin portada no hay id de imagen', () async {
+    final (repo, _) = repository({
+      'items': [card()],
+    });
+    final item = (await repo.latest()).single;
+    expect(item.coverUrl, isNull);
+    expect(item.coverImageId, isNull);
+  });
 
   test('admite título antiguo, resumen y portada nulos', () async {
     final (repo, _) = repository({
