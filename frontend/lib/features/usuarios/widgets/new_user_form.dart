@@ -38,6 +38,27 @@ DateTime? parseUiDate(String text) {
   return date;
 }
 
+/// El primer año que se acepta como año de nacimiento.
+const int kFirstBirthYear = 1900;
+
+/// El error de una fecha de nacimiento `dd/mm/aaaa` no vacía, o `null` si está
+/// bien. La usan el alta y la corrección de un usuario.
+String? validateBirthDateText(String text) {
+  if (!hasUiDateFormat(text)) {
+    return 'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.';
+  }
+  final date = parseUiDate(text);
+  if (date == null) {
+    return 'Esa fecha no existe en el calendario. Revisá el día y el mes.';
+  }
+  final today = UruguayTime.today();
+  if (date.isAfter(DateTime(today.year, today.month, today.day))) {
+    return 'La fecha de nacimiento no puede ser futura.';
+  }
+  if (date.year < kFirstBirthYear) return 'Revisá el año de nacimiento.';
+  return null;
+}
+
 /// Formulario del alta de usuario (RF-31, CU 3.5.2). El cliente valida para
 /// ayudar; las reglas definitivas son del servidor.
 class NewUserForm extends ConsumerStatefulWidget {
@@ -48,7 +69,7 @@ class NewUserForm extends ConsumerStatefulWidget {
 }
 
 class _NewUserFormState extends ConsumerState<NewUserForm> {
-  static const int _firstYear = 1900;
+  static const int _firstYear = kFirstBirthYear;
 
   /// Largo de `dd/mm/aaaa`.
   static const int _dateLength = 10;
@@ -131,21 +152,7 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
       (value ?? '').trim().isEmpty ? message : null;
 
   /// El error de una fecha no vacía, o `null` si está bien.
-  String? _checkBirthDate(String text) {
-    if (!hasUiDateFormat(text)) {
-      return 'Escribí la fecha como día/mes/año, por ejemplo 15/03/1978.';
-    }
-    final date = parseUiDate(text);
-    if (date == null) {
-      return 'Esa fecha no existe en el calendario. Revisá el día y el mes.';
-    }
-    final today = UruguayTime.today();
-    if (date.isAfter(DateTime(today.year, today.month, today.day))) {
-      return 'La fecha de nacimiento no puede ser futura.';
-    }
-    if (date.year < _firstYear) return 'Revisá el año de nacimiento.';
-    return null;
-  }
+  String? _checkBirthDate(String text) => validateBirthDateText(text);
 
   String? _validateEmail(String? value) {
     final text = (value ?? '').trim();
@@ -368,7 +375,7 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
           ),
           if (_role == UserRole.medico) ...[
             const SizedBox(height: 16),
-            _SpecialtiesPicker(
+            SpecialtiesPicker(
               selected: _specialtyIds,
               enabled: enabled,
               showMissingError: _specialtyMissing,
@@ -410,9 +417,11 @@ class _NewUserFormState extends ConsumerState<NewUserForm> {
   }
 }
 
-/// Las especialidades del catálogo, para elegir una o más (solo Médico).
-class _SpecialtiesPicker extends ConsumerWidget {
-  const _SpecialtiesPicker({
+/// Las especialidades del catálogo, para elegir una o más (solo Médico). La
+/// usan el alta y la corrección de un usuario.
+class SpecialtiesPicker extends ConsumerWidget {
+  const SpecialtiesPicker({
+    super.key,
     required this.selected,
     required this.enabled,
     required this.showMissingError,
