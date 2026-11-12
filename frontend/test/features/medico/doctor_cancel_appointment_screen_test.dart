@@ -343,6 +343,67 @@ void main() {
     expect(cancel.calls, hasLength(1));
   });
 
+  testWidgets('el botón Atrás del sistema no cierra el diálogo mientras envía '
+      'y al terminar se cierra solo', (tester) async {
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    final cancel = _Cancel()..gate = gate;
+    await _pump(tester, _Agenda(), cancel);
+    await _open(tester, 11);
+    await _typeReason(tester, 'Imprevisto de guardia');
+    await tester.tap(find.byKey(const Key('confirm-cancel')));
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.byType(AlertDialog), findsOneWidget);
+    expect(_button(tester, 'confirm-cancel').onPressed, isNull);
+    expect(cancel.calls, hasLength(1));
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text(_cancelled), findsOneWidget);
+    expect(cancel.calls, hasLength(1));
+  });
+
+  testWidgets('tras un error el botón Atrás del sistema sí cierra el '
+      'diálogo', (tester) async {
+    final cancel = _Cancel()..errors.add(const ApiException(_generic));
+    await _pump(tester, _Agenda(), cancel);
+    await _open(tester, 11);
+    await _typeReason(tester, 'Imprevisto de guardia');
+    await tester.tap(find.byKey(const Key('confirm-cancel')));
+    await tester.pumpAndSettle();
+    expect(find.text(_generic), findsOneWidget);
+    expect(find.byType(AlertDialog), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(cancel.calls, hasLength(1));
+  });
+
+  testWidgets('sin enviar nada el botón Atrás del sistema cierra el diálogo', (
+    tester,
+  ) async {
+    final cancel = _Cancel();
+    await _pump(tester, _Agenda(), cancel);
+    await _open(tester, 11);
+    expect(find.byType(AlertDialog), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(cancel.calls, isEmpty);
+  });
+
   testWidgets('fuera de plazo sigue abierto y no recarga', (tester) async {
     final agenda = _Agenda();
     final cancel = _Cancel()

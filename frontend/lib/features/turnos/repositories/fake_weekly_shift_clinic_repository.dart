@@ -1,5 +1,6 @@
 import '../../../core/fakes/fake_shift_database.dart';
 import '../models/weekly_shift.dart';
+import '../models/clinic_change_preview.dart';
 import 'weekly_shift_clinic_repository.dart';
 
 /// Implementación en memoria de [WeeklyShiftClinicRepository]. Las reglas
@@ -14,8 +15,27 @@ class FakeWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
   final Duration latency;
 
   @override
-  Future<WeeklyShift> changeClinic(int weeklyShiftId, int clinicId) async {
+  Future<ClinicChangePreview> previewClinicChange(
+    int weeklyShiftId,
+    int clinicId,
+  ) async {
     await Future<void>.delayed(latency);
-    return _db.changeClinic(weeklyShiftId, clinicId);
+    return _db.previewClinicChange(weeklyShiftId, clinicId);
+  }
+
+  @override
+  Future<WeeklyShift> changeClinic(
+    int weeklyShiftId,
+    int clinicId, {
+    List<int>? turnoIds,
+    bool confirmarConConsultas = false,
+  }) async {
+    await Future<void>.delayed(latency);
+    return _db.changeClinic(
+      weeklyShiftId,
+      clinicId,
+      turnoIds: turnoIds,
+      confirmarConConsultas: confirmarConConsultas,
+    );
   }
 }
