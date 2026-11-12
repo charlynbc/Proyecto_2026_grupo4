@@ -79,6 +79,41 @@ void main() {
     expect(find.byKey(_error), findsNothing);
   });
 
+  group('aviso para volver a subir el archivo', () {
+    const hintText =
+        'Para volver a subir el archivo, borrá la columna error y las '
+        'columnas extra_1, extra_2, etc. si las hay.';
+
+    testWidgets('va junto al botón, con una fila o con varias', (tester) async {
+      await _pump(tester, errors: const {3: 'requiere_pase debe ser si o no'});
+      expect(find.byKey(_button), findsOneWidget);
+      expect(find.text(hintText), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text(hintText)).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(find.byKey(_button)).dy),
+      );
+
+      await _pump(tester);
+      expect(find.byKey(_button), findsOneWidget);
+      expect(find.text(hintText), findsOneWidget);
+    });
+
+    testWidgets('sin errores no hay texto', (tester) async {
+      await _pump(tester, errors: const {});
+
+      expect(find.text(hintText), findsNothing);
+    });
+
+    testWidgets('sigue visible si falla el guardado', (tester) async {
+      await _pump(tester, saver: RecordingCsvSaver()..error = StateError('x'));
+      await tester.tap(find.byKey(_button));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(_error), findsOneWidget);
+      expect(find.text(hintText), findsOneWidget);
+    });
+  });
+
   testWidgets('con errores muestra el botón con su texto', (tester) async {
     await _pump(tester);
 
