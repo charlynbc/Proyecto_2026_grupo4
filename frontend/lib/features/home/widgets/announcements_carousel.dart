@@ -88,15 +88,17 @@ class _AnnouncementsCarouselState extends State<AnnouncementsCarousel> {
       final announcement = items[index];
       final url = announcement.coverUrl;
       if (url == null) continue;
+      // Se lee fuera del try: con el contexto desmontado tiene que fallar a la
+      // vista, no tragarse el error. Eso lo evita el chequeo de `mounted`.
+      final precache = widget.precache;
+      final buildContext = context;
+      final provider = announcementImageProvider(
+        imageId: announcement.coverImageId,
+        url: url,
+        cacheWidth: kAnnouncementImageCacheWidth,
+      );
       try {
-        await widget.precache(
-          context,
-          announcementImageProvider(
-            imageId: announcement.coverImageId,
-            url: url,
-            cacheWidth: kAnnouncementImageCacheWidth,
-          ),
-        );
+        await precache(buildContext, provider);
       } catch (_) {
         // La pantalla ya muestra su propio placeholder si la imagen falla.
       }
