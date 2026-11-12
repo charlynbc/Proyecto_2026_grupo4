@@ -582,7 +582,9 @@ class FakeShiftDatabase {
     }
     // El consultorio del patrón solo se actualiza si se seleccionaron todas
     // las fechas actuales y futuras (también las suspendidas).
-    final changedAll = selected.length == future.length;
+    // Puede haber cambios parciales previos: sincronizar el patrón cuando
+    // todas las fechas futuras terminaron usando el mismo consultorio.
+    final changedAll = future.every((shift) => shift.clinicId == clinicId);
     final updated = WeeklyShift(
       id: current.id,
       doctor: current.doctor,

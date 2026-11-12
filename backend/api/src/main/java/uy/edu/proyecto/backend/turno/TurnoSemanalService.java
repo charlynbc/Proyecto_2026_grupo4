@@ -305,9 +305,15 @@ public class TurnoSemanalService {
                         .toList(),
                 hoy
         );
-        // El patrón se actualiza solamente si la selección cubre TODAS las
-        // fechas vigentes, incluso las suspendidas.
-        if (seleccionadas.size() == futuras.size()) {
+        // Una secuencia de cambios parciales también puede terminar dejando
+        // todas las fechas futuras en el mismo consultorio. En ese caso
+        // sincronizamos el patrón, aunque esta solicitud elija solo algunas.
+        boolean todasEnDestino = futuras.stream().allMatch(fecha ->
+                elegidos.contains(fecha.turnoId())
+                        || fecha.consultorio().id().equals(consultorioNuevo.id())
+        );
+        if (todasEnDestino
+                && !patron.idConsultorio().equals(consultorioNuevo.id())) {
             repository.actualizarConsultorioDelPatron(
                     idPatron, consultorioNuevo.id()
             );
@@ -377,13 +383,10 @@ public class TurnoSemanalService {
     }
 
     /**
-     * RF-20: modifica el consultorio de una configuracion semanal. Solo se
-     * permite si ninguna fecha cuyo dia todavia no termino tiene consultas
-     * Agendadas; la configuracion resultante se revalida como en el alta
-     * (RF-13), incluido el solapamiento con otros turnos activos del medico
-     * o del consultorio nuevo. La modificacion afecta unicamente las fechas
-     * actuales y futuras, conserva los turnos suspendidos y no altera las
-     * consultas ni las fechas anteriores.
+     * RF-20: modifica el consultorio de fechas actuales y futuras. Si
+     * existen consultas agendadas en las fechas elegidas exige confirmacion
+     * expresa; los solapamientos no pueden forzarse. Conserva fechas pasadas,
+     * estados suspendidos y consultas existentes.
      */
     @Transactional
     public TurnoSemanalResponse modificarConsultorio(

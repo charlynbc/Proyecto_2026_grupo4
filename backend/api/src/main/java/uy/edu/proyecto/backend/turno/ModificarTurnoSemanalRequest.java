@@ -1,9 +1,9 @@
 package uy.edu.proyecto.backend.turno;
 
 /**
- * RF-20: unico campo modificable de una configuracion semanal de turnos.
- * El medico, la especialidad, el dia de la semana y los horarios de los
- * numeros no se modifican: para cambiarlos se da de alta otro turno (RF-13).
+ * RF-20: se modifica el consultorio en las fechas seleccionadas con turnoIds.
+ * Si esas fechas tienen consultas AGENDADA, confirmarConConsultas exige
+ * consentimiento expreso. Los otros datos del turno semanal no se modifican.
  */
 public record ModificarTurnoSemanalRequest(
         Long consultorioId,

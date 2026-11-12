@@ -115,6 +115,26 @@ class TurnoSemanalCambioParcialTest {
     }
 
     @Test
+    void cambiosParcialesEnDosPasosSincronizanElPatron() {
+        when(repository.bloquearPatron(41L)).thenReturn(Optional.of(PATRON));
+        when(repository.bloquearConsultorio(7L)).thenReturn(Optional.of(NUEVO));
+        // La primera fecha ya se cambio en una operacion previa.
+        var primeraYaCambiada =
+                new FechaTurno(301L, HOY, "ACTIVO", NUEVO);
+        when(repository.listarFechasDesde(41L, HOY, true))
+                .thenReturn(List.of(primeraYaCambiada, SEGUNDA));
+        prepararRespuesta();
+
+        service.modificarConsultorio(41L,
+                new ModificarTurnoSemanalRequest(7L, List.of(302L), false));
+
+        verify(repository).actualizarConsultorioDeFechas(
+                41L, 7L, List.of(302L), HOY
+        );
+        verify(repository).actualizarConsultorioDelPatron(41L, 7L);
+    }
+
+    @Test
     void rechazaFechasAjenasYDuplicadas() {
         prepararCambio();
         ApiException ajena = assertThrows(ApiException.class, () ->

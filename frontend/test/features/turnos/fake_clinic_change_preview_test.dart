@@ -106,6 +106,31 @@ void main() {
     expect(db.agendadasPorTurno[booked.id], 2);
   });
 
+  test('dos cambios parciales terminan actualizando el patrón', () {
+    final admin = FakeAdminDatabase(
+      clock: () => DateTime.utc(2026, 11, 10, 15),
+    );
+    final db = FakeShiftDatabase(admin);
+    final pattern = db.weeklyShifts.first;
+    final target = admin.clinics.last.id;
+    final dates = db.shifts
+        .where((shift) => shift.weeklyShiftId == pattern.id)
+        .toList();
+    expect(dates.length, greaterThan(1));
+
+    db.changeClinic(pattern.id, target, turnoIds: [dates.first.id]);
+    final result = db.changeClinic(
+      pattern.id,
+      target,
+      turnoIds: dates.skip(1).map((date) => date.id).toList(),
+      confirmarConConsultas: true,
+    );
+
+    expect(dates.every((date) => date.clinicId == target), isTrue);
+    expect(result.clinic.id, target);
+    expect(result.clinicVariesByDate, isFalse);
+  });
+
   test('rechaza IDs de otro patrón y selecciones vacías', () {
     final admin = FakeAdminDatabase(
       clock: () => DateTime.utc(2026, 11, 10, 15),
