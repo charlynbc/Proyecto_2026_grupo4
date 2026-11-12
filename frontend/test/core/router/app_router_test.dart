@@ -75,6 +75,59 @@ void main() {
     });
   }
 
+  testWidgets('ruta real de corrección de usuario abre una cuenta válida', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.administrador);
+    await goTo(tester, container, '/admin/usuarios/4/corregir');
+    expect(find.text('Corregir usuario'), findsOneWidget);
+    expect(find.text('Carla'), findsOneWidget);
+    expect(find.text('34567894'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
+  for (final id in ['0', '-3', 'abc', '999']) {
+    testWidgets('ruta real de corrección de usuario con id $id no encontrado', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+      await goTo(tester, container, '/admin/usuarios/$id/corregir');
+      expect(find.text('No encontramos esa cuenta.'), findsOneWidget);
+      await unmountApp(tester);
+    });
+  }
+
+  testWidgets('"Corregir datos" del menú abre la corrección de esa cuenta', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.administrador);
+    await goTo(tester, container, '/admin/usuarios');
+    // Ana Rodríguez es la cuenta 1, de socio: también se puede corregir.
+    await tester.ensureVisible(find.byKey(const Key('user-actions-1')));
+    await tester.tap(find.byKey(const Key('user-actions-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('user-edit-1')));
+    await tester.pumpAndSettle();
+
+    expect(locationOf(container), '/admin/usuarios/1/corregir');
+    expect(find.text('Corregir usuario'), findsOneWidget);
+    expect(find.text('Ana'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
+  testWidgets('la corrección de usuario no se abre con otro rol', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.funcionario);
+    await goTo(tester, container, '/admin/usuarios/4/corregir');
+    expect(find.text('Corregir usuario'), findsNothing);
+    await unmountApp(tester);
+  });
+
   group('redirectFor', () {
     const checking = SessionState(status: SessionStatus.checking);
     const anonymous = SessionState();
