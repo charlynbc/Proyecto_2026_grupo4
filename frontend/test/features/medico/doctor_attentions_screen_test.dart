@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agenda_medica/features/especialidades/models/specialty.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialties_provider.dart';
 import 'package:agenda_medica/features/medico/models/doctor_attention.dart';
@@ -28,6 +30,43 @@ class RecordingRepository implements DoctorAttentionRepository {
 }
 
 void main() {
+  for (final width in [1200.0, 360.0, 320.0]) {
+    testWidgets(
+      'el indicador de carga de Especialidad es cuadrado a ${width.toInt()} px',
+      (tester) async {
+        await loadRoboto();
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        // Las especialidades quedan cargando; la lista de atenciones responde
+        // enseguida, así el único indicador en pantalla es el del filtro.
+        final gate = Completer<List<Specialty>>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete(const []);
+        });
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              doctorAttentionRepositoryProvider.overrideWith(
+                (ref) async => RecordingRepository(),
+              ),
+              specialtiesProvider.overrideWith((ref) => gate.future),
+            ],
+            child: const MaterialApp(home: DoctorAttentionsScreen()),
+          ),
+        );
+        for (var i = 0; i < 5; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        final indicator = find.byType(CircularProgressIndicator);
+        expect(indicator, findsOneWidget);
+        expect(tester.getSize(indicator), const Size(36, 36));
+      },
+    );
+  }
+
   testWidgets('busca con CI normalizada y abre el detalle', (tester) async {
     final repo = RecordingRepository();
     final router = GoRouter(

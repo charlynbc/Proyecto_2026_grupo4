@@ -32,6 +32,8 @@ import '../../features/medico/screens/doctor_attentions_screen.dart';
 import '../../features/medico/screens/doctor_attention_detail_screen.dart';
 import '../../features/medico/screens/doctor_referral_routes.dart';
 import '../../features/medico/screens/doctor_referrals_screen.dart';
+import '../../features/medico/screens/doctor_history_routes.dart';
+import '../../features/medico/screens/doctor_patient_history_screen.dart';
 import '../../features/medico/screens/doctor_result_routes.dart';
 import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
@@ -207,6 +209,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             _appointmentId(state) == null ? kDoctorShiftsPath : null,
         builder: (context, state) => DoctorAppointmentResultScreen(
           appointmentId: _appointmentId(state)!,
+          patientName: state.uri.queryParameters['paciente'],
+        ),
+      ),
+      GoRoute(
+        path: kDoctorPatientHistoryPath,
+        redirect: (context, state) =>
+            _socioId(state) == null ? kDoctorShiftsPath : null,
+        builder: (context, state) => DoctorPatientHistoryScreen(
+          socioId: _socioId(state)!,
           patientName: state.uri.queryParameters['paciente'],
         ),
       ),
@@ -455,6 +466,12 @@ int? _weeklyShiftId(GoRouterState state) {
 
 int? _appointmentId(GoRouterState state) {
   final text = state.pathParameters['id'] ?? '';
+  final id = RegExp(r'^\d+$').hasMatch(text) ? int.tryParse(text) : null;
+  return id != null && id > 0 ? id : null;
+}
+
+int? _socioId(GoRouterState state) {
+  final text = state.pathParameters['socioId'] ?? '';
   final id = RegExp(r'^\d+$').hasMatch(text) ? int.tryParse(text) : null;
   return id != null && id > 0 ? id : null;
 }

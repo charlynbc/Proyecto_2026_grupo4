@@ -22,6 +22,8 @@ class ApiRoutes {
   static const String users = '/api/usuarios';
   static const String weeklyShifts = '/api/turnos-semanales';
   static String weeklyShift(int id) => '/api/turnos-semanales/$id';
+  static String weeklyShiftClinicPreview(int id) =>
+      '/api/turnos-semanales/$id/consultorio/vista-previa';
   static const String shifts = '/api/turnos';
   static const String availability = '/api/disponibilidad';
   static const String appointments = '/api/consultas';
@@ -143,6 +145,7 @@ class ApiRoutes {
     users,
     weeklyShifts,
     weeklyShift(1),
+    weeklyShiftClinicPreview(1),
     shifts,
     availability,
     appointments,
