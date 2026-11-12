@@ -84,7 +84,14 @@ void main() {
       expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
     });
 
-    testWidgets('alterna al tocarlo y se aplica con Buscar', (tester) async {
+    Future<void> chooseOrder(WidgetTester tester, String label) async {
+      await tester.tap(find.byKey(const Key('attentions-order')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('alterna al tocarlo y se aplica al instante', (tester) async {
       final repo = await _pumpScreen(tester);
 
       await tester.tap(direction);
@@ -101,15 +108,10 @@ void main() {
         ),
         findsOneWidget,
       );
-      // Todavía no se buscó: el último pedido sigue siendo el anterior.
-      expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
-
-      await tester.tap(find.byKey(const Key('attentions-search')));
-      await tester.pumpAndSettle();
+      // Se aplica sin tocar "Buscar".
       expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
 
       await tester.tap(direction);
-      await tester.tap(find.byKey(const Key('attentions-search')));
       await tester.pumpAndSettle();
       expect(
         find.descendant(of: direction, matching: find.text('Descendente')),
@@ -118,22 +120,109 @@ void main() {
       expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
     });
 
-    testWidgets('cambiar de campo reinicia el sentido', (tester) async {
-      await _pumpScreen(tester);
+    testWidgets('pasar de fecha a apellido conserva el sentido descendente', (
+      tester,
+    ) async {
+      final repo = await _pumpScreen(tester);
 
-      await tester.tap(find.byKey(const Key('attentions-order')));
+      await chooseOrder(tester, 'Apellido del paciente');
+
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(repo.queries.last.toQueryParameters()['orden'], 'apellido');
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
+    });
+
+    testWidgets('con apellido ascendente, pasar a fecha deja ascendente', (
+      tester,
+    ) async {
+      final repo = await _pumpScreen(tester);
+      await chooseOrder(tester, 'Apellido del paciente');
+      await tester.tap(direction);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Apellido del paciente').last);
-      await tester.pumpAndSettle();
+      expect(repo.queries.last.toQueryParameters()['orden'], 'apellido');
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+
+      await chooseOrder(tester, 'Fecha');
+
       expect(
         find.descendant(of: direction, matching: find.text('Ascendente')),
         findsOneWidget,
       );
+      expect(repo.queries.last.toQueryParameters()['orden'], 'fecha');
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+    });
 
-      await tester.tap(find.byKey(const Key('attentions-order')));
+    // Aplicado con "Buscar": paciente 4.567.891-1. Escrito sin aplicar: "otro".
+    Future<RecordingRepository> pumpWithPending(WidgetTester tester) async {
+      final repo = await _pumpScreen(tester);
+      await tester.enterText(
+        find.byKey(const Key('attentions-patient-field')),
+        '4.567.891-1',
+      );
+      await tester.tap(find.byKey(const Key('attentions-search')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Fecha').last);
+      expect(repo.queries.last.toQueryParameters()['paciente'], '45678911');
+      await tester.enterText(
+        find.byKey(const Key('attentions-patient-field')),
+        'otro',
+      );
       await tester.pumpAndSettle();
+      return repo;
+    }
+
+    String patientField(WidgetTester tester) => tester
+        .widget<TextField>(find.byKey(const Key('attentions-patient-field')))
+        .controller!
+        .text;
+
+    testWidgets('cambiar el orden pide al instante con lo ya aplicado', (
+      tester,
+    ) async {
+      final repo = await pumpWithPending(tester);
+      final before = repo.queries.length;
+
+      await chooseOrder(tester, 'Apellido del paciente');
+
+      expect(repo.queries.length, before + 1);
+      final params = repo.queries.last.toQueryParameters();
+      expect(params['orden'], 'apellido');
+      expect(params['paciente'], '45678911');
+      expect(patientField(tester), 'otro');
+    });
+
+    testWidgets('tocar el sentido pide al instante con lo ya aplicado', (
+      tester,
+    ) async {
+      final repo = await pumpWithPending(tester);
+      final before = repo.queries.length;
+
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+
+      expect(repo.queries.length, before + 1);
+      final params = repo.queries.last.toQueryParameters();
+      expect(params['sentido'], 'asc');
+      expect(params['paciente'], '45678911');
+      expect(patientField(tester), 'otro');
+    });
+
+    testWidgets('Limpiar vuelve a fecha descendente', (tester) async {
+      final repo = await pumpWithPending(tester);
+      await chooseOrder(tester, 'Apellido del paciente');
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+
+      await tester.tap(find.byKey(const Key('attentions-clear')));
+      await tester.pumpAndSettle();
+
+      final params = repo.queries.last.toQueryParameters();
+      expect(params['orden'], 'fecha');
+      expect(params['sentido'], 'desc');
+      expect(params.containsKey('paciente'), isFalse);
       expect(
         find.descendant(of: direction, matching: find.text('Descendente')),
         findsOneWidget,
@@ -200,10 +289,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Apellido del paciente').last);
     await tester.pumpAndSettle();
-    expect(find.text('Ascendente'), findsOneWidget);
+    expect(find.text('Descendente'), findsOneWidget);
     await tester.tap(find.byKey(const Key('attentions-search')));
     await tester.pumpAndSettle();
-    expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+    expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
     await tester.tap(find.byKey(const Key('attentions-clear')));
     await tester.pumpAndSettle();
     expect(

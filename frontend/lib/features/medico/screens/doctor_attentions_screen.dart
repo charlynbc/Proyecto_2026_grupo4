@@ -82,6 +82,12 @@ class _DoctorAttentionsScreenState
         );
   }
 
+  /// El orden y el sentido se aplican al instante, con los filtros que ya
+  /// estaban aplicados: lo escrito sin tocar "Buscar" no se toca.
+  void sort() {
+    ref.read(doctorAttentionFiltersProvider.notifier).sortBy(order, direction);
+  }
+
   void clear() {
     final q = DoctorAttentionQuery.initial();
     setState(() {
@@ -199,12 +205,8 @@ class _DoctorAttentionsScreenState
                       ],
                       onChanged: (v) {
                         if (v != null) {
-                          setState(() {
-                            order = v;
-                            direction = v == DoctorAttentionOrder.date
-                                ? DoctorAttentionDirection.descending
-                                : DoctorAttentionDirection.ascending;
-                          });
+                          setState(() => order = v);
+                          sort();
                         }
                       },
                     ),
@@ -212,12 +214,15 @@ class _DoctorAttentionsScreenState
                       key: const Key('attentions-direction'),
                       ascending:
                           direction == DoctorAttentionDirection.ascending,
-                      onPressed: () => setState(
-                        () => direction =
-                            direction == DoctorAttentionDirection.ascending
-                            ? DoctorAttentionDirection.descending
-                            : DoctorAttentionDirection.ascending,
-                      ),
+                      onPressed: () {
+                        setState(
+                          () => direction =
+                              direction == DoctorAttentionDirection.ascending
+                              ? DoctorAttentionDirection.descending
+                              : DoctorAttentionDirection.ascending,
+                        );
+                        sort();
+                      },
                     ),
                   ],
                 ),
