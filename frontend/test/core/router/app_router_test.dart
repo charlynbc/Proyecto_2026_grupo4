@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:agenda_medica/core/fakes/datos_prueba.dart';
 import 'package:agenda_medica/core/router/app_router.dart';
 import 'package:agenda_medica/core/router/app_sections.dart';
@@ -9,6 +11,7 @@ import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart'
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
 import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_appointment_result_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_history_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_patient_history_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_referrals_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
@@ -505,6 +508,84 @@ void main() {
       expect(locationOf(container), UserRole.socio.homePath);
       expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
       await unmountApp(tester);
+    });
+
+    testWidgets('la flecha de volver sin pila lleva a "Mis turnos"', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      // Se entra directo a la URL: no hay nada debajo para volver.
+      await goTo(
+        tester,
+        container,
+        '/medico/pacientes/101/historia?paciente=Ana%20P%C3%A9rez',
+      );
+      expect(find.byType(DoctorPatientHistoryScreen), findsOneWidget);
+      expect(container.read(goRouterProvider).canPop(), isFalse);
+
+      await tester.tap(find.byTooltip('Volver a mis turnos'));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/medico/turnos');
+      expect(find.byType(DoctorShiftsScreen), findsOneWidget);
+      expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('la flecha de volver con pila desde "Mis turnos" vuelve a '
+        '"Mis turnos"', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+      await goTo(tester, container, '/medico/turnos');
+
+      // Como lo hace el botón de la historia en la agenda: un push encima.
+      unawaited(
+        container
+            .read(goRouterProvider)
+            .push(doctorPatientHistoryLocation(101, patientName: 'Ana Pérez')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DoctorPatientHistoryScreen), findsOneWidget);
+      expect(container.read(goRouterProvider).canPop(), isTrue);
+
+      await tester.tap(find.byTooltip('Volver a mis turnos'));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/medico/turnos');
+      expect(find.byType(DoctorShiftsScreen), findsOneWidget);
+      expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('la flecha de volver con pila vuelve a la pantalla de donde '
+        'se vino, no siempre a "Mis turnos"', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+      await goTo(tester, container, '/medico/pases');
+      expect(find.byType(DoctorReferralsScreen), findsOneWidget);
+
+      unawaited(
+        container
+            .read(goRouterProvider)
+            .push(doctorPatientHistoryLocation(101, patientName: 'Ana Pérez')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DoctorPatientHistoryScreen), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Volver a mis turnos'));
+      await tester.pumpAndSettle();
+
+      // Con pila el botón hace pop: vuelve a Pases, de donde se vino.
+      expect(locationOf(container), '/medico/pases');
+      expect(find.byType(DoctorReferralsScreen), findsOneWidget);
+      expect(find.byType(DoctorShiftsScreen), findsNothing);
+      expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
     });
   });
 
