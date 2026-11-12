@@ -531,9 +531,7 @@ void main() {
     setUpAll(loadRoboto);
     final direction = find.byKey(const Key('medical-history-direction'));
 
-    testWidgets('arranca en Descendente y alterna; se aplica con Buscar', (
-      tester,
-    ) async {
+    testWidgets('arranca en Descendente y alterna al instante', (tester) async {
       final repository = _RecordingRepository();
       await _pump(tester, repository);
 
@@ -563,20 +561,13 @@ void main() {
         ),
         findsOneWidget,
       );
-      // Todavía no se buscó: el listado sigue con el sentido anterior.
-      expect(
-        repository.queries.last.direction,
-        MedicalHistoryDirection.descending,
-      );
-
-      await _apply(tester);
+      // Se aplica al instante, sin "Aplicar filtros".
       expect(
         repository.queries.last.direction,
         MedicalHistoryDirection.ascending,
       );
 
       await _tap(tester, direction);
-      await _apply(tester);
       expect(
         find.descendant(of: direction, matching: find.text('Descendente')),
         findsOneWidget,
@@ -585,6 +576,97 @@ void main() {
         repository.queries.last.direction,
         MedicalHistoryDirection.descending,
       );
+    });
+
+    // Filtro aplicado: especialidad Cardiología. Sin aplicar: el texto
+    // "reposo" y la fecha desde 01/09/2026.
+    Future<_RecordingRepository> pumpWithPending(WidgetTester tester) async {
+      final repository = _RecordingRepository();
+      await _pump(tester, repository);
+      await _select(tester, 'medical-history-specialty', 'Cardiología');
+      await _apply(tester);
+      expect(repository.queries.last.specialtyId, 3);
+      await tester.enterText(
+        find.byKey(const Key('medical-history-text')),
+        'reposo',
+      );
+      await tester.enterText(
+        find.byKey(const Key('medical-history-from')),
+        '01/09/2026',
+      );
+      await tester.pumpAndSettle();
+      return repository;
+    }
+
+    testWidgets('cambiar el orden pide al instante con lo ya aplicado', (
+      tester,
+    ) async {
+      final repository = await pumpWithPending(tester);
+      final before = repository.queries.length;
+
+      await _select(tester, 'medical-history-order', 'Especialidad');
+
+      expect(repository.queries.length, before + 1);
+      expect(repository.queries.last.order, MedicalHistoryOrder.specialty);
+      expect(repository.queries.last.specialtyId, 3);
+      expect(repository.queries.last.text ?? '', isEmpty);
+      expect(repository.queries.last.from, isNull);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('medical-history-text')),
+            )
+            .controller!
+            .text,
+        'reposo',
+      );
+      expect(find.text('01/09/2026'), findsOneWidget);
+    });
+
+    testWidgets('tocar el sentido pide al instante con lo ya aplicado', (
+      tester,
+    ) async {
+      final repository = await pumpWithPending(tester);
+      final before = repository.queries.length;
+
+      await _tap(tester, direction);
+
+      expect(repository.queries.length, before + 1);
+      expect(
+        repository.queries.last.direction,
+        MedicalHistoryDirection.ascending,
+      );
+      expect(repository.queries.last.specialtyId, 3);
+      expect(repository.queries.last.text ?? '', isEmpty);
+      expect(repository.queries.last.from, isNull);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('medical-history-text')),
+            )
+            .controller!
+            .text,
+        'reposo',
+      );
+    });
+
+    testWidgets('Limpiar vuelve a fecha descendente', (tester) async {
+      final repository = await pumpWithPending(tester);
+      await _select(tester, 'medical-history-order', 'Especialidad');
+      await _tap(tester, direction);
+      expect(
+        repository.queries.last.direction,
+        MedicalHistoryDirection.ascending,
+      );
+
+      await _tap(tester, find.widgetWithText(OutlinedButton, 'Limpiar'));
+
+      expect(repository.queries.last.order, MedicalHistoryOrder.date);
+      expect(
+        repository.queries.last.direction,
+        MedicalHistoryDirection.descending,
+      );
+      expect(repository.queries.last.specialtyId, isNull);
     });
 
     testWidgets('a 320 px se ve completo y no desborda', (tester) async {

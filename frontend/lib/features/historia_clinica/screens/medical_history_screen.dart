@@ -82,6 +82,14 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
     controller.sortBy(_order, direction: _direction);
   }
 
+  /// El orden y el sentido se aplican al instante, con los filtros que ya
+  /// estaban aplicados: lo escrito sin "Aplicar filtros" no se toca.
+  void _sort() {
+    ref
+        .read(medicalHistoryFiltersProvider.notifier)
+        .sortBy(_order, direction: _direction);
+  }
+
   void _clear() {
     // reset puede invocar onChanged con los valores iniciales de los campos.
     // Lo hacemos antes de fijar los valores definitivos de la consulta limpia.
@@ -198,6 +206,7 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                               onChanged: (value) {
                                 if (value != null) {
                                   setState(() => _order = value);
+                                  _sort();
                                 }
                               },
                             ),
@@ -209,13 +218,16 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                               ascending:
                                   _direction ==
                                   MedicalHistoryDirection.ascending,
-                              onPressed: () => setState(
-                                () => _direction =
-                                    _direction ==
-                                        MedicalHistoryDirection.ascending
-                                    ? MedicalHistoryDirection.descending
-                                    : MedicalHistoryDirection.ascending,
-                              ),
+                              onPressed: () {
+                                setState(
+                                  () => _direction =
+                                      _direction ==
+                                          MedicalHistoryDirection.ascending
+                                      ? MedicalHistoryDirection.descending
+                                      : MedicalHistoryDirection.ascending,
+                                );
+                                _sort();
+                              },
                             ),
                           ),
                         ],
