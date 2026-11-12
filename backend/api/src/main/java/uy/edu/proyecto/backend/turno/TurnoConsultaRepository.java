@@ -145,7 +145,13 @@ public class TurnoConsultaRepository {
                            SELECT COUNT(*)
                            FROM public.turno t
                            WHERE t.id_turno_semanal = ts.id_turno_semanal
-                       ) AS cantidad_turnos
+                       ) AS cantidad_turnos,
+                        (
+                            SELECT COUNT(DISTINCT t2.id_consultorio) > 1
+                            FROM public.turno t2
+                            WHERE t2.id_turno_semanal = ts.id_turno_semanal
+                              AND t2.fecha >= ?
+                        ) AS consultorio_varia
                 FROM public.turno_semanal ts
                 JOIN public.cuenta medico ON medico.id_cuenta = ts.id_medico
                 JOIN public.persona persona ON persona.ci = medico.ci
@@ -175,8 +181,10 @@ public class TurnoConsultaRepository {
                         rs.getInt("dia_semana"),
                         rs.getObject("fecha_inicio", LocalDate.class),
                         rs.getObject("fecha_fin", LocalDate.class),
-                        rs.getInt("cantidad_turnos")
+                        rs.getInt("cantidad_turnos"),
+                        rs.getBoolean("consultorio_varia")
                 ),
+                java.time.LocalDate.now(java.time.ZoneId.of("America/Montevideo")),
                 id
         );
         if (resultado.isEmpty()) {
@@ -215,7 +223,8 @@ public class TurnoConsultaRepository {
                 base.fechaInicio(),
                 base.fechaFin(),
                 numeros,
-                base.cantidadTurnos()
+                base.cantidadTurnos(),
+                base.consultorioVariaPorFecha()
         ));
     }
 
@@ -280,7 +289,8 @@ public class TurnoConsultaRepository {
             int diaSemana,
             LocalDate fechaInicio,
             LocalDate fechaFin,
-            int cantidadTurnos
+            int cantidadTurnos,
+            boolean consultorioVariaPorFecha
     ) {
     }
 }

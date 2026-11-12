@@ -170,7 +170,10 @@ class _EditSpecialtyFormState extends ConsumerState<_EditSpecialtyForm> {
             enabled: enabled,
             maxLength: _maxNameLength,
             textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(labelText: 'Nombre'),
+            decoration: const InputDecoration(
+              labelText: 'Nombre',
+              errorMaxLines: 2,
+            ),
             validator: (value) => (value ?? '').trim().isEmpty
                 ? 'Ingresá el nombre de la especialidad.'
                 : null,

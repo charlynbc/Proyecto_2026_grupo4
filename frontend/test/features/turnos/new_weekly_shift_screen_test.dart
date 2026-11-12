@@ -19,9 +19,11 @@ import 'package:agenda_medica/features/turnos/screens/new_weekly_shift_screen.da
 import 'package:agenda_medica/features/turnos/screens/shift_routes.dart';
 import 'package:agenda_medica/features/turnos/screens/weekly_shift_detail_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 import '../../helpers/shift_listing_data.dart';
 
@@ -829,6 +831,40 @@ void main() {
         expect(find.byKey(const Key('server-error')), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
+    }
+
+    for (final entry in {
+      'field-from': 'Vigencia desde',
+      'field-to': 'Vigencia hasta',
+    }.entries) {
+      testWidgets(
+        'a 320 px la etiqueta ${entry.value} no se corta con puntos',
+        (tester) async {
+          await loadRoboto();
+          await _pump(tester, size: const Size(320, 3200));
+          final field = find.byKey(Key(entry.key));
+          await tester.ensureVisible(field);
+          final label = find
+              .descendant(of: field, matching: find.textContaining(entry.value))
+              .first;
+          bool cut() =>
+              tester.renderObject<RenderParagraph>(label).didExceedMaxLines;
+
+          // Vacío, con la etiqueta entera a la vista.
+          expect(cut(), isFalse);
+
+          // Con la fecha escrita, la cruz le quita lugar a la etiqueta.
+          await _type(tester, entry.key, '20/10/2026');
+          expect(cut(), isFalse);
+
+          // El formato sigue a la vista como pista del campo.
+          expect(
+            find.descendant(of: field, matching: find.text('dd/mm/aaaa')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
     }
 
     testWidgets('con 400 px el botón de guardar se alcanza', (tester) async {
