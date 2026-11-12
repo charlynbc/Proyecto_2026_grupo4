@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../announcement_images.dart';
 import '../models/announcement_detail.dart';
 
 /// Recorre imágenes de una sola novedad, completas y sin gestos de ampliación.
@@ -56,6 +57,7 @@ class _AnnouncementGalleryState extends State<AnnouncementGallery> {
               key: ValueKey('announcement-image-${widget.images[index].id}'),
               width: double.infinity,
               fit: BoxFit.contain,
+              cacheWidth: kAnnouncementImageCacheWidth,
               semanticLabel: 'Imagen ${index + 1} de $count de la novedad',
               loadingBuilder: (context, child, progress) => progress == null
                   ? child

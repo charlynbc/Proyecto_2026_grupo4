@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../novedades/announcement_images.dart';
 import '../../novedades/models/announcement.dart';
 
 /// Una portada por novedad. No consulta ni representa su detalle.
@@ -172,6 +173,7 @@ class _AnnouncementCard extends StatelessWidget {
                 Image.network(
                   announcement.coverUrl!,
                   fit: BoxFit.cover,
+                  cacheWidth: kAnnouncementImageCacheWidth,
                   excludeFromSemantics: true,
                   loadingBuilder: (context, image, progress) =>
                       progress == null ? image : placeholder(),

@@ -7,6 +7,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_sections.dart';
 import '../../auth/models/user_role.dart';
 import '../../auth/widgets/logout_button.dart';
+import '../announcement_images.dart';
 import '../models/announcement.dart';
 import '../providers/announcements_provider.dart';
 
@@ -276,6 +277,7 @@ class _AnnouncementRow extends StatelessWidget {
                       : Image.network(
                           announcement.coverUrl!,
                           fit: BoxFit.contain,
+                          cacheWidth: kAnnouncementImageCacheWidth,
                           excludeFromSemantics: true,
                           loadingBuilder: (context, image, progress) =>
                               progress == null ? image : placeholder(),
