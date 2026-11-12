@@ -24,14 +24,13 @@ class FakeClinicImportRepository implements ClinicImportRepository {
   final FakeAdminDatabase _db;
   final Duration latency;
 
-  static const List<String> _header = ['nombre', 'ubicacion'];
   static const int _maxNameLength = 120;
   static const int _maxLocationLength = 200;
 
   @override
   Future<ClinicImportPreview> preview(PickedCsvFile file) async {
     await Future<void>.delayed(latency);
-    final table = parseCsv(file.bytes, expectedHeader: _header);
+    final table = parseCsv(file.bytes, expectedHeader: kClinicImportColumns);
     final rows = _process(table, confirm: false);
     final errors = [
       for (final row in rows)
@@ -49,7 +48,7 @@ class FakeClinicImportRepository implements ClinicImportRepository {
   @override
   Future<ClinicImportResult> confirm(PickedCsvFile file) async {
     await Future<void>.delayed(latency);
-    final table = parseCsv(file.bytes, expectedHeader: _header);
+    final table = parseCsv(file.bytes, expectedHeader: kClinicImportColumns);
     final rows = _process(table, confirm: true);
     final errors = [
       for (final row in rows)
@@ -94,7 +93,7 @@ class FakeClinicImportRepository implements ClinicImportRepository {
     List<String> cells,
     Map<String, int> seen,
   ) {
-    if (cells.length != _header.length) {
+    if (cells.length != kClinicImportColumns.length) {
       return ClinicImportRow(
         number: number,
         error: 'La fila debe tener exactamente 2 columnas',

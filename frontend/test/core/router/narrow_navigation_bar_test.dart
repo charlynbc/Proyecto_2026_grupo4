@@ -3,6 +3,7 @@ import 'package:agenda_medica/features/agenda/screens/availability_screen.dart';
 import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
+import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -151,6 +152,37 @@ void main() {
       expect(tester.takeException(), isNull);
     } finally {
       await unmountApp(tester);
+    }
+  });
+
+  testWidgets('médico a 320 px muestra sus cuatro secciones sin cortar', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester, size: const Size(320, 800));
+    try {
+      await _loginAs(tester, container, UserRole.medico);
+      _expectNarrowShell(tester);
+
+      final turnos = _labelHeight(tester, 'Mis turnos');
+      final atenciones = _labelHeight(tester, 'Atenciones');
+      final pases = _labelHeight(tester, 'Pases');
+      final cartelera = _labelHeight(tester, 'Cartelera');
+
+      expect(pases, closeTo(cartelera, 0.01), reason: 'Pases en una línea');
+      expect(atenciones, closeTo(cartelera, 0.01));
+      _expectCenteredLines(tester, 'Atenciones', [const TextSelection(baseOffset: 0, extentOffset: 10)]);
+      expect(turnos, greaterThan(0));
+      expect(
+        find.descendant(
+          of: find.byType(NavigationBar),
+          matching: find.byType(NavigationDestination),
+        ),
+        findsNWidgets(4),
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
     }
   });
 

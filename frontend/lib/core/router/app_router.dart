@@ -24,8 +24,14 @@ import '../../features/consultorios/screens/new_clinic_screen.dart';
 import '../../features/cuenta/screens/account_routes.dart';
 import '../../features/cuenta/screens/account_screen.dart';
 import '../../features/cuenta/screens/edit_account_screen.dart';
+import '../../features/cuenta/screens/change_password_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
+import '../../features/medico/screens/doctor_attention_routes.dart';
+import '../../features/medico/screens/doctor_attentions_screen.dart';
+import '../../features/medico/screens/doctor_attention_detail_screen.dart';
+import '../../features/medico/screens/doctor_referral_routes.dart';
+import '../../features/medico/screens/doctor_referrals_screen.dart';
 import '../../features/medico/screens/doctor_result_routes.dart';
 import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
@@ -34,6 +40,7 @@ import '../../features/novedades/screens/announcement_detail_screen.dart';
 import '../../features/novedades/screens/announcements_screen.dart';
 import '../../features/novedades/screens/new_announcement_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
+import '../../features/especialidades/screens/edit_specialty_screen.dart';
 import '../../features/especialidades/screens/new_specialty_screen.dart';
 import '../../features/especialidades/screens/specialty_import_screen.dart';
 import '../../features/especialidades/screens/specialties_screen.dart';
@@ -159,6 +166,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const EditAccountScreen(),
       ),
       GoRoute(
+        path: kAccountPasswordPath,
+        builder: (context, state) => const ChangePasswordScreen(),
+      ),
+      GoRoute(
         path: kRecoveryPath,
         builder: (context, state) => PasswordRecoveryCompleteScreen(
           token: state.uri.queryParameters['token'] ?? '',
@@ -197,6 +208,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           appointmentId: _appointmentId(state)!,
           patientName: state.uri.queryParameters['paciente'],
         ),
+      ),
+      GoRoute(
+        path: kDoctorAttentionPath,
+        redirect: (context, state) =>
+            _appointmentId(state) == null ? kDoctorAttentionsPath : null,
+        builder: (context, state) =>
+            DoctorAttentionDetailScreen(id: _appointmentId(state)!),
       ),
       GoRoute(
         path: '${UserRole.administrador.announcementsPath}/nueva',
@@ -310,6 +328,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
               path: 'importar',
               builder: (context, state) => const SpecialtyImportScreen(),
             ),
+            GoRoute(
+              path: ':id/corregir',
+              builder: (context, state) => EditSpecialtyScreen(
+                id: int.tryParse(state.pathParameters['id'] ?? ''),
+              ),
+            ),
           ],
         );
       case kClinicsPath:
@@ -352,12 +376,24 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
       builder: (context, state) => const DoctorShiftsScreen(),
     );
   }
+  if (role == UserRole.medico && path == kDoctorReferralsPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => const DoctorReferralsScreen(),
+    );
+  }
+  if (role == UserRole.medico && path == kDoctorAttentionsPath) {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => const DoctorAttentionsScreen(),
+    );
+  }
   if (role == UserRole.socio) {
     switch (path) {
       case '/socio/inicio':
         return GoRoute(
           path: path,
-          builder: (context, state) => const HomeScreen(),
+          builder: (context, state) => const HomeScreen(role: UserRole.socio),
         );
       case '/socio/historia':
         return GoRoute(

@@ -7,15 +7,19 @@ import '../../../core/branding.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_sections.dart';
 import '../../auth/models/user_role.dart';
+import '../../auth/models/user_role_label.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../cuenta/providers/account_provider.dart';
 import '../../novedades/providers/announcements_provider.dart';
 import '../widgets/announcements_carousel.dart';
 import '../widgets/home_shortcuts.dart';
 
-/// Inicio del socio; las tarjetas abren su detalle y Cartelera abre el listado.
+/// Inicio de un rol; las tarjetas abren su detalle y Cartelera abre el listado
+/// de ese rol.
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.role});
+
+  final UserRole role;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -75,7 +79,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     });
     final theme = Theme.of(context);
     final wide = MediaQuery.sizeOf(context).width >= 800;
-    void openBillboard() => context.go('/socio/cartelera');
+    final role = widget.role;
+    void openBillboard() => context.go(role.announcementsPath);
 
     return Scaffold(
       appBar: AppBar(
@@ -131,7 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     style: theme.textTheme.labelLarge,
                   ),
                   Text(
-                    'Socio',
+                    userRoleLabel(role),
                     key: const Key('home-user-role'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
@@ -192,7 +197,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         if (!wide) ...[
                           const SizedBox(height: 6),
                           Text(
-                            'Socio',
+                            userRoleLabel(role),
                             key: const Key('home-user-role'),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
@@ -260,7 +265,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       : AnnouncementsCarousel(
                           key: ObjectKey(items),
                           announcements: items,
-                          onOpen: (id) => context.go('/socio/cartelera/$id'),
+                          onOpen: (id) =>
+                              context.go('${role.announcementsPath}/$id'),
                         ),
                 ),
                 Align(
@@ -276,9 +282,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 const SizedBox(height: 16),
                 HomeShortcuts(
-                  sections: UserRole.socio.sections.skip(1).toList(),
+                  sections: role.sections.skip(1).toList(),
                   onSelected: (section) =>
-                      context.go(UserRole.socio.sectionPath(section)),
+                      context.go(role.sectionPath(section)),
                 ),
               ],
             ),
