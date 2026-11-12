@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:agenda_medica/features/historia_clinica/models/medical_history_entry.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_patient_history_provider.dart';
 import 'package:agenda_medica/features/medico/repositories/doctor_patient_history_repository.dart';
+import 'package:agenda_medica/features/medico/repositories/fake_doctor_patient_history_repository.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_history_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_patient_history_screen.dart';
 import 'package:flutter/material.dart';
@@ -259,6 +260,100 @@ void main() {
     await tester.pump();
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  group('contenido alineado arriba', () {
+    // La barra superior mide 56 (kToolbarHeight) y el contenido tiene un
+    // padding vertical de 32: el texto "Paciente: ..." empieza en 56 + 32.
+    const expectedTop = 88.0;
+    final nameLabel = find.text('Paciente: Ana Pérez');
+
+    Future<void> pumpAt(
+      WidgetTester tester,
+      Size size,
+      int socioId, {
+      bool settle = true,
+    }) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          key: UniqueKey(),
+          overrides: [
+            doctorPatientHistoryRepositoryProvider.overrideWith(
+              (ref) async =>
+                  FakeDoctorPatientHistoryRepository(latency: Duration.zero),
+            ),
+          ],
+          child: MaterialApp(
+            home: DoctorPatientHistoryScreen(
+              socioId: socioId,
+              patientName: 'Ana Pérez',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('con datos (socio 101) el contenido queda justo debajo de la '
+        'barra', (tester) async {
+      await pumpAt(tester, const Size(800, 600), 101);
+
+      expect(find.text('Hipertensión arterial leve'), findsOneWidget);
+      expect(tester.getTopLeft(nameLabel).dy, closeTo(expectedTop, 1.0));
+    });
+
+    testWidgets('con la historia vacía (socio 102) el contenido queda justo '
+        'debajo de la barra', (tester) async {
+      await pumpAt(tester, const Size(800, 600), 102);
+
+      expect(
+        find.byKey(const ValueKey('patient-history-empty')),
+        findsOneWidget,
+      );
+      expect(tester.getTopLeft(nameLabel).dy, closeTo(expectedTop, 1.0));
+    });
+
+    testWidgets('con un error (socio 999) el contenido queda justo debajo de '
+        'la barra', (tester) async {
+      await pumpAt(tester, const Size(800, 600), 999);
+
+      expect(
+        find.byKey(const ValueKey('patient-history-retry')),
+        findsOneWidget,
+      );
+      expect(tester.getTopLeft(nameLabel).dy, closeTo(expectedTop, 1.0));
+    });
+
+    testWidgets('con una ventana baja hay un único scroll y el contenido se '
+        'mueve al arrastrar', (tester) async {
+      await pumpAt(tester, const Size(800, 300), 101);
+
+      final scrolls = find.descendant(
+        of: find.byType(DoctorPatientHistoryScreen),
+        matching: find.byType(SingleChildScrollView),
+      );
+      expect(scrolls, findsOneWidget);
+      final before = tester.getTopLeft(nameLabel).dy;
+      expect(before, closeTo(expectedTop, 1.0));
+
+      await tester.drag(scrolls, const Offset(0, -150));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(nameLabel).dy, closeTo(expectedTop - 150, 1.0));
+    });
+
+    testWidgets('a 320 px de ancho con datos no hay errores de layout', (
+      tester,
+    ) async {
+      await loadRoboto();
+      await pumpAt(tester, const Size(320, 600), 101);
+
+      expect(find.text('Hipertensión arterial leve'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   group('pantalla a 320 px con Roboto', () {
