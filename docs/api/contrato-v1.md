@@ -750,7 +750,7 @@ Puede haber huecos entre números; los números no se solapan entre sí.
 
 Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 
-**Respuesta 200**: la misma forma que la respuesta de #13. `cantidadTurnos` es la cantidad de fechas concretas que tiene el patrón (**PROPUESTA**).
+**Respuesta 200**: la misma forma que la respuesta de #13. `cantidadTurnos` es la cantidad de fechas concretas que tiene el patrón (**PROPUESTA**). Incluye también `consultorioVariaPorFecha` (booleano): es verdadero cuando las fechas de hoy en adelante del turno (activas y suspendidas) están en más de un consultorio, igual que en la respuesta del PATCH de este mismo turno semanal. El `consultorio` de la respuesta es el del patrón.
 
 **Errores:** `404 NO_ENCONTRADO` si el id no existe.
 
@@ -773,7 +773,7 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 { "consultorioId": 7, "turnoIds": [301, 303], "confirmarConConsultas": true }
 ```
 
-**Respuesta 200:** `TurnoSemanalDTO` de #13/#14, agregando `consultorioVariaPorFecha` (booleano). Es verdadero si hay diferentes consultorios entre las fechas de hoy en adelante. El `consultorio` del patrón se modifica **solo** si la selección incluye todas esas fechas (ACTIVAS y SUSPENDIDAS). Si se envía el destino actual y todas las fechas ya lo usan, el resultado es idempotente.
+**Respuesta 200:** `TurnoSemanalDTO` de #13/#14, agregando `consultorioVariaPorFecha` (booleano). Es verdadero si hay diferentes consultorios entre las fechas de hoy en adelante. El consultorio del patrón semanal se actualiza cuando, después del cambio, todas las fechas futuras del turno quedan en el consultorio destino, aunque la solicitud sea parcial. Ejemplo: si primero se cambia una fecha al consultorio 7 y después se cambian las restantes, el patrón también queda en el consultorio 7. Si se envía el destino actual y todas las fechas ya lo usan, el resultado es idempotente.
 
 **Reglas:**
 - El PATCH es atómico. Solo afecta las fechas seleccionadas y nunca las pasadas.

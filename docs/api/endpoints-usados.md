@@ -78,7 +78,7 @@ PostgreSQL.
 | 48 | `POST /api/auth/recuperacion/solicitar` | público | 05 | Pedir recuperación de contraseña | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20; correo verificado solo con proveedor simulado/Mailpit, falta Resend real) | feat/front-recuperar-contrasena 03/11/2026 | [contrato #48](contrato-v1.md#e48) |
 | 49 | `POST /api/auth/recuperacion/completar` | público (token) | 05 | Definir contraseña nueva | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-recuperar-contrasena 03/11/2026 | [contrato #49](contrato-v1.md#e49) |
 | 50 | `POST /api/auth/cambio-correo/confirmar` | público (token) | 06 | Confirmar correo nuevo | CONFIRMADA (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-confirmar-cambio-correo 04/11/2026 | [contrato #50](contrato-v1.md#e50) |
-| 51 | `PATCH /api/turnos-semanales/{id}` | FUNCIONARIO | 20 | Modificar el consultorio del turno semanal | AMPLIACIÓN RF-20 EN DESARROLLO (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-rf20-cambiar-consultorio 06/11/2026 | [contrato #51](contrato-v1.md#e51) |
+| 51 | `PATCH /api/turnos-semanales/{id}` | FUNCIONARIO | 20 | Modificar el consultorio del turno semanal | AMPLIACIÓN RF-20 EN DESARROLLO (backend 01/11/2026, rama feat/rf-04-06-05-20) | feat/front-rf20-consultorio-parcial 12/11/2026 | [contrato #51](contrato-v1.md#e51) |
 | 52 | `POST /api/especialidades/importaciones/previsualizar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | feat/front-especialidades-importar 05/11/2026 | [contrato #52](contrato-v1.md#e52) |
 | 53 | `POST /api/especialidades/importaciones/confirmar` | ADMINISTRADOR | 30 | Carga masiva de especialidades (importa válidas) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | feat/front-especialidades-importar 05/11/2026 | [contrato #53](contrato-v1.md#e53) |
 | 54 | `POST /api/usuarios/importaciones/previsualizar` | ADMINISTRADOR | 32 | Carga masiva de usuarios (vista previa) | CONFIRMADA (backend 02/11/2026, rama feat/rf-30-32-cargas-masivas) | feat/front-usuarios-importar 05/11/2026 | [contrato #54](contrato-v1.md#e54) |
@@ -99,7 +99,7 @@ PostgreSQL.
 | 69 | `GET /api/estadisticas/inasistencias` | ADMINISTRADOR | 42 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | - | [contrato #69](contrato-v1.md#e69) |
 | 70 | `GET /api/estadisticas/pases` | ADMINISTRADOR | 43 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | - | [contrato #70](contrato-v1.md#e70) |
 | 71 | `GET /api/estadisticas/franjas` | ADMINISTRADOR | 44 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | - | [contrato #71](contrato-v1.md#e71) |
-| 72 | `POST /api/turnos-semanales/{id}/consultorio/vista-previa` | FUNCIONARIO | 20 | Vista previa de fechas, consultas y cruces del consultorio destino (solo lectura) | EN DESARROLLO (rama feat/front-rf20-consultorio-parcial) | feat/front-rf20-consultorio-parcial 10/11/2026 | [contrato #72](contrato-v1.md#e72) |
+| 72 | `POST /api/turnos-semanales/{id}/consultorio/vista-previa` | FUNCIONARIO | 20 | Vista previa de fechas, consultas y cruces del consultorio destino (solo lectura) | EN DESARROLLO (rama feat/front-rf20-consultorio-parcial) | feat/front-rf20-consultorio-parcial 12/11/2026 | [contrato #72](contrato-v1.md#e72) |
 
 ## Rutas de la prueba de concepto
 
@@ -143,6 +143,8 @@ clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige pagi
 arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
+
+- 12/11/2026, filas 51 y 72 (cambio de consultorio por fechas, RF-20): en el PATCH de la fila 51 el cuerpo agrega `turnoIds` (arreglo de enteros, opcional: IDs únicos de fechas concretas del patrón, hoy o futuras; si se omite se aplica a todas las fechas de hoy en adelante y vacío es `400 VALIDACION`) y `confirmarConConsultas` (booleano, opcional, por defecto `false`: permite cambiar fechas elegidas con consultas `AGENDADA`, no permite solapamientos). El frontend manda siempre `turnoIds` con solo las fechas elegidas y manda `confirmarConConsultas: true` solo cuando el funcionario confirmó el cambio; si no, no envía el campo. La respuesta de la fila 51 agrega `consultorioVariaPorFecha` (booleano, verdadero si hay consultorios distintos entre las fechas de hoy en adelante); el frontend lo lee y, si faltara, lo toma como `false`. En la vista previa de la fila 72, cada fecha trae `consultorioActual` (objeto con `id`, `nombre` y `ubicacion`); el contrato lo muestra en el ejemplo sin indicar si es obligatorio, así que el frontend lo trata como opcional: si falta, escribe "sin dato" y no puede excluir las fechas que ya usan el consultorio destino. Usado en `feat/front-rf20-consultorio-parcial`.
 
 - 05/11/2026, #53: la respuesta de confirmar la carga masiva de especialidades incluye `total` (entero, cantidad de filas del archivo), que el contrato no lista en esa respuesta pero el backend devuelve. El frontend lo lee y, si faltara, lo calcula como `importadas` más `rechazadas`. El cliente manda el archivo en el campo `archivo` (multipart) en #52 y en #53, y conserva los bytes entre las dos llamadas. Usado en `feat/front-especialidades-importar`.
 

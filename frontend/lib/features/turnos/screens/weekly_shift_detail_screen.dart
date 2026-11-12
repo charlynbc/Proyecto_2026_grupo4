@@ -106,11 +106,15 @@ class _Detail extends ConsumerWidget {
         _Field('Especialidad', weeklyShift.specialty.name),
         _Field(
           'Consultorio',
-          '${weeklyShift.clinic.name} (${weeklyShift.clinic.location})',
+          weeklyShift.clinicVariesByDate
+              ? 'Varía según la fecha'
+              : '${weeklyShift.clinic.name} (${weeklyShift.clinic.location})',
         ),
         if (weeklyShift.clinicVariesByDate)
           const Text(
-            'El consultorio varía según la fecha. Revisá cada turno antes de informar al socio.',
+            'El consultorio varía según la fecha. Consultá el listado de '
+            'Turnos para ver el de cada una y revisá cada turno antes de '
+            'informar al socio.',
           ),
         _Field('Día', weekdayLabel(weeklyShift.weekday)),
         _Field(
@@ -150,15 +154,13 @@ Future<void> _changeClinic(
   WeeklyShift weeklyShift,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
-  final saved = await showDialog<bool>(
+  final saved = await showDialog<ClinicChangeResult>(
     context: context,
     builder: (context) =>
         ChangeWeeklyShiftClinicDialog(weeklyShift: weeklyShift),
   );
-  if (saved == true) {
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Consultorio actualizado.')),
-    );
+  if (saved != null) {
+    messenger.showSnackBar(SnackBar(content: Text(saved.message)));
   }
 }
 

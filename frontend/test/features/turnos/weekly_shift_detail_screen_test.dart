@@ -73,8 +73,12 @@ class _RecordingClinicChange implements WeeklyShiftClinicRepository {
   }) async {
     calls++;
     if (gate != null) await gate!.future;
-    return db.changeClinic(weeklyShiftId, clinicId,
-        turnoIds: turnoIds, confirmarConConsultas: confirmarConConsultas);
+    return db.changeClinic(
+      weeklyShiftId,
+      clinicId,
+      turnoIds: turnoIds,
+      confirmarConConsultas: confirmarConConsultas,
+    );
   }
 }
 
@@ -111,6 +115,7 @@ class _BrokenClinics implements ClinicRepository {
 const _currentClinic =
     'Consultorio actual: Consultorio 3 (Planta baja). Cambia las fechas de '
     'hoy en adelante; las fechas pasadas conservan su consultorio.';
+
 /// Monta el detalle de la configuración [index] de `buildListingDb` (0 es la
 /// de Méndez; 2, la de Acosta), o del id indicado en [id].
 Future<_Harness> _pump(
@@ -172,6 +177,52 @@ Future<void> _pickClinic(WidgetTester tester, String name) async {
   await tester.tap(find.byKey(const Key('weekly-shift-clinic-select')));
   await tester.pumpAndSettle();
   await tester.tap(find.text(name).last);
+  await tester.pumpAndSettle();
+}
+
+/// Abre el detalle de un turno de Acosta con 5 fechas: miércoles del 21/10 al
+/// 18/11/2026 (hoy es el 20/10), todas en el Consultorio 3. La primera está
+/// suspendida. Devuelve las fechas ordenadas y el id del turno semanal.
+Future<(_Harness, List<FakeShift>)> _pumpFiveDates(
+  WidgetTester tester, {
+  void Function(FakeShiftDatabase db, int weeklyShiftId, List<FakeShift> dates)?
+  prepare,
+}) async {
+  final harness = await _pump(tester);
+  final acosta = harness.admin.accounts.firstWhere(
+    (account) =>
+        account.role == UserRole.medico && account.lastName == 'Acosta',
+  );
+  final weekly = harness.shiftDb.createWeeklyShift(
+    NewWeeklyShift(
+      doctorId: acosta.id,
+      specialtyId: 3,
+      clinicId: harness.admin.clinics.first.id,
+      weekday: 3,
+      startDate: DateTime.utc(2026, 10, 21),
+      endDate: DateTime.utc(2026, 11, 18),
+      numbers: [
+        ShiftNumber(number: 1, startMinutes: 10 * 60, endMinutes: 10 * 60 + 20),
+      ],
+    ),
+  );
+  final dates =
+      harness.shiftDb.shifts
+          .where((shift) => shift.weeklyShiftId == weekly.id)
+          .toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
+  expect(dates, hasLength(5));
+  harness.shiftDb.suspendShift(dates.first.id);
+  prepare?.call(harness.shiftDb, weekly.id, dates);
+  harness.router.go(weeklyShiftDetailLocation(weekly.id));
+  await tester.pumpAndSettle();
+  return (harness, dates);
+}
+
+Future<void> _uncheck(WidgetTester tester, FakeShift date) async {
+  final row = find.byKey(Key('weekly-shift-date-${date.id}'));
+  await tester.ensureVisible(row);
+  await tester.tap(row);
   await tester.pumpAndSettle();
 }
 
@@ -261,6 +312,47 @@ void main() {
 
       expect(currentLocation(harness.router), kShiftsPath);
       expect(find.text('Listado de turnos'), findsOneWidget);
+    });
+  });
+
+  group('cuando el consultorio varía según la fecha', () {
+    const warning =
+        'El consultorio varía según la fecha. Consultá el listado de Turnos '
+        'para ver el de cada una y revisá cada turno antes de informar al '
+        'socio.';
+
+    testWidgets('no muestra un consultorio único y avisa', (tester) async {
+      // Dos de las 5 fechas pasan al Consultorio 7; el patrón sigue en el 3.
+      await _pumpFiveDates(
+        tester,
+        prepare: (db, weeklyShiftId, dates) {
+          final room7 = db.admin.clinics.firstWhere(
+            (clinic) => clinic.name == 'Consultorio 7',
+          );
+          db.changeClinic(
+            weeklyShiftId,
+            room7.id,
+            turnoIds: [dates[1].id, dates[2].id],
+          );
+        },
+      );
+
+      expect(find.text('Consultorio'), findsOneWidget);
+      expect(find.text('Varía según la fecha'), findsOneWidget);
+      expect(find.text('Consultorio 3 (Planta baja)'), findsNothing);
+      expect(find.text(warning), findsOneWidget);
+      expect(find.text('5 fechas'), findsOneWidget);
+    });
+
+    testWidgets('si no varía muestra el consultorio y no avisa', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      expect(find.text('Consultorio'), findsOneWidget);
+      expect(find.text('Consultorio 3 (Planta baja)'), findsOneWidget);
+      expect(find.text('Varía según la fecha'), findsNothing);
+      expect(find.textContaining('El consultorio varía'), findsNothing);
     });
   });
 
@@ -406,24 +498,90 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(first.clinicId, originalClinic);
-      expect(harness.shiftDb.weeklyShiftById(patternId)!.clinicVariesByDate,
-          isTrue);
-      expect(find.textContaining('El consultorio varía según la fecha'),
-          findsOneWidget);
+      expect(
+        harness.shiftDb.weeklyShiftById(patternId)!.clinicVariesByDate,
+        isTrue,
+      );
+      expect(
+        find.textContaining('El consultorio varía según la fecha'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('cambiar de consultorio vuelve a marcar todas las fechas', (
+      tester,
+    ) async {
+      // La configuración de Méndez tiene 4 fechas desde hoy (20/10/2026):
+      // 20/10, 27/10 (suspendida), 03/11 y 10/11. Se agrega un turno de
+      // Acosta en el Consultorio 7 el 20/10 que se solapa con el número 1:
+      // en el 7 esa fecha no se puede elegir; en el 12 las 4 sí.
+      final harness = await _pump(tester);
+      final acosta = harness.admin.accounts.firstWhere(
+        (account) =>
+            account.role == UserRole.medico && account.lastName == 'Acosta',
+      );
+      harness.shiftDb.createWeeklyShift(
+        NewWeeklyShift(
+          doctorId: acosta.id,
+          specialtyId: 3,
+          clinicId: harness.admin.clinics
+              .firstWhere((clinic) => clinic.name == 'Consultorio 7')
+              .id,
+          weekday: 2,
+          startDate: DateTime.utc(2026, 10, 20),
+          endDate: DateTime.utc(2026, 10, 20),
+          numbers: [
+            ShiftNumber(
+              number: 1,
+              startMinutes: 9 * 60 + 10,
+              endMinutes: 9 * 60 + 30,
+            ),
+          ],
+        ),
+      );
+      final patternId = harness.shiftDb.weeklyShifts.first.id;
+      final dates = harness.shiftDb.shifts
+          .where((shift) => shift.weeklyShiftId == patternId)
+          .toList();
+      final third = find.byKey(Key('weekly-shift-date-${dates[2].id}'));
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 12');
+      expect(find.textContaining('Seleccionadas: 4 de 4.'), findsOneWidget);
+
+      await tester.ensureVisible(third);
+      await tester.tap(third);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Seleccionadas: 3 de 4.'), findsOneWidget);
+      expect(tester.widget<CheckboxListTile>(third).value, isFalse);
+
+      await _pickClinic(tester, 'Consultorio 7');
+
+      // Vuelven a marcarse las 3 elegibles (27/10, 03/11 y 10/11); la del
+      // 20/10 queda bloqueada y sin marcar.
+      expect(find.textContaining('Seleccionadas: 3 de 4.'), findsOneWidget);
+      expect(tester.widget<CheckboxListTile>(third).value, isTrue);
+      final blocked = find.byKey(Key('weekly-shift-date-${dates[0].id}'));
+      expect(tester.widget<CheckboxListTile>(blocked).value, isFalse);
     });
 
     testWidgets('consultas agendadas requieren confirmación expresa', (
       tester,
     ) async {
       final harness = await _pump(tester);
-      harness.shiftDb.agendadasPorTurnoSemanal[
-        harness.shiftDb.weeklyShifts.first.id
-      ] = 2;
+      harness.shiftDb.agendadasPorTurnoSemanal[harness
+              .shiftDb
+              .weeklyShifts
+              .first
+              .id] =
+          2;
       await _openDialog(tester);
       await _pickClinic(tester, 'Consultorio 7');
 
       expect(_saveButton(tester).onPressed, isNull);
-      expect(find.textContaining('no notificará automáticamente'), findsOneWidget);
+      expect(
+        find.textContaining('no notificará automáticamente'),
+        findsOneWidget,
+      );
 
       final confirm = find.byKey(const Key('weekly-shift-confirm-booked'));
       await tester.ensureVisible(confirm);
@@ -468,7 +626,10 @@ void main() {
 
       expect(find.textContaining('Solapamiento:'), findsWidgets);
       final firstShiftId = harness.shiftDb.shifts
-          .firstWhere((shift) => shift.weeklyShiftId == harness.shiftDb.weeklyShifts.first.id)
+          .firstWhere(
+            (shift) =>
+                shift.weeklyShiftId == harness.shiftDb.weeklyShifts.first.id,
+          )
           .id;
       final tile = tester.widget<CheckboxListTile>(
         find.byKey(Key('weekly-shift-date-$firstShiftId')),
@@ -536,6 +697,227 @@ void main() {
         expect(recording.calls, 1);
       },
     );
+
+    testWidgets('dos toques seguidos en Guardar mandan un solo pedido', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      addTearDown(() {
+        if (!gate.isCompleted) gate.complete();
+      });
+      late _RecordingClinicChange recording;
+      await _pump(
+        tester,
+        clinicChange: (db) =>
+            recording = _RecordingClinicChange(db, gate: gate),
+      );
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+
+      // Sin pump entre los toques: el botón todavía no se reconstruyó.
+      final save = find.byKey(const Key('weekly-shift-clinic-save'));
+      await tester.tap(save);
+      await tester.tap(save);
+      await tester.pump();
+
+      expect(recording.calls, 1);
+    });
+
+    testWidgets(
+      'con el mismo consultorio las 5 fechas están y hay un solo scroll',
+      (tester) async {
+        // Patrón de Acosta, miércoles del 21/10 al 18/11/2026 (hoy es el 20/10):
+        // 21/10 (suspendida), 28/10, 04/11, 11/11 y 18/11. Todas usan ya el
+        // Consultorio 3, el mismo que se elige en el diálogo.
+        final harness = await _pump(tester);
+        final acosta = harness.admin.accounts.firstWhere(
+          (account) =>
+              account.role == UserRole.medico && account.lastName == 'Acosta',
+        );
+        final weekly = harness.shiftDb.createWeeklyShift(
+          NewWeeklyShift(
+            doctorId: acosta.id,
+            specialtyId: 3,
+            clinicId: harness.admin.clinics.first.id,
+            weekday: 3,
+            startDate: DateTime.utc(2026, 10, 21),
+            endDate: DateTime.utc(2026, 11, 18),
+            numbers: [
+              ShiftNumber(
+                number: 1,
+                startMinutes: 10 * 60,
+                endMinutes: 10 * 60 + 20,
+              ),
+            ],
+          ),
+        );
+        final dates =
+            harness.shiftDb.shifts
+                .where((shift) => shift.weeklyShiftId == weekly.id)
+                .toList()
+              ..sort((a, b) => a.date.compareTo(b.date));
+        expect(dates, hasLength(5));
+        harness.shiftDb.suspendShift(dates.first.id);
+        harness.router.go(weeklyShiftDetailLocation(weekly.id));
+        await tester.pumpAndSettle();
+
+        await _openDialog(tester);
+        // Es el mismo consultorio: el desplegable no consulta solo.
+        await tester.tap(find.text('Consultar fechas'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Seleccionadas: 0 de 5.'), findsOneWidget);
+
+        // Un solo scroll vertical: el del diálogo (SingleChildScrollView de
+        // `scrollable: true`). Una lista interna sumaría un segundo Scrollable.
+        final verticalScrolls = find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+          ),
+        );
+        expect(verticalScrolls, findsOneWidget);
+
+        expect(find.text('Ya usa el consultorio elegido.'), findsNWidgets(5));
+
+        final dialog = tester.getRect(find.byType(AlertDialog));
+        for (final date in dates) {
+          final row = find.byKey(Key('weekly-shift-date-${date.id}'));
+          expect(row, findsOneWidget);
+          await tester.ensureVisible(row);
+          await tester.pumpAndSettle();
+          final rect = tester.getRect(row);
+          expect(rect.top, greaterThanOrEqualTo(dialog.top));
+          expect(rect.bottom, lessThanOrEqualTo(dialog.bottom));
+        }
+      },
+    );
+
+    group('el aviso al guardar dice cuántas fechas cambiaron', () {
+      Future<void> save(WidgetTester tester) async {
+        await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('4 de 5 fechas: dice cuántas', (tester) async {
+        final (_, dates) = await _pumpFiveDates(tester);
+        await _openDialog(tester);
+        await _pickClinic(tester, 'Consultorio 7');
+        await _uncheck(tester, dates[2]);
+
+        await save(tester);
+
+        expect(
+          find.text('Consultorio actualizado en 4 de 5 fechas.'),
+          findsOneWidget,
+        );
+        expect(find.text('Consultorio actualizado.'), findsNothing);
+      });
+
+      testWidgets('las 5 fechas: aviso simple, sin "de 5"', (tester) async {
+        await _pumpFiveDates(tester);
+        await _openDialog(tester);
+        await _pickClinic(tester, 'Consultorio 7');
+
+        await save(tester);
+
+        expect(find.text('Consultorio actualizado.'), findsOneWidget);
+        expect(find.textContaining('de 5'), findsNothing);
+      });
+
+      testWidgets('2 fechas ya en el consultorio y 3 elegidas: aviso simple', (
+        tester,
+      ) async {
+        // Dos fechas (21/10 y 28/10) ya usan el Consultorio 7: no se pueden
+        // elegir. Las otras tres (04/11, 11/11 y 18/11) se eligen y completan
+        // las 5.
+        final (_, _) = await _pumpFiveDates(
+          tester,
+          prepare: (db, weeklyShiftId, dates) {
+            final room7 = db.admin.clinics.firstWhere(
+              (clinic) => clinic.name == 'Consultorio 7',
+            );
+            db.changeClinic(
+              weeklyShiftId,
+              room7.id,
+              turnoIds: [dates[0].id, dates[1].id],
+            );
+          },
+        );
+        await _openDialog(tester);
+        await _pickClinic(tester, 'Consultorio 7');
+        expect(find.textContaining('Seleccionadas: 3 de 5.'), findsOneWidget);
+        expect(find.text('Ya usa el consultorio elegido.'), findsNWidgets(2));
+
+        await save(tester);
+
+        expect(find.text('Consultorio actualizado.'), findsOneWidget);
+        expect(find.textContaining('de 5'), findsNothing);
+      });
+
+      testWidgets('una fecha bloqueada por solapamiento: 4 de 5', (
+        tester,
+      ) async {
+        // En el Consultorio 7, Silva tiene turno el 04/11 de 10:10 a 10:30:
+        // se solapa con el de Acosta (10:00 a 10:20). Esa fecha no se puede
+        // elegir y tampoco usa el Consultorio 7. Las otras 4 se eligen todas.
+        await _pumpFiveDates(
+          tester,
+          prepare: (db, weeklyShiftId, dates) {
+            final silva = db.admin.accounts.firstWhere(
+              (account) =>
+                  account.role == UserRole.medico &&
+                  account.lastName == 'Silva',
+            );
+            final room7 = db.admin.clinics.firstWhere(
+              (clinic) => clinic.name == 'Consultorio 7',
+            );
+            db.createWeeklyShift(
+              NewWeeklyShift(
+                doctorId: silva.id,
+                specialtyId: 2,
+                clinicId: room7.id,
+                weekday: 3,
+                startDate: DateTime.utc(2026, 11, 4),
+                endDate: DateTime.utc(2026, 11, 4),
+                numbers: [
+                  ShiftNumber(
+                    number: 1,
+                    startMinutes: 10 * 60 + 10,
+                    endMinutes: 10 * 60 + 30,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+        await _openDialog(tester);
+        await _pickClinic(tester, 'Consultorio 7');
+        expect(find.textContaining('Seleccionadas: 4 de 5.'), findsOneWidget);
+
+        await save(tester);
+
+        expect(
+          find.text('Consultorio actualizado en 4 de 5 fechas.'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('3 de 5 fechas: desmarcando dos', (tester) async {
+        final (_, dates) = await _pumpFiveDates(tester);
+        await _openDialog(tester);
+        await _pickClinic(tester, 'Consultorio 7');
+        await _uncheck(tester, dates[1]);
+        await _uncheck(tester, dates[3]);
+
+        await save(tester);
+
+        expect(
+          find.text('Consultorio actualizado en 3 de 5 fechas.'),
+          findsOneWidget,
+        );
+      });
+    });
 
     testWidgets('si no cargan los consultorios muestra Reintentar', (
       tester,
