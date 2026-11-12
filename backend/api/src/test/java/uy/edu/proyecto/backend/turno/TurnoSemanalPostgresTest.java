@@ -9,7 +9,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.exception.ApiException;
@@ -18,6 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * RF-20 contra PostgreSQL real. El CI provee DB_URL y carga schema.sql.
@@ -25,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * En local, sin DB_URL, se omite para no depender de servicios externos.
  */
 @SpringBootTest
+@AutoConfigureMockMvc
 @Transactional
 @EnabledIfEnvironmentVariable(named = "DB_URL", matches = "jdbc:postgresql:.*")
 class TurnoSemanalPostgresTest {
@@ -34,8 +42,11 @@ class TurnoSemanalPostgresTest {
     private JdbcTemplate jdbc;
     @Autowired
     private TurnoSemanalService service;
+    @Autowired
+    private MockMvc mockMvc;
 
     private Long patronId;
+    private Long funcionarioId;
     private Long consultorioInicial;
     private Long consultorioNuevo;
     private Long primeraFechaId;
@@ -49,7 +60,7 @@ class TurnoSemanalPostgresTest {
         LocalDate segundaFecha = primeraFecha.plusWeeks(1);
 
         Long medico = crearCuenta("91827361", "MEDICO");
-        Long funcionario = crearCuenta("91827362", "FUNCIONARIO");
+        funcionarioId = crearCuenta("91827362", "FUNCIONARIO");
         Long socio = crearCuenta("91827363", "SOCIO");
 
         Long especialidad = id(
@@ -80,7 +91,7 @@ class TurnoSemanalPostgresTest {
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 RETURNING id_turno_semanal
                 """,
-                medico, especialidad, consultorioInicial, funcionario,
+                medico, especialidad, consultorioInicial, funcionarioId,
                 primeraFecha.getDayOfWeek().getValue(), primeraFecha, segundaFecha
         );
         Long numeroSemanal = id(
@@ -205,6 +216,31 @@ class TurnoSemanalPostgresTest {
                 "SELECT estado FROM public.consulta WHERE id_consulta = ?",
                 String.class, consultaId
         ));
+    }
+
+    /**
+     * Regresión RF-20: comprueba el GET HTTP real contra filas PostgreSQL,
+     * no solo la respuesta del PATCH ni el SQL leído de manera aislada.
+     */
+    @Test
+    void getDetalleDevuelveConsultorioVariaPorFechaTrasCambioParcial() throws Exception {
+        service.modificarConsultorio(
+                patronId,
+                new ModificarTurnoSemanalRequest(
+                        consultorioNuevo, List.of(segundaFechaId), false
+                )
+        );
+
+        // La fecha no seleccionada todavía conserva el consultorio original.
+        assertEquals(consultorioInicial, consultorioDelTurno(primeraFechaId));
+        assertEquals(consultorioNuevo, consultorioDelTurno(segundaFechaId));
+
+        mockMvc.perform(get("/api/turnos-semanales/{id}", patronId)
+                        .with(jwt()
+                                .jwt(token -> token.subject(funcionarioId.toString()))
+                                .authorities(new SimpleGrantedAuthority("ROLE_FUNCIONARIO"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.consultorioVariaPorFecha").value(true));
     }
 
     @Test
