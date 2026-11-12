@@ -9,6 +9,7 @@ import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart'
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
 import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_appointment_result_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_patient_history_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_referrals_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
@@ -449,6 +450,61 @@ void main() {
       }
       await unmountApp(tester);
       container.invalidate(doctorAgendaControllerProvider);
+    });
+  });
+
+  group('área del médico: historia clínica previa del paciente', () {
+    testWidgets('un id que no es un número positivo vuelve a "Mis turnos"', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      for (final bad in ['abc', '0', '1x', '-', '-2']) {
+        await goTo(tester, container, '/medico/pacientes/$bad/historia');
+        expect(locationOf(container), '/medico/turnos', reason: bad);
+        expect(find.byType(DoctorShiftsScreen), findsOneWidget, reason: bad);
+        expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
+      }
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('un médico llega a la historia con el id y el paciente', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      await goTo(
+        tester,
+        container,
+        '/medico/pacientes/101/historia?paciente=Ana%20P%C3%A9rez',
+      );
+
+      expect(find.byType(DoctorPatientHistoryScreen), findsOneWidget);
+      final screen = tester.widget<DoctorPatientHistoryScreen>(
+        find.byType(DoctorPatientHistoryScreen),
+      );
+      expect(screen.socioId, 101);
+      expect(screen.patientName, 'Ana Pérez');
+      expect(find.text('Paciente: Ana Pérez'), findsOneWidget);
+      expect(find.text('Página no encontrada'), findsNothing);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('un socio que entra a la ruta vuelve a su home', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.socio);
+
+      await goTo(tester, container, '/medico/pacientes/101/historia');
+
+      expect(locationOf(container), UserRole.socio.homePath);
+      expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
+      await unmountApp(tester);
     });
   });
 
