@@ -28,6 +28,7 @@ class DoctorPatientHistoryScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Historia clínica'),
         leading: IconButton(
+          tooltip: 'Volver',
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
             if (context.canPop()) {
