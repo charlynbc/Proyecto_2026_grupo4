@@ -189,4 +189,148 @@ class CsvArchivoTest {
         assertEquals("CSV_INVALIDO", exception.getCode());
         assertTrue(exception.getMessage().contains("1000"));
     }
+
+    /* ---------- Mensajes de cabecera que dicen que hacer ---------- */
+
+    private static ApiException rechazoDeParseo(String csv) {
+        ApiException error = assertThrows(
+                ApiException.class, () -> CsvArchivo.parsear(csv, COLUMNAS));
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("CSV_INVALIDO", error.getCode());
+        return error;
+    }
+
+    @Test
+    void columnaQueSobraSeNombra() {
+        ApiException error = rechazoDeParseo(
+                "nombre,requiere_pase,extra\nCardiologia,si,x\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Sobra la columna: extra. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void columnaQueFaltaSeNombra() {
+        ApiException error = rechazoDeParseo("nombre\nCardiologia\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Falta la columna: requiere_pase. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void faltanYSobranColumnasSeNombranLasDosListas() {
+        ApiException error = rechazoDeParseo(
+                "name,requiere_pase\nCardiologia,si\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Falta la columna: nombre. "
+                + "Sobra la columna: name. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void variasColumnasQueFaltanYSobranVanEnPlural() {
+        ApiException error = rechazoDeParseo("uno,dos\nA,B\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Faltan las columnas: nombre, requiere_pase. "
+                + "Sobran las columnas: uno, dos. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void mayusculasSeExplicanConLosNombresExactos() {
+        ApiException error = rechazoDeParseo(
+                "Nombre;Requiere_pase\nCardiologia;si\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Faltan las columnas: nombre, requiere_pase. "
+                + "Sobran las columnas: Nombre, Requiere_pase. "
+                + "Los nombres de las columnas se escriben en minúsculas. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void cabeceraConEspaciosDiceQueColumnasTienenEspacios() {
+        ApiException error = rechazoDeParseo(
+                "nombre , requiere_pase\nCardiologia,si\n");
+
+        assertEquals("La primera fila tiene columnas con espacios al principio "
+                + "o al final: 'nombre ', ' requiere_pase'. "
+                + "Borre esos espacios y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void cabeceraConEspaciosSoloAlPrincipioDeUnaColumna() {
+        ApiException error = rechazoDeParseo(
+                " nombre;requiere_pase\nCardiologia;si\n");
+
+        assertEquals("La primera fila tiene columnas con espacios al principio "
+                + "o al final: ' nombre'. "
+                + "Borre esos espacios y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void puntoYComaDeMasAlFinalDiceQueHayUnaColumnaSinNombre() {
+        ApiException error = rechazoDeParseo(
+                "nombre;requiere_pase;\nCardiologia;si;\n");
+
+        assertEquals("La primera fila tiene columnas sin nombre (posición 3). "
+                + "Puede ser un separador de más al final: "
+                + "bórrelo y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void comaDeMasAlFinalTambienDiceQueHayUnaColumnaSinNombre() {
+        ApiException error = rechazoDeParseo(
+                "nombre,requiere_pase,\nCardiologia,si,\n");
+
+        assertEquals("La primera fila tiene columnas sin nombre (posición 3). "
+                + "Puede ser un separador de más al final: "
+                + "bórrelo y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void variasColumnasSinNombreVanEnPlural() {
+        ApiException error = rechazoDeParseo(
+                "nombre;requiere_pase;;\nCardiologia;si;;\n");
+
+        assertEquals("La primera fila tiene columnas sin nombre (posiciones 3, 4). "
+                + "Puede ser un separador de más al final: "
+                + "bórrelo y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void columnaRepetidaSeNombra() {
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> CsvArchivo.parsear(
+                        "nombre,nombre\nCardiologia,si\n", List.of("nombre")));
+
+        assertEquals("La columna 'nombre' está repetida en la primera fila. "
+                + "Cada columna debe aparecer una sola vez.",
+                error.getMessage());
+    }
+
+    @Test
+    void cabeceraConEspaciosYOtrosErroresInformaPrimeroLosEspacios() {
+        ApiException error = rechazoDeParseo("nombre ,otra\nA,B\n");
+
+        assertEquals("La primera fila tiene columnas con espacios al principio "
+                + "o al final: 'nombre '. "
+                + "Borre esos espacios y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
 }
