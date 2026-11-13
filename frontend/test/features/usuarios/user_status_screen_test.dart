@@ -104,18 +104,22 @@ FakeAdminDatabase _trimmedDb() {
   return db;
 }
 
-Account _session(String ci, {UserRole role = UserRole.administrador}) =>
-    Account(
-      ci: ci,
-      name: 'Sesión',
-      lastName: 'De prueba',
-      role: role,
-      email: 'sesion@example.org',
-      pendingEmail: null,
-      phone1: '099000000',
-      phone2: null,
-      address: 'Calle 1',
-    );
+Account _session(
+  String ci, {
+  UserRole role = UserRole.administrador,
+  int id = 5,
+}) => Account(
+  id: id,
+  ci: ci,
+  name: 'Sesión',
+  lastName: 'De prueba',
+  role: role,
+  email: 'sesion@example.org',
+  pendingEmail: null,
+  phone1: '099000000',
+  phone2: null,
+  address: 'Calle 1',
+);
 
 final _diego = _session('45678905');
 
