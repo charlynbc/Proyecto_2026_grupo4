@@ -11,6 +11,7 @@ import 'package:agenda_medica/features/estadisticas/tabs/time_slot_statistics_ta
 import 'package:agenda_medica/features/estadisticas/time_slots/models/time_slot_statistics.dart';
 import 'package:agenda_medica/features/estadisticas/time_slots/providers/time_slot_statistics_provider.dart';
 import 'package:agenda_medica/features/estadisticas/time_slots/repositories/time_slot_statistics_repository.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -83,6 +84,68 @@ class Slots implements TimeSlotStatisticsRepository {
 }
 
 void main() {
+  testWidgets('pases muestra los cuatro conteos y la utilización del API', (
+    tester,
+  ) async {
+    final dio = Dio();
+    addTearDown(() => dio.close(force: true));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) => handler.resolve(
+          Response<Map<String, dynamic>>(
+            requestOptions: options,
+            statusCode: 200,
+            data: {
+              'desde': '2026-09-01',
+              'hasta': '2026-09-30',
+              'items': [
+                {
+                  'especialidadDestino': {'id': 3, 'nombre': 'Cardiología'},
+                  'emitidos': 10,
+                  'utilizados': 5,
+                  'disponibles': 3,
+                  'vencidos': 2,
+                  'porcentajeUtilizados': 71.43,
+                  'utilizacion': '71.43 %',
+                },
+              ],
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          referralStatisticsRepositoryProvider.overrideWith(
+            (ref) async => ApiReferralStatisticsRepository(dio),
+          ),
+          specialtiesProvider.overrideWith((ref) async => []),
+        ],
+        child: const MaterialApp(home: Scaffold(body: ReferralStatisticsTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = find.ancestor(
+      of: find.text('Cardiología'),
+      matching: find.byType(Card),
+    );
+    expect(card, findsOneWidget);
+    for (final label in [
+      'Emitidos: 10',
+      'Utilizados: 5',
+      'Disponibles: 3',
+      'Vencidos: 2',
+      'Utilización: 71.43 %',
+    ]) {
+      expect(
+        find.descendant(of: card, matching: find.text(label)),
+        findsOneWidget,
+      );
+    }
+  });
+
   testWidgets(
     'pases muestra período del servidor, utilización y filtra origen',
     (tester) async {
