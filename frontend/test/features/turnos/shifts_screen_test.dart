@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../helpers/load_roboto.dart';
+import '../../helpers/pager_layout.dart';
 import '../../helpers/pump_admin.dart';
 import '../../helpers/shift_listing_data.dart';
 
@@ -609,6 +610,21 @@ void main() {
       );
       expect(_rows(tester), hasLength(20));
     });
+  });
+
+  testWidgets('a 320 px el paginador pone la página arriba y los botones '
+      'lado a lado', (tester) async {
+    await _pump(tester, size: const Size(320, 1800));
+    final next = find.widgetWithText(OutlinedButton, 'Siguiente');
+    await tester.ensureVisible(next);
+    await tester.pumpAndSettle();
+
+    expectNarrowPager(
+      tester,
+      label: find.text('Página 1 de 2 · 32 turnos'),
+      previous: find.widgetWithText(OutlinedButton, 'Anterior'),
+      next: next,
+    );
   });
 
   group('según el ancho de la pantalla', () {
