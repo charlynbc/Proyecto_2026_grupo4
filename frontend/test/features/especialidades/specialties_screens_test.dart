@@ -17,12 +17,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/error_text_fit.dart';
+import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 
-Future<GoRouter> _pump(WidgetTester tester, String initial) {
+Future<GoRouter> _pump(
+  WidgetTester tester,
+  String initial, {
+  Size size = const Size(900, 1800),
+}) {
   final db = FakeAdminDatabase();
   return pumpAdminScreens(
     tester,
+    size: size,
     initialLocation: initial,
     routes: [
       GoRoute(
@@ -73,6 +80,8 @@ class _RecordingSearch extends FakeSpecialtySearchRepository {
 }
 
 void main() {
+  setUpAll(loadRoboto);
+
   testWidgets('el listado muestra cada especialidad con "Requiere pase" o '
       '"Libre"', (tester) async {
     await _pump(tester, kSpecialtiesPath);
@@ -104,6 +113,20 @@ void main() {
     expect(find.text('Ingresá el nombre de la especialidad.'), findsOneWidget);
     expect(currentLocation(router), kNewSpecialtyPath);
   });
+
+  for (final scale in [1.0, 1.15]) {
+    testWidgets('a 320 px con el texto al $scale el mensaje del nombre vacío '
+        'se lee entero', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pump(tester, kNewSpecialtyPath, size: const Size(320, 900));
+
+      await tester.tap(_save);
+      await tester.pumpAndSettle();
+
+      expectErrorFits(tester, 'Ingresá el nombre de la especialidad.');
+    });
+  }
 
   testWidgets('un nombre repetido muestra el aviso y conserva lo escrito', (
     tester,

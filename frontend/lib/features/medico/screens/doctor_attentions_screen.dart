@@ -152,7 +152,8 @@ class _DoctorAttentionsScreenState
                   ),
                 ),
                 specialties.when(
-                  loading: () => const CircularProgressIndicator(),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Row(
                     children: [
                       Expanded(child: Text(apiMessageOf(e))),

@@ -9,6 +9,7 @@ import 'package:agenda_medica/features/agenda/providers/appointment_history_prov
 import 'package:agenda_medica/features/agenda/repositories/appointment_history_repository.dart';
 import 'package:agenda_medica/features/agenda/screens/appointment_detail_screen.dart';
 import 'package:agenda_medica/features/agenda/screens/appointments_pending_screen.dart';
+import 'package:agenda_medica/features/agenda/widgets/appointment_card.dart';
 import 'package:agenda_medica/features/consultorios/models/clinic.dart';
 import 'package:agenda_medica/features/especialidades/models/specialty.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialties_provider.dart';
@@ -1080,10 +1081,6 @@ void main() {
     });
   });
 
-  // Va al final: Roboto se carga una sola vez por archivo y los tests que
-  // vinieran después dejarían de usar la fuente de prueba. Con Roboto el texto
-  // mide como en un celular; Ahem ensancha todo y daría desbordes que no
-  // existen.
   group('sentido del orden como botón', () {
     final direction = find.byKey(const Key('history-filter-direction'));
 
@@ -1159,6 +1156,25 @@ void main() {
     });
   });
 
+  group('las tarjetas no muestran el ID de la consulta (RF-11)', () {
+    testWidgets('las tres de Ana Rodríguez: Número 1 en las no canceladas y '
+        'ningún ID', (tester) async {
+      await _pumpAna(tester, _AnaRepository());
+
+      expect(find.byType(AppointmentCard), findsNWidgets(3));
+      // La agendada (101) y la atendida (103) muestran su número; la
+      // cancelada (102), ninguno.
+      expect(find.textContaining('Número 1'), findsNWidgets(2));
+      expect(find.textContaining('ID '), findsNothing);
+      expect(find.textContaining('000101'), findsNothing);
+      expect(find.textContaining('000103'), findsNothing);
+    });
+  });
+
+  // Va al final: Roboto se carga una sola vez por archivo y los tests que
+  // vinieran después dejarían de usar la fuente de prueba. Con Roboto el texto
+  // mide como en un celular; Ahem ensancha todo y daría desbordes que no
+  // existen.
   group('filtros a 320 px de ancho (con Roboto)', () {
     setUpAll(loadRoboto);
 

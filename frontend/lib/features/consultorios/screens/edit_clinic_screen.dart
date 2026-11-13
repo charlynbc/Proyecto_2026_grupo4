@@ -164,7 +164,10 @@ class _EditClinicScreenState extends ConsumerState<EditClinicScreen> {
             enabled: enabled,
             maxLength: _maxNameLength,
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(labelText: 'Nombre o número'),
+            decoration: const InputDecoration(
+              labelText: 'Nombre o número',
+              errorMaxLines: 2,
+            ),
             validator: (value) =>
                 _required(value, 'Ingresá el nombre o número del consultorio.'),
             onChanged: (_) {

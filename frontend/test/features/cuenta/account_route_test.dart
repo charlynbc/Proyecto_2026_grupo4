@@ -72,7 +72,7 @@ void main() {
     await tester.tap(find.byKey(const Key('account-back')));
     await tester.pumpAndSettle();
 
-    expect(locationOf(router), '/funcionario/turnos');
+    expect(locationOf(router), '/funcionario/inicio');
   });
 
   testWidgets('si la sesión se cae estando en /cuenta, va al login', (

@@ -22,6 +22,9 @@ class FakeAccount {
     this.activated = true,
     required this.createdAt,
     this.specialtyIds = const [],
+    this.phone1 = '',
+    this.phone2,
+    this.address,
   });
 
   final int id;
@@ -35,6 +38,12 @@ class FakeAccount {
   final bool activated;
   final DateTime createdAt;
   final List<int> specialtyIds;
+
+  /// Datos de contacto de la cuenta, que el listado no muestra pero la
+  /// corrección de un usuario (RF-38) sí.
+  final String phone1;
+  final String? phone2;
+  final String? address;
 
   UserAccount toAccount() => UserAccount(
     id: id,
@@ -136,6 +145,9 @@ class FakeAdminDatabase {
       int createdDaysAgo = 30,
       int birthYear = 1980,
       List<int> specialtyIds = const [],
+      String? phone1,
+      String? phone2,
+      String? address,
     }) {
       accounts.add(
         FakeAccount(
@@ -161,6 +173,11 @@ class FakeAdminDatabase {
           activated: activated,
           createdAt: daysAgo(createdDaysAgo),
           specialtyIds: specialtyIds,
+          // Las que no se indican se derivan de la CI: celular uruguayo
+          // válido y una dirección cualquiera.
+          phone1: phone1 ?? '099${100000 + int.parse(ci) % 900000}',
+          phone2: phone2,
+          address: address ?? 'Calle $last ${100 + int.parse(ci) % 900}',
         ),
       );
     }
@@ -172,6 +189,8 @@ class FakeAdminDatabase {
       UserRole.socio,
       createdDaysAgo: 120,
       birthYear: 1985,
+      phone1: '099111222',
+      address: 'Bulevar Artigas 1250',
     );
     add(
       '23456783',
@@ -180,6 +199,9 @@ class FakeAdminDatabase {
       UserRole.funcionario,
       createdDaysAgo: 90,
       birthYear: 1990,
+      phone1: '098333444',
+      phone2: '099555666',
+      address: 'Avenida Italia 2345',
     );
     // La cuenta de empleado anterior de Bruno, inactivada: no impide dar de
     // alta otra (CU 3.5.2 paso 9).
@@ -191,6 +213,9 @@ class FakeAdminDatabase {
       status: AccountStatus.inactive,
       createdDaysAgo: 400,
       birthYear: 1990,
+      phone1: '098333444',
+      phone2: '099555666',
+      address: 'Avenida Italia 2345',
     );
     add(
       '34567894',
@@ -200,6 +225,8 @@ class FakeAdminDatabase {
       createdDaysAgo: 80,
       birthYear: 1978,
       specialtyIds: [1],
+      phone1: '094555777',
+      address: 'Calle Mercedes 870',
     );
     add(
       '45678905',
@@ -208,6 +235,8 @@ class FakeAdminDatabase {
       UserRole.administrador,
       createdDaysAgo: 200,
       birthYear: 1982,
+      phone1: '099888999',
+      address: 'Calle Colonia 1010',
     );
     add(
       '56789016',
