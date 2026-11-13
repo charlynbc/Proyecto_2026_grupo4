@@ -59,26 +59,69 @@ public final class CsvArchivo {
                     "El archivo supera el tamaño máximo permitido (1 MB)");
         }
 
+        byte[] bytes;
+        try {
+            bytes = archivo.getBytes();
+        } catch (IOException exception) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "CSV_INVALIDO",
+                    "No se pudo leer el archivo. Vuelva a seleccionarlo e"
+                            + " intente de nuevo."
+            );
+        }
+
+        if (esUtf16(bytes)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "CSV_INVALIDO",
+                    "El archivo está guardado como Unicode (UTF-16) y no se"
+                            + " puede leer. " + COMO_GUARDAR_UTF8
+            );
+        }
+
         try {
             return StandardCharsets.UTF_8
                     .newDecoder()
                     .onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(archivo.getBytes()))
+                    .decode(ByteBuffer.wrap(bytes))
                     .toString();
         } catch (IOException exception) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "CSV_INVALIDO",
-                    "No se pudo leer el archivo como UTF-8"
-            );
-        } catch (RuntimeException exception) {
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "CSV_INVALIDO",
-                    "El archivo no es texto UTF-8 válido"
+                    "El archivo no está guardado con codificación UTF-8, por"
+                            + " eso las tildes y las eñes no se leen bien. "
+                            + COMO_GUARDAR_UTF8
             );
         }
+    }
+
+    private static final String COMO_GUARDAR_UTF8 =
+            "Guárdelo de nuevo como CSV UTF-8 (en Excel: Guardar como, tipo"
+                    + " CSV UTF-8 delimitado por comas) y vuelva a cargarlo.";
+
+    /**
+     * UTF-16 se reconoce por su marca inicial (FF FE o FE FF) o por tener
+     * bytes nulos: un CSV de texto nunca los contiene, pero UTF-16 sin marca
+     * los tiene en cada caracter ASCII y de otro modo pasaria por UTF-8.
+     */
+    private static boolean esUtf16(byte[] bytes) {
+        if (bytes.length >= 2) {
+            int primero = bytes[0] & 0xFF;
+            int segundo = bytes[1] & 0xFF;
+            if ((primero == 0xFF && segundo == 0xFE)
+                    || (primero == 0xFE && segundo == 0xFF)) {
+                return true;
+            }
+        }
+        for (byte valor : bytes) {
+            if (valor == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

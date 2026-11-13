@@ -333,4 +333,90 @@ class CsvArchivoTest {
                 + "Borre esos espacios y vuelva a cargar el archivo.",
                 error.getMessage());
     }
+
+    @Test
+    void archivoQueNoEsUtf8SugiereGuardarloComoCsvUtf8() {
+        byte[] latin1 = "nombre,requiere_pase\nCardiología,si\n"
+                .getBytes(StandardCharsets.ISO_8859_1);
+        var archivo = new MockMultipartFile("archivo", "a.csv", "text/csv", latin1);
+
+        ApiException error = assertThrows(
+                ApiException.class, () -> CsvArchivo.leerUtf8(archivo));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("CSV_INVALIDO", error.getCode());
+        assertEquals("El archivo no está guardado con codificación UTF-8, "
+                + "por eso las tildes y las eñes no se leen bien. "
+                + "Guárdelo de nuevo como CSV UTF-8 (en Excel: Guardar como, "
+                + "tipo CSV UTF-8 delimitado por comas) y vuelva a cargarlo.",
+                error.getMessage());
+    }
+
+    private static final String MENSAJE_UTF16 =
+            "El archivo está guardado como Unicode (UTF-16) y no se puede leer. "
+                    + "Guárdelo de nuevo como CSV UTF-8 (en Excel: Guardar como, "
+                    + "tipo CSV UTF-8 delimitado por comas) y vuelva a cargarlo.";
+
+    private static ApiException rechazoDeLectura(byte[] bytes) {
+        var archivo = new MockMultipartFile("archivo", "a.csv", "text/csv", bytes);
+        ApiException error = assertThrows(
+                ApiException.class, () -> CsvArchivo.leerUtf8(archivo));
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("CSV_INVALIDO", error.getCode());
+        return error;
+    }
+
+    @Test
+    void utf16ConMarcaBomLittleEndianSeDetecta() {
+        byte[] texto = "nombre,requiere_pase\nCardiologia,si\n"
+                .getBytes(StandardCharsets.UTF_16LE);
+        byte[] bytes = new byte[texto.length + 2];
+        bytes[0] = (byte) 0xFF;
+        bytes[1] = (byte) 0xFE;
+        System.arraycopy(texto, 0, bytes, 2, texto.length);
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
+    void utf16ConMarcaBomBigEndianSeDetecta() {
+        byte[] texto = "nombre,requiere_pase\nCardiologia,si\n"
+                .getBytes(StandardCharsets.UTF_16BE);
+        byte[] bytes = new byte[texto.length + 2];
+        bytes[0] = (byte) 0xFE;
+        bytes[1] = (byte) 0xFF;
+        System.arraycopy(texto, 0, bytes, 2, texto.length);
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
+    void utf16LittleEndianSinMarcaBomSeDetectaPorLosBytesNulos() {
+        byte[] bytes = "nombre,requiere_pase\nCardiologia,si\n"
+                .getBytes(StandardCharsets.UTF_16LE);
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
+    void utf16BigEndianSinMarcaBomSeDetectaPorLosBytesNulos() {
+        byte[] bytes = "nombre,requiere_pase\nCardiologia,si\n"
+                .getBytes(StandardCharsets.UTF_16BE);
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
+    void utf8ConMarcaBomSigueSiendoValido() {
+        byte[] texto = "nombre,requiere_pase\nCardiología,si\n"
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = new byte[texto.length + 3];
+        bytes[0] = (byte) 0xEF;
+        bytes[1] = (byte) 0xBB;
+        bytes[2] = (byte) 0xBF;
+        System.arraycopy(texto, 0, bytes, 3, texto.length);
+        var archivo = new MockMultipartFile("archivo", "a.csv", "text/csv", bytes);
+
+        assertTrue(CsvArchivo.leerUtf8(archivo).contains("Cardiología"));
+    }
 }
