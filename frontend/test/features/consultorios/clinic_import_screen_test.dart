@@ -596,8 +596,10 @@ void main() {
   group('aviso para volver a subir el archivo con errores', () {
     setUpAll(loadRoboto);
     const hintText =
-        'Para volver a subir el archivo, borrá la columna error y las '
-        'columnas extra_1, extra_2, etc. si las hay.';
+        'Corregí cada fila según el motivo de la columna error. Después '
+        'borrá esa columna y las columnas extra_1, extra_2, etc. (si las '
+        'hay): el archivo tiene que quedar con exactamente las mismas '
+        'columnas que el original.';
     final hint = find.text(hintText);
     final button = find.byKey(const Key('import-download-button'));
     final oneError = clinicCsvFile(

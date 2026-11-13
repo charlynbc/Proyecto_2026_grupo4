@@ -6,6 +6,7 @@ import 'package:agenda_medica/core/files/csv_file_saver.dart';
 import 'package:agenda_medica/core/files/import_errors_download_button.dart';
 import 'package:agenda_medica/core/files/picked_csv_file.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -81,8 +82,10 @@ void main() {
 
   group('aviso para volver a subir el archivo', () {
     const hintText =
-        'Para volver a subir el archivo, borrá la columna error y las '
-        'columnas extra_1, extra_2, etc. si las hay.';
+        'Corregí cada fila según el motivo de la columna error. Después '
+        'borrá esa columna y las columnas extra_1, extra_2, etc. (si las '
+        'hay): el archivo tiene que quedar con exactamente las mismas '
+        'columnas que el original.';
 
     testWidgets('va junto al botón, con una fila o con varias', (tester) async {
       await _pump(tester, errors: const {3: 'requiere_pase debe ser si o no'});
@@ -111,6 +114,23 @@ void main() {
 
       expect(find.byKey(_error), findsOneWidget);
       expect(find.text(hintText), findsOneWidget);
+    });
+
+    testWidgets('a 320 px se lee entero, sin recortes ni desborde', (
+      tester,
+    ) async {
+      await _pump(tester, size: const Size(320, 640));
+
+      expect(tester.takeException(), isNull);
+      final hint = find.text(hintText);
+      expect(hint, findsOneWidget);
+      final paragraph = tester.renderObject<RenderParagraph>(hint);
+      expect(paragraph.didExceedMaxLines, isFalse);
+      // Cabe en el ancho (320 menos los 24 de margen de cada lado) y en alto.
+      final rect = tester.getRect(hint);
+      expect(rect.left, greaterThanOrEqualTo(24));
+      expect(rect.right, lessThanOrEqualTo(320 - 24));
+      expect(rect.bottom, lessThanOrEqualTo(640));
     });
   });
 
