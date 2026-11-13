@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/load_roboto.dart';
+import '../../helpers/pager_layout.dart';
 
 final _appointment = Appointment(
   id: 9001,
@@ -1175,6 +1176,56 @@ void main() {
   // vinieran después dejarían de usar la fuente de prueba. Con Roboto el texto
   // mide como en un celular; Ahem ensancha todo y daría desbordes que no
   // existen.
+  testWidgets('a 320 px el paginador del historial pone la página arriba '
+      'y los botones lado a lado', (tester) async {
+    await loadRoboto();
+    await _pump(
+      tester,
+      const AppointmentsPendingScreen(),
+      _PagedHistoryRepository({
+        0: (items: [_appointment], total: 25),
+        1: (items: const [], total: 25),
+      }),
+    );
+    tester.view.physicalSize = const Size(320, 1800);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('history-next')));
+    await tester.pumpAndSettle();
+
+    expectNarrowPager(
+      tester,
+      label: find.text('Página 1'),
+      previous: find.byKey(const Key('history-previous')),
+      next: find.byKey(const Key('history-next')),
+    );
+  });
+
+  testWidgets('con texto al doble el paginador del historial no desborda', (
+    tester,
+  ) async {
+    await loadRoboto();
+    await _pump(
+      tester,
+      const AppointmentsPendingScreen(),
+      _PagedHistoryRepository({
+        0: (items: [_appointment], total: 25),
+        1: (items: const [], total: 25),
+      }),
+    );
+    tester.view.physicalSize = const Size(360, 1800);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('history-next')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getRect(find.byKey(const Key('history-next'))).right,
+      lessThanOrEqualTo(360),
+    );
+  });
+
   group('filtros a 320 px de ancho (con Roboto)', () {
     setUpAll(loadRoboto);
 
