@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/widgets/centered_content.dart';
+import '../../../core/widgets/sort_direction_button.dart';
 import '../../../core/widgets/ui_date_field.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../models/medical_history_entry.dart';
@@ -79,6 +80,14 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
       text: _textController.text.trim(),
     );
     controller.sortBy(_order, direction: _direction);
+  }
+
+  /// El orden y el sentido se aplican al instante, con los filtros que ya
+  /// estaban aplicados: lo escrito sin "Aplicar filtros" no se toca.
+  void _sort() {
+    ref
+        .read(medicalHistoryFiltersProvider.notifier)
+        .sortBy(_order, direction: _direction);
   }
 
   void _clear() {
@@ -197,42 +206,29 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
                               onChanged: (value) {
                                 if (value != null) {
                                   setState(() => _order = value);
+                                  _sort();
                                 }
                               },
                             ),
                           ),
-                          SizedBox(
-                            width: width,
-                            key: const Key('medical-history-direction'),
-                            child:
-                                DropdownButtonFormField<
-                                  MedicalHistoryDirection
-                                >(
-                                  key: ValueKey((
-                                    'medical-history-direction',
-                                    _direction,
-                                  )),
-                                  initialValue: _direction,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Sentido',
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: MedicalHistoryDirection.ascending,
-                                      child: Text('Ascendente'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: MedicalHistoryDirection.descending,
-                                      child: Text('Descendente'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() => _direction = value);
-                                    }
-                                  },
-                                ),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: SortDirectionButton(
+                              key: const Key('medical-history-direction'),
+                              ascending:
+                                  _direction ==
+                                  MedicalHistoryDirection.ascending,
+                              onPressed: () {
+                                setState(
+                                  () => _direction =
+                                      _direction ==
+                                          MedicalHistoryDirection.ascending
+                                      ? MedicalHistoryDirection.descending
+                                      : MedicalHistoryDirection.ascending,
+                                );
+                                _sort();
+                              },
+                            ),
                           ),
                         ],
                       );

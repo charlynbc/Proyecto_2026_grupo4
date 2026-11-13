@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
+import '../../../core/widgets/sort_direction_button.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../models/doctor_attention_query.dart';
@@ -79,6 +80,12 @@ class _DoctorAttentionsScreenState
             direction: direction,
           ),
         );
+  }
+
+  /// El orden y el sentido se aplican al instante, con los filtros que ya
+  /// estaban aplicados: lo escrito sin tocar "Buscar" no se toca.
+  void sort() {
+    ref.read(doctorAttentionFiltersProvider.notifier).sortBy(order, direction);
   }
 
   void clear() {
@@ -199,28 +206,24 @@ class _DoctorAttentionsScreenState
                       ],
                       onChanged: (v) {
                         if (v != null) {
-                          setState(() {
-                            order = v;
-                            direction = v == DoctorAttentionOrder.date
-                                ? DoctorAttentionDirection.descending
-                                : DoctorAttentionDirection.ascending;
-                          });
+                          setState(() => order = v);
+                          sort();
                         }
                       },
                     ),
-                    OutlinedButton(
+                    SortDirectionButton(
                       key: const Key('attentions-direction'),
-                      onPressed: () => setState(
-                        () => direction =
-                            direction == DoctorAttentionDirection.ascending
-                            ? DoctorAttentionDirection.descending
-                            : DoctorAttentionDirection.ascending,
-                      ),
-                      child: Text(
-                        direction == DoctorAttentionDirection.ascending
-                            ? 'Ascendente'
-                            : 'Descendente',
-                      ),
+                      ascending:
+                          direction == DoctorAttentionDirection.ascending,
+                      onPressed: () {
+                        setState(
+                          () => direction =
+                              direction == DoctorAttentionDirection.ascending
+                              ? DoctorAttentionDirection.descending
+                              : DoctorAttentionDirection.ascending,
+                        );
+                        sort();
+                      },
                     ),
                   ],
                 ),
