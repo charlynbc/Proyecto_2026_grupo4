@@ -1,4 +1,6 @@
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
+import 'package:agenda_medica/features/auth/models/user_role.dart';
+import 'package:agenda_medica/features/cuenta/repositories/fake_account_repository.dart';
 import 'package:agenda_medica/features/usuarios/models/user_account.dart';
 import 'package:agenda_medica/features/usuarios/repositories/fake_user_status_repository.dart';
 import 'package:agenda_medica/features/usuarios/repositories/user_status_repository.dart';
@@ -49,7 +51,7 @@ void main() {
     expect(change.ci, '23456783');
     expect(change.status, AccountStatus.inactive);
     expect(change.lastDeactivatedAt, _now);
-    expect(change.lastDeactivatedBy, 1);
+    expect(change.lastDeactivatedBy, 5);
     expect(change.lastReactivatedAt, isNull);
   });
 
@@ -78,14 +80,14 @@ void main() {
     expect(change.status, AccountStatus.active);
     expect(change.lastDeactivatedAt, _now);
     expect(change.lastReactivatedAt, _now);
-    expect(change.lastReactivatedBy, 1);
+    expect(change.lastReactivatedBy, 5);
   });
 
   test('reactivar una cuenta activa es "ya activa"', () async {
     final (_, fake) = _fake();
 
     await expectLater(
-      fake.reactivate(5),
+      fake.reactivate(2),
       throwsA(
         _failure(UserStatusFailure.alreadyActive, 'La cuenta ya está activa.'),
       ),
@@ -121,6 +123,46 @@ void main() {
     await fake.deactivate(6);
 
     expect(_statusOf(db, 6), AccountStatus.inactive);
+  });
+
+  test('el administrador no se inactiva a sí mismo', () async {
+    final (db, fake) = _fake();
+
+    await expectLater(
+      fake.deactivate(5),
+      throwsA(
+        _failure(
+          UserStatusFailure.ownAccount,
+          'No puede inactivar su propia cuenta',
+        ),
+      ),
+    );
+    expect(_statusOf(db, 5), AccountStatus.active);
+  });
+
+  test('el administrador no se reactiva a sí mismo', () async {
+    final (_, fake) = _fake();
+
+    await expectLater(
+      fake.reactivate(5),
+      throwsA(
+        _failure(
+          UserStatusFailure.ownAccount,
+          'No puede reactivar su propia cuenta',
+        ),
+      ),
+    );
+  });
+
+  test('la cuenta del administrador de la sesión falsa es la de Diego', () {
+    final (db, _) = _fake();
+    final diego = db.accounts.singleWhere((a) => a.ci == '45678905');
+    final session = FakeAccountRepository.personFor(UserRole.administrador);
+
+    expect(diego.id, 5);
+    expect(diego.role, UserRole.administrador);
+    expect(session.id, 5);
+    expect(session.ci, '45678905');
   });
 
   test('una cuenta de socio es validación en las dos acciones', () async {

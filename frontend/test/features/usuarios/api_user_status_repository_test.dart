@@ -105,6 +105,7 @@ void main() {
     ),
     (409, 'EMPLEADO_DUPLICADO', UserStatusFailure.duplicateStaff),
     (400, 'VALIDACION', UserStatusFailure.validation),
+    (409, 'AUTO_INACTIVACION_NO_PERMITIDA', UserStatusFailure.ownAccount),
     (500, 'ERROR_INTERNO', UserStatusFailure.other),
   ];
   for (final (status, code, failure) in errors) {

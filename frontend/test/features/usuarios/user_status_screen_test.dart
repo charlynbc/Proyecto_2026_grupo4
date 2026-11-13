@@ -708,6 +708,28 @@ void main() {
       });
     }
 
+    testWidgets(
+      'cuenta propia: el mensaje, el diálogo abierto y sin refrescar',
+      (tester) async {
+        final h = await _pump(tester);
+        final loadsBefore = h.users.listCalls;
+        h.status.error = const UserStatusException(
+          UserStatusFailure.ownAccount,
+          'No puede inactivar su propia cuenta',
+        );
+        await _open(tester, 2);
+        await _choose(tester, _deactivate(2));
+
+        await _tapConfirm(tester);
+
+        expect(_dialog, findsOneWidget);
+        expect(_textOf(tester, _error), 'No puede inactivar su propia cuenta');
+        expect(_help, findsNothing);
+        expect(h.users.listCalls, loadsBefore);
+        expect(_tableStates(tester)[2], ('Pereira, Bruno', 'Activo'));
+      },
+    );
+
     testWidgets('un error sin tipo muestra el mensaje genérico', (
       tester,
     ) async {
