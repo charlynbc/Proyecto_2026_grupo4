@@ -656,7 +656,8 @@ Una fila por cuenta. Una persona con varias cuentas (incluidas las de empleado a
       "correo": "lucia.fernandez@example.org",
       "estado": "ACTIVA",
       "activada": true,
-      "fechaAlta": "2026-09-01T09:00:00-03:00"
+      "fechaAlta": "2026-09-01T09:00:00-03:00",
+      "puedeInactivar": false
     }
   ],
   "page": 0,
@@ -664,6 +665,8 @@ Una fila por cuenta. Una persona con varias cuentas (incluidas las de empleado a
   "total": 1
 }
 ```
+
+`puedeInactivar` (booleano, desde el 13/11/2026) dice si `POST /api/usuarios/{id}/inactivar` (fila 61) aceptaría hoy esa cuenta. Es `true` solo si la cuenta está activa, no es de un socio, no es la cuenta del administrador que consulta y, si es de un médico, no tiene fechas de turnos activas ni consultas agendadas cuyo día todavía no terminó. En cualquier otro caso es `false`. Sale de la misma regla que usa la inactivación, pero es una foto del momento del listado: otro cambio posterior puede hacer que la operación igual responda `409`, y el cliente debe seguir mostrando ese error. No dice nada sobre reactivar: el cliente decide ofrecer "Reactivar" por `estado`.
 
 La respuesta **nunca** incluye hashes de contraseña, tokens ni enlaces de activación (S19).
 
