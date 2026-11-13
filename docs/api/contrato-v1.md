@@ -2117,7 +2117,7 @@ La `situacion` se calcula al consultar (no se guarda): `UTILIZADO` si alguna con
 #### #46 · `GET /api/cuentas/me`
 
 - **Roles:** cualquier rol autenticado.
-- **RF:** RF-06. **Estado:** CONFIRMADA (backend, 01/11/2026).
+- **RF:** RF-06. **Estado:** CONFIRMADA (backend, 01/11/2026); el campo `id` se agregó el 13/11/2026.
 
 Devuelve los datos de la cuenta del usuario autenticado (identidad del JWT). Sirve para precargar el formulario de edición.
 
@@ -2138,7 +2138,7 @@ Devuelve los datos de la cuenta del usuario autenticado (identidad del JWT). Sir
 }
 ```
 
-`correoPendiente` es el correo nuevo a la espera de confirmación (ver #47), o `null` si no hay cambio pendiente. `ci`, `nombre`, `apellido` y `rol` se muestran pero no se editan por esta vía (los corrige el Administrador, RF-38).
+`id` es el identificador de la cuenta, el mismo que devuelve `GET /api/usuarios` en cada fila (es el id de la cuenta, no el de la persona). `correoPendiente` es el correo nuevo a la espera de confirmación (ver #47), o `null` si no hay cambio pendiente. `id`, `ci`, `nombre`, `apellido` y `rol` se muestran pero no se editan por esta vía (los corrige el Administrador, RF-38).
 
 **Errores:** `401 NO_AUTENTICADO` / `TOKEN_INVALIDO` sin sesión válida.
 
@@ -2583,7 +2583,7 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 | 401 | `TOKEN_INVALIDO` / `NO_AUTENTICADO` | Token o sesión inválidos. |
 | 403 | `ACCESO_DENEGADO` | El usuario no tiene rol ADMINISTRADOR. |
 | 404 | `USUARIO_NO_ENCONTRADO` | No existe la cuenta. |
-| 409 | `AUTO_INACTIVACION_NO_PERMITIDA` | No puede inactivar su propia cuenta. |
+| 409 | `AUTO_INACTIVACION_NO_PERMITIDA` | La cuenta indicada es la del propio administrador autenticado: no puede inactivar ni reactivar su propia cuenta. |
 | 409 | `CUENTA_YA_INACTIVA` | La cuenta ya estaba inactiva (al inactivar). |
 | 409 | `CUENTA_YA_ACTIVA` | La cuenta ya estaba habilitada (al reactivar). |
 | 409 | `MEDICO_CON_TURNOS_ACTIVOS` | Existen fechas activas que impiden la inactivación. |
@@ -2791,6 +2791,7 @@ Qué hace el cliente por status: `401` fuera del login → intenta `refresh` una
 | 503 | `ALMACENAMIENTO_NO_DISPONIBLE` | #65 a #67 | No se pudo acceder a Storage o firmar la imagen. |
 | 400 | `CSV_INVALIDO` | #52 a #57 | Archivo ausente, vacío, no UTF-8, cabeceras incorrectas, más de 1 MB o 1000 filas. |
 | 404 | `USUARIO_NO_ENCONTRADO` | #58 | No existe una cuenta con ese identificador. |
+| 409 | `AUTO_INACTIVACION_NO_PERMITIDA` | #61, #62 | La cuenta indicada es la del propio administrador autenticado. |
 | 409 | `CI_EN_USO` | #58 | La CI corregida ya pertenece a otra persona. |
 | 409 | `ESPECIALIDAD_EN_USO` | #58 | No se quita una especialidad con turnos vigentes o consultas agendadas futuras. |
 | 404 | `ESPECIALIDAD_NO_ENCONTRADA` | #59 | No existe una especialidad con ese identificador. |
