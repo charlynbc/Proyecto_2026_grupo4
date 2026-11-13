@@ -122,6 +122,9 @@ class FakeUserStatusRepository implements UserStatusRepository {
       activated: account.activated,
       createdAt: account.createdAt,
       specialtyIds: account.specialtyIds,
+      phone1: account.phone1,
+      phone2: account.phone2,
+      address: account.address,
     );
     return AccountStatusChange(
       id: account.id,

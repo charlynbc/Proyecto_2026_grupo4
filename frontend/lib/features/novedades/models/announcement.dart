@@ -6,6 +6,7 @@ class Announcement {
     this.title,
     this.summary,
     this.coverUrl,
+    this.coverImageId,
   });
 
   factory Announcement.fromJson(Map<String, dynamic> json) {
@@ -22,6 +23,7 @@ class Announcement {
       summary: json['resumen'] as String?,
       publishedAt: DateTime.parse(json['publicadoEn'] as String),
       coverUrl: url,
+      coverImageId: cover?['id'] as int?,
     );
   }
 
@@ -30,6 +32,10 @@ class Announcement {
   final String? summary;
   final DateTime publishedAt;
   final String? coverUrl;
+
+  /// El id de la imagen de portada (`imagenPortada.id`): clave de la caché de
+  /// imágenes, que no cambia aunque el enlace firmado sí.
+  final int? coverImageId;
 
   String get displayTitle => title == null || title!.trim().isEmpty
       ? 'Novedad de la mutualista'

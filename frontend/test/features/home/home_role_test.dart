@@ -123,12 +123,13 @@ void main() {
     UserRole.administrador: 'Administrador',
   };
 
-  // Secciones de cada rol menos la primera, escritas a mano.
+  // Atajos de cada rol, escritos a mano, sin la sección Inicio.
   const shortcuts = {
     UserRole.socio: ['disponibilidad', 'consultas', 'historia', 'cartelera'],
-    UserRole.funcionario: ['llegada', 'agendas', 'cartelera'],
-    UserRole.medico: ['pases', 'cartelera'],
+    UserRole.funcionario: ['turnos', 'llegada', 'agendas', 'cartelera'],
+    UserRole.medico: ['turnos', 'atenciones', 'pases', 'cartelera'],
     UserRole.administrador: [
+      'usuarios',
       'especialidades',
       'consultorios',
       'estadisticas',
@@ -156,7 +157,7 @@ void main() {
   }
 
   for (final entry in shortcuts.entries) {
-    testWidgets('${entry.key.name} muestra sus secciones menos la primera', (
+    testWidgets('${entry.key.name} muestra sus atajos sin Inicio', (
       tester,
     ) async {
       await _pumpRoleHome(tester, entry.key);

@@ -750,46 +750,82 @@ Puede haber huecos entre números; los números no se solapan entre sí.
 
 Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 
-**Respuesta 200**: la misma forma que la respuesta de #13. `cantidadTurnos` es la cantidad de fechas concretas que tiene el patrón (**PROPUESTA**).
+**Respuesta 200**: la misma forma que la respuesta de #13. `cantidadTurnos` es la cantidad de fechas concretas que tiene el patrón (**PROPUESTA**). Incluye también `consultorioVariaPorFecha` (booleano): es verdadero cuando las fechas de hoy en adelante del turno (activas y suspendidas) están en más de un consultorio, igual que en la respuesta del PATCH de este mismo turno semanal. El `consultorio` de la respuesta es el del patrón.
 
 **Errores:** `404 NO_ENCONTRADO` si el id no existe.
 
 <a id="e51"></a>
 #### #51 · `PATCH /api/turnos-semanales/{id}`
 
-- **Roles:** FUNCIONARIO.
-- **RF:** RF-20. **Estado:** CONFIRMADA (backend, 01/11/2026).
-
-Modifica **únicamente el consultorio** de una configuración semanal de turnos. El médico, la especialidad, el día de la semana y los horarios de los números no se modifican: para cambiarlos se da de alta otro turno (#13).
+- **Rol:** FUNCIONARIO.
+- **RF:** RF-20. **Estado:** ampliación en `feat/front-rf20-consultorio-parcial` (pendiente de validación de integración).
+- Modifica **solamente consultorio**; médico, especialidad, día y números no cambian.
 
 **Cuerpo**
 
-| Campo | Tipo | Obligatorio | Notas |
+| Campo | Tipo | Obligatorio | Reglas |
 |---|---|---|---|
-| `consultorioId` | entero | sí | Consultorio destino. |
+| `consultorioId` | entero | sí | ID positivo del destino. |
+| `turnoIds` | arreglo de enteros | no | IDs únicos de fechas concretas del patrón, hoy o futuras. Si se omite, se aplica a todas las fechas de hoy en adelante; vacío es `400 VALIDACION`. |
+| `confirmarConConsultas` | booleano | no | Por defecto `false`. Permite cambiar fechas seleccionadas con consultas `AGENDADA`; no permite solapamientos. |
+
+```json
+{ "consultorioId": 7, "turnoIds": [301, 303], "confirmarConConsultas": true }
+```
+
+**Respuesta 200:** `TurnoSemanalDTO` de #13/#14, agregando `consultorioVariaPorFecha` (booleano). Es verdadero si hay diferentes consultorios entre las fechas de hoy en adelante. El consultorio del patrón semanal se actualiza cuando, después del cambio, todas las fechas futuras del turno quedan en el consultorio destino, aunque la solicitud sea parcial. Ejemplo: si primero se cambia una fecha al consultorio 7 y después se cambian las restantes, el patrón también queda en el consultorio 7. Si se envía el destino actual y todas las fechas ya lo usan, el resultado es idempotente.
+
+**Reglas:**
+- El PATCH es atómico. Solo afecta las fechas seleccionadas y nunca las pasadas.
+- Los `turnoIds` deben pertenecer al patrón, sin duplicados y sin fechas pasadas.
+- En fechas ACTIVO se revalidan los cruces con números activos del mismo médico o consultorio destino: `409 SOLAPAMIENTO_TURNO` siempre, incluso si hay confirmación.
+- Las fechas SUSPENDIDO cambian sin control de solapamientos y conservan el estado. RF-15 vuelve a comprobar al rehabilitar.
+- Si hay consultas `AGENDADA` en una fecha a modificar y la confirmación no es `true`, `409 TURNO_NO_MODIFICABLE` informa las fechas. Con confirmación se cambia sin cancelar consultas ni pases.
+- **Limitación conocida:** por ahora no se notifica a los socios cuyas consultas ya estaban agendadas.
+- El cambio usa una transacción y bloqueos sobre las fechas del patrón para evitar carreras con agendas concurrentes.
+- Sin campos opcionales se conserva el comportamiento anterior, incluido el rechazo de configuraciones sin ninguna fecha ACTIVA futura.
+
+**Errores:** `400 VALIDACION` (datos o selección inválidos), `404 NO_ENCONTRADO` (patrón o consultorio), `409 TURNO_NO_MODIFICABLE` (consultas sin confirmar o sin fechas aplicables), `409 SOLAPAMIENTO_TURNO` (conflicto de horario).
+
+<a id="e72"></a>
+#### #72 · `POST /api/turnos-semanales/{id}/consultorio/vista-previa`
+
+- **Rol:** FUNCIONARIO.
+- **RF:** RF-20. **Estado:** ampliación en `feat/front-rf20-consultorio-parcial` (pendiente de validación de integración).
+- Consulta de **solo lectura**. No cambia patrón, turnos ni consultas.
+
+**Cuerpo**
 
 ```json
 { "consultorioId": 7 }
 ```
 
-**Respuesta 200**: el `TurnoSemanalDTO` resultante, con la misma forma que #13/#14. Enviar el consultorio actual es un no-op idempotente: responde `200` con el estado vigente sin tocar nada.
+**Respuesta 200**: objeto con `fechas` ordenadas de hoy en adelante (incluidas SUSPENDIDO).
 
-**Reglas (RF-20):**
+```json
+{
+  "fechas": [
+    {
+      "turnoId": 301,
+      "fecha": "2026-11-11",
+      "estado": "ACTIVO",
+      "consultasAgendadas": 2,
+      "consultorioActual": {
+        "id": 5,
+        "nombre": "Consultorio 5",
+        "ubicacion": "Piso 2"
+      },
+      "solapamientos": [
+        {"numeroPropio": 1, "numeroExistente": 3}
+      ]
+    }
+  ]
+}
+```
 
-- Solo se puede modificar si **ninguna** fecha cuyo día todavía no terminó tiene consultas `AGENDADA`. Si las hay, `409 TURNO_NO_MODIFICABLE` y nada cambia; el funcionario puede suspender esas fechas con RF-14 (#24) y dar de alta otro turno.
-- La configuración resultante se revalida como en el alta (RF-13), incluido el solapamiento con números de otros turnos activos del mismo médico o del consultorio nuevo en las fechas activas vigentes (`409 SOLAPAMIENTO_TURNO`).
-- La modificación afecta únicamente las fechas actuales y futuras: las fechas pasadas conservan su consultorio; las fechas suspendidas se mueven al consultorio nuevo **conservando** su estado `SUSPENDIDO`; las consultas existentes no se modifican ni se cancelan.
-- Si no quedan fechas activas actuales ni futuras (vigencia terminada o todo suspendido), `409 TURNO_NO_MODIFICABLE`.
-- Concurrencia: la configuración y sus turnos vigentes se bloquean (`FOR UPDATE`) durante la operación; dos modificaciones o una agenda concurrente se serializan.
+En fechas SUSPENDIDO, `solapamientos` es arreglo vacío y se revalida en RF-15. Si no hay fechas aplicables, `fechas: []`. La información es orientativa: el PATCH vuelve a validar todo en la transacción.
 
-**Errores**
-
-| Status | `code` | Cuándo |
-|---|---|---|
-| 400 | `VALIDACION` | Falta `consultorioId` o no es un entero positivo. |
-| 404 | `NO_ENCONTRADO` | El turno semanal o el consultorio no existen. |
-| 409 | `TURNO_NO_MODIFICABLE` | Hay consultas agendadas vigentes, o no quedan fechas activas actuales/futuras. |
-| 409 | `SOLAPAMIENTO_TURNO` | La configuración resultante se solapa con otro turno activo del médico o del consultorio nuevo. |
+**Errores:** `400 VALIDACION` y `404 NO_ENCONTRADO`.
 
 <a id="e15"></a>
 #### #15 · `GET /api/turnos`
@@ -898,7 +934,7 @@ El `socioId` sale del token. Toda la validación y la inserción ocurren en una 
 { "numeroId": 4501, "paseId": 77 }
 ```
 
-**Respuesta 201** (`ConsultaDTO`, sección 1.9). Es el comprobante de RF-09: identificador, número, médico, fecha, hora y consultorio.
+**Respuesta 201** (`ConsultaDTO`, sección 1.9). Es el comprobante de RF-09: número, médico, fecha, hora y consultorio. El DTO conserva el id para uso interno.
 
 ```json
 {
@@ -2802,7 +2838,7 @@ En #53, #55 y #57 los errores por fila viajan en el campo `error` de cada fila d
 
 Esta sección sale de las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), vistas pantalla por pantalla. Para cada una: lo que se ve, el endpoint que alimenta cada parte y las diferencias con el contrato. Cuando una pantalla muestra algo que el contrato no cubre, o el contrato tiene algo que ninguna pantalla usa, la diferencia está anotada acá y en la sección 9 (P-23 en adelante). Las pantallas de empleados son web; las del socio son móviles (y también existen en web, RNF-01, RNF-02). Todas las pantallas de empleados muestran arriba a la derecha "Nombre Apellido · Cerrar sesión" (`nombre` y `apellido` de #1 y #2, y #3).
 
-Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2") son de relleno. Los formatos que muestran (`dd/mm/aaaa`, hora de 24 h, CI como `1.234.567-8`, identificador de consulta con ceros `000123`) los arma el cliente a partir del JSON ISO de la sección 1.2.
+Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2") son de relleno. Los formatos que muestran (`dd/mm/aaaa`, hora de 24 h, CI como `1.234.567-8`) los arma el cliente a partir del JSON ISO de la sección 1.2.
 
 ### 6.1 Web, empleados
 
@@ -2904,7 +2940,7 @@ Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis
 
 #### 6.2.4 Consultar histórico de agendas (imagen 9) · RF-11
 
-- **Se ve:** título "Mis consultas". Campo "Buscar por especialidad o médico". Chips: "Todas", "Agendada", "Atendida", "Canceladas", "No asistió" y "Rango de fechas ▾". "Orden: más reciente primero ▾". Tarjetas: "13/10/2026 · 09:20" con el estado a la derecha ("Agendada", "Atendida", "No asistió", "Cancelada por la institución"), "Cardiología · Dra. Apellido" y "Consultorio 12 · Número 4 · ID 000123". La tarjeta cancelada solo muestra fecha, hora, especialidad y médico.
+- **Se ve:** título "Mis consultas". Campo "Buscar por especialidad o médico". Chips: "Todas", "Agendada", "Atendida", "Canceladas", "No asistió" y "Rango de fechas ▾". "Orden: más reciente primero ▾". Tarjetas: "13/10/2026 · 09:20" con el estado a la derecha ("Agendada", "Atendida", "No asistió", "Cancelada por la institución"), "Cardiología · Dra. Apellido" y "Consultorio 12 · Número 4". La tarjeta cancelada solo muestra fecha, hora, especialidad y médico.
 - **Endpoints:** lista → #18 (`estado`, `fechaDesde`, `fechaHasta`, `especialidadId`, `medicoId`, `orden`: `fecha` o `especialidad`, `sentido`).
 - **Brechas:** el campo de búsqueda libre y el chip "Canceladas" (que agrupa dos estados) no tienen equivalente en #18; no hay chips para "No atendida" ni "No se presentó a la consulta"; la tarjeta cancelada no muestra consultorio ni número; no hay botón para cancelar ni pantalla de detalle (P-30, P-32).
 

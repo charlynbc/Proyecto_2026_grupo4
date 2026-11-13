@@ -10,18 +10,22 @@ import 'package:agenda_medica/features/turnos/repositories/shift_repository.dart
 import 'package:agenda_medica/features/turnos/repositories/weekly_shift_clinic_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const _invalid = 'Faltan datos obligatorios o no son válidos';
-const _missingShift = 'No existe el turno semanal indicado';
-const _missingClinic = 'No existe el consultorio indicado';
+// Los mismos textos que muestra el cliente con la API real.
+const _invalid =
+    'No pudimos aplicar el cambio. Actualizá la vista previa e intentá de '
+    'nuevo.';
+const _notFound =
+    'No encontramos lo que buscabas. Puede que ya no exista: volvé al listado '
+    'y probá de nuevo.';
+const _missingShift = _notFound;
+const _missingClinic = _notFound;
 const _finished =
-    'El turno semanal ya finalizó; no tiene fechas actuales ni futuras '
-    'por modificar';
-const _twoAppointments =
-    'El turno tiene 2 consulta(s) agendada(s) en fechas vigentes. '
-    'Suspenda las fechas correspondientes (RF-14) y dé de alta otro turno.';
+    'Hay consultas agendadas en las fechas elegidas. Revisá la vista previa y '
+    'confirmá el cambio para continuar.';
+const _twoAppointments = _finished;
 const _overlap =
-    'Se encontraron solapamientos: fecha 2026-10-20, número 1 con número '
-    'existente 1';
+    'Alguna de las fechas elegidas se superpone con otro turno del consultorio '
+    'nuevo. Revisá la vista previa y desmarcá esas fechas.';
 
 /// Hoy en el reloj fijo: 20/10/2026, mediodía en Uruguay.
 final _today = DateTime.utc(2026, 10, 20);

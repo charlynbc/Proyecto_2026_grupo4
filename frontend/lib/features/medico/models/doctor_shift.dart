@@ -70,11 +70,13 @@ class DoctorShift {
 @immutable
 class DoctorPatient {
   const DoctorPatient({
+    this.id,
     required this.ci,
     required this.name,
     required this.lastName,
   });
 
+  final int? id;
   final String ci;
   final String name;
   final String lastName;
@@ -82,12 +84,13 @@ class DoctorPatient {
   @override
   bool operator ==(Object other) =>
       other is DoctorPatient &&
+      other.id == id &&
       other.ci == ci &&
       other.name == name &&
       other.lastName == lastName;
 
   @override
-  int get hashCode => Object.hash(ci, name, lastName);
+  int get hashCode => Object.hash(id, ci, name, lastName);
 }
 
 /// Un número de un turno. Sin [patient] se muestra "Sin reserva".
@@ -118,6 +121,7 @@ class DoctorShiftNumber {
       patient: patient == null
           ? null
           : DoctorPatient(
+              id: (patient['id'] as num?)?.toInt(),
               ci: patient['ci'] as String,
               name: patient['nombre'] as String,
               lastName: patient['apellido'] as String,
