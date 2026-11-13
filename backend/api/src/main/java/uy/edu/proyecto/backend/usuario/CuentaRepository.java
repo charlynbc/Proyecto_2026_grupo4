@@ -469,24 +469,8 @@ public class CuentaRepository {
      * (RF-45: impiden la inactivacion; primero se suspenden por RF-14).
      */
     public boolean medicoTieneFechasActivasDesde(long idMedico, LocalDate hoy) {
-        return Boolean.TRUE.equals(
-                jdbcTemplate.queryForObject(
-                        """
-                        SELECT EXISTS (
-                            SELECT 1
-                            FROM public.turno t
-                            JOIN public.turno_semanal ts
-                                ON ts.id_turno_semanal = t.id_turno_semanal
-                            WHERE ts.id_medico = ?
-                              AND t.estado = 'ACTIVO'
-                              AND t.fecha >= ?
-                        )
-                        """,
-                        Boolean.class,
-                        idMedico,
-                        hoy
-                )
-        );
+        return medicosConFechasActivasDesde(java.util.List.of(idMedico), hoy)
+                .contains(idMedico);
     }
 
     /**
@@ -494,26 +478,67 @@ public class CuentaRepository {
      * (RF-45: impiden la inactivacion).
      */
     public boolean medicoTieneConsultasAgendadasDesde(long idMedico, LocalDate hoy) {
-        return Boolean.TRUE.equals(
-                jdbcTemplate.queryForObject(
-                        """
-                        SELECT EXISTS (
-                            SELECT 1
-                            FROM public.consulta c
-                            JOIN public.numero n ON n.id_numero = c.id_numero
-                            JOIN public.turno t ON t.id_turno = n.id_turno
-                            JOIN public.turno_semanal ts
-                                ON ts.id_turno_semanal = t.id_turno_semanal
-                            WHERE ts.id_medico = ?
-                              AND c.estado = 'AGENDADA'
-                              AND t.fecha >= ?
-                        )
-                        """,
-                        Boolean.class,
-                        idMedico,
-                        hoy
-                )
-        );
+        return medicosConConsultasAgendadasDesde(java.util.List.of(idMedico), hoy)
+                .contains(idMedico);
+    }
+
+    /**
+     * De los medicos indicados, los que tienen fechas de turnos activas cuyo
+     * dia todavia no termino (RF-45). Una sola consulta para todos; la
+     * version de un medico es este mismo metodo con un elemento.
+     */
+    public java.util.Set<Long> medicosConFechasActivasDesde(
+            java.util.Collection<Long> idsMedico, LocalDate hoy) {
+        if (idsMedico.isEmpty()) {
+            return java.util.Set.of();
+        }
+        java.util.List<Object> parametros = new java.util.ArrayList<>(idsMedico);
+        parametros.add(hoy);
+        return new java.util.HashSet<>(jdbcTemplate.queryForList(
+                """
+                SELECT DISTINCT ts.id_medico
+                FROM public.turno t
+                JOIN public.turno_semanal ts
+                    ON ts.id_turno_semanal = t.id_turno_semanal
+                WHERE ts.id_medico IN (%s)
+                  AND t.estado = 'ACTIVO'
+                  AND t.fecha >= ?
+                """.formatted(marcas(idsMedico.size())),
+                Long.class,
+                parametros.toArray()
+        ));
+    }
+
+    /**
+     * De los medicos indicados, los que tienen consultas agendadas cuyo dia
+     * todavia no termino (RF-45). Una sola consulta para todos.
+     */
+    public java.util.Set<Long> medicosConConsultasAgendadasDesde(
+            java.util.Collection<Long> idsMedico, LocalDate hoy) {
+        if (idsMedico.isEmpty()) {
+            return java.util.Set.of();
+        }
+        java.util.List<Object> parametros = new java.util.ArrayList<>(idsMedico);
+        parametros.add(hoy);
+        return new java.util.HashSet<>(jdbcTemplate.queryForList(
+                """
+                SELECT DISTINCT ts.id_medico
+                FROM public.consulta c
+                JOIN public.numero n ON n.id_numero = c.id_numero
+                JOIN public.turno t ON t.id_turno = n.id_turno
+                JOIN public.turno_semanal ts
+                    ON ts.id_turno_semanal = t.id_turno_semanal
+                WHERE ts.id_medico IN (%s)
+                  AND c.estado = 'AGENDADA'
+                  AND t.fecha >= ?
+                """.formatted(marcas(idsMedico.size())),
+                Long.class,
+                parametros.toArray()
+        ));
+    }
+
+    private static String marcas(int cantidad) {
+        return String.join(",", java.util.Collections.nCopies(cantidad, "?"));
     }
 
     public record PersonaRegistrada(
