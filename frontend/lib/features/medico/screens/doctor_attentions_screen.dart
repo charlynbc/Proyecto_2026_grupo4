@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/widgets/sort_direction_button.dart';
+import '../../../core/widgets/ui_date_field.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../models/doctor_attention_query.dart';
@@ -20,54 +21,67 @@ class DoctorAttentionsScreen extends ConsumerStatefulWidget {
 
 class _DoctorAttentionsScreenState
     extends ConsumerState<DoctorAttentionsScreen> {
-  late DoctorAttentionQuery initial;
-  late DateTime from, to;
+  late final TextEditingController fromController;
+  late final TextEditingController toController;
+  final formKey = GlobalKey<FormState>();
   final patient = TextEditingController();
   int? specialtyId;
   DoctorAttentionOrder order = DoctorAttentionOrder.date;
   DoctorAttentionDirection direction = DoctorAttentionDirection.descending;
-  String? error;
+
+  /// El aviso de que Desde es posterior a Hasta; se muestra en el campo Hasta.
+  String? rangeError;
+
+  /// Mientras se valida el envío, una fecha a medias avisa aunque tenga foco.
+  bool validating = false;
+
+  /// El ancho de cada campo de fecha cuando entran los dos en una fila; con
+  /// menos lugar, cada uno ocupa todo el ancho.
+  static const double dateFieldWidth = 220;
+  static const double dateFieldsRowWidth = 2 * dateFieldWidth + 8;
+
   @override
   void initState() {
     super.initState();
-    initial = DoctorAttentionQuery.initial();
-    from = initial.from;
-    to = initial.to;
+    // Los campos muestran las fechas aplicadas: al abrir, el mes en curso.
+    final applied = ref.read(doctorAttentionFiltersProvider);
+    fromController = TextEditingController(text: formatUiDate(applied.from));
+    toController = TextEditingController(text: formatUiDate(applied.to));
   }
 
   @override
   void dispose() {
+    fromController.dispose();
+    toController.dispose();
     patient.dispose();
     super.dispose();
   }
 
-  Future<void> pick(bool start) async {
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: start ? from : to,
-      firstDate: DateTime(1900),
-      lastDate: DateTime(2100),
-    );
-    if (selected != null && mounted) {
-      setState(() {
-        final date = DateTime.utc(selected.year, selected.month, selected.day);
-        if (start) {
-          from = date;
-        } else {
-          to = date;
-        }
-      });
-    }
+  void clearRangeError() {
+    if (rangeError != null) setState(() => rangeError = null);
   }
 
+  String? requiredDate(String? value) =>
+      (value ?? '').trim().isEmpty ? 'Ingresá la fecha.' : null;
+
   void search() {
+    // Tocar "Buscar" no mueve el foco del campo de fecha: se lo suelta acá
+    // para que el campo muestre su error si la fecha quedó a medias.
+    FocusScope.of(context).unfocus();
+    validating = true;
+    final valid = formKey.currentState!.validate();
+    validating = false;
+    if (!valid) return;
+    final from = parseUiDate(fromController.text.trim())!;
+    final to = parseUiDate(toController.text.trim())!;
     if (from.isAfter(to)) {
       setState(
-        () => error = 'La fecha desde no puede ser posterior a la fecha hasta.',
+        () => rangeError =
+            'La fecha "Desde" no puede ser posterior a la fecha "Hasta".',
       );
       return;
     }
-    setState(() => error = null);
+    setState(() => rangeError = null);
     ref
         .read(doctorAttentionFiltersProvider.notifier)
         .apply(
@@ -89,17 +103,20 @@ class _DoctorAttentionsScreenState
   }
 
   void clear() {
-    final q = DoctorAttentionQuery.initial();
+    ref.read(doctorAttentionFiltersProvider.notifier).clear();
+    final q = ref.read(doctorAttentionFiltersProvider);
+    // reset vacía los campos y puede avisar el cambio: se hace antes de
+    // escribir las fechas del mes en curso.
+    formKey.currentState!.reset();
+    fromController.text = formatUiDate(q.from);
+    toController.text = formatUiDate(q.to);
+    patient.clear();
     setState(() {
-      from = q.from;
-      to = q.to;
-      patient.clear();
       specialtyId = null;
       order = q.order;
       direction = q.direction;
-      error = null;
+      rangeError = null;
     });
-    ref.read(doctorAttentionFiltersProvider.notifier).clear();
   }
 
   @override
@@ -120,29 +137,58 @@ class _DoctorAttentionsScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton(
-                      key: const Key('attentions-from'),
-                      onPressed: () => pick(true),
-                      child: Text('Desde ${formatUiDate(from)}'),
-                    ),
-                    OutlinedButton(
-                      key: const Key('attentions-to'),
-                      onPressed: () => pick(false),
-                      child: Text('Hasta ${formatUiDate(to)}'),
-                    ),
-                  ],
-                ),
-                if (error != null)
-                  Text(
-                    error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
+                Form(
+                  key: formKey,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final width = constraints.maxWidth < dateFieldsRowWidth
+                          ? constraints.maxWidth
+                          : dateFieldWidth;
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: width,
+                            child: UiDateField(
+                              key: const Key('attentions-from'),
+                              controller: fromController,
+                              label: 'Desde',
+                              pickerHelpText: 'Fecha desde',
+                              pickerTooltip: 'Elegir la fecha desde',
+                              firstDate: DateTime.utc(1900),
+                              lastDate: DateTime.utc(2100),
+                              showErrorsNow: () => validating,
+                              validator: requiredDate,
+                              onChanged: (_) => clearRangeError(),
+                            ),
+                          ),
+                          SizedBox(
+                            width: width,
+                            child: UiDateField(
+                              key: const Key('attentions-to'),
+                              controller: toController,
+                              label: 'Hasta',
+                              pickerHelpText: 'Fecha hasta',
+                              pickerTooltip: 'Elegir la fecha hasta',
+                              firstDate: DateTime.utc(1900),
+                              lastDate: DateTime.utc(2100),
+                              // El calendario de "Hasta" abre en la fecha de
+                              // "Desde", si es válida.
+                              initialPickerDate: () =>
+                                  parseUiDate(fromController.text),
+                              errorText: rangeError,
+                              showErrorsNow: () => validating,
+                              validator: requiredDate,
+                              onChanged: (_) => clearRangeError(),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
+                ),
                 TextField(
                   key: const Key('attentions-patient-field'),
                   controller: patient,
