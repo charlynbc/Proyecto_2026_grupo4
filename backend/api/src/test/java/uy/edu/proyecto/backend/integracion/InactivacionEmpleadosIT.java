@@ -28,6 +28,13 @@ class InactivacionEmpleadosIT extends BaseIntegracionIT {
                 Boolean.class, idCuenta));
     }
 
+    private int sesionesVigentes(long idCuenta) {
+        return jdbc.queryForObject(
+                "SELECT count(*) FROM sesion WHERE id_cuenta = ?"
+                        + " AND revocada_en IS NULL",
+                Integer.class, idCuenta);
+    }
+
     private static void esperarSegundo() {
         try {
             Thread.sleep(1200);
@@ -176,6 +183,51 @@ class InactivacionEmpleadosIT extends BaseIntegracionIT {
     }
 
     @Test
+    void administradorNoPuedeInactivarSuPropiaCuenta() {
+        Respuesta login = login(ciAdmin, "EMPLEADO");
+        assertEquals(200, login.estado(), login.cuerpo());
+        String token = login.json().path("token").asString();
+        String refresh = login.refreshToken();
+        int sesionesAntes = sesionesVigentes(idAdmin);
+        assertTrue(sesionesAntes > 0, "El login dejo una sesion vigente");
+
+        Respuesta me = get("/api/cuentas/me", token);
+        assertEquals(200, me.estado(), me.cuerpo());
+        long idPropio = me.json().path("id").asLong();
+
+        Respuesta r = post(INACTIVAR.formatted(idPropio), token, null);
+
+        assertEquals(409, r.estado(), r.cuerpo());
+        assertEquals("AUTO_INACTIVACION_NO_PERMITIDA", r.codigo());
+        assertEquals(true, habilitada(idAdmin));
+        assertEquals(200, get("/api/cuentas/me", token).estado(),
+                "El mismo token sigue autorizando");
+        assertEquals(sesionesAntes, sesionesVigentes(idAdmin),
+                "No se revocaron sesiones");
+        assertEquals(200, enviar("POST", "/api/auth/refresh", null,
+                refresh, null).estado(),
+                "El refresh token sigue valido");
+        assertNull(jdbc.queryForObject(
+                "SELECT ultimo_inactivador FROM cuenta WHERE id_cuenta = ?",
+                Long.class, idAdmin), "No queda auditoria de inactivacion");
+    }
+
+    @Test
+    void administradorSiInactivaALaCuentaDeOtroEmpleado() {
+        String token = admin();
+        long idPropio = get("/api/cuentas/me", token).json().path("id").asLong();
+        assertEquals(idAdmin, idPropio);
+
+        Respuesta r = post(INACTIVAR.formatted(idFuncionario2), token, null);
+
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals("INACTIVA", r.json().path("estado").asString());
+        assertEquals(false, habilitada(idFuncionario2));
+        assertEquals(true, habilitada(idAdmin));
+        assertEquals(200, get("/api/cuentas/me", token).estado());
+    }
+
+    @Test
     void inactivarCuentaInexistenteDevuelve404() {
         Respuesta r = post(INACTIVAR.formatted(999999), admin(), null);
 
@@ -284,6 +336,20 @@ class InactivacionEmpleadosIT extends BaseIntegracionIT {
 
         assertEquals(409, r.estado(), r.cuerpo());
         assertEquals("EMPLEADO_DUPLICADO", r.codigo());
+    }
+
+    @Test
+    void administradorNoPuedeReactivarSuPropiaCuenta() {
+        String token = admin();
+        long idPropio = get("/api/cuentas/me", token).json().path("id").asLong();
+
+        Respuesta r = post(REACTIVAR.formatted(idPropio), token, null);
+
+        assertEquals(409, r.estado(), r.cuerpo());
+        assertEquals("AUTO_INACTIVACION_NO_PERMITIDA", r.codigo());
+        assertNull(jdbc.queryForObject(
+                "SELECT ultimo_reactivador FROM cuenta WHERE id_cuenta = ?",
+                Long.class, idAdmin), "No queda auditoria de reactivacion");
     }
 
     @Test
