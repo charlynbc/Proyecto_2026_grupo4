@@ -17,7 +17,6 @@ Future<void> _pump(
   bool hasNext = true,
   VoidCallback? onPrevious,
   VoidCallback? onNext,
-  PaginationStyle style = PaginationStyle.outlined,
   Key? previousKey,
   Key? nextKey,
 }) async {
@@ -40,7 +39,6 @@ Future<void> _pump(
             hasNext: hasNext,
             onPrevious: onPrevious ?? () {},
             onNext: onNext ?? () {},
-            style: style,
             previousKey: previousKey,
             nextKey: nextKey,
           ),
@@ -52,8 +50,6 @@ Future<void> _pump(
 
 final _previousOutlined = find.widgetWithText(OutlinedButton, 'Anterior');
 final _nextOutlined = find.widgetWithText(OutlinedButton, 'Siguiente');
-final _previousText = find.widgetWithText(TextButton, 'Anterior');
-final _nextText = find.widgetWithText(TextButton, 'Siguiente');
 
 void main() {
   setUpAll(loadRoboto);
@@ -166,22 +162,21 @@ void main() {
 
   group('texto grande del sistema', () {
     for (final width in [280.0, 320.0, 360.0, 600.0]) {
-      for (final style in PaginationStyle.values) {
-        testWidgets('a $width px y escala 2.0 ($style) no hay excepciones '
-            'y todo queda dentro de la pantalla', (tester) async {
-          await _pump(tester, width: width, scale: 2, style: style);
+      testWidgets('a $width px y escala 2.0 no hay excepciones y todo queda '
+          'dentro de la pantalla', (tester) async {
+        await _pump(tester, width: width, scale: 2);
 
-          expect(tester.takeException(), isNull);
-          final finders = style == PaginationStyle.outlined
-              ? [_previousOutlined, _nextOutlined, find.text(_label)]
-              : [_previousText, _nextText, find.text(_label)];
-          for (final finder in finders) {
-            final rect = tester.getRect(finder);
-            expect(rect.left, greaterThanOrEqualTo(0));
-            expect(rect.right, lessThanOrEqualTo(width));
-          }
-        });
-      }
+        expect(tester.takeException(), isNull);
+        for (final finder in [
+          _previousOutlined,
+          _nextOutlined,
+          find.text(_label),
+        ]) {
+          final rect = tester.getRect(finder);
+          expect(rect.left, greaterThanOrEqualTo(0));
+          expect(rect.right, lessThanOrEqualTo(width));
+        }
+      });
     }
   });
 
@@ -288,31 +283,25 @@ void main() {
     });
   });
 
-  group('estilo de texto (Historial)', () {
-    testWidgets('usa TextButton y separa los extremos a ancho completo', (
+  group('un unico aspecto', () {
+    testWidgets('los dos botones tienen borde y no hay botones de texto', (
       tester,
     ) async {
-      await _pump(tester, width: 600, style: PaginationStyle.text);
+      await _pump(tester, width: 600);
 
-      expect(_previousText, findsOneWidget);
-      expect(_nextText, findsOneWidget);
-      expect(_previousOutlined, findsNothing);
-      expect(tester.getRect(_previousText).left, 0);
-      expect(tester.getRect(_nextText).right, 600);
+      expect(_previousOutlined, findsOneWidget);
+      expect(_nextOutlined, findsOneWidget);
+      expect(find.byType(TextButton), findsNothing);
     });
 
-    testWidgets('si no entran los tres, tambien pone el texto arriba', (
-      tester,
-    ) async {
-      await _pump(tester, width: 260, style: PaginationStyle.text);
+    testWidgets('a ancho completo los controles quedan juntos y centrados, '
+        'no en los extremos', (tester) async {
+      await _pump(tester, width: 1300);
 
-      expectNarrowPager(
-        tester,
-        label: find.text(_label),
-        previous: _previousText,
-        next: _nextText,
-        screenWidth: 260,
-      );
+      final left = tester.getRect(_previousOutlined).left;
+      final right = tester.getRect(_nextOutlined).right;
+      expect(left, greaterThan(400));
+      expect(right, lessThan(900));
     });
   });
 }

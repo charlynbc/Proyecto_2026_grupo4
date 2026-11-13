@@ -1,14 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// Cómo se dibujan los botones del paginador.
-enum PaginationStyle {
-  /// Botones con borde, juntos y centrados (Usuarios, Turnos y Agendas).
-  outlined,
-
-  /// Botones de texto, uno en cada extremo (Historial de atenciones).
-  text,
-}
-
 const double _spacing = 12;
 
 /// El paginador compartido: Anterior, el texto de página y Siguiente.
@@ -32,7 +23,6 @@ class PaginationBar extends StatelessWidget {
     required this.onNext,
     this.previousKey,
     this.nextKey,
-    this.style = PaginationStyle.outlined,
   });
 
   final String label;
@@ -44,28 +34,19 @@ class PaginationBar extends StatelessWidget {
   /// Las keys de cada botón, para las pantallas que ya las usan.
   final Key? previousKey;
   final Key? nextKey;
-  final PaginationStyle style;
 
+  /// Un solo aspecto en toda la app: botones con borde.
   Widget _button(Key? key, String text, bool enabled, VoidCallback onTap) {
-    final child = Text(text);
-    final onPressed = enabled ? onTap : null;
-    return switch (style) {
-      PaginationStyle.outlined => OutlinedButton(
-        key: key,
-        onPressed: onPressed,
-        child: child,
-      ),
-      PaginationStyle.text => TextButton(
-        key: key,
-        onPressed: onPressed,
-        child: child,
-      ),
-    };
+    return OutlinedButton(
+      key: key,
+      onPressed: enabled ? onTap : null,
+      child: Text(text),
+    );
   }
 
   /// Si Anterior, el texto y Siguiente entran en [maxWidth] en una sola fila.
   /// Mide los textos con la fuente y la escala reales; el relleno de los
-  /// botones es el de Material (24 a cada lado con borde, 12 sin borde).
+  /// botones con borde es el de Material (24 a cada lado).
   bool _fitsInOneRow(BuildContext context, double maxWidth) {
     if (!maxWidth.isFinite) return true;
     final scaler = MediaQuery.textScalerOf(context);
@@ -80,7 +61,7 @@ class PaginationBar extends StatelessWidget {
       return width;
     }
 
-    final padding = style == PaginationStyle.outlined ? 48.0 : 24.0;
+    const padding = 48.0;
     final buttonText = Theme.of(context).textTheme.labelLarge;
     double button(String text) =>
         (textWidth(text, buttonText) + padding).clamp(64.0, double.infinity);
@@ -117,17 +98,13 @@ class PaginationBar extends StatelessWidget {
             ],
           );
         }
-        final spread = style == PaginationStyle.text;
-        final wrap = Wrap(
-          alignment: spread ? WrapAlignment.spaceBetween : WrapAlignment.center,
+        return Wrap(
+          alignment: WrapAlignment.center,
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: _spacing,
           runSpacing: 12,
           children: [previous, page, next],
         );
-        // Para que spaceBetween reparta el ancho disponible, como la Row que
-        // reemplaza.
-        return spread ? SizedBox(width: double.infinity, child: wrap) : wrap;
       },
     );
   }

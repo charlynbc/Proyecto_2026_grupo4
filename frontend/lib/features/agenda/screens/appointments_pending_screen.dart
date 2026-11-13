@@ -537,7 +537,6 @@ class _AppointmentsPendingScreenState
 
   Widget _pagination(AppointmentHistoryPage result) {
     return PaginationBar(
-      style: PaginationStyle.text,
       previousKey: const Key('history-previous'),
       nextKey: const Key('history-next'),
       label: 'Página ${result.page + 1}',
