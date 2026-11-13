@@ -151,6 +151,22 @@ class HistoriaClinicaIT extends BaseIntegracionIT {
     }
 
     @Test
+    void busquedaPorTratamientoIgnoraTildes() {
+        String socio = tokenSocio(ciSocio1);
+        jdbc.update("UPDATE atencion SET tratamiento = 'Indicación del doctor Pérez'"
+                + " WHERE id_atencion = ?", a1);
+        jdbc.update("UPDATE atencion SET tratamiento = 'Control con la doctora Perez'"
+                + " WHERE id_atencion = ?", a2);
+
+        assertEquals(List.of(a2, a1), ids(listar(socio, "?texto=per")));
+        assertEquals(List.of(a2, a1), ids(listar(socio, "?texto=perez")));
+        assertEquals(List.of(a2, a1), ids(listar(socio, "?texto=p%C3%A9rez")));
+        assertEquals(List.of(a2, a1), ids(listar(socio, "?texto=P%C3%89REZ")));
+        assertEquals(List.of(a1), ids(listar(socio, "?texto=indicacion")));
+        assertEquals(List.of(a1), ids(listar(socio, "?texto=INDICACI%C3%93N")));
+    }
+
+    @Test
     void filtrosPorEspecialidadYMedico() {
         String socio = tokenSocio(ciSocio1);
 
