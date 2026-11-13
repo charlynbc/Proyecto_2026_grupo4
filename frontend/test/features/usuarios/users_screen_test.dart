@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../helpers/load_roboto.dart';
+import '../../helpers/pager_layout.dart';
 import '../../helpers/pump_admin.dart';
 
 /// Ancho de pantalla de los tests de la tabla: sobra para que entre.
@@ -269,6 +270,21 @@ void main() {
     await submitted;
 
     expect(find.text('Página 1 de 2 · 26 cuentas'), findsOneWidget);
+  });
+
+  testWidgets('a 320 px el paginador pone la página arriba y los botones '
+      'lado a lado', (tester) async {
+    await _pump(tester, size: const Size(320, 1800));
+    final next = find.widgetWithText(OutlinedButton, 'Siguiente');
+    await tester.ensureVisible(next);
+    await tester.pumpAndSettle();
+
+    expectNarrowPager(
+      tester,
+      label: find.text('Página 1 de 2 · 25 cuentas'),
+      previous: find.widgetWithText(OutlinedButton, 'Anterior'),
+      next: next,
+    );
   });
 
   group('según el ancho de la pantalla', () {
