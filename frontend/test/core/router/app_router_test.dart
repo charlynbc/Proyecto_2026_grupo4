@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:agenda_medica/core/fakes/datos_prueba.dart';
+import 'package:agenda_medica/core/router/adaptive_nav_bar.dart';
 import 'package:agenda_medica/core/router/app_router.dart';
 import 'package:agenda_medica/core/router/app_sections.dart';
 import 'package:agenda_medica/features/auth/models/access_type.dart';
@@ -358,7 +359,7 @@ void main() {
     final container = await pumpApp(tester);
     await _loginAs(tester, container, UserRole.medico);
 
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(AdaptiveNavBar), findsNothing);
     expect(find.byType(NavigationRail), findsNothing);
     expect(locationOf(container), '/medico/inicio');
     expect(find.text('Cartelera'), findsOneWidget);
