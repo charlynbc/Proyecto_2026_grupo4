@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/ui_date.dart';
 import '../../../core/widgets/sort_direction_button.dart';
+import '../../agenda/models/agenda_time.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../models/doctor_shift.dart';
 import '../providers/doctor_agenda_controller.dart';
@@ -42,7 +44,8 @@ class _DoctorShiftsScreenState extends ConsumerState<DoctorShiftsScreen>
   }
 
   Future<void> _pickDate(DoctorAgendaState state) async {
-    final current = DateTime.tryParse(state.date) ?? DateTime.now();
+    final key = parseApiDate(state.date);
+    final current = DateTime(key.year, key.month, key.day);
     final picked = await showDatePicker(
       context: context,
       initialDate: current,
@@ -51,11 +54,9 @@ class _DoctorShiftsScreenState extends ConsumerState<DoctorShiftsScreen>
       helpText: 'Fecha de los turnos',
     );
     if (picked == null || !mounted) return;
-    final value =
-        '${picked.year.toString().padLeft(4, '0')}-'
-        '${picked.month.toString().padLeft(2, '0')}-'
-        '${picked.day.toString().padLeft(2, '0')}';
-    await ref.read(doctorAgendaControllerProvider.notifier).setDate(value);
+    await ref
+        .read(doctorAgendaControllerProvider.notifier)
+        .setDate(formatApiDate(picked));
   }
 
   @override
@@ -75,15 +76,19 @@ class _DoctorShiftsScreenState extends ConsumerState<DoctorShiftsScreen>
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Row(
+              Text(
+                'Fecha: ${formatUiDate(parseApiDate(state.date))}',
+                key: const Key('doctor-date'),
+                style: textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              // Wrap y no Row: con texto grande o a 320 px los botones bajan de
+              // renglón en vez de apretar o cortar la fecha.
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Fecha: ${state.date}',
-                      key: const Key('doctor-date'),
-                      style: textTheme.titleMedium,
-                    ),
-                  ),
                   OutlinedButton.icon(
                     key: const Key('doctor-date-button'),
                     onPressed: () => _pickDate(state),

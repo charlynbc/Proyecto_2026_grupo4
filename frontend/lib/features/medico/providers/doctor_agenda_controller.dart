@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/utils/uruguay_time.dart';
+import '../../agenda/models/agenda_time.dart';
 import '../models/doctor_shift.dart';
 import '../repositories/api_doctor_shift_repository.dart';
 import '../repositories/doctor_shift_repository.dart';
@@ -26,6 +28,11 @@ final doctorShiftRepositoryProvider = FutureProvider<DoctorShiftRepository>((
   final dio = await ref.watch(dioProvider.future);
   return ApiDoctorShiftRepository(dio);
 });
+
+/// El instante actual. Los tests lo sobreescriben para no depender del reloj.
+final doctorClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
 
 /// Cada cuánto se vuelve a consultar el servidor (RF-21: la lista se
 /// actualiza sola). Se sobrescribe en las pruebas.
@@ -129,11 +136,10 @@ class DoctorAgendaController extends Notifier<DoctorAgendaState> {
     });
     final interval = ref.read(doctorPollIntervalProvider);
     _timer = Timer.periodic(interval, (_) => _poll());
-    final now = DateTime.now();
-    final today =
-        '${now.year.toString().padLeft(4, '0')}-'
-        '${now.month.toString().padLeft(2, '0')}-'
-        '${now.day.toString().padLeft(2, '0')}';
+    // El día de hoy es el de Uruguay, no el del aparato (contrato, 1.2).
+    final today = formatApiDate(
+      UruguayTime.today(now: ref.read(doctorClockProvider)()),
+    );
     Future.microtask(() => _load(explicit: true));
     return DoctorAgendaState(date: today);
   }
