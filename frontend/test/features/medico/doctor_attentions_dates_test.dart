@@ -29,11 +29,15 @@ class _FixedFilters extends DoctorAttentionFiltersController {
     to: DateTime.utc(2026, 11, 12),
   );
 
+  /// Lo que devuelve Limpiar: por defecto lo mismo; un test lo cambia para
+  /// simular que el mes cambió entre abrir la pantalla y limpiar.
+  static DoctorAttentionQuery afterClear = fixed;
+
   @override
   DoctorAttentionQuery build() => fixed;
 
   @override
-  void clear() => state = fixed;
+  void clear() => state = afterClear;
 }
 
 class _Repository implements DoctorAttentionRepository {
@@ -55,6 +59,7 @@ Future<_Repository> _pump(
   double textScale = 1,
 }) async {
   final repository = _Repository();
+  _FixedFilters.afterClear = _FixedFilters.fixed;
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -229,6 +234,20 @@ void main() {
     expect(_text(tester, _toKey), '12/11/2026');
     expect(_last(repository)['fechaDesde'], '2026-11-01');
     expect(_last(repository)['fechaHasta'], '2026-11-12');
+  });
+
+  testWidgets('Limpiar muestra las fechas que el filtro devuelve al limpiar '
+      '(si el mes cambió desde que se abrió la pantalla)', (tester) async {
+    await _pump(tester);
+    _FixedFilters.afterClear = DoctorAttentionQuery(
+      from: DateTime.utc(2026, 12, 1),
+      to: DateTime.utc(2026, 12, 2),
+    );
+
+    await _tap(tester, 'attentions-clear');
+
+    expect(_text(tester, _fromKey), '01/12/2026');
+    expect(_text(tester, _toKey), '02/12/2026');
   });
 
   testWidgets('Limpiar borra el aviso de rango', (tester) async {
