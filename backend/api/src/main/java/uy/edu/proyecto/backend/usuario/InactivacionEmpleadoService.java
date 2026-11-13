@@ -48,45 +48,29 @@ public class InactivacionEmpleadoService {
 
     @Transactional
     public EstadoCuentaResponse inactivar(long idCuenta, long idAdministrador) {
-        if (idCuenta == idAdministrador) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "AUTO_INACTIVACION_NO_PERMITIDA",
-                    "No puede inactivar su propia cuenta"
-            );
-        }
+        LocalDate hoy = LocalDate.now(clock);
+        ReglaInactivacion.evaluar(
+                idCuenta,
+                idAdministrador,
+                () -> {
+                    CuentaEstado cuenta = bloquearCuenta(idCuenta);
+                    return new ReglaInactivacion.CuentaCandidata(
+                            cuenta.rol(), cuenta.habilitada());
+                },
+                new ReglaInactivacion.AgendaMedico() {
+                    @Override
+                    public boolean tieneFechasActivas() {
+                        return repository.medicoTieneFechasActivasDesde(idCuenta, hoy);
+                    }
 
-        CuentaEstado cuenta = bloquearEmpleado(idCuenta);
-
-        if (!cuenta.habilitada()) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "CUENTA_YA_INACTIVA",
-                    "La cuenta ya está inactiva"
-            );
-        }
-
-        if (cuenta.rol().equals("MEDICO")) {
-            LocalDate hoy = LocalDate.now(clock);
-            if (repository.medicoTieneFechasActivasDesde(idCuenta, hoy)) {
-                throw new ApiException(
-                        HttpStatus.CONFLICT,
-                        "MEDICO_CON_TURNOS_ACTIVOS",
-                        "El médico tiene fechas de turnos activas cuyo día"
-                                + " todavía no terminó. Primero suspendalas"
-                                + " desde la gestión de turnos."
-                );
-            }
-            if (repository.medicoTieneConsultasAgendadasDesde(idCuenta, hoy)) {
-                throw new ApiException(
-                        HttpStatus.CONFLICT,
-                        "MEDICO_CON_CONSULTAS_AGENDADAS",
-                        "El médico tiene consultas agendadas cuyo día todavía"
-                                + " no terminó. Primero suspenda las fechas de"
-                                + " sus turnos para cancelarlas."
-                );
-            }
-        }
+                    @Override
+                    public boolean tieneConsultasAgendadas() {
+                        return repository.medicoTieneConsultasAgendadasDesde(idCuenta, hoy);
+                    }
+                }
+        ).ifPresent(bloqueo -> {
+            throw rechazo(bloqueo);
+        });
 
         if (repository.inactivarCuenta(idCuenta, idAdministrador) != 1) {
             throw new ApiException(
@@ -160,21 +144,56 @@ public class InactivacionEmpleadoService {
         return respuesta(actualizada);
     }
 
-    private CuentaEstado bloquearEmpleado(long idCuenta) {
-        CuentaEstado cuenta = repository.bloquearCuentaParaEstado(idCuenta)
+    private CuentaEstado bloquearCuenta(long idCuenta) {
+        return repository.bloquearCuentaParaEstado(idCuenta)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
                         "USUARIO_NO_ENCONTRADO",
                         "No existe una cuenta con ese identificador"
                 ));
+    }
+
+    private CuentaEstado bloquearEmpleado(long idCuenta) {
+        CuentaEstado cuenta = bloquearCuenta(idCuenta);
         if (cuenta.rol().equals("SOCIO")) {
-            throw new ApiException(
+            throw rechazo(ReglaInactivacion.Bloqueo.NO_ES_EMPLEADO);
+        }
+        return cuenta;
+    }
+
+    /** El error HTTP de cada bloqueo de la regla de inactivacion. */
+    private static ApiException rechazo(ReglaInactivacion.Bloqueo bloqueo) {
+        return switch (bloqueo) {
+            case CUENTA_PROPIA -> new ApiException(
+                    HttpStatus.CONFLICT,
+                    "AUTO_INACTIVACION_NO_PERMITIDA",
+                    "No puede inactivar su propia cuenta"
+            );
+            case NO_ES_EMPLEADO -> new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "VALIDACION",
                     "Esta operación aplica solo a cuentas de empleado"
             );
-        }
-        return cuenta;
+            case YA_INACTIVA -> new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CUENTA_YA_INACTIVA",
+                    "La cuenta ya está inactiva"
+            );
+            case MEDICO_CON_TURNOS_ACTIVOS -> new ApiException(
+                    HttpStatus.CONFLICT,
+                    "MEDICO_CON_TURNOS_ACTIVOS",
+                    "El médico tiene fechas de turnos activas cuyo día"
+                            + " todavía no terminó. Primero suspendalas"
+                            + " desde la gestión de turnos."
+            );
+            case MEDICO_CON_CONSULTAS_AGENDADAS -> new ApiException(
+                    HttpStatus.CONFLICT,
+                    "MEDICO_CON_CONSULTAS_AGENDADAS",
+                    "El médico tiene consultas agendadas cuyo día todavía"
+                            + " no terminó. Primero suspenda las fechas de"
+                            + " sus turnos para cancelarlas."
+            );
+        };
     }
 
     private EstadoCuentaResponse respuesta(CuentaEstado cuenta) {
