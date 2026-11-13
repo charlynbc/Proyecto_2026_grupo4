@@ -194,26 +194,44 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
                           ),
                         ),
                       const SizedBox(height: 24),
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 16,
-                        runSpacing: 12,
-                        children: [
-                          OutlinedButton(
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final previous = OutlinedButton(
                             onPressed: _page > 0
                                 ? () => _changePage(_page - 1)
                                 : null,
                             child: const Text('Anterior'),
-                          ),
-                          Text('Página ${_page + 1}'),
-                          OutlinedButton(
+                          );
+                          final page = Text('Página ${_page + 1}');
+                          final next = OutlinedButton(
                             onPressed: result.hasNext
                                 ? () => _changePage(_page + 1)
                                 : null,
                             child: const Text('Siguiente'),
-                          ),
-                        ],
+                          );
+                          if (constraints.maxWidth < 320) {
+                            return Column(
+                              children: [
+                                page,
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  alignment: WrapAlignment.center,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 16,
+                                  runSpacing: 12,
+                                  children: [previous, next],
+                                ),
+                              ],
+                            );
+                          }
+                          return Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 16,
+                            runSpacing: 12,
+                            children: [previous, page, next],
+                          );
+                        },
                       ),
                     ],
                   ),
