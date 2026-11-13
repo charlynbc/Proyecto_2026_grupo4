@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
-import '../../../core/utils/uruguay_time.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../../../core/widgets/sort_direction_button.dart';
+import '../../../core/widgets/ui_date_field.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialties_provider.dart';
@@ -59,6 +59,23 @@ class _AppointmentsPendingScreenState
   int _page = 0;
   String? _filterError;
 
+  /// Lo que se ve escrito en Desde y Hasta. Lo aplicado es [_from] y [_to].
+  final _fromController = TextEditingController();
+  final _toController = TextEditingController();
+
+  /// El ancho de cada campo de fecha cuando entran los dos en una fila; con
+  /// menos lugar, cada uno ocupa todo el ancho. A 220 px con texto del sistema
+  /// al doble la fecha se corta; a 288 px entra.
+  static const double _dateFieldWidth = 220;
+  static const double _dateFieldsRowWidth = 2 * _dateFieldWidth + 8;
+
+  @override
+  void dispose() {
+    _fromController.dispose();
+    _toController.dispose();
+    super.dispose();
+  }
+
   AppointmentHistoryQuery get _query => AppointmentHistoryQuery(
     status: _status,
     from: _from,
@@ -70,18 +87,21 @@ class _AppointmentsPendingScreenState
     page: _page,
   );
 
-  Future<void> _chooseDate({required bool start}) async {
-    final current = start ? _from : _to;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: current ?? UruguayTime.today(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked == null || !mounted) return;
-    final date = DateTime.utc(picked.year, picked.month, picked.day);
-    final nextFrom = start ? date : _from;
-    final nextTo = start ? _to : date;
+  /// La fecha que dice un campo: vacío es sin filtro; una fecha válida es esa
+  /// fecha; un texto a medias o inexistente deja lo que ya estaba aplicado (el
+  /// propio campo avisa del error de formato).
+  DateTime? _dateOf(TextEditingController controller, DateTime? applied) {
+    final text = controller.text.trim();
+    if (text.isEmpty) return null;
+    return parseUiDate(text) ?? applied;
+  }
+
+  /// Se aplica al instante, como antes. Si Desde queda posterior a Hasta no se
+  /// aplica el cambio: queda el último filtro aplicado y se avisa. Solo se
+  /// vuelve a la página 1 cuando lo aplicado cambia de verdad.
+  void _onDatesChanged() {
+    final nextFrom = _dateOf(_fromController, _from);
+    final nextTo = _dateOf(_toController, _to);
     if (nextFrom != null && nextTo != null && nextFrom.isAfter(nextTo)) {
       setState(
         () => _filterError =
@@ -89,10 +109,12 @@ class _AppointmentsPendingScreenState
       );
       return;
     }
+    final changed = nextFrom != _from || nextTo != _to;
+    if (!changed && _filterError == null) return;
     setState(() {
       _from = nextFrom;
       _to = nextTo;
-      _page = 0;
+      if (changed) _page = 0;
       _filterError = null;
     });
   }
@@ -190,6 +212,8 @@ class _AppointmentsPendingScreenState
   }
 
   void _clearFilters() {
+    _fromController.clear();
+    _toController.clear();
     setState(() {
       _status = null;
       _from = null;
@@ -315,29 +339,47 @@ class _AppointmentsPendingScreenState
         const SizedBox(height: 8),
         _doctorFilter(doctors, specialties.value),
         const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton(
-              key: const Key('history-date-from'),
-              onPressed: () => _chooseDate(start: true),
-              child: Text(
-                _from == null
-                    ? 'Desde: cualquiera'
-                    : 'Desde: ${formatUiDate(_from!)}',
-              ),
-            ),
-            OutlinedButton(
-              key: const Key('history-date-to'),
-              onPressed: () => _chooseDate(start: false),
-              child: Text(
-                _to == null
-                    ? 'Hasta: cualquiera'
-                    : 'Hasta: ${formatUiDate(_to!)}',
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth < _dateFieldsRowWidth
+                ? constraints.maxWidth
+                : _dateFieldWidth;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                SizedBox(
+                  width: width,
+                  child: UiDateField(
+                    key: const Key('history-date-from'),
+                    controller: _fromController,
+                    label: 'Desde',
+                    pickerHelpText: 'Fecha desde',
+                    pickerTooltip: 'Elegir la fecha desde',
+                    firstDate: DateTime.utc(2000),
+                    lastDate: DateTime.utc(2100),
+                    onChanged: (_) => _onDatesChanged(),
+                  ),
+                ),
+                SizedBox(
+                  width: width,
+                  child: UiDateField(
+                    key: const Key('history-date-to'),
+                    controller: _toController,
+                    label: 'Hasta',
+                    pickerHelpText: 'Fecha hasta',
+                    pickerTooltip: 'Elegir la fecha hasta',
+                    firstDate: DateTime.utc(2000),
+                    lastDate: DateTime.utc(2100),
+                    // El calendario de "Hasta" abre en la fecha de "Desde", si
+                    // es válida.
+                    initialPickerDate: () => parseUiDate(_fromController.text),
+                    onChanged: (_) => _onDatesChanged(),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 8),
         Wrap(

@@ -246,6 +246,26 @@ class _AnaRepository extends _HistoryRepository {
   }
 }
 
+/// Igual que [_AnaRepository], pero con alguna fecha elegida no hay consultas:
+/// así se ve en pantalla si el filtro de fechas está aplicado o no. La
+/// consulta sin fechas ya está en la memoria del provider cuando se vuelve a
+/// ella, y entonces no se repite el pedido al repositorio.
+class _DatedAnaRepository extends _AnaRepository {
+  @override
+  Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
+    final page = await super.list(query);
+    if (query.size == 100 || (query.from == null && query.to == null)) {
+      return page;
+    }
+    return AppointmentHistoryPage(
+      items: const [],
+      page: query.page,
+      size: query.size,
+      total: 0,
+    );
+  }
+}
+
 /// Monta Mis consultas con el idioma real de la app (el calendario dice
 /// "Aceptar") y, si se pide, otro ancho de pantalla y otra escala de texto.
 Future<void> _pumpAnaDates(
@@ -821,7 +841,22 @@ void main() {
     ) async {
       await _pumpAna(tester, _AnaRepository());
 
-      expect(find.byType(TextField), findsNothing);
+      // Los únicos campos de texto son Desde y Hasta (el campo de fecha).
+      expect(find.byType(TextField), findsNWidgets(2));
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('history-date-from')),
+          matching: find.byType(TextField),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('history-date-to')),
+          matching: find.byType(TextField),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('ID del médico'), findsNothing);
       expect(find.text('Aplicar filtros'), findsNothing);
       expect(find.byKey(const Key('history-apply-filters')), findsNothing);
@@ -1263,9 +1298,12 @@ void main() {
     testWidgets('la cruz de Desde borra el texto y vuelve a from nulo', (
       tester,
     ) async {
-      final repository = _AnaRepository();
+      final repository = _DatedAnaRepository();
       await _pumpAnaDates(tester, repository);
+      expect(find.byKey(const Key('appointment-101')), findsOneWidget);
       await _typeDate(tester, from, '20/10/2026');
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 20));
+      expect(find.byKey(const Key('appointment-101')), findsNothing);
 
       await tester.tap(
         find.descendant(
@@ -1276,7 +1314,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_dateText(tester, from), '');
-      expect(repository.listRequests.last.from, isNull);
+      // Sin filtro de fechas vuelven las consultas.
+      expect(find.byKey(const Key('appointment-101')), findsOneWidget);
     });
 
     testWidgets('Desde posterior a Hasta avisa con el texto exacto y no '
@@ -1343,10 +1382,13 @@ void main() {
     testWidgets('Limpiar vacía los dos campos y vuelve a from y to nulos', (
       tester,
     ) async {
-      final repository = _AnaRepository();
+      final repository = _DatedAnaRepository();
       await _pumpAnaDates(tester, repository);
       await _typeDate(tester, from, '20/10/2026');
       await _typeDate(tester, to, '30/10/2026');
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 20));
+      expect(repository.listRequests.last.to, DateTime.utc(2026, 10, 30));
+      expect(find.byKey(const Key('appointment-101')), findsNothing);
 
       final clear = find.byKey(const Key('history-clear-filters'));
       await tester.ensureVisible(clear);
@@ -1356,8 +1398,7 @@ void main() {
 
       expect(_dateText(tester, from), '');
       expect(_dateText(tester, to), '');
-      expect(repository.listRequests.last.from, isNull);
-      expect(repository.listRequests.last.to, isNull);
+      expect(find.byKey(const Key('appointment-101')), findsOneWidget);
       expect(find.byKey(const Key('history-filter-error')), findsNothing);
     });
 
@@ -1421,7 +1462,7 @@ void main() {
         await loadRoboto();
         await _pumpAnaDates(
           tester,
-          _AnaRepository(),
+          _AnaRepository(consultas: const []),
           size: const Size(320, 2400),
           textScale: scale,
         );
@@ -1440,10 +1481,11 @@ void main() {
         }
         final fromRect = tester.getRect(_dateField(from));
         final toRect = tester.getRect(_dateField(to));
-        // Apilados y a todo el ancho disponible (320 menos 16 + 16).
+        // Apilados y a todo el ancho disponible: 320 menos 24 + 24 del
+        // contenido centrado y 16 + 16 del relleno de la pantalla.
         expect(toRect.top, greaterThan(fromRect.bottom - 1));
-        expect(fromRect.width, closeTo(288, 1));
-        expect(toRect.width, closeTo(288, 1));
+        expect(fromRect.width, closeTo(240, 1));
+        expect(toRect.width, closeTo(240, 1));
       });
     }
   });
