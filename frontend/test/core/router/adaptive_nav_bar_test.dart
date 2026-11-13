@@ -228,7 +228,7 @@ void main() {
       );
       expect(
         tester.getSize(find.byIcon(Icons.circle)).height,
-        lessThanOrEqualTo(31.2),
+        closeTo(31.2, 0.5),
       );
       for (final label in _admin) {
         expect(_effectiveFontSize(tester, label), inInclusiveRange(11, 11.4));

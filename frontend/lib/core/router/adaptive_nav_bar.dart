@@ -180,13 +180,19 @@ class _Destination extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(16),
                               ),
                             ),
-                          Icon(
-                            selected
-                                ? destination.selectedIcon
-                                : destination.icon,
-                            color: selected
-                                ? scheme.onSecondaryContainer
-                                : scheme.onSurfaceVariant,
+                          IconTheme(
+                            data: const IconThemeData(
+                              size: 24,
+                              applyTextScaling: true,
+                            ),
+                            child: Icon(
+                              selected
+                                  ? destination.selectedIcon
+                                  : destination.icon,
+                              color: selected
+                                  ? scheme.onSecondaryContainer
+                                  : scheme.onSurfaceVariant,
+                            ),
                           ),
                         ],
                       ),
