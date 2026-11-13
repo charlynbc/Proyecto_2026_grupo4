@@ -215,7 +215,10 @@ void main() {
     expect(instructions, contains('ubicacion'));
     expect(
       instructions,
-      contains('separador coma o punto y coma, UTF-8, hasta 1 MB y 1000 filas'),
+      contains(
+        'separador coma o punto y coma, UTF-8 (en Excel: Guardar como, CSV '
+        'UTF-8), hasta 1 MB y 1000 filas',
+      ),
     );
     expect(_enabled(tester, 'import-preview-button'), isFalse);
     expect(find.byKey(const Key('import-confirm-button')), findsNothing);
@@ -231,9 +234,10 @@ void main() {
       instructions,
       'Elegí un archivo CSV con un consultorio por fila y estas dos columnas '
       '(el orden no importa): nombre y ubicacion. Los que ya existen no se '
-      'modifican. Formato: separador coma o punto y coma, UTF-8, hasta 1 MB '
-      'y 1000 filas.',
+      'modifican. Formato: separador coma o punto y coma, UTF-8 (en Excel: '
+      'Guardar como, CSV UTF-8), hasta 1 MB y 1000 filas.',
     );
+    expect(instructions, contains('en Excel: Guardar como, CSV UTF-8'));
     expect(instructions, isNot(contains('en este orden')));
   });
 

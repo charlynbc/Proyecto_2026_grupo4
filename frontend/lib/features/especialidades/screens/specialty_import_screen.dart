@@ -20,7 +20,8 @@ class SpecialtyImportScreen extends ConsumerWidget {
       'Elegí un archivo CSV con una especialidad por fila y estas dos '
       'columnas (el orden no importa): nombre y requiere_pase (si o no). Las '
       'que ya existen no se modifican. Formato: separador coma o punto y '
-      'coma, UTF-8, hasta 1 MB y 1000 filas.';
+      'coma, UTF-8 (en Excel: Guardar como, CSV UTF-8), hasta 1 MB y 1000 '
+      'filas.';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

@@ -21,8 +21,8 @@ class UserImportScreen extends ConsumerWidget {
       'orden no importa): ci, nombre, apellido, fecha_nacimiento, correo, '
       'telefono_1, telefono_2, direccion, rol, especialidades. La fecha va '
       'como aaaa-mm-dd y las especialidades de un médico, separadas por |. '
-      'Formato: separador coma o punto y coma, UTF-8, hasta 1 MB y 1000 '
-      'filas.';
+      'Formato: separador coma o punto y coma, UTF-8 (en Excel: Guardar '
+      'como, CSV UTF-8), hasta 1 MB y 1000 filas.';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
