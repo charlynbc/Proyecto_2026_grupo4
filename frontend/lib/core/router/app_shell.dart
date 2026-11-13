@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/models/user_role.dart';
+import 'adaptive_nav_bar.dart';
 import 'app_sections.dart';
 
-/// Barra de navegación fija de las secciones de un rol: `NavigationBar` abajo
-/// en pantallas angostas, `NavigationRail` al costado en anchas. Un rol con
-/// una sola sección no muestra barra.
+/// Barra de navegación fija de las secciones de un rol: una barra propia
+/// abajo en pantallas angostas, `NavigationRail` al costado en anchas. Un rol
+/// con una sola sección no muestra barra.
 /// Inicio usa sus accesos propios; el menú se conserva en las demás secciones.
 ///
 /// Intercepta el botón de atrás de Android con [PopScope]: parado en la raíz
@@ -71,34 +72,18 @@ class _NarrowShell extends StatelessWidget {
     return Scaffold(
       body: shell.navigationShell,
       bottomNavigationBar: shell._showNavigation && destinations.length >= 2
-          ? NavigationBarTheme(
-              data: const NavigationBarThemeData(
-                labelTextStyle: WidgetStatePropertyAll(TextStyle(fontSize: 11)),
-                labelPadding: EdgeInsets.zero,
-              ),
-              child: NavigationBar(
-                labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                selectedIndex: shell.navigationShell.currentIndex - offset,
-                onDestinationSelected: (index) =>
-                    shell._onDestinationSelected(index + offset),
-                destinations: [
-                  for (final section in destinations)
-                    DefaultTextStyle.merge(
-                      textAlign: TextAlign.center,
-                      // Mantener las etiquetas de una palabra en una línea.
-                      // El tooltip conserva el nombre completo.
-                      softWrap: section.label.contains(' '),
-                      overflow: section.label.contains(' ')
-                          ? null
-                          : TextOverflow.ellipsis,
-                      child: NavigationDestination(
-                        icon: Icon(section.icon),
-                        selectedIcon: Icon(section.selectedIcon),
-                        label: section.label,
-                      ),
-                    ),
-                ],
-              ),
+          ? AdaptiveNavBar(
+              destinations: [
+                for (final section in destinations)
+                  AdaptiveNavDestination(
+                    icon: section.icon,
+                    selectedIcon: section.selectedIcon,
+                    label: section.label,
+                  ),
+              ],
+              selectedIndex: shell.navigationShell.currentIndex - offset,
+              onSelected: (index) =>
+                  shell._onDestinationSelected(index + offset),
             )
           : null,
     );
