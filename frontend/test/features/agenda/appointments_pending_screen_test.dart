@@ -1352,6 +1352,20 @@ void main() {
       expect(repository.listRequests.last.to, DateTime.utc(2026, 10, 30));
     });
 
+    testWidgets('a la API viajan fechaDesde y fechaHasta como yyyy-MM-dd', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAnaDates(tester, repository);
+      await _typeDate(tester, from, '05/10/2026');
+      await _typeDate(tester, to, '30/10/2026');
+
+      final params = repository.listRequests.last.toQueryParameters();
+
+      expect(params['fechaDesde'], '2026-10-05');
+      expect(params['fechaHasta'], '2026-10-30');
+    });
+
     testWidgets('una fecha que no existe avisa y no cambia el filtro', (
       tester,
     ) async {
