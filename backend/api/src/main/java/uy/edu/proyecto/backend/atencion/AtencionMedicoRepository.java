@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import uy.edu.proyecto.backend.especialidad.Especialidad;
+import uy.edu.proyecto.backend.busqueda.TextoBusqueda;
 
 @Repository
 public class AtencionMedicoRepository {
@@ -57,10 +58,6 @@ public class AtencionMedicoRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    private static String escaparLike(String texto) {
-        return texto.replace("!", "!!").replace("%", "!%").replace("_", "!_");
-    }
-
     public List<AtencionMedicaDTO> listar(
             Long medicoId,
             LocalDate fechaDesde,
@@ -79,9 +76,9 @@ public class AtencionMedicoRepository {
         parametros.add(fechaHasta);
 
         if (paciente != null) {
-            String textoBusqueda = "%" + escaparLike(paciente) + "%";
-            sql.append(" AND (LOWER(socio.ci) LIKE LOWER(?) ESCAPE '!'"
-                    + " OR LOWER(paciente.apellido) LIKE LOWER(?) ESCAPE '!')");
+            String textoBusqueda = TextoBusqueda.patron(paciente);
+            sql.append(" AND (" + TextoBusqueda.contiene("socio.ci")
+                    + " OR " + TextoBusqueda.contiene("paciente.apellido") + ")");
             parametros.add(textoBusqueda);
             parametros.add(textoBusqueda);
         }
