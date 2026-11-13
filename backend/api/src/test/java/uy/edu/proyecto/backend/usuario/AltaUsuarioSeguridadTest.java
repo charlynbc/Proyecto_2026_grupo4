@@ -3,6 +3,7 @@ package uy.edu.proyecto.backend.usuario;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -77,9 +78,8 @@ class AltaUsuarioSeguridadTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMINISTRADOR")
     void administradorPuedeConsultarElPadronConFiltrosYSinCamposSecretos() throws Exception {
-        when(usuarioService.listar("SOCIO", "INACTIVA", "45678911", 0, 20))
+        when(usuarioService.listar(1L, "SOCIO", "INACTIVA", "45678911", 0, 20))
                 .thenReturn(new UsuarioCuentaPageResponse(
                         List.of(new UsuarioCuentaDTO(
                                 42L,
@@ -90,7 +90,8 @@ class AltaUsuarioSeguridadTest {
                                 "lucia@example.org",
                                 "INACTIVA",
                                 false,
-                                OffsetDateTime.parse("2026-09-01T09:00:00-03:00")
+                                OffsetDateTime.parse("2026-09-01T09:00:00-03:00"),
+                                false
                         )),
                         0,
                         20,
@@ -98,6 +99,8 @@ class AltaUsuarioSeguridadTest {
                 ));
 
         mockMvc.perform(get("/api/usuarios")
+                        .with(jwt().jwt(token -> token.subject("1"))
+                                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMINISTRADOR")))
                         .param("rol", "SOCIO")
                         .param("estado", "INACTIVA")
                         .param("texto", "45678911"))
@@ -109,7 +112,7 @@ class AltaUsuarioSeguridadTest {
                 .andExpect(jsonPath("$.items[0].password").doesNotExist())
                 .andExpect(jsonPath("$.items[0].token").doesNotExist());
 
-        verify(usuarioService).listar("SOCIO", "INACTIVA", "45678911", 0, 20);
+        verify(usuarioService).listar(1L, "SOCIO", "INACTIVA", "45678911", 0, 20);
     }
 
     @Test

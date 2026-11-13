@@ -11,6 +11,13 @@ public record UsuarioCuentaDTO(
         String correo,
         String estado,
         boolean activada,
-        OffsetDateTime fechaAlta
+        OffsetDateTime fechaAlta,
+        boolean puedeInactivar
 ) {
+
+    /** La misma fila con puedeInactivar decidido por la regla de inactivacion. */
+    public UsuarioCuentaDTO conPuedeInactivar(boolean valor) {
+        return new UsuarioCuentaDTO(
+                id, ci, nombre, apellido, rol, correo, estado, activada, fechaAlta, valor);
+    }
 }

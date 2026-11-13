@@ -1,5 +1,11 @@
 package uy.edu.proyecto.backend.usuario;
 
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -9,22 +15,32 @@ import uy.edu.proyecto.backend.exception.ApiException;
 public class UsuarioService {
 
     private final UsuarioPadronRepository repository;
+    private final CuentaRepository cuentaRepository;
+    private final Clock clock;
 
-    public UsuarioService(UsuarioPadronRepository repository) {
+    public UsuarioService(
+            UsuarioPadronRepository repository,
+            CuentaRepository cuentaRepository,
+            Clock clock
+    ) {
         this.repository = repository;
+        this.cuentaRepository = cuentaRepository;
+        this.clock = clock;
     }
 
     public UsuarioCuentaPageResponse listar(
+            long idAdministrador,
             String rol,
             String estado,
             String texto,
             int page,
             int size
     ) {
-        return listar(rol, estado, texto, null, null, page, size);
+        return listar(idAdministrador, rol, estado, texto, null, null, page, size);
     }
 
     public UsuarioCuentaPageResponse listar(
+            long idAdministrador,
             String rol,
             String estado,
             String texto,
@@ -77,7 +93,59 @@ public class UsuarioService {
             );
         }
 
-        return repository.listar(rolNormalizado, estadoNormalizado, texto,
-                campo, direccion, page, size);
+        UsuarioCuentaPageResponse pagina = repository.listar(
+                rolNormalizado, estadoNormalizado, texto, campo, direccion, page, size);
+        return new UsuarioCuentaPageResponse(
+                conPuedeInactivar(pagina.items(), idAdministrador),
+                pagina.page(),
+                pagina.size(),
+                pagina.total()
+        );
+    }
+
+    /**
+     * Completa puedeInactivar de cada fila con la misma regla que usa
+     * inactivar. La agenda de los medicos de la pagina se pide en lote: dos
+     * consultas como maximo, sin importar cuantas filas haya.
+     */
+    private List<UsuarioCuentaDTO> conPuedeInactivar(
+            List<UsuarioCuentaDTO> filas,
+            long idAdministrador
+    ) {
+        Set<Long> idsMedico = filas.stream()
+                .filter(fila -> "MEDICO".equals(fila.rol()))
+                .map(UsuarioCuentaDTO::id)
+                .collect(Collectors.toSet());
+        LocalDate hoy = LocalDate.now(clock);
+        Set<Long> conFechasActivas = idsMedico.isEmpty()
+                ? Set.of()
+                : cuentaRepository.medicosConFechasActivasDesde(idsMedico, hoy);
+        Set<Long> conConsultas = idsMedico.isEmpty()
+                ? Set.of()
+                : cuentaRepository.medicosConConsultasAgendadasDesde(idsMedico, hoy);
+
+        return filas.stream()
+                .map(fila -> {
+                    ReglaInactivacion.AgendaMedico agenda = new ReglaInactivacion.AgendaMedico() {
+                        @Override
+                        public boolean tieneFechasActivas() {
+                            return conFechasActivas.contains(fila.id());
+                        }
+
+                        @Override
+                        public boolean tieneConsultasAgendadas() {
+                            return conConsultas.contains(fila.id());
+                        }
+                    };
+                    boolean puede = ReglaInactivacion.evaluar(
+                            fila.id(),
+                            idAdministrador,
+                            () -> new ReglaInactivacion.CuentaCandidata(
+                                    fila.rol(), "ACTIVA".equals(fila.estado())),
+                            agenda
+                    ).isEmpty();
+                    return fila.conPuedeInactivar(puede);
+                })
+                .toList();
     }
 }
