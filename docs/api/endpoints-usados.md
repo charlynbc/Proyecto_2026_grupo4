@@ -45,7 +45,7 @@ PostgreSQL.
 
 | # | Método y ruta | Roles | RF | Pantalla del front | Estado | Usada por el front | Campos y errores |
 |---|---|---|---|---|---|---|---|
-| 18 | `GET /api/consultas` | SOCIO | 11 | Mis consultas | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026 | [contrato #18](contrato-v1.md#e18) |
+| 18 | `GET /api/consultas` | SOCIO | 11 | Mis consultas | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026; feat/front-fechas-consultas-atenciones 13/11/2026 | [contrato #18](contrato-v1.md#e18) |
 | 19 | `GET /api/consultas/{id}` | SOCIO | 11 | Detalle de consulta | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026 | [contrato #19](contrato-v1.md#e19) |
 | 20 | `POST /api/consultas/{id}/cancelar` | SOCIO | 10 | Cancelar consulta | CONFIRMADA | rama feat/cierre-cancelaciones-pases | [contrato #20](contrato-v1.md#e20) |
 | 21 | `GET /api/historia-clinica` | SOCIO (solo propias) | 12 | Historia clínica | CONFIRMADA | feat/front-historia-clinica 29/10/2026 | [contrato #21](contrato-v1.md#e21) |
@@ -68,7 +68,7 @@ PostgreSQL.
 | 38 | `POST /api/medico/consultas/{id}/cancelar` | MEDICO | 27 | Cancelar una consulta del médico (motivo obligatorio) | CONFIRMADA | feat/front-medico-cancelar-consulta 09/11/2026 | [contrato #38](contrato-v1.md#e38) |
 | 39 | `POST /api/medico/turnos/{id}/cancelar` | MEDICO | 27 | Cancelar todo el turno de una fecha y suspenderla (motivo obligatorio) | CONFIRMADA | feat/front-medico-cancelar-turno 10/11/2026 | [contrato #39](contrato-v1.md#e39) |
 | 40 | `GET /api/medico/pacientes/{socioId}/historia-clinica` | MEDICO | 22 | Historia clínica previa del paciente (requiere consulta AGENDADA vigente con él) | CONFIRMADA | feat/front-medico-historia-previa 12/11/2026 | [contrato #40](contrato-v1.md#e40) |
-| 41 | `GET /api/medico/atenciones` | MEDICO | 25 | Consultas atendidas por el médico (`fechaDesde`/`fechaHasta` obligatorias; `paciente`, `especialidadId`, `orden`, `sentido`) | CONFIRMADA | feat/front-medico-atenciones 11/11/2026 | [contrato #41](contrato-v1.md#e41) |
+| 41 | `GET /api/medico/atenciones` | MEDICO | 25 | Consultas atendidas por el médico (`fechaDesde`/`fechaHasta` obligatorias; `paciente`, `especialidadId`, `orden`, `sentido`) | CONFIRMADA | feat/front-medico-atenciones 11/11/2026; feat/front-fechas-consultas-atenciones 13/11/2026 | [contrato #41](contrato-v1.md#e41) |
 | 42 | `GET /api/medico/atenciones/{idAtencion}` | MEDICO | 25 | Detalle de una atención propia | CONFIRMADA | feat/front-medico-atenciones 11/11/2026 | [contrato #42](contrato-v1.md#e42) |
 | 43 | `GET /api/medico/pases` | MEDICO | 26 | Pases emitidos por el médico (`situacion`, `orden`, `sentido`) | CONFIRMADA | feat/front-medico-pases 10/11/2026 | [contrato #43](contrato-v1.md#e43) |
 | 44 | `POST /api/funcionario/consultas/{id}/cancelar` | FUNCIONARIO | 19 | Cancelar consulta a pedido del socio | CONFIRMADA | feat/front-cancelar-funcionario 08/11/2026 | [contrato #44](contrato-v1.md#e44) |
