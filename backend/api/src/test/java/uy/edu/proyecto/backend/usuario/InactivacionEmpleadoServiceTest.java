@@ -65,6 +65,16 @@ class InactivacionEmpleadoServiceTest {
     /* ---------- Inactivacion ---------- */
 
     @Test
+    void inactivarPropiaCuentaSeRechaza() {
+        ApiException error = assertThrows(ApiException.class,
+                () -> service.inactivar(ADMIN, ADMIN));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("AUTO_INACTIVACION_NO_PERMITIDA", error.getCode());
+        verifyNoInteractions(repository, sesionRepository);
+    }
+
+    @Test
     void inactivarCuentaInexistenteDevuelve404() {
         when(repository.bloquearCuentaParaEstado(99L)).thenReturn(Optional.empty());
 
@@ -193,6 +203,16 @@ class InactivacionEmpleadoServiceTest {
     }
 
     /* ---------- Reactivacion ---------- */
+
+    @Test
+    void reactivarPropiaCuentaSeRechaza() {
+        ApiException error = assertThrows(ApiException.class,
+                () -> service.reactivar(ADMIN, ADMIN));
+
+        assertEquals(HttpStatus.CONFLICT, error.getStatus());
+        assertEquals("AUTO_INACTIVACION_NO_PERMITIDA", error.getCode());
+        verifyNoInteractions(repository, sesionRepository);
+    }
 
     @Test
     void reactivarCuentaInexistenteDevuelve404() {

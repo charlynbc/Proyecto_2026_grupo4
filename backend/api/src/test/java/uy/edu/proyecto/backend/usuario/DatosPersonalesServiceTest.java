@@ -47,7 +47,7 @@ class DatosPersonalesServiceTest {
 
     private DatosPersonalesResponse datos(String correo) {
         return new DatosPersonalesResponse(
-                "45678911", "Ana", "Perez", "SOCIO", correo,
+                42L, "45678911", "Ana", "Perez", "SOCIO", correo,
                 null, "099111222", null, "Calle Vieja 1"
         );
     }

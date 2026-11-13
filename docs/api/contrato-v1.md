@@ -2125,6 +2125,7 @@ Devuelve los datos de la cuenta del usuario autenticado (identidad del JWT). Sir
 
 ```json
 {
+  "id": 42,
   "ci": "45678911",
   "nombre": "Lucía",
   "apellido": "Fernández",
@@ -2582,6 +2583,7 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 | 401 | `TOKEN_INVALIDO` / `NO_AUTENTICADO` | Token o sesión inválidos. |
 | 403 | `ACCESO_DENEGADO` | El usuario no tiene rol ADMINISTRADOR. |
 | 404 | `USUARIO_NO_ENCONTRADO` | No existe la cuenta. |
+| 409 | `AUTO_INACTIVACION_NO_PERMITIDA` | No puede inactivar su propia cuenta. |
 | 409 | `CUENTA_YA_INACTIVA` | La cuenta ya estaba inactiva (al inactivar). |
 | 409 | `CUENTA_YA_ACTIVA` | La cuenta ya estaba habilitada (al reactivar). |
 | 409 | `MEDICO_CON_TURNOS_ACTIVOS` | Existen fechas activas que impiden la inactivación. |

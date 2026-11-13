@@ -18,13 +18,14 @@ public class DatosPersonalesRepository {
     public Optional<DatosPersonalesResponse> buscarDatos(long idCuenta) {
         return jdbcTemplate.query(
                         """
-                        SELECT c.ci, p.nombre, p.apellido, c.rol, c.correo,
+                        SELECT c.id_cuenta, c.ci, p.nombre, p.apellido, c.rol, c.correo,
                                c.telefono_1, c.telefono_2, c.direccion
                         FROM public.cuenta c
                         JOIN public.persona p ON p.ci = c.ci
                         WHERE c.id_cuenta = ?
                         """,
                         (rs, rowNum) -> new DatosPersonalesResponse(
+                                rs.getLong("id_cuenta"),
                                 rs.getString("ci"),
                                 rs.getString("nombre"),
                                 rs.getString("apellido"),

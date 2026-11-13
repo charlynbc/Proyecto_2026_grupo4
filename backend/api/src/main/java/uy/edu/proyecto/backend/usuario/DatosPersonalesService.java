@@ -66,6 +66,7 @@ public class DatosPersonalesService {
                 .buscarCorreoPendiente(idCuenta)
                 .orElse(null);
         return new DatosPersonalesResponse(
+                datos.id(),
                 datos.ci(),
                 datos.nombre(),
                 datos.apellido(),

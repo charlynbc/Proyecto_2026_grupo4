@@ -45,7 +45,7 @@ class DatosPersonalesSeguridadTest {
 
     private DatosPersonalesResponse datos() {
         return new DatosPersonalesResponse(
-                "45678911", "Ana", "Perez", "SOCIO",
+                91L, "45678911", "Ana", "Perez", "SOCIO",
                 "ana@example.org", null,
                 "099111222", null, "Calle 1"
         );
