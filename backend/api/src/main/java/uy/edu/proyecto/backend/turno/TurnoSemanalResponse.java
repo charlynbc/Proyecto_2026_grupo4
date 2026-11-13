@@ -15,8 +15,24 @@ public record TurnoSemanalResponse(
         LocalDate fechaInicio,
         LocalDate fechaFin,
         List<NumeroSemanalResponse> numeros,
-        int cantidadTurnos
+        int cantidadTurnos,
+        boolean consultorioVariaPorFecha
 ) {
+    public TurnoSemanalResponse(
+            Long id,
+            MedicoRef medico,
+            Especialidad especialidad,
+            Consultorio consultorio,
+            int diaSemana,
+            LocalDate fechaInicio,
+            LocalDate fechaFin,
+            List<NumeroSemanalResponse> numeros,
+            int cantidadTurnos
+    ) {
+        this(id, medico, especialidad, consultorio, diaSemana, fechaInicio,
+                fechaFin, numeros, cantidadTurnos, false);
+    }
+
     public record MedicoRef(
             Long id,
             String nombre,

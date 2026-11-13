@@ -75,23 +75,56 @@ void main() {
   });
 
   group('identificador de la consulta (RF-11)', () {
-    testWidgets('una agendada muestra el número y el ID con ceros', (
-      tester,
-    ) async {
+    testWidgets('una agendada muestra el número y no el ID', (tester) async {
       await _pumpCard(tester, _appointment(id: 123, number: 4));
 
       expect(
-        find.textContaining(
-          'Marta Rodríguez · Consultorio 5 · Número 4 · ID 000123',
-        ),
+        find.textContaining('Marta Rodríguez · Consultorio 5 · Número 4'),
         findsOneWidget,
       );
     });
 
-    testWidgets('una atendida muestra el número y el ID', (tester) async {
+    testWidgets('una atendida muestra el número y no el ID', (tester) async {
       await _pumpCard(tester, _appointment(status: 'ATENDIDA'));
 
-      expect(find.textContaining('Número 2 · ID 009001'), findsOneWidget);
+      expect(find.textContaining('Número 2'), findsOneWidget);
+      expect(find.textContaining('ID'), findsNothing);
+    });
+
+    testWidgets('una agendada con id 1 y número 2 no muestra el ID', (
+      tester,
+    ) async {
+      await _pumpCard(tester, _appointment(id: 1, number: 2));
+
+      expect(find.textContaining('Número 2'), findsOneWidget);
+      expect(find.textContaining('ID'), findsNothing);
+      expect(find.text('000001'), findsNothing);
+      expect(find.textContaining('000001'), findsNothing);
+    });
+
+    testWidgets('con id 9001 y número 4 el ID no aparece en ningún formato', (
+      tester,
+    ) async {
+      await _pumpCard(tester, _appointment(id: 9001, number: 4));
+
+      expect(find.textContaining('Número 4'), findsOneWidget);
+      expect(find.textContaining('009001'), findsNothing);
+      expect(find.textContaining('9001'), findsNothing);
+    });
+
+    testWidgets('el resto de los datos sigue apareciendo, sin nada más', (
+      tester,
+    ) async {
+      await _pumpCard(tester, _appointment(id: 9001, number: 2));
+
+      expect(find.text('Cardiología · Agendada'), findsOneWidget);
+      expect(
+        find.text(
+          '20/10/2026 · 09:20 - 09:40\n'
+          'Marta Rodríguez · Consultorio 5 · Número 2',
+        ),
+        findsOneWidget,
+      );
     });
 
     for (final status in ['CANCELADA_SOCIO', 'CANCELADA_INSTITUCION']) {

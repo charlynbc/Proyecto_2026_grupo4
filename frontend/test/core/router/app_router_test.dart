@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:agenda_medica/core/fakes/datos_prueba.dart';
 import 'package:agenda_medica/core/router/app_router.dart';
 import 'package:agenda_medica/core/router/app_sections.dart';
@@ -9,6 +11,8 @@ import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart'
 import 'package:agenda_medica/features/consultorios/screens/new_clinic_screen.dart';
 import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_appointment_result_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_history_routes.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_patient_history_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_referrals_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_result_routes.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_shifts_screen.dart';
@@ -70,6 +74,59 @@ void main() {
       await unmountApp(tester);
     });
   }
+
+  testWidgets('ruta real de corrección de usuario abre una cuenta válida', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.administrador);
+    await goTo(tester, container, '/admin/usuarios/4/corregir');
+    expect(find.text('Corregir usuario'), findsOneWidget);
+    expect(find.text('Carla'), findsOneWidget);
+    expect(find.text('34567894'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
+  for (final id in ['0', '-3', 'abc', '999']) {
+    testWidgets('ruta real de corrección de usuario con id $id no encontrado', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.administrador);
+      await goTo(tester, container, '/admin/usuarios/$id/corregir');
+      expect(find.text('No encontramos esa cuenta.'), findsOneWidget);
+      await unmountApp(tester);
+    });
+  }
+
+  testWidgets('"Corregir datos" del menú abre la corrección de esa cuenta', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.administrador);
+    await goTo(tester, container, '/admin/usuarios');
+    // Ana Rodríguez es la cuenta 1, de socio: también se puede corregir.
+    await tester.ensureVisible(find.byKey(const Key('user-actions-1')));
+    await tester.tap(find.byKey(const Key('user-actions-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('user-edit-1')));
+    await tester.pumpAndSettle();
+
+    expect(locationOf(container), '/admin/usuarios/1/corregir');
+    expect(find.text('Corregir usuario'), findsOneWidget);
+    expect(find.text('Ana'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
+  testWidgets('la corrección de usuario no se abre con otro rol', (
+    tester,
+  ) async {
+    final container = await pumpApp(tester);
+    await _loginAs(tester, container, UserRole.funcionario);
+    await goTo(tester, container, '/admin/usuarios/4/corregir');
+    expect(find.text('Corregir usuario'), findsNothing);
+    await unmountApp(tester);
+  });
 
   group('redirectFor', () {
     const checking = SessionState(status: SessionStatus.checking);
@@ -446,6 +503,139 @@ void main() {
         expect(find.byType(DoctorShiftsScreen), findsOneWidget, reason: bad);
         expect(find.byType(DoctorAppointmentResultScreen), findsNothing);
       }
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+  });
+
+  group('área del médico: historia clínica previa del paciente', () {
+    testWidgets('un id que no es un número positivo vuelve a "Mis turnos"', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      for (final bad in ['abc', '0', '1x', '-', '-2']) {
+        await goTo(tester, container, '/medico/pacientes/$bad/historia');
+        expect(locationOf(container), '/medico/turnos', reason: bad);
+        expect(find.byType(DoctorShiftsScreen), findsOneWidget, reason: bad);
+        expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
+      }
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('un médico llega a la historia con el id y el paciente', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      await goTo(
+        tester,
+        container,
+        '/medico/pacientes/101/historia?paciente=Ana%20P%C3%A9rez',
+      );
+
+      expect(find.byType(DoctorPatientHistoryScreen), findsOneWidget);
+      final screen = tester.widget<DoctorPatientHistoryScreen>(
+        find.byType(DoctorPatientHistoryScreen),
+      );
+      expect(screen.socioId, 101);
+      expect(screen.patientName, 'Ana Pérez');
+      expect(find.text('Paciente: Ana Pérez'), findsOneWidget);
+      expect(find.text('Página no encontrada'), findsNothing);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('un socio que entra a la ruta vuelve a su home', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.socio);
+
+      await goTo(tester, container, '/medico/pacientes/101/historia');
+
+      expect(locationOf(container), UserRole.socio.homePath);
+      expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
+      await unmountApp(tester);
+    });
+
+    testWidgets('la flecha de volver sin pila lleva a "Mis turnos"', (
+      tester,
+    ) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+
+      // Se entra directo a la URL: no hay nada debajo para volver.
+      await goTo(
+        tester,
+        container,
+        '/medico/pacientes/101/historia?paciente=Ana%20P%C3%A9rez',
+      );
+      expect(find.byType(DoctorPatientHistoryScreen), findsOneWidget);
+      expect(container.read(goRouterProvider).canPop(), isFalse);
+
+      await tester.tap(find.byTooltip('Volver a mis turnos'));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/medico/turnos');
+      expect(find.byType(DoctorShiftsScreen), findsOneWidget);
+      expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('la flecha de volver con pila desde "Mis turnos" vuelve a '
+        '"Mis turnos"', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+      await goTo(tester, container, '/medico/turnos');
+
+      // Como lo hace el botón de la historia en la agenda: un push encima.
+      unawaited(
+        container
+            .read(goRouterProvider)
+            .push(doctorPatientHistoryLocation(101, patientName: 'Ana Pérez')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DoctorPatientHistoryScreen), findsOneWidget);
+      expect(container.read(goRouterProvider).canPop(), isTrue);
+
+      await tester.tap(find.byTooltip('Volver a mis turnos'));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/medico/turnos');
+      expect(find.byType(DoctorShiftsScreen), findsOneWidget);
+      expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
+      await unmountApp(tester);
+      container.invalidate(doctorAgendaControllerProvider);
+    });
+
+    testWidgets('la flecha de volver con pila vuelve a la pantalla de donde '
+        'se vino, no siempre a "Mis turnos"', (tester) async {
+      final container = await pumpApp(tester);
+      await _loginAs(tester, container, UserRole.medico);
+      await goTo(tester, container, '/medico/pases');
+      expect(find.byType(DoctorReferralsScreen), findsOneWidget);
+
+      unawaited(
+        container
+            .read(goRouterProvider)
+            .push(doctorPatientHistoryLocation(101, patientName: 'Ana Pérez')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DoctorPatientHistoryScreen), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Volver a mis turnos'));
+      await tester.pumpAndSettle();
+
+      // Con pila el botón hace pop: vuelve a Pases, de donde se vino.
+      expect(locationOf(container), '/medico/pases');
+      expect(find.byType(DoctorReferralsScreen), findsOneWidget);
+      expect(find.byType(DoctorShiftsScreen), findsNothing);
+      expect(find.byType(DoctorPatientHistoryScreen), findsNothing);
       await unmountApp(tester);
       container.invalidate(doctorAgendaControllerProvider);
     });

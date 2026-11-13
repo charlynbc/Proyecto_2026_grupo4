@@ -7,8 +7,10 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_sections.dart';
 import '../../auth/models/user_role.dart';
 import '../../auth/widgets/logout_button.dart';
+import '../announcement_images.dart';
 import '../models/announcement.dart';
 import '../providers/announcements_provider.dart';
+import '../widgets/announcement_network_image.dart';
 
 class AnnouncementsScreen extends ConsumerStatefulWidget {
   const AnnouncementsScreen({super.key, required this.role});
@@ -273,14 +275,14 @@ class _AnnouncementRow extends StatelessWidget {
                   height: narrow ? 88 : 112,
                   child: announcement.coverUrl == null
                       ? placeholder()
-                      : Image.network(
-                          announcement.coverUrl!,
+                      : AnnouncementNetworkImage(
+                          imageId: announcement.coverImageId,
+                          url: announcement.coverUrl!,
+                          cacheWidth: kAnnouncementImageCacheWidth,
                           fit: BoxFit.contain,
                           excludeFromSemantics: true,
-                          loadingBuilder: (context, image, progress) =>
-                              progress == null ? image : placeholder(),
-                          errorBuilder: (context, error, stack) =>
-                              placeholder(),
+                          placeholder: (_) => placeholder(),
+                          error: (_) => placeholder(),
                         ),
                 ),
               ),

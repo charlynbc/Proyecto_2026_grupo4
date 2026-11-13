@@ -1,5 +1,7 @@
 import 'dart:ui' as ui;
 
+import 'package:agenda_medica/features/novedades/announcement_image_provider.dart';
+import 'package:agenda_medica/features/novedades/announcement_images.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_detail.dart';
 import 'package:agenda_medica/features/novedades/widgets/announcement_gallery.dart';
 import 'package:flutter/gestures.dart';
@@ -27,8 +29,14 @@ void main() {
       final image = await tester.runAsync(() => picture.toImage(200, 100));
       picture.dispose();
       const url = 'https://example.invalid/imagen-cargada.png';
+      // La caché se indexa por la clave que devuelve `obtainKey`.
+      final key = await const AnnouncementImageProvider(
+        imageId: 1,
+        url: url,
+        cacheWidth: kAnnouncementImageCacheWidth,
+      ).obtainKey(ImageConfiguration.empty);
       PaintingBinding.instance.imageCache.putIfAbsent(
-        const NetworkImage(url),
+        key,
         () => OneFrameImageStreamCompleter(
           Future.value(ImageInfo(image: image!)),
         ),

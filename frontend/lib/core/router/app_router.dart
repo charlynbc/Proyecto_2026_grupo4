@@ -32,6 +32,8 @@ import '../../features/medico/screens/doctor_attentions_screen.dart';
 import '../../features/medico/screens/doctor_attention_detail_screen.dart';
 import '../../features/medico/screens/doctor_referral_routes.dart';
 import '../../features/medico/screens/doctor_referrals_screen.dart';
+import '../../features/medico/screens/doctor_history_routes.dart';
+import '../../features/medico/screens/doctor_patient_history_screen.dart';
 import '../../features/medico/screens/doctor_result_routes.dart';
 import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
@@ -51,6 +53,7 @@ import '../../features/turnos/screens/shift_routes.dart';
 import '../../features/turnos/screens/shifts_screen.dart';
 import '../../features/turnos/screens/suspend_shifts_screen.dart';
 import '../../features/turnos/screens/weekly_shift_detail_screen.dart';
+import '../../features/usuarios/screens/edit_user_screen.dart';
 import '../../features/usuarios/screens/new_user_screen.dart';
 import '../../features/usuarios/screens/user_import_screen.dart';
 import '../../features/usuarios/screens/user_routes.dart';
@@ -210,6 +213,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: kDoctorPatientHistoryPath,
+        redirect: (context, state) =>
+            _socioId(state) == null ? kDoctorShiftsPath : null,
+        builder: (context, state) => DoctorPatientHistoryScreen(
+          socioId: _socioId(state)!,
+          patientName: state.uri.queryParameters['paciente'],
+        ),
+      ),
+      GoRoute(
         path: kDoctorAttentionPath,
         redirect: (context, state) =>
             _appointmentId(state) == null ? kDoctorAttentionsPath : null,
@@ -321,6 +333,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
             GoRoute(
               path: 'importar',
               builder: (context, state) => const UserImportScreen(),
+            ),
+            GoRoute(
+              path: ':id/corregir',
+              builder: (context, state) => EditUserScreen(
+                id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              ),
             ),
           ],
         );
@@ -452,6 +470,12 @@ int? _weeklyShiftId(GoRouterState state) {
 
 int? _appointmentId(GoRouterState state) {
   final text = state.pathParameters['id'] ?? '';
+  final id = RegExp(r'^\d+$').hasMatch(text) ? int.tryParse(text) : null;
+  return id != null && id > 0 ? id : null;
+}
+
+int? _socioId(GoRouterState state) {
+  final text = state.pathParameters['socioId'] ?? '';
   final id = RegExp(r'^\d+$').hasMatch(text) ? int.tryParse(text) : null;
   return id != null && id > 0 ? id : null;
 }

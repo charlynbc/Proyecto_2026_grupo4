@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/utils/ui_date.dart';
 import '../models/appointment.dart';
-import '../models/appointment_id.dart';
 
 /// Una consulta del socio en Mis consultas (RF-11): especialidad y estado,
 /// fecha y horario, médico y consultorio. Las que no están canceladas suman
-/// el número y el ID (`Número 4 · ID 000123`, como en el mockup); las
-/// canceladas no. Al tocarla se llama [onTap]; la navegación es de quien la
-/// usa.
+/// el número (`Número 4`); las canceladas no. El ID de la consulta no se
+/// muestra (decisión de producto del 05/11/2026). Al tocarla se llama
+/// [onTap]; la navegación es de quien la usa.
 class AppointmentCard extends StatelessWidget {
   const AppointmentCard({super.key, required this.appointment, this.onTap});
 
@@ -20,7 +19,7 @@ class AppointmentCard extends StatelessWidget {
     final value = appointment;
     final identifier = _isCancelled(value.status)
         ? ''
-        : ' · Número ${value.number} · ID ${formatAppointmentId(value.id)}';
+        : ' · Número ${value.number}';
     return Card(
       child: ListTile(
         key: Key('appointment-${value.id}'),

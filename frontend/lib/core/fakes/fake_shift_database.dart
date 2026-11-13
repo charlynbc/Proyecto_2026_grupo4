@@ -5,6 +5,7 @@ import '../../features/auth/models/user_role.dart';
 import '../../features/consultorios/models/clinic.dart';
 import '../../features/especialidades/models/specialty.dart';
 import '../../features/turnos/models/doctor.dart';
+import '../../features/turnos/models/clinic_change_preview.dart';
 import '../../features/turnos/models/new_weekly_shift.dart';
 import '../../features/turnos/models/shift.dart';
 import '../../features/turnos/models/shift_filters.dart';
@@ -72,6 +73,9 @@ class FakeShiftDatabase {
   /// Consultas agendadas por configuración, escrito a mano. La clave es el
   /// id de la configuración y el valor, la cantidad.
   final Map<int, int> agendadasPorTurnoSemanal = {};
+
+  /// Para la vista previa parcial, las reservas se asocian a una fecha concreta.
+  final Map<int, int> agendadasPorTurno = {};
 
   int _nextWeeklyShiftId = 1;
   int _nextShiftId = 1;
@@ -422,77 +426,174 @@ class FakeShiftDatabase {
     // Silva (configuración 2) tiene dos consultas agendadas, para ver el
     // error a mano.
     agendadasPorTurnoSemanal[2] = 2;
+    agendadasPorTurno[shifts.firstWhere((s) => s.weeklyShiftId == 2).id] = 2;
   }
 
-  /// Cambia el consultorio de una configuración. El orden de los chequeos es
-  /// el del servidor: si algo falla, no cambia nada.
-  WeeklyShift changeClinic(int weeklyShiftId, int clinicId) {
+  /// Calcula la vista previa sin tocar el estado de los turnos (RF-20).
+  /// Las fechas suspendidas se muestran, pero no generan solapamientos:
+  /// RF-15 los volverá a validar cuando se rehabiliten.
+  ClinicChangePreview previewClinicChange(int weeklyShiftId, int clinicId) {
     if (weeklyShiftId <= 0 || clinicId <= 0) {
-      throw const ShiftValidationException(
-        'Faltan datos obligatorios o no son válidos',
-      );
+      throw const ShiftValidationException(kClinicChangeInvalidMessage);
     }
-    final current = weeklyShiftById(weeklyShiftId);
-    if (current == null) {
-      throw const ShiftNotFoundException('No existe el turno semanal indicado');
+    if (weeklyShiftById(weeklyShiftId) == null) {
+      throw const ShiftNotFoundException();
     }
-    if (current.clinic.id == clinicId) return current;
-
-    final clinics = admin.clinics.where((c) => c.id == clinicId);
-    if (clinics.isEmpty) {
-      throw const ShiftNotFoundException('No existe el consultorio indicado');
+    if (!admin.clinics.any((clinic) => clinic.id == clinicId)) {
+      throw const ShiftNotFoundException();
     }
-    final clinic = clinics.first;
 
     final now = UruguayTime.toUruguay(admin.clock());
     final today = DateTime.utc(now.year, now.month, now.day);
-    final activeFromToday = [
+    final future = [
       for (final shift in shifts)
-        if (shift.weeklyShiftId == weeklyShiftId &&
-            !shift.date.isBefore(today) &&
-            shift.state == ShiftState.active)
+        if (shift.weeklyShiftId == weeklyShiftId && !shift.date.isBefore(today))
+          shift,
+    ]..sort((a, b) => a.date.compareTo(b.date));
+
+    return ClinicChangePreview(
+      dates: [
+        for (final shift in future)
+          ClinicChangePreviewDate(
+            shiftId: shift.id,
+            date: shift.date,
+            state: shift.state,
+            bookedAppointments:
+                agendadasPorTurno[shift.id] ??
+                (shift == future.first
+                    ? (agendadasPorTurnoSemanal[weeklyShiftId] ?? 0)
+                    : 0),
+            currentClinicId: shift.clinicId,
+            currentClinicName: admin.clinics
+                .firstWhere((clinic) => clinic.id == shift.clinicId)
+                .name,
+            overlaps: [
+              if (shift.state == ShiftState.active)
+                for (final other in shifts)
+                  if (other.weeklyShiftId != weeklyShiftId &&
+                      other.state == ShiftState.active &&
+                      other.date == shift.date &&
+                      (other.doctorId == shift.doctorId ||
+                          other.clinicId == clinicId))
+                    for (final own in shift.numbers)
+                      for (final existing in other.numbers)
+                        if (own.startMinutes < existing.endMinutes &&
+                            existing.startMinutes < own.endMinutes)
+                          ClinicChangeOverlap(
+                            ownNumber: own.number,
+                            existingNumber: existing.number,
+                          ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  /// RF-20: valida todas las fechas antes de aplicar un cambio atómico.
+  /// Sin turnoIds conserva el cambio de todas las fechas futuras.
+  WeeklyShift changeClinic(
+    int weeklyShiftId,
+    int clinicId, {
+    List<int>? turnoIds,
+    bool confirmarConConsultas = false,
+  }) {
+    if (weeklyShiftId <= 0 || clinicId <= 0) {
+      throw const ShiftValidationException(kClinicChangeInvalidMessage);
+    }
+    final current = weeklyShiftById(weeklyShiftId);
+    if (current == null) {
+      throw const ShiftNotFoundException();
+    }
+    final clinics = admin.clinics.where((c) => c.id == clinicId);
+    if (clinics.isEmpty) {
+      throw const ShiftNotFoundException();
+    }
+    final clinic = clinics.first;
+    final now = UruguayTime.toUruguay(admin.clock());
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final future = [
+      for (final shift in shifts)
+        if (shift.weeklyShiftId == weeklyShiftId && !shift.date.isBefore(today))
           shift,
     ];
-    if (activeFromToday.isEmpty) {
-      throw const ShiftNotModifiableException(
-        'El turno semanal ya finalizó; no tiene fechas actuales ni futuras '
-        'por modificar',
+    if (future.isEmpty) {
+      throw const ShiftNotModifiableException(kClinicChangeBookedMessage);
+    }
+
+    final List<FakeShift> selected;
+    if (turnoIds == null) {
+      selected = future;
+    } else {
+      final ids = turnoIds.toSet();
+      if (ids.isEmpty ||
+          ids.length != turnoIds.length ||
+          turnoIds.any((id) => id <= 0) ||
+          !ids.every((id) => future.any((shift) => shift.id == id))) {
+        throw const ShiftValidationException(kClinicChangeInvalidMessage);
+      }
+      selected = [
+        for (final shift in future)
+          if (ids.contains(shift.id)) shift,
+      ];
+    }
+
+    final changing = [
+      for (final shift in selected)
+        if (shift.clinicId != clinicId) shift,
+    ];
+    if (changing.isEmpty) return current;
+
+    // No permitimos solapamientos ni siquiera con confirmación.
+    final active = [
+      for (final shift in changing)
+        if (shift.state == ShiftState.active) shift,
+    ];
+    if (active.isNotEmpty) {
+      _rejectClinicChangeOverlaps(
+        weeklyShiftId: weeklyShiftId,
+        doctorId: current.doctor.id,
+        newClinicId: clinicId,
+        activeDates: active,
       );
     }
 
-    final booked = agendadasPorTurnoSemanal[weeklyShiftId] ?? 0;
-    if (booked > 0) {
-      throw ShiftNotModifiableException(
-        'El turno tiene $booked consulta(s) agendada(s) en fechas vigentes. '
-        'Suspenda las fechas correspondientes (RF-14) y dé de alta otro turno.',
-      );
+    final withBookings = [
+      for (final shift in changing)
+        if ((agendadasPorTurno[shift.id] ??
+                (shift == future.first
+                    ? agendadasPorTurnoSemanal[weeklyShiftId] ?? 0
+                    : 0)) >
+            0)
+          shift,
+    ];
+    if (withBookings.isNotEmpty && !confirmarConConsultas) {
+      throw const ShiftNotModifiableException(kClinicChangeBookedMessage);
     }
 
-    _rejectClinicChangeOverlaps(
-      weeklyShiftId: weeklyShiftId,
-      doctorId: current.doctor.id,
-      newClinicId: clinicId,
-      activeDates: activeFromToday,
-    );
-
+    // Las fechas suspendidas mantienen su estado.
+    for (final shift in changing) {
+      shift.clinicId = clinicId;
+    }
+    // El consultorio del patrón solo se actualiza si se seleccionaron todas
+    // las fechas actuales y futuras (también las suspendidas).
+    // Puede haber cambios parciales previos: sincronizar el patrón cuando
+    // todas las fechas futuras terminaron usando el mismo consultorio.
+    final changedAll = future.every((shift) => shift.clinicId == clinicId);
     final updated = WeeklyShift(
       id: current.id,
       doctor: current.doctor,
       specialty: current.specialty,
-      clinic: clinic,
+      clinic: changedAll ? clinic : current.clinic,
       weekday: current.weekday,
       startDate: current.startDate,
       endDate: current.endDate,
       numbers: current.numbers,
       shiftCount: current.shiftCount,
+      clinicVariesByDate:
+          future.map((shift) => shift.clinicId).toSet().length > 1,
     );
     final index = weeklyShifts.indexWhere((item) => item.id == current.id);
     weeklyShifts[index] = updated;
-    for (final shift in shifts) {
-      if (shift.weeklyShiftId != weeklyShiftId) continue;
-      if (shift.date.isBefore(today)) continue;
-      shift.clinicId = clinicId;
-    }
     return updated;
   }
 
@@ -504,7 +605,7 @@ class FakeShiftDatabase {
     required int newClinicId,
     required List<FakeShift> activeDates,
   }) {
-    final messages = <String>[];
+    var overlaps = false;
     final sorted = [...activeDates]..sort((a, b) => a.date.compareTo(b.date));
     for (final mine in sorted) {
       for (final other in shifts) {
@@ -524,25 +625,13 @@ class FakeShiftDatabase {
                 own.startMinutes < existing.endMinutes &&
                 existing.startMinutes < own.endMinutes;
             if (!crosses) continue;
-            messages.add(
-              'fecha ${_isoDate(mine.date)}, número ${own.number} '
-              'con número existente ${existing.number}',
-            );
+            overlaps = true;
           }
         }
       }
     }
-    if (messages.isEmpty) return;
-    throw OverlappingShiftException(
-      'Se encontraron solapamientos: ${messages.join('; ')}',
-    );
-  }
-
-  static String _isoDate(DateTime date) {
-    final year = date.year.toString().padLeft(4, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final day = date.day.toString().padLeft(2, '0');
-    return '$year-$month-$day';
+    if (!overlaps) return;
+    throw const OverlappingShiftException(kClinicChangeOverlapMessage);
   }
 
   /// Vuelve a habilitar una fecha concreta. Si no está suspendida, lanza

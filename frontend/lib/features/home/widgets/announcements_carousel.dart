@@ -1,7 +1,22 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../novedades/announcement_images.dart';
 import '../../novedades/models/announcement.dart';
+import '../../novedades/widgets/announcement_network_image.dart';
+
+/// El orden en que se precargan las portadas: la visible, la siguiente, la
+/// anterior y las restantes de menor a mayor posición.
+List<int> carouselPrefetchOrder({required int visible, required int count}) {
+  final first = [visible, visible + 1, visible - 1];
+  return [
+    for (final index in first)
+      if (index >= 0 && index < count) index,
+    for (var index = 0; index < count; index++)
+      if (!first.contains(index)) index,
+  ];
+}
 
 /// Una portada por novedad. No consulta ni representa su detalle.
 class AnnouncementsCarousel extends StatefulWidget {
@@ -9,10 +24,14 @@ class AnnouncementsCarousel extends StatefulWidget {
     super.key,
     required this.announcements,
     required this.onOpen,
+    this.precache = precacheAnnouncementImage,
   });
 
   final List<Announcement> announcements;
   final ValueChanged<int> onOpen;
+
+  /// Precarga las portadas; se inyecta en las pruebas.
+  final AnnouncementImagePrecache precache;
 
   @override
   State<AnnouncementsCarousel> createState() => _AnnouncementsCarouselState();
@@ -21,6 +40,70 @@ class AnnouncementsCarousel extends StatefulWidget {
 class _AnnouncementsCarouselState extends State<AnnouncementsCarousel> {
   final _controller = PageController();
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefetchAllAfterFrame();
+  }
+
+  @override
+  void didUpdateWidget(AnnouncementsCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(_coverUrls(oldWidget), _coverUrls(widget))) {
+      _prefetchAllAfterFrame();
+    }
+  }
+
+  List<String?> _coverUrls(AnnouncementsCarousel carousel) => [
+    for (final announcement in carousel.announcements) announcement.coverUrl,
+  ];
+
+  /// La cadena de precarga que está vigente. Una lista nueva empieza otra y
+  /// corta la anterior.
+  int _chain = 0;
+
+  /// Apenas llega la lista: precarga las portadas de a una, para que no
+  /// compitan por ancho de banda con la portada visible, que es la que más
+  /// importa.
+  void _prefetchAllAfterFrame() {
+    final chain = ++_chain;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || chain != _chain) return;
+      _prefetchInOrder(chain);
+    });
+  }
+
+  /// Primero espera a que la portada visible termine de cargar o falle; recién
+  /// después sigue con la siguiente, la anterior y las restantes, de a una y
+  /// esperando a que termine la anterior. Un error de descarga no corta la
+  /// cadena. Cambiar de página mientras corre no la reinicia: el orden queda
+  /// el de la portada que estaba visible al llegar la lista.
+  Future<void> _prefetchInOrder(int chain) async {
+    final items = widget.announcements;
+    final order = carouselPrefetchOrder(visible: _index, count: items.length);
+    for (final index in order) {
+      // Si se desmontó o llegó otra lista, no se pide nada más.
+      if (!mounted || chain != _chain) return;
+      final announcement = items[index];
+      final url = announcement.coverUrl;
+      if (url == null) continue;
+      // Se lee fuera del try: con el contexto desmontado tiene que fallar a la
+      // vista, no tragarse el error. Eso lo evita el chequeo de `mounted`.
+      final precache = widget.precache;
+      final buildContext = context;
+      final provider = announcementImageProvider(
+        imageId: announcement.coverImageId,
+        url: url,
+        cacheWidth: kAnnouncementImageCacheWidth,
+      );
+      try {
+        await precache(buildContext, provider);
+      } catch (_) {
+        // La pantalla ya muestra su propio placeholder si la imagen falla.
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -169,13 +252,14 @@ class _AnnouncementCard extends StatelessWidget {
               if (announcement.coverUrl == null)
                 placeholder()
               else
-                Image.network(
-                  announcement.coverUrl!,
+                AnnouncementNetworkImage(
+                  imageId: announcement.coverImageId,
+                  url: announcement.coverUrl!,
+                  cacheWidth: kAnnouncementImageCacheWidth,
                   fit: BoxFit.cover,
                   excludeFromSemantics: true,
-                  loadingBuilder: (context, image, progress) =>
-                      progress == null ? image : placeholder(),
-                  errorBuilder: (_, _, _) => placeholder(),
+                  placeholder: (_) => placeholder(),
+                  error: (_) => placeholder(),
                 ),
               Positioned(
                 left: 0,

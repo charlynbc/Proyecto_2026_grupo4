@@ -365,10 +365,11 @@ void main() {
       'Contenido',
     );
     await tester.enterText(title, 'a' * 161);
-    await tester.ensureVisible(publish);
-    await tester.tap(publish);
     await tester.pumpAndSettle();
-    expect(find.text('El título admite hasta 160 caracteres.'), findsOneWidget);
+    // El campo corta al escribir: el error de largo ya no se alcanza.
+    expect(tester.widget<TextFormField>(title).controller!.text, 'a' * 160);
+    expect(find.text('160/160'), findsOneWidget);
+    expect(find.text('El título admite hasta 160 caracteres.'), findsNothing);
     expect(repo.drafts, isEmpty);
 
     final validTitle = 'a' * 160;
@@ -379,6 +380,86 @@ void main() {
     await tester.tap(publish);
     await tester.pumpAndSettle();
     expect(repo.drafts.single.title, validTitle);
+  });
+
+  group('el título corta en 160 al escribir', () {
+    Future<_News> openForm(WidgetTester tester, {double width = 1280}) async {
+      final repo = _News();
+      await _pumpList(tester, repo, role: UserRole.administrador, width: width);
+      await tester.tap(find.text('Crear nueva novedad'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Texto de la novedad'),
+        'Contenido',
+      );
+      return repo;
+    }
+
+    final title = find.widgetWithText(TextFormField, 'Título');
+    String titleText(WidgetTester tester) =>
+        tester.widget<TextFormField>(title).controller!.text;
+    Future<void> publish(WidgetTester tester) async {
+      final button = find.widgetWithText(FilledButton, 'Publicar');
+      await tester.ensureVisible(button);
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('161 "a" dejan 160 y se publica sin error de largo', (
+      tester,
+    ) async {
+      final repo = await openForm(tester);
+
+      await tester.enterText(title, 'a' * 161);
+      await tester.pumpAndSettle();
+      expect(titleText(tester), 'a' * 160);
+
+      await publish(tester);
+
+      expect(find.text('El título admite hasta 160 caracteres.'), findsNothing);
+      expect(repo.drafts.single.title, 'a' * 160);
+    });
+
+    testWidgets('pegar 300 caracteres deja 160', (tester) async {
+      await openForm(tester);
+      final pasted = 'abcdefghij' * 30;
+
+      await tester.enterText(title, pasted);
+      await tester.pumpAndSettle();
+
+      expect(titleText(tester), pasted.substring(0, 160));
+      expect(find.text('160/160'), findsOneWidget);
+    });
+
+    testWidgets('100 emojis quedan en 80 y se publican sin error de largo', (
+      tester,
+    ) async {
+      final repo = await openForm(tester);
+      const emoji = '\u{1F600}';
+
+      await tester.enterText(title, emoji * 100);
+      await tester.pumpAndSettle();
+      expect(titleText(tester), emoji * 80);
+      expect(find.text('160/160'), findsOneWidget);
+
+      await publish(tester);
+
+      expect(find.text('El título admite hasta 160 caracteres.'), findsNothing);
+      expect(repo.drafts.single.title, emoji * 80);
+    });
+
+    testWidgets('a 320 px el campo con 160 caracteres no desborda', (
+      tester,
+    ) async {
+      await openForm(tester, width: 320);
+
+      await tester.enterText(title, 'a' * 160);
+      await tester.pumpAndSettle();
+
+      expect(titleText(tester), 'a' * 160);
+      expect(find.text('160/160'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 
   testWidgets(
