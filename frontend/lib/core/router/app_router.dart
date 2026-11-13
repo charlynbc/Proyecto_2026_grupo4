@@ -53,6 +53,7 @@ import '../../features/turnos/screens/shift_routes.dart';
 import '../../features/turnos/screens/shifts_screen.dart';
 import '../../features/turnos/screens/suspend_shifts_screen.dart';
 import '../../features/turnos/screens/weekly_shift_detail_screen.dart';
+import '../../features/usuarios/screens/edit_user_screen.dart';
 import '../../features/usuarios/screens/new_user_screen.dart';
 import '../../features/usuarios/screens/user_import_screen.dart';
 import '../../features/usuarios/screens/user_routes.dart';
@@ -240,8 +241,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 /// pantalla muestran "Próximamente".
 RouteBase _roleShell(UserRole role) {
   return StatefulShellRoute.indexedStack(
-    builder: (context, state, navigationShell) =>
-        AppShell(navigationShell: navigationShell, sections: role.sections),
+    builder: (context, state, navigationShell) => AppShell(
+      navigationShell: navigationShell,
+      sections: role.sections,
+      role: role,
+    ),
     branches: [
       for (final section in role.sections)
         StatefulShellBranch(routes: [_sectionRoute(role, section)]),
@@ -255,6 +259,12 @@ RouteBase _roleShell(UserRole role) {
 /// "Próximamente".
 GoRoute _sectionRoute(UserRole role, AppSection section) {
   final path = role.sectionPath(section);
+  if (section.slug == 'inicio') {
+    return GoRoute(
+      path: path,
+      builder: (context, state) => HomeScreen(role: role),
+    );
+  }
   if (path == role.announcementsPath) {
     return GoRoute(
       path: path,
@@ -323,6 +333,12 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
             GoRoute(
               path: 'importar',
               builder: (context, state) => const UserImportScreen(),
+            ),
+            GoRoute(
+              path: ':id/corregir',
+              builder: (context, state) => EditUserScreen(
+                id: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+              ),
             ),
           ],
         );
@@ -401,11 +417,6 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
   }
   if (role == UserRole.socio) {
     switch (path) {
-      case '/socio/inicio':
-        return GoRoute(
-          path: path,
-          builder: (context, state) => const HomeScreen(role: UserRole.socio),
-        );
       case '/socio/historia':
         return GoRoute(
           path: path,

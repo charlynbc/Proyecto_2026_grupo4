@@ -262,4 +262,89 @@ void main() {
     gate.complete();
     await tester.pumpAndSettle();
   });
+
+  testWidgets('el botón Atrás del sistema no cierra el diálogo mientras envía '
+      'y al terminar se cierra solo', (tester) async {
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    final cancel = Cancel()..gate = gate;
+    await pumpScreen(tester, Agenda(), cancel);
+    await open(tester);
+    await tester.enterText(
+      find.byKey(const Key('cancel-reason-field')),
+      'Motivo',
+    );
+    await tester.tap(find.byKey(const Key('confirm-cancel')));
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('¿Cancelar todo el turno?'), findsOneWidget);
+    expect(
+      tester
+          .widget<ButtonStyleButton>(find.byKey(const Key('confirm-cancel')))
+          .onPressed,
+      isNull,
+    );
+    expect(cancel.calls, hasLength(1));
+
+    gate.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿Cancelar todo el turno?'), findsNothing);
+    expect(
+      find.text(
+        'Turno cancelado. Se cancelaron 2 consultas. '
+        '1 pase volvió a estar disponible.',
+      ),
+      findsOneWidget,
+    );
+    expect(cancel.calls, hasLength(1));
+  });
+
+  testWidgets('tras un error el botón Atrás del sistema sí cierra el '
+      'diálogo', (tester) async {
+    final cancel = Cancel()
+      ..error = const DoctorCancellationException(
+        DoctorCancellationFailure.forbidden,
+        'Tu cuenta no tiene permiso para cancelar turnos.',
+      );
+    await pumpScreen(tester, Agenda(), cancel);
+    await open(tester);
+    await tester.enterText(
+      find.byKey(const Key('cancel-reason-field')),
+      'Motivo',
+    );
+    await tester.tap(find.byKey(const Key('confirm-cancel')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Tu cuenta no tiene permiso para cancelar turnos.'),
+      findsOneWidget,
+    );
+    expect(find.text('¿Cancelar todo el turno?'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿Cancelar todo el turno?'), findsNothing);
+    expect(cancel.calls, hasLength(1));
+  });
+
+  testWidgets('sin enviar nada el botón Atrás del sistema cierra el diálogo', (
+    tester,
+  ) async {
+    final cancel = Cancel();
+    await pumpScreen(tester, Agenda(), cancel);
+    await open(tester);
+    expect(find.text('¿Cancelar todo el turno?'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿Cancelar todo el turno?'), findsNothing);
+    expect(cancel.calls, isEmpty);
+  });
 }

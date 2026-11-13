@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/forms/trimmed_length_limiting_formatter.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_sections.dart';
 import '../../auth/models/user_role.dart';
@@ -189,6 +190,13 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
                     TextFormField(
                       controller: _title,
                       enabled: !_submitting,
+                      // Corta al escribir o pegar, con la misma cuenta que
+                      // `validateTitle` y el servidor (recortado, UTF-16).
+                      inputFormatters: const [
+                        TrimmedLengthLimitingFormatter(
+                          AnnouncementDraft.maxTitleLength,
+                        ),
+                      ],
                       decoration: InputDecoration(
                         labelText: 'Título',
                         counter: ValueListenableBuilder(
