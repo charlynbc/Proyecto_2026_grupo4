@@ -97,8 +97,8 @@ PostgreSQL.
 | 67 | `GET /api/anuncios/{id}` | autenticado | 07 | Detalle de novedad con texto y/o imágenes ordenadas | IMPLEMENTADA EN BACKEND (PR #71) | - | [contrato #67](contrato-v1.md#e67) |
 | 68 | `GET /api/usuarios/{id}` | ADMINISTRADOR | 38 | Detalle completo de cuenta para precargar corrección; mismo DTO que PATCH #58 | CONFIRMADA (backend 06/11/2026) | feat/front-corregir-usuario 11/11/2026 | [contrato #68](contrato-v1.md#e68) |
 | 69 | `GET /api/estadisticas/inasistencias` | ADMINISTRADOR | 42 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | feat/front-rf42-estadisticas-inasistencias 10/11/2026 | [contrato #69](contrato-v1.md#e69) |
-| 70 | `GET /api/estadisticas/pases` | ADMINISTRADOR | 43 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | - | [contrato #70](contrato-v1.md#e70) |
-| 71 | `GET /api/estadisticas/franjas` | ADMINISTRADOR | 44 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | - | [contrato #71](contrato-v1.md#e71) |
+| 70 | `GET /api/estadisticas/pases` | ADMINISTRADOR | 43 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | feat/front-rf43-rf44-estadisticas 11/11/2026 | [contrato #70](contrato-v1.md#e70) |
+| 71 | `GET /api/estadisticas/franjas` | ADMINISTRADOR | 44 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | feat/front-rf43-rf44-estadisticas 11/11/2026 | [contrato #71](contrato-v1.md#e71) |
 | 72 | `POST /api/turnos-semanales/{id}/consultorio/vista-previa` | FUNCIONARIO | 20 | Vista previa de fechas, consultas y cruces del consultorio destino (solo lectura) | EN DESARROLLO (rama feat/front-rf20-consultorio-parcial) | feat/front-rf20-consultorio-parcial 12/11/2026 | [contrato #72](contrato-v1.md#e72) |
 
 ## Rutas de la prueba de concepto

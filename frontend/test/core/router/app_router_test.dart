@@ -675,7 +675,7 @@ void main() {
       expect(UserRole.administrador.sectionPath(section), kStatisticsPath);
     });
 
-    testWidgets('estadísticas abre su pantalla con las cuatro pestañas y no '
+    testWidgets('estadísticas abre su pantalla con las seis pestañas y no '
         '"Próximamente"', (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.administrador);
@@ -684,7 +684,7 @@ void main() {
 
       expect(locationOf(container), kStatisticsPath);
       expect(find.byType(StatisticsScreen), findsOneWidget);
-      expect(find.byType(Tab), findsNWidgets(4));
+      expect(find.byType(Tab), findsNWidgets(6));
       expect(find.text('Inasistencias'), findsOneWidget);
       expect(find.text('Próximamente'), findsNothing);
       // Sigue dentro del menú del administrador.
