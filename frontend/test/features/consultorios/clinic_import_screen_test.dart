@@ -222,6 +222,21 @@ void main() {
     expect(find.byKey(const Key('import-total')), findsNothing);
   });
 
+  testWidgets('las instrucciones dicen que el orden de las columnas no '
+      'importa', (tester) async {
+    await _pump(tester);
+
+    final instructions = _text(tester, 'import-instructions');
+    expect(
+      instructions,
+      'Elegí un archivo CSV con un consultorio por fila y estas dos columnas '
+      '(el orden no importa): nombre y ubicacion. Los que ya existen no se '
+      'modifican. Formato: separador coma o punto y coma, UTF-8, hasta 1 MB '
+      'y 1000 filas.',
+    );
+    expect(instructions, isNot(contains('en este orden')));
+  });
+
   testWidgets('con un archivo elegido se puede previsualizar', (tester) async {
     await _pump(tester);
 

@@ -17,10 +17,10 @@ class UserImportScreen extends ConsumerWidget {
   const UserImportScreen({super.key});
 
   static const String _instructions =
-      'Elegí un archivo CSV con una cuenta por fila y estas columnas, en este '
-      'orden: ci, nombre, apellido, fecha_nacimiento, correo, telefono_1, '
-      'telefono_2, direccion, rol, especialidades. La fecha va como '
-      'aaaa-mm-dd y las especialidades de un médico, separadas por |. '
+      'Elegí un archivo CSV con una cuenta por fila y estas columnas (el '
+      'orden no importa): ci, nombre, apellido, fecha_nacimiento, correo, '
+      'telefono_1, telefono_2, direccion, rol, especialidades. La fecha va '
+      'como aaaa-mm-dd y las especialidades de un médico, separadas por |. '
       'Formato: separador coma o punto y coma, UTF-8, hasta 1 MB y 1000 '
       'filas.';
 
