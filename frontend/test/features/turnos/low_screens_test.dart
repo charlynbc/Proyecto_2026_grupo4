@@ -109,7 +109,8 @@ void main() {
     testWidgets('la consulta con tarjetas scrollea hasta el paginador', (
       tester,
     ) async {
-      await _pumpLowFuncionario(tester);
+      final container = await _pumpLowFuncionario(tester);
+      await goTo(tester, container, kShiftsPath);
 
       expect(find.byType(ShiftsScreen), findsOneWidget);
       expect(find.byType(DataTable), findsNothing);
@@ -125,7 +126,8 @@ void main() {
     testWidgets('"Limpiar filtros" se alcanza y funciona, sin desbordes', (
       tester,
     ) async {
-      await _pumpLowFuncionario(tester);
+      final container = await _pumpLowFuncionario(tester);
+      await goTo(tester, container, kShiftsPath);
 
       final clear = find.text('Limpiar filtros');
       await _expectReachable(tester, clear);

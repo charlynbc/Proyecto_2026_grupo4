@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/core/validators/uruguayan_ci_validator.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/cuenta/models/account.dart';
+import 'package:agenda_medica/features/cuenta/providers/account_provider.dart';
 import 'package:agenda_medica/features/cuenta/providers/account_repository_provider.dart';
 import 'package:agenda_medica/features/usuarios/models/account_status_change.dart';
 import 'package:agenda_medica/features/usuarios/models/user_account.dart';
@@ -12,6 +14,9 @@ import 'package:agenda_medica/features/usuarios/models/user_page.dart';
 import 'package:agenda_medica/features/usuarios/providers/user_filters_controller.dart';
 import 'package:agenda_medica/features/usuarios/providers/user_repository_provider.dart';
 import 'package:agenda_medica/features/usuarios/providers/user_status_repository_provider.dart';
+import 'package:agenda_medica/features/usuarios/providers/users_page_provider.dart';
+import 'package:agenda_medica/features/usuarios/repositories/fake_user_correction_repository.dart';
+import 'package:agenda_medica/features/usuarios/repositories/user_correction_repository.dart';
 import 'package:agenda_medica/features/usuarios/repositories/fake_user_repository.dart';
 import 'package:agenda_medica/features/usuarios/repositories/fake_user_status_repository.dart';
 import 'package:agenda_medica/features/usuarios/repositories/user_status_repository.dart';
@@ -279,6 +284,25 @@ List<int> _withMenu() => [
     if (_menu(id).evaluate().isNotEmpty) id,
 ];
 
+/// Las claves de las acciones del menú de la cuenta [id], sin abrirlo.
+List<Key?> _actionKeys(WidgetTester tester, int id) {
+  final menu = tester.widget<PopupMenuButton<Object?>>(_menu(id));
+  return [
+    for (final entry in menu.itemBuilder(tester.element(_menu(id)))) entry.key,
+  ];
+}
+
+/// Los ids, entre los de las cinco cuentas, cuyo menú ofrece inactivar o
+/// reactivar. Todas las cuentas tienen menú ("Corregir datos"), pero esta
+/// acción no se ofrece en socios ni en la fila propia.
+List<int> _withStatusAction(WidgetTester tester) => [
+  for (final id in [1, 2, 3, 4, 5])
+    if (_menu(id).evaluate().isNotEmpty &&
+        (_actionKeys(tester, id).contains(Key('user-deactivate-$id')) ||
+            _actionKeys(tester, id).contains(Key('user-reactivate-$id'))))
+      id,
+];
+
 /// Estado de cada fila de la tabla: "Apellido, nombre" y "Activo"/"Inactivo".
 List<(String, String)> _tableStates(WidgetTester tester) => [
   for (final row in tester.widget<DataTable>(find.byType(DataTable)).rows)
@@ -296,12 +320,13 @@ void main() {
 
   group('quién tiene menú', () {
     for (final (name, size) in [('tabla', _wide), ('tarjetas', _narrow)]) {
-      testWidgets('en $name no hay menú en Ana ni en Diego y sí en los demás', (
+      testWidgets('en $name inactivar no se ofrece en Ana ni en Diego', (
         tester,
       ) async {
         await _pump(tester, size: size);
 
-        expect(_withMenu(), [2, 3, 4]);
+        expect(_withMenu(), [1, 2, 3, 4, 5]);
+        expect(_withStatusAction(tester), [2, 3, 4]);
         expect(
           tester.widget<PopupMenuButton<Object?>>(_menu(2)).tooltip,
           'Acciones',
@@ -309,30 +334,32 @@ void main() {
       });
     }
 
-    testWidgets('con la sesión de otro administrador, Diego tiene menú', (
-      tester,
-    ) async {
-      await _pump(
-        tester,
-        account: RecordingAccountRepository(account: _session('78901238')),
-      );
+    testWidgets(
+      'con la sesión de otro administrador, Diego se puede inactivar',
+      (tester) async {
+        await _pump(
+          tester,
+          account: RecordingAccountRepository(account: _session('78901238')),
+        );
 
-      expect(_withMenu(), [2, 3, 4, 5]);
-    });
+        expect(_withStatusAction(tester), [2, 3, 4, 5]);
+      },
+    );
 
-    testWidgets('el mismo CI con otro rol no oculta el menú', (tester) async {
+    testWidgets('el mismo CI con otro rol no oculta la acción', (tester) async {
       // La sesión es un administrador con la CI de Bruno: sus cuentas de
-      // funcionario y de médico siguen con menú, y Diego (otra CI) también.
+      // funcionario y de médico siguen con la acción, y Diego (otra CI)
+      // también.
       await _pump(
         tester,
         account: RecordingAccountRepository(account: _session('23456783')),
       );
 
-      expect(_withMenu(), [2, 3, 4, 5]);
+      expect(_withStatusAction(tester), [2, 3, 4, 5]);
     });
 
     testWidgets(
-      'mientras carga la cuenta de la sesión, sin menú en administradores',
+      'mientras carga la cuenta de la sesión, sin inactivar en administradores',
       (tester) async {
         final gate = Completer<void>();
         addTearDown(() {
@@ -343,19 +370,21 @@ void main() {
           account: RecordingAccountRepository(account: _diego)..gate = gate,
         );
 
-        expect(_withMenu(), [2, 3, 4]);
+        expect(_withMenu(), [1, 2, 3, 4, 5]);
+        expect(_withStatusAction(tester), [2, 3, 4]);
       },
     );
 
     testWidgets(
-      'si falla la cuenta de la sesión, sin menú en administradores',
+      'si falla la cuenta de la sesión, sin inactivar en administradores',
       (tester) async {
         await _pump(
           tester,
           account: RecordingAccountRepository(error: const ApiException()),
         );
 
-        expect(_withMenu(), [2, 3, 4]);
+        expect(_withMenu(), [1, 2, 3, 4, 5]);
+        expect(_withStatusAction(tester), [2, 3, 4]);
       },
     );
   });
@@ -997,7 +1026,90 @@ void main() {
     );
   });
 
+  group('Corregir datos', () {
+    for (final (name, size) in [('tabla', _wide), ('tarjetas', _narrow)]) {
+      testWidgets(
+        'en $name toda fila lo ofrece primero, también socios y la propia',
+        (tester) async {
+          await _pump(tester, size: size);
+
+          for (final id in [1, 2, 3, 4, 5]) {
+            expect(
+              _actionKeys(tester, id).first,
+              Key('user-edit-$id'),
+              reason: 'cuenta $id',
+            );
+          }
+        },
+      );
+    }
+
+    testWidgets('el ítem se llama "Corregir datos"', (tester) async {
+      await _pump(tester);
+
+      await _open(tester, 1);
+
+      expect(find.text('Corregir datos'), findsOneWidget);
+    });
+
+    testWidgets('sin saber quién es la sesión también se ofrece', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        account: RecordingAccountRepository(error: const ApiException()),
+      );
+
+      expect(_actionKeys(tester, 5).first, const Key('user-edit-5'));
+      expect(_actionKeys(tester, 1).first, const Key('user-edit-1'));
+    });
+  });
+
   group('la fila propia', () {
+    // LIMITACIÓN CONOCIDA: la fila propia se reconoce por CI y rol, y la sesión
+    // no guarda el id de la cuenta. Si el administrador corrige la CI de su
+    // propia cuenta, la sesión (la cuenta de `GET /api/cuentas/me`) conserva la
+    // CI vieja hasta que se renueve, el padrón ya trae la nueva con el mismo id
+    // y la fila propia deja de reconocerse: ofrece "Inactivar cuenta". Una
+    // tarjeta aparte lo resuelve cuando el backend entregue el id.
+    testWidgets(
+      'LIMITACIÓN: al corregir mi propia CI, mi fila ofrece inactivar',
+      (tester) async {
+        final h = await _pump(
+          tester,
+          account: RecordingAccountRepository(account: _diego),
+        );
+        // Antes de corregir, la fila propia (id 5) no ofrece inactivar.
+        expect(_withStatusAction(tester), [2, 3, 4]);
+
+        // Una cédula libre y válida; el dígito verificador es un dato de entrada.
+        const body = '3644426';
+        final newCi = '$body${calculateUruguayanCiVerifierDigit(body)}';
+        // Fuera del reloj falso del test: el fake espera con un Future.delayed.
+        await tester.runAsync(
+          () => FakeUserCorrectionRepository(
+            h.db,
+            latency: Duration.zero,
+          ).correct(5, AccountCorrection(ci: newCi)),
+        );
+        h.container.invalidate(usersPageProvider);
+        await tester.pumpAndSettle();
+
+        // La sesión conserva la CI vieja.
+        expect(h.container.read(accountProvider).value?.ci, '45678905');
+        // El padrón ya trae la nueva, con el mismo id de cuenta.
+        expect(h.db.accounts.firstWhere((a) => a.id == 5).ci, newCi);
+        // La fila propia ya no se reconoce: ofrece inactivar.
+        expect(_withStatusAction(tester), [2, 3, 4, 5]);
+        expect(
+          _actionKeys(tester, 5),
+          contains(const Key('user-deactivate-5')),
+        );
+        // La corrección sigue disponible en esa fila.
+        expect(_actionKeys(tester, 5).first, const Key('user-edit-5'));
+      },
+    );
+
     // PENDIENTE: la sesión no guarda el id de la cuenta y GET /api/cuentas/me
     // tampoco lo devuelve, así que hoy la fila propia solo se reconoce por CI
     // y rol. Cuando la sesión tenga el id, hay que reconocerla por id y sacar

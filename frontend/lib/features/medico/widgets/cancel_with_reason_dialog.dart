@@ -108,6 +108,7 @@ class _CancelWithReasonDialogState<T>
               decoration: InputDecoration(
                 labelText: 'Motivo de la cancelación',
                 errorText: _fieldError,
+                errorMaxLines: 2,
               ),
             ),
             if (_error != null) ...[

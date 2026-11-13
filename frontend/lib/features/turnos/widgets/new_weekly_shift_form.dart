@@ -298,7 +298,9 @@ class _NewWeeklyShiftFormState extends ConsumerState<NewWeeklyShiftForm> {
             key: const Key('field-from'),
             controller: _fromController,
             enabled: enabled,
-            label: 'Vigencia desde (dd/mm/aaaa)',
+            // El formato queda como pista del campo (`dd/mm/aaaa`): una
+            // etiqueta más larga se corta con puntos a 320 px.
+            label: 'Vigencia desde',
             pickerHelpText: 'Vigencia desde',
             pickerTooltip: 'Elegir la fecha de inicio de la vigencia',
             firstDate: kShiftDatePickerFirstDate,
@@ -313,7 +315,7 @@ class _NewWeeklyShiftFormState extends ConsumerState<NewWeeklyShiftForm> {
             key: const Key('field-to'),
             controller: _toController,
             enabled: enabled,
-            label: 'Vigencia hasta (dd/mm/aaaa)',
+            label: 'Vigencia hasta',
             pickerHelpText: 'Vigencia hasta',
             pickerTooltip: 'Elegir la fecha de fin de la vigencia',
             firstDate: kShiftDatePickerFirstDate,

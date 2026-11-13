@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:agenda_medica/features/especialidades/models/specialty.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialties_provider.dart';
 import 'package:agenda_medica/features/medico/models/doctor_attention.dart';
@@ -16,7 +18,11 @@ import '../../helpers/load_roboto.dart';
 
 class RecordingRepository implements DoctorAttentionRepository {
   final queries = <DoctorAttentionQuery>[];
-  final fake = FakeDoctorAttentionRepository(latency: Duration.zero);
+  // Con este reloj, hoy es el 12/11/2026 y la atención 5530 es de hoy.
+  final fake = FakeDoctorAttentionRepository(
+    latency: Duration.zero,
+    clock: () => DateTime.utc(2026, 11, 12, 15),
+  );
   @override
   Future<List<DoctorAttention>> list(DoctorAttentionQuery query) async {
     queries.add(query);
@@ -28,6 +34,43 @@ class RecordingRepository implements DoctorAttentionRepository {
 }
 
 void main() {
+  for (final width in [1200.0, 360.0, 320.0]) {
+    testWidgets(
+      'el indicador de carga de Especialidad es cuadrado a ${width.toInt()} px',
+      (tester) async {
+        await loadRoboto();
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        // Las especialidades quedan cargando; la lista de atenciones responde
+        // enseguida, así el único indicador en pantalla es el del filtro.
+        final gate = Completer<List<Specialty>>();
+        addTearDown(() {
+          if (!gate.isCompleted) gate.complete(const []);
+        });
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              doctorAttentionRepositoryProvider.overrideWith(
+                (ref) async => RecordingRepository(),
+              ),
+              specialtiesProvider.overrideWith((ref) => gate.future),
+            ],
+            child: const MaterialApp(home: DoctorAttentionsScreen()),
+          ),
+        );
+        for (var i = 0; i < 5; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
+        }
+
+        final indicator = find.byType(CircularProgressIndicator);
+        expect(indicator, findsOneWidget);
+        expect(tester.getSize(indicator), const Size(36, 36));
+      },
+    );
+  }
+
   testWidgets('busca con CI normalizada y abre el detalle', (tester) async {
     final repo = RecordingRepository();
     final router = GoRouter(
@@ -90,8 +133,8 @@ void main() {
     await tester.tap(find.byKey(const Key('attention-5530')));
     await tester.pumpAndSettle();
     expect(find.text('Lucía Fernández'), findsOneWidget);
-    expect(find.text('20/10/2026'), findsOneWidget);
-    expect(find.text('Vence el 18/01/2027'), findsOneWidget);
+    expect(find.text('12/11/2026'), findsOneWidget);
+    expect(find.text('Vence el 10/02/2027'), findsOneWidget);
     expect(find.text('Observaciones'), findsNothing);
   });
   testWidgets('controles a 320 píxeles sin desbordes', (tester) async {

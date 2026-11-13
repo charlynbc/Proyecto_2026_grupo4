@@ -74,6 +74,9 @@ class FakeUserRepository implements UserRepository {
         activated: false,
         createdAt: _db.clock().toUtc(),
         specialtyIds: user.role == UserRole.medico ? user.specialtyIds : [],
+        phone1: user.phone1.trim(),
+        phone2: user.phone2?.trim(),
+        address: user.address?.trim(),
       ),
     );
   }

@@ -9,12 +9,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/error_text_fit.dart';
+import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 
-Future<GoRouter> _pump(WidgetTester tester, String initial) {
+Future<GoRouter> _pump(
+  WidgetTester tester,
+  String initial, {
+  Size size = const Size(900, 1800),
+}) {
   final db = FakeAdminDatabase();
   return pumpAdminScreens(
     tester,
+    size: size,
     initialLocation: initial,
     routes: [
       GoRoute(path: kClinicsPath, builder: (_, _) => const ClinicsScreen()),
@@ -35,6 +42,8 @@ Finder get _fields => find.byType(TextFormField);
 Finder get _save => find.widgetWithText(FilledButton, 'Guardar consultorio');
 
 void main() {
+  setUpAll(loadRoboto);
+
   testWidgets('el listado muestra nombre y ubicación', (tester) async {
     await _pump(tester, kClinicsPath);
 
@@ -64,6 +73,17 @@ void main() {
     );
     expect(find.text('Ingresá la ubicación.'), findsOneWidget);
     expect(currentLocation(router), kNewClinicPath);
+  });
+
+  testWidgets('a 320 px los mensajes de nombre y ubicación vacíos se leen '
+      'enteros', (tester) async {
+    await _pump(tester, kNewClinicPath, size: const Size(320, 900));
+
+    await tester.tap(_save);
+    await tester.pumpAndSettle();
+
+    expectErrorFits(tester, 'Ingresá el nombre o número del consultorio.');
+    expectErrorFits(tester, 'Ingresá la ubicación.');
   });
 
   testWidgets('los campos limitan el largo a 120 y 200 caracteres', (

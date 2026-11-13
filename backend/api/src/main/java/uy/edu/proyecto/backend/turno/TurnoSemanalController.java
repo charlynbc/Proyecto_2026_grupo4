@@ -44,6 +44,16 @@ public class TurnoSemanalController {
                 .body(service.crear(request, idFuncionario));
     }
 
+    @PostMapping("/{id}/consultorio/vista-previa")
+    public VistaPreviaConsultorioResponse vistaPreviaConsultorio(
+            @PathVariable Long id,
+            @RequestBody ModificarTurnoSemanalRequest request,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        validarFuncionario(jwt);
+        return service.vistaPreviaConsultorio(id, request);
+    }
+
     @PatchMapping("/{id}")
     public TurnoSemanalResponse modificarConsultorio(
             @PathVariable Long id,
@@ -52,15 +62,19 @@ public class TurnoSemanalController {
     ) {
         // El funcionario queda identificado por el JWT; RF-20 no registra
         // quien modifica, solo se exige el rol (SecurityConfig).
+        validarFuncionario(jwt);
+        return service.modificarConsultorio(id, request);
+    }
+
+    private static void validarFuncionario(Jwt jwt) {
         try {
             Long.parseLong(jwt.getSubject());
-        } catch (NumberFormatException exception) {
+        } catch (NumberFormatException | NullPointerException exception) {
             throw new ApiException(
                     HttpStatus.UNAUTHORIZED,
                     "TOKEN_INVALIDO",
                     "La sesión no es válida"
             );
         }
-        return service.modificarConsultorio(id, request);
     }
 }

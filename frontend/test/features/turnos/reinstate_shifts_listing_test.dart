@@ -48,6 +48,7 @@ void main() {
     await tester.pumpAndSettle();
     await done;
     await tester.pumpAndSettle();
+    await goTo(tester, container, kShiftsPath);
 
     final suspended = container
         .read(fakeShiftDatabaseProvider)
@@ -102,6 +103,8 @@ void main() {
     await tester.pumpAndSettle();
 
     await goTo(tester, container, kReinstateShiftsPath);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
     final suspended = container
         .read(fakeShiftDatabaseProvider)
         .shifts

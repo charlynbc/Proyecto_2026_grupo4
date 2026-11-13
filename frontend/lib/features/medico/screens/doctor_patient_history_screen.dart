@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_router.dart' show kDoctorShiftsPath;
 import '../../../core/utils/ui_date.dart';
-import '../../../core/widgets/centered_content.dart';
 import '../../historia_clinica/models/medical_history_entry.dart';
 import '../providers/doctor_patient_history_provider.dart';
 
@@ -28,6 +27,7 @@ class DoctorPatientHistoryScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Historia clínica'),
         leading: IconButton(
+          tooltip: 'Volver a mis turnos',
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
             if (context.canPop()) {
@@ -38,70 +38,77 @@ class DoctorPatientHistoryScreen extends ConsumerWidget {
           },
         ),
       ),
-      body: CenteredContent(
-        maxWidth: 900,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (name != null && name.isNotEmpty) ...[
-                Text('Paciente: $name'),
-                const SizedBox(height: 12),
-              ],
-              _notice(),
-              const SizedBox(height: 16),
-              history.when(
-                skipLoadingOnRefresh: false,
-                skipLoadingOnReload: false,
-                loading: () => const SizedBox(
-                  height: 200,
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-                error: (error, _) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      apiMessageOf(error),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      key: const ValueKey('patient-history-retry'),
-                      onPressed: () =>
-                          ref.invalidate(doctorPatientHistoryProvider(socioId)),
-                      child: const Text('Reintentar'),
-                    ),
-                  ],
-                ),
-                data: (entries) {
-                  if (entries.isEmpty) {
-                    return const Text(
-                      'Este paciente todavía no tiene atenciones registradas.',
-                      key: ValueKey('patient-history-empty'),
-                    );
-                  }
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+      // Alineado arriba, justo debajo de la barra: con la historia vacía o con
+      // un error no queda flotando en el medio. Un único scroll.
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (name != null && name.isNotEmpty) ...[
+                  Text('Paciente: $name'),
+                  const SizedBox(height: 12),
+                ],
+                _notice(context),
+                const SizedBox(height: 16),
+                history.when(
+                  skipLoadingOnRefresh: false,
+                  skipLoadingOnReload: false,
+                  loading: () => const SizedBox(
+                    height: 200,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (error, _) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      for (final entry in entries) _entryCard(context, entry),
+                      Text(
+                        apiMessageOf(error),
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton(
+                        key: const ValueKey('patient-history-retry'),
+                        onPressed: () => ref.invalidate(
+                          doctorPatientHistoryProvider(socioId),
+                        ),
+                        child: const Text('Reintentar'),
+                      ),
                     ],
-                  );
-                },
-              ),
-            ],
+                  ),
+                  data: (entries) {
+                    if (entries.isEmpty) {
+                      return const Text(
+                        'Este paciente todavía no tiene atenciones registradas.',
+                        key: ValueKey('patient-history-empty'),
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final entry in entries) _entryCard(context, entry),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _notice() => Container(
+  Widget _notice(BuildContext context) => Container(
     key: const ValueKey('patient-history-notice'),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: Colors.blue.withValues(alpha: 0.08),
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
       borderRadius: BorderRadius.circular(8),
     ),
     child: const Text(

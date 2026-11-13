@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
+import '../announcement_images.dart';
 import '../models/announcement_detail.dart';
+import 'announcement_network_image.dart';
 
 /// Recorre imágenes de una sola novedad, completas y sin gestos de ampliación.
 class AnnouncementGallery extends StatefulWidget {
@@ -8,10 +11,14 @@ class AnnouncementGallery extends StatefulWidget {
     super.key,
     required this.images,
     required this.onReload,
+    this.precache = precacheAnnouncementImage,
   });
 
   final List<AnnouncementImage> images;
   final VoidCallback? onReload;
+
+  /// Precarga las demás imágenes; se inyecta en las pruebas.
+  final AnnouncementImagePrecache precache;
 
   @override
   State<AnnouncementGallery> createState() => _AnnouncementGalleryState();
@@ -20,6 +27,39 @@ class AnnouncementGallery extends StatefulWidget {
 class _AnnouncementGalleryState extends State<AnnouncementGallery> {
   final _controller = PageController();
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefetchOthersAfterFrame();
+  }
+
+  @override
+  void didUpdateWidget(AnnouncementGallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final before = [for (final image in oldWidget.images) image.url];
+    final after = [for (final image in widget.images) image.url];
+    if (!listEquals(before, after)) _prefetchOthersAfterFrame();
+  }
+
+  /// Cuando llega el detalle: precarga las imágenes que todavía no se ven.
+  /// La visible la pide la propia galería.
+  void _prefetchOthersAfterFrame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (var i = 0; i < widget.images.length; i++) {
+        if (i == _index) continue;
+        widget.precache(
+          context,
+          announcementImageProvider(
+            imageId: widget.images[i].id,
+            url: widget.images[i].url,
+            cacheWidth: kAnnouncementImageCacheWidth,
+          ),
+        );
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -51,16 +91,19 @@ class _AnnouncementGalleryState extends State<AnnouncementGallery> {
             controller: _controller,
             itemCount: count,
             onPageChanged: (index) => setState(() => _index = index),
-            itemBuilder: (context, index) => Image.network(
-              widget.images[index].url,
-              key: ValueKey('announcement-image-${widget.images[index].id}'),
+            itemBuilder: (context, index) => AnnouncementNetworkImage(
+              imageId: widget.images[index].id,
+              url: widget.images[index].url,
+              cacheWidth: kAnnouncementImageCacheWidth,
+              imageKey: ValueKey(
+                'announcement-image-${widget.images[index].id}',
+              ),
               width: double.infinity,
               fit: BoxFit.contain,
               semanticLabel: 'Imagen ${index + 1} de $count de la novedad',
-              loadingBuilder: (context, child, progress) => progress == null
-                  ? child
-                  : const Center(child: CircularProgressIndicator()),
-              errorBuilder: (context, error, stack) => Center(
+              placeholder: (_) =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (context) => Center(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
                   child: Column(

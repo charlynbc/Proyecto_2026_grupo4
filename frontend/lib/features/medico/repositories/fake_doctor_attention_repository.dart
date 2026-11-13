@@ -1,12 +1,23 @@
+import '../../../core/utils/uruguay_time.dart';
+import '../../agenda/models/agenda_time.dart';
 import '../models/doctor_attention.dart';
 import '../models/doctor_attention_query.dart';
 import 'doctor_attention_repository.dart';
 
+/// Implementación en memoria para `USE_FAKES=true`.
+///
+/// Las fechas de las atenciones son relativas a "hoy" en Uruguay (según
+/// [clock]), así la pantalla de Atenciones no abre vacía con el período por
+/// defecto, que va del primer día del mes hasta hoy. Dos atenciones son de
+/// hoy, una de hace 3 días y una de hace 40 días, que queda siempre fuera de
+/// ese período.
 class FakeDoctorAttentionRepository implements DoctorAttentionRepository {
   FakeDoctorAttentionRepository({
     this.latency = const Duration(milliseconds: 300),
-  });
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
   final Duration latency;
+  final DateTime Function() _clock;
   static Map<String, dynamic> specialty(int id, String name) => {
     'id': id,
     'nombre': name,
@@ -14,7 +25,7 @@ class FakeDoctorAttentionRepository implements DoctorAttentionRepository {
   };
   static DoctorAttention entry(
     int id,
-    String date,
+    DateTime date,
     int patientId,
     String ci,
     String name,
@@ -25,7 +36,7 @@ class FakeDoctorAttentionRepository implements DoctorAttentionRepository {
     bool referral = false,
   }) => DoctorAttention.fromJson({
     'idAtencion': id,
-    'fechaAtencion': date,
+    'fechaAtencion': formatApiDate(date),
     'paciente': {
       'id': patientId,
       'ci': ci,
@@ -41,59 +52,68 @@ class FakeDoctorAttentionRepository implements DoctorAttentionRepository {
             {
               'id': 78,
               'especialidad': specialty(4, 'Nutrición'),
-              'emitidoEn': '2026-10-20T09:41:00-03:00',
-              'venceEl': '2027-01-18',
+              'emitidoEn': '${formatApiDate(date)}T09:41:00-03:00',
+              // Vence 90 días después, como en el ejemplo del contrato.
+              'venceEl': formatApiDate(date.add(const Duration(days: 90))),
             },
           ]
         : [],
   });
-  static final _items = [
-    entry(
-      5530,
-      '2026-10-20',
-      21,
-      '45678911',
-      'Lucía',
-      'Fernández',
-      3,
-      'Cardiología',
-      'Hipertensión arterial leve',
-      referral: true,
-    ),
-    entry(
-      5531,
-      '2026-10-14',
-      22,
-      '50123456',
-      'Bruno',
-      'Acosta',
-      1,
-      'Medicina General',
-      'Control de rutina',
-    ),
-    entry(
-      5532,
-      '2026-09-30',
-      21,
-      '45678911',
-      'Lucía',
-      'Fernández',
-      3,
-      'Cardiología',
-      'Control cardiovascular',
-    ),
-    entry(
-      5533,
-      '2026-10-20',
-      23,
-      '11111111',
-      'Ana',
-      'Pérez',
-      1,
-      'Medicina General',
-      'Gripe',
-    ),
-  ];
+  late final List<DoctorAttention> _items = _buildItems();
+
+  List<DoctorAttention> _buildItems() {
+    final now = UruguayTime.toUruguay(_clock());
+    final today = DateTime.utc(now.year, now.month, now.day);
+    DateTime daysAgo(int days) => today.subtract(Duration(days: days));
+    return [
+      entry(
+        5530,
+        daysAgo(0),
+        21,
+        '45678911',
+        'Lucía',
+        'Fernández',
+        3,
+        'Cardiología',
+        'Hipertensión arterial leve',
+        referral: true,
+      ),
+      entry(
+        5531,
+        daysAgo(3),
+        22,
+        '50123456',
+        'Bruno',
+        'Acosta',
+        1,
+        'Medicina General',
+        'Control de rutina',
+      ),
+      entry(
+        5532,
+        daysAgo(40),
+        21,
+        '45678911',
+        'Lucía',
+        'Fernández',
+        3,
+        'Cardiología',
+        'Control cardiovascular',
+      ),
+      entry(
+        5533,
+        daysAgo(0),
+        23,
+        '11111111',
+        'Ana',
+        'Pérez',
+        1,
+        'Medicina General',
+        'Gripe',
+      ),
+    ];
+  }
+
   @override
   Future<List<DoctorAttention>> list(DoctorAttentionQuery query) async {
     await Future<void>.delayed(latency);
