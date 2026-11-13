@@ -5,7 +5,6 @@ import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/core/validators/uruguayan_ci_validator.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/cuenta/models/account.dart';
-import 'package:agenda_medica/features/cuenta/providers/account_provider.dart';
 import 'package:agenda_medica/features/cuenta/providers/account_repository_provider.dart';
 import 'package:agenda_medica/features/usuarios/models/account_status_change.dart';
 import 'package:agenda_medica/features/usuarios/models/user_account.dart';
@@ -343,7 +342,9 @@ void main() {
       (tester) async {
         await _pump(
           tester,
-          account: RecordingAccountRepository(account: _session('78901238')),
+          account: RecordingAccountRepository(
+            account: _session('78901238', id: 99),
+          ),
         );
 
         expect(_withStatusAction(tester), [2, 3, 4, 5]);
@@ -356,7 +357,9 @@ void main() {
       // también.
       await _pump(
         tester,
-        account: RecordingAccountRepository(account: _session('23456783')),
+        account: RecordingAccountRepository(
+          account: _session('23456783', id: 99),
+        ),
       );
 
       expect(_withStatusAction(tester), [2, 3, 4, 5]);
@@ -1092,14 +1095,10 @@ void main() {
   });
 
   group('la fila propia', () {
-    // LIMITACIÓN CONOCIDA: la fila propia se reconoce por CI y rol, y la sesión
-    // no guarda el id de la cuenta. Si el administrador corrige la CI de su
-    // propia cuenta, la sesión (la cuenta de `GET /api/cuentas/me`) conserva la
-    // CI vieja hasta que se renueve, el padrón ya trae la nueva con el mismo id
-    // y la fila propia deja de reconocerse: ofrece "Inactivar cuenta". Una
-    // tarjeta aparte lo resuelve cuando el backend entregue el id.
+    // La fila propia se reconoce por el id de la cuenta, no por la CI: la CI
+    // puede corregirse (RF-38) y la sesión conserva la vieja hasta renovarse.
     testWidgets(
-      'LIMITACIÓN: al corregir mi propia CI, mi fila ofrece inactivar',
+      'al corregir mi propia CI, mi fila sigue sin ofrecer inactivar',
       (tester) async {
         final h = await _pump(
           tester,
@@ -1121,30 +1120,16 @@ void main() {
         h.container.invalidate(usersPageProvider);
         await tester.pumpAndSettle();
 
-        // La sesión conserva la CI vieja.
-        expect(h.container.read(accountProvider).value?.ci, '45678905');
         // El padrón ya trae la nueva, con el mismo id de cuenta.
         expect(h.db.accounts.firstWhere((a) => a.id == 5).ci, newCi);
-        // La fila propia ya no se reconoce: ofrece inactivar.
-        expect(_withStatusAction(tester), [2, 3, 4, 5]);
-        expect(
-          _actionKeys(tester, 5),
-          contains(const Key('user-deactivate-5')),
-        );
+        expect(_withStatusAction(tester), [2, 3, 4]);
         // La corrección sigue disponible en esa fila.
         expect(_actionKeys(tester, 5).first, const Key('user-edit-5'));
       },
     );
 
-    // PENDIENTE: la sesión no guarda el id de la cuenta y GET /api/cuentas/me
-    // tampoco lo devuelve, así que hoy la fila propia solo se reconoce por CI
-    // y rol. Cuando la sesión tenga el id, hay que reconocerla por id y sacar
-    // el `skip`. testWidgets solo admite `skip: true`, por eso el motivo va en
-    // el nombre y en este comentario.
-    testWidgets('PENDIENTE (falta el id de la cuenta en la sesión): si otro '
-        'administrador corrige mi CI, mi fila no ofrece inactivar', (
-      tester,
-    ) async {
+    testWidgets('si otro administrador corrige mi CI, mi fila no ofrece '
+        'inactivar', (tester) async {
       // La sesión quedó con la CI vieja (45678905); el padrón ya trae la
       // nueva (45678906) con el mismo id de cuenta (5).
       await _pump(
@@ -1164,8 +1149,15 @@ void main() {
       );
 
       expect(_menu(11), findsOneWidget);
-      expect(_menu(5), findsNothing);
-    }, skip: true);
+      expect(
+        _actionKeys(tester, 11),
+        contains(const Key('user-deactivate-11')),
+      );
+      expect(
+        _actionKeys(tester, 5),
+        isNot(contains(const Key('user-deactivate-5'))),
+      );
+    });
   });
 
   group('según el ancho', () {

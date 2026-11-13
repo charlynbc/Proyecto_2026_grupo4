@@ -16,15 +16,8 @@ import 'user_status_dialog.dart';
 /// - Una cuenta de socio no se inactiva desde acá (el contrato la rechaza).
 /// - El administrador no se inactiva a sí mismo.
 ///
-/// LIMITACIÓN CONOCIDA: la fila propia se reconoce por CI y rol, no por id: la
-/// sesión no guarda el id de la cuenta y `GET /api/cuentas/me` tampoco lo
-/// devuelve. Una persona con dos cuentas las tiene con distinto rol, así que
-/// CI más rol es único. Pero si el administrador corrige la CI de su propia
-/// cuenta (RF-38), la sesión conserva la CI vieja hasta que se renueve, el
-/// padrón ya trae la nueva con el mismo id y la fila propia deja de
-/// reconocerse: ofrece "Inactivar cuenta". Hay una prueba que lo reproduce.
-/// Cuando el backend sume el id a `/api/cuentas/me`, hay que pasar a comparar
-/// por id (tarjeta aparte).
+/// La fila propia se reconoce por el id de la cuenta y no por la CI, porque la
+/// CI puede corregirse (RF-38) y la sesión conserva la vieja hasta renovarse.
 ///
 /// Mientras la cuenta de la sesión carga o falla no se sabe cuál es la fila
 /// propia: por prudencia no se ofrece inactivar en ninguna fila de
@@ -33,7 +26,7 @@ bool canManageAccount(UserAccount row, AsyncValue<Account> session) {
   if (row.role == UserRole.socio) return false;
   final own = session.value;
   if (own == null) return row.role != UserRole.administrador;
-  return !(own.ci == row.ci && own.role == row.role);
+  return own.id != row.id;
 }
 
 /// Una acción del menú de una cuenta. Otras tarjetas suman la suya a
