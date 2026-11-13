@@ -407,6 +407,14 @@ class CsvArchivoTest {
     }
 
     @Test
+    void utf16ConMarcaBomSeDetectaAunqueNoHayaBytesNulos() {
+        // Caracteres U+0104 en UTF-16LE: bytes 04 01, sin ningun cero.
+        byte[] bytes = {(byte) 0xFF, (byte) 0xFE, 0x04, 0x01, 0x04, 0x01};
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
     void utf8ConMarcaBomSigueSiendoValido() {
         byte[] texto = "nombre,requiere_pase\nCardiología,si\n"
                 .getBytes(StandardCharsets.UTF_8);
