@@ -146,6 +146,23 @@ void main() {
     expect(result.hasNext, isFalse);
   });
 
+  test('con un total múltiplo exacto del tamaño la última página llena no '
+      'tiene siguiente', () async {
+    final (repository, _) = _repository(200, {
+      'items': [_notification()],
+      'page': 1,
+      'size': 10,
+      'total': 20,
+    });
+
+    final result = await repository.list(
+      const NotificationQuery(page: 1, size: 10),
+    );
+
+    expect(result.hasPrevious, isTrue);
+    expect(result.hasNext, isFalse);
+  });
+
   for (final (status, code, failure) in [
     (400, 'VALIDACION', NotificationFailure.other),
     (401, 'NO_AUTENTICADO', NotificationFailure.unauthenticated),

@@ -84,14 +84,32 @@ void main() {
       expect(page.hasNext, isFalse);
     });
 
-    test('una página justo al final de un múltiplo exacto no tiene '
-        'siguiente', () async {
+    test('una última página incompleta no tiene siguiente', () async {
       final page = await _repo().list(
         const NotificationQuery(page: 1, size: 3),
       );
 
       expect(_ids(page.items), [1, 5]);
       expect(page.hasNext, isFalse);
+    });
+
+    test('con un total múltiplo exacto del tamaño la última página llena no '
+        'tiene siguiente y la que sigue viene vacía', () async {
+      final last = await _repo().list(
+        const NotificationQuery(page: 0, size: 5),
+      );
+
+      expect(_ids(last.items), [3, 2, 4, 1, 5]);
+      expect(last.hasPrevious, isFalse);
+      expect(last.hasNext, isFalse);
+
+      final beyond = await _repo().list(
+        const NotificationQuery(page: 1, size: 5),
+      );
+
+      expect(beyond.items, isEmpty);
+      expect(beyond.total, 5);
+      expect(beyond.hasNext, isFalse);
     });
 
     test('una página más allá de la última viene vacía con el total', () async {
