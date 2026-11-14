@@ -27,6 +27,7 @@ import '../../features/cuenta/screens/edit_account_screen.dart';
 import '../../features/cuenta/screens/change_password_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
+import '../../features/notificaciones/screens/notifications_screen.dart';
 import '../../features/medico/screens/doctor_attention_routes.dart';
 import '../../features/medico/screens/doctor_attentions_screen.dart';
 import '../../features/medico/screens/doctor_attention_detail_screen.dart';
@@ -438,6 +439,11 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
         return GoRoute(
           path: path,
           builder: (context, state) => const AvailabilityScreen(),
+        );
+      case kNotificationsPath:
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const NotificationsScreen(),
         );
       case kAppointmentsPath:
         return GoRoute(

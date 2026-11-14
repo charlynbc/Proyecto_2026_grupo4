@@ -19,6 +19,7 @@ const _socio = [
   'Reservar consulta',
   'Mis consultas',
   'Historia clínica',
+  'Avisos',
   'Cartelera',
 ];
 
@@ -33,6 +34,7 @@ const _words = {
   'Consultorios': [TextSelection(baseOffset: 0, extentOffset: 12)],
   'Estadísticas': [TextSelection(baseOffset: 0, extentOffset: 12)],
   'Cartelera': [TextSelection(baseOffset: 0, extentOffset: 9)],
+  'Avisos': [TextSelection(baseOffset: 0, extentOffset: 6)],
   'Inicio': [TextSelection(baseOffset: 0, extentOffset: 6)],
   'Reservar consulta': [
     TextSelection(baseOffset: 0, extentOffset: 8),
@@ -190,6 +192,37 @@ void main() {
         }
       }
     }
+  });
+
+  testWidgets('socio con seis secciones a 320 px y texto al doble: sin '
+      'desborde, palabras enteras y rótulos de 11 px o más', (tester) async {
+    expect(_socio, hasLength(6));
+    await _pumpBar(
+      tester,
+      width: 320,
+      labels: _socio,
+      selectedIndex: 4,
+      textScale: 2,
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.byKey(const Key('adaptive-nav-bar'))).height,
+      80,
+    );
+    var total = 0.0;
+    for (var i = 0; i < _socio.length; i++) {
+      final slot = tester.getSize(_slot(i));
+      expect(slot.width, greaterThanOrEqualTo(48), reason: _socio[i]);
+      total += slot.width;
+      _expectWordsWhole(tester, _socio[i]);
+      expect(
+        _effectiveFontSize(tester, _socio[i]),
+        greaterThanOrEqualTo(11),
+        reason: _socio[i],
+      );
+    }
+    expect(total, closeTo(320, 0.5));
   });
 
   testWidgets('administrador a 320 px y escala 1,3 queda entre 11 y 11,4', (

@@ -170,6 +170,7 @@ void main() {
       );
       expect(redirectFor(socio, Uri.parse('/socio')), UserRole.socio.homePath);
       expect(redirectFor(socio, Uri.parse('/socio/historia')), null);
+      expect(redirectFor(socio, Uri.parse('/socio/avisos')), null);
     });
 
     test('la edición de cuenta admite una sesión de cada rol', () {

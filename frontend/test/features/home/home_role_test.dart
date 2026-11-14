@@ -134,7 +134,13 @@ void main() {
 
   // Atajos de cada rol, escritos a mano, sin la sección Inicio.
   const shortcuts = {
-    UserRole.socio: ['disponibilidad', 'consultas', 'historia', 'cartelera'],
+    UserRole.socio: [
+      'disponibilidad',
+      'consultas',
+      'historia',
+      'avisos',
+      'cartelera',
+    ],
     UserRole.funcionario: ['turnos', 'llegada', 'agendas', 'cartelera'],
     UserRole.medico: ['turnos', 'atenciones', 'pases', 'cartelera'],
     UserRole.administrador: [
