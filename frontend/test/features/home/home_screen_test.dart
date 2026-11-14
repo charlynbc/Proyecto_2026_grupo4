@@ -124,55 +124,58 @@ Future<ProviderContainer> _pumpHome(
 void main() {
   setUpAll(loadRoboto);
 
-  testWidgets('entra al Inicio, saluda y muestra cinco cuadrados en una fila', (
+  testWidgets(
+    'entra al Inicio, saluda y muestra cinco cuadrados en una fila',
+    (tester) async {
+      final container = await _pumpHome(tester, _News()..items = [news(1)]);
+      expect(locationOf(container), '/socio/inicio');
+      expect(find.text('Bienvenido/a, Lucía'), findsOneWidget);
+      expect(find.byKey(const Key('home-logo')), findsOneWidget);
+      final logo = find.byKey(const Key('home-logo'));
+      expect(tester.getSize(logo), const Size(80, 80));
+      expect(
+        tester.getTopLeft(find.text('Médica Oriental')).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(logo).dy),
+      );
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.byType(AdaptiveNavBar), findsNothing);
+      expect(find.text('Médica Oriental'), findsOneWidget);
+      expect(find.text('Lucía Fernández'), findsOneWidget);
+      expect(find.text('Socio'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('home-welcome-banner')),
+          matching: find.byKey(const Key('home-greeting')),
+        ),
+        findsOneWidget,
+      );
+      final tiles = [
+        for (final slug in [
+          'disponibilidad',
+          'consultas',
+          'historia',
+          'avisos',
+          'cartelera',
+        ])
+          find.byKey(Key('home-shortcut-$slug')),
+      ];
+      final top = tester.getTopLeft(tiles.first).dy;
+      for (final tile in tiles) {
+        expect(tester.getTopLeft(tile).dy, top);
+        final size = tester.getSize(tile);
+        expect(size.width, size.height);
+        expect(size, tester.getSize(tiles.first));
+      }
+      expect(find.byTooltip('Novedad siguiente'), findsNothing);
+      expect(find.byTooltip('Mi cuenta'), findsOneWidget);
+      expect(find.byTooltip('Cerrar sesión'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('los cinco accesos llevan a sus destinos', (
     tester,
   ) async {
-    final container = await _pumpHome(tester, _News()..items = [news(1)]);
-    expect(locationOf(container), '/socio/inicio');
-    expect(find.text('Bienvenido/a, Lucía'), findsOneWidget);
-    expect(find.byKey(const Key('home-logo')), findsOneWidget);
-    final logo = find.byKey(const Key('home-logo'));
-    expect(tester.getSize(logo), const Size(80, 80));
-    expect(
-      tester.getTopLeft(find.text('Médica Oriental')).dy,
-      greaterThanOrEqualTo(tester.getBottomLeft(logo).dy),
-    );
-    expect(find.byType(NavigationRail), findsNothing);
-    expect(find.byType(AdaptiveNavBar), findsNothing);
-    expect(find.text('Médica Oriental'), findsOneWidget);
-    expect(find.text('Lucía Fernández'), findsOneWidget);
-    expect(find.text('Socio'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('home-welcome-banner')),
-        matching: find.byKey(const Key('home-greeting')),
-      ),
-      findsOneWidget,
-    );
-    final tiles = [
-      for (final slug in [
-        'disponibilidad',
-        'consultas',
-        'historia',
-        'avisos',
-        'cartelera',
-      ])
-        find.byKey(Key('home-shortcut-$slug')),
-    ];
-    final top = tester.getTopLeft(tiles.first).dy;
-    for (final tile in tiles) {
-      expect(tester.getTopLeft(tile).dy, top);
-      final size = tester.getSize(tile);
-      expect(size.width, size.height);
-      expect(size, tester.getSize(tiles.first));
-    }
-    expect(find.byTooltip('Novedad siguiente'), findsNothing);
-    expect(find.byTooltip('Mi cuenta'), findsOneWidget);
-    expect(find.byTooltip('Cerrar sesión'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('los cinco accesos llevan a sus destinos', (tester) async {
     final container = await _pumpHome(tester, _News());
     for (final (slug, path) in [
       ('disponibilidad', '/socio/disponibilidad'),
