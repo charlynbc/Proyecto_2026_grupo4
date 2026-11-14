@@ -181,7 +181,7 @@ class TurnoFechasServiceTest {
         verify(repository).actualizarEstadoTurno(301L, "SUSPENDIDO");
         verify(repository).actualizarEstadoTurno(308L, "SUSPENDIDO");
         verify(eventPublisher).publishEvent(
-                new TurnoFechasService.EnviosSuspensionSolicitados(
+                new TurnoFechasService.EnviosNotificacionSolicitados(
                         List.of(6001L, 6002L)
                 )
         );

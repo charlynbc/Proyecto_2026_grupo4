@@ -21,7 +21,7 @@ import uy.edu.proyecto.backend.exception.ApiException;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.TurnoFecha;
-import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicitados;
+import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolicitados;
 
 // RF-27: cancelación de una consulta propia o de todo un turno de una fecha por el médico.
 @Service
@@ -84,7 +84,7 @@ public class CancelacionMedicoService {
         List<Long> envios = turnoFechas.registrarEnviosNotificacion(
                 notificacionId, consulta.socioId(), consulta.correo());
         if (!envios.isEmpty()) {
-            events.publishEvent(new EnviosSuspensionSolicitados(List.copyOf(envios)));
+            events.publishEvent(new EnviosNotificacionSolicitados(List.copyOf(envios)));
         }
         boolean paseDevuelto = consulta.venceElPase() != null
                 && !consulta.venceElPase().isBefore(ahora.toLocalDate());
@@ -164,7 +164,7 @@ public class CancelacionMedicoService {
             }
         }
         if (!envios.isEmpty()) {
-            events.publishEvent(new EnviosSuspensionSolicitados(List.copyOf(envios)));
+            events.publishEvent(new EnviosNotificacionSolicitados(List.copyOf(envios)));
         }
         return new CancelacionTurnoMedicoDTO(
                 turnoId, turno.fecha(), "SUSPENDIDO", consultas.size(), pasesDevueltos);

@@ -4,7 +4,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicitados;
+import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolicitados;
 
 @Component
 public class EnvioNotificacionListener {
@@ -16,7 +16,7 @@ public class EnvioNotificacionListener {
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void enviar(EnviosSuspensionSolicitados evento) {
+    public void enviar(EnviosNotificacionSolicitados evento) {
         for (Long envioId : evento.envioIds()) {
             dispatcher.despachar(envioId);
         }

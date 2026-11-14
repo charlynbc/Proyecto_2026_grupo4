@@ -33,7 +33,7 @@ import uy.edu.proyecto.backend.exception.ApiException;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.TurnoFecha;
-import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicitados;
+import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolicitados;
 
 class CancelacionMedicoServiceTest {
 
@@ -89,7 +89,7 @@ class CancelacionMedicoServiceTest {
         verify(repository).cancelarConsulta(12L, 5L, "Imprevisto");
         verify(repository).crearNotificacionCancelacion(eq(12L),
                 org.mockito.ArgumentMatchers.contains("Imprevisto"));
-        verify(events).publishEvent(any(EnviosSuspensionSolicitados.class));
+        verify(events).publishEvent(any(EnviosNotificacionSolicitados.class));
     }
 
     @Test
@@ -230,7 +230,7 @@ class CancelacionMedicoServiceTest {
         verify(turnoFechas).actualizarEstadoTurno(30L, "SUSPENDIDO");
         verify(turnoFechas).crearNotificacionSuspension(eq(1L),
                 org.mockito.ArgumentMatchers.contains("Imprevisto"));
-        verify(events).publishEvent(any(EnviosSuspensionSolicitados.class));
+        verify(events).publishEvent(any(EnviosNotificacionSolicitados.class));
     }
 
     @Test

@@ -135,7 +135,7 @@ public class TurnoFechasService {
         }
 
         if (!envios.isEmpty()) {
-            eventPublisher.publishEvent(new EnviosSuspensionSolicitados(List.copyOf(envios)));
+            eventPublisher.publishEvent(new EnviosNotificacionSolicitados(List.copyOf(envios)));
         }
         return new ResultadoFechasDTO(
                 turnos.stream()
@@ -446,6 +446,6 @@ public class TurnoFechasService {
     ) {
     }
 
-    public record EnviosSuspensionSolicitados(List<Long> envioIds) {
+    public record EnviosNotificacionSolicitados(List<Long> envioIds) {
     }
 }
