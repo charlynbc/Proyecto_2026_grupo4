@@ -120,7 +120,7 @@ public class ConsultaService {
                         consulta.especialidad().nombre(),
                         consulta.medico().nombre() + " " + consulta.medico().apellido(),
                         consulta.fecha(),
-                        consulta.horaInicio()
+                        numero.horaInicio()
                 )
         );
         envios.solicitar(notificacionId, socioId);

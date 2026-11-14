@@ -47,11 +47,11 @@ public final class NotificacionTextos {
             String especialidad,
             String medico,
             LocalDate fecha,
-            String hora
+            LocalTime hora
     ) {
         return "Tu consulta de " + especialidad + " con " + medico
                 + " quedó agendada para el " + fecha(fecha)
-                + " a las " + hora + ".";
+                + " a las " + hora(hora) + ".";
     }
 
     /** Cancelacion que hace un funcionario a pedido del socio (RF-19). */

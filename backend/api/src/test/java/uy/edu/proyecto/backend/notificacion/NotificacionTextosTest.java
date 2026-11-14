@@ -29,7 +29,19 @@ class NotificacionTextosTest {
                 "Tu consulta de Cardiología con Marta Rodríguez quedó agendada "
                         + "para el 03/11/2026 a las 09:00.",
                 NotificacionTextos.cuerpoAgenda(
-                        "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 11, 3), "09:00")
+                        "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 11, 3),
+                        LocalTime.of(9, 0))
+        );
+    }
+
+    @Test
+    void laHoraDelCuerpoDeAgendaVaDe24HorasSinSegundos() {
+        assertEquals(
+                "Tu consulta de Pediatría con Jorge Pereira quedó agendada "
+                        + "para el 05/01/2027 a las 14:05.",
+                NotificacionTextos.cuerpoAgenda(
+                        "Pediatría", "Jorge Pereira", LocalDate.of(2027, 1, 5),
+                        LocalTime.of(14, 5, 30))
         );
     }
 
