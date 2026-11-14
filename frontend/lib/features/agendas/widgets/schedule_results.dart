@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/ui_date.dart';
+import '../../../core/widgets/pagination_bar.dart';
 import '../models/schedule_entry.dart';
 import '../models/schedule_page.dart';
 import '../models/schedule_status_label.dart';
@@ -258,21 +259,12 @@ class _Pager extends ConsumerWidget {
     final shown = page.page + 1 > page.pageCount
         ? page.pageCount
         : page.page + 1;
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 12,
-      children: [
-        OutlinedButton(
-          onPressed: page.hasPrevious ? () => goTo(page.page - 1) : null,
-          child: const Text('Anterior'),
-        ),
-        Text('Página $shown de ${page.pageCount}'),
-        OutlinedButton(
-          onPressed: page.hasNext ? () => goTo(page.page + 1) : null,
-          child: const Text('Siguiente'),
-        ),
-      ],
+    return PaginationBar(
+      label: 'Página $shown de ${page.pageCount}',
+      hasPrevious: page.hasPrevious,
+      hasNext: page.hasNext,
+      onPrevious: () => goTo(page.page - 1),
+      onNext: () => goTo(page.page + 1),
     );
   }
 }
