@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:agenda_medica/core/widgets/pagination_bar.dart';
+import 'package:agenda_medica/core/config/app_locale.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/core/widgets/pagination_bar.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_page.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_query.dart';
@@ -15,6 +16,7 @@ import 'package:agenda_medica/features/consultorios/models/clinic.dart';
 import 'package:agenda_medica/features/especialidades/models/specialty.dart';
 import 'package:agenda_medica/features/especialidades/providers/specialties_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -245,6 +247,79 @@ class _AnaRepository extends _HistoryRepository {
     );
   }
 }
+
+/// Igual que [_AnaRepository], pero con alguna fecha elegida no hay consultas:
+/// así se ve en pantalla si el filtro de fechas está aplicado o no. La
+/// consulta sin fechas ya está en la memoria del provider cuando se vuelve a
+/// ella, y entonces no se repite el pedido al repositorio.
+class _DatedAnaRepository extends _AnaRepository {
+  @override
+  Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
+    final page = await super.list(query);
+    if (query.size == 100 || (query.from == null && query.to == null)) {
+      return page;
+    }
+    return AppointmentHistoryPage(
+      items: const [],
+      page: query.page,
+      size: query.size,
+      total: 0,
+    );
+  }
+}
+
+/// Monta Mis consultas con el idioma real de la app (el calendario dice
+/// "Aceptar") y, si se pide, otro ancho de pantalla y otra escala de texto.
+Future<void> _pumpAnaDates(
+  WidgetTester tester,
+  _AnaRepository repository, {
+  Size size = const Size(900, 1800),
+  double textScale = 1,
+}) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        appointmentHistoryRepositoryProvider.overrideWith(
+          (ref) async => repository,
+        ),
+        specialtiesProvider.overrideWith(
+          (ref) async => const [_general, _cardio, _derm],
+        ),
+      ],
+      child: MaterialApp(
+        locale: kAppLocale,
+        supportedLocales: kSupportedLocales,
+        localizationsDelegates: kLocalizationsDelegates,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+        home: const AppointmentsPendingScreen(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Finder _dateField(String key) => find.byKey(Key(key));
+
+Finder _dateInput(String key) =>
+    find.descendant(of: _dateField(key), matching: find.byType(EditableText));
+
+/// Escribe [text] en el campo de fecha [key], lo deja a la vista y espera.
+Future<void> _typeDate(WidgetTester tester, String key, String text) async {
+  await tester.ensureVisible(_dateInput(key));
+  await tester.pumpAndSettle();
+  await tester.enterText(_dateInput(key), text);
+  await tester.pumpAndSettle();
+}
+
+String _dateText(WidgetTester tester, String key) =>
+    tester.widget<EditableText>(_dateInput(key)).controller.text;
 
 Future<void> _pumpAna(WidgetTester tester, _AnaRepository repository) async {
   tester.view.physicalSize = const Size(900, 1800);
@@ -768,7 +843,22 @@ void main() {
     ) async {
       await _pumpAna(tester, _AnaRepository());
 
-      expect(find.byType(TextField), findsNothing);
+      // Los únicos campos de texto son Desde y Hasta (el campo de fecha).
+      expect(find.byType(TextField), findsNWidgets(2));
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('history-date-from')),
+          matching: find.byType(TextField),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('history-date-to')),
+          matching: find.byType(TextField),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('ID del médico'), findsNothing);
       expect(find.text('Aplicar filtros'), findsNothing);
       expect(find.byKey(const Key('history-apply-filters')), findsNothing);
@@ -1045,19 +1135,12 @@ void main() {
       await _pumpAna(tester, repository);
       final before = _options(tester);
 
-      for (final key in ['history-date-from', 'history-date-to']) {
-        final button = find.byKey(Key(key));
-        await tester.ensureVisible(button);
-        await tester.pumpAndSettle();
-        await tester.tap(button);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('OK'));
-        await tester.pumpAndSettle();
-      }
+      await _typeDate(tester, 'history-date-from', '20/10/2026');
+      await _typeDate(tester, 'history-date-to', '30/10/2026');
 
       expect(find.textContaining('cualquiera'), findsNothing);
-      expect(repository.listRequests.last.from, isNotNull);
-      expect(repository.listRequests.last.to, isNotNull);
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 20));
+      expect(repository.listRequests.last.to, DateTime.utc(2026, 10, 30));
       final after = _options(tester);
       expect(after.status, before.status);
       expect(after.specialty, before.specialty);
@@ -1177,6 +1260,252 @@ void main() {
   // vinieran después dejarían de usar la fuente de prueba. Con Roboto el texto
   // mide como en un celular; Ahem ensancha todo y daría desbordes que no
   // existen.
+  group('fechas Desde y Hasta con el campo compartido', () {
+    const rangeMessage =
+        'La fecha "Desde" no puede ser posterior a la fecha "Hasta".';
+    const noExiste =
+        'Esa fecha no existe en el calendario. Revisá el día y el mes.';
+    const from = 'history-date-from';
+    const to = 'history-date-to';
+
+    testWidgets('al abrir los dos campos están vacíos, con la pista '
+        'dd/mm/aaaa y sin "cualquiera"', (tester) async {
+      await _pumpAnaDates(tester, _AnaRepository());
+
+      for (final key in [from, to]) {
+        expect(_dateText(tester, key), '');
+        final field = tester.widget<TextField>(
+          find.descendant(
+            of: _dateField(key),
+            matching: find.byType(TextField),
+          ),
+        );
+        expect(field.decoration!.hintText, 'dd/mm/aaaa');
+      }
+      expect(find.textContaining('cualquiera'), findsNothing);
+    });
+
+    testWidgets('escribir 20/10/2026 en Desde consulta con from y to nulo', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAnaDates(tester, repository);
+
+      await _typeDate(tester, from, '20/10/2026');
+
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 20));
+      expect(repository.listRequests.last.to, isNull);
+    });
+
+    testWidgets('la cruz de Desde borra el texto y vuelve a from nulo', (
+      tester,
+    ) async {
+      final repository = _DatedAnaRepository();
+      await _pumpAnaDates(tester, repository);
+      expect(find.byKey(const Key('appointment-101')), findsOneWidget);
+      await _typeDate(tester, from, '20/10/2026');
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 20));
+      expect(find.byKey(const Key('appointment-101')), findsNothing);
+
+      await tester.tap(
+        find.descendant(
+          of: _dateField(from),
+          matching: find.byTooltip('Borrar la fecha'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_dateText(tester, from), '');
+      // Sin filtro de fechas vuelven las consultas.
+      expect(find.byKey(const Key('appointment-101')), findsOneWidget);
+    });
+
+    testWidgets('Desde posterior a Hasta avisa con el texto exacto y no '
+        'consulta con ese rango', (tester) async {
+      final repository = _AnaRepository();
+      await _pumpAnaDates(tester, repository);
+      await _typeDate(tester, from, '25/10/2026');
+      final before = repository.listRequests.length;
+
+      await _typeDate(tester, to, '20/10/2026');
+
+      final error = find.byKey(const Key('history-filter-error'));
+      expect(error, findsOneWidget);
+      expect(tester.widget<Text>(error).data, rangeMessage);
+      expect(repository.listRequests, hasLength(before));
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 25));
+      expect(repository.listRequests.last.to, isNull);
+      // El campo conserva lo que escribió la persona.
+      expect(_dateText(tester, to), '20/10/2026');
+    });
+
+    testWidgets('al corregir Hasta el error desaparece y se aplica el rango', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAnaDates(tester, repository);
+      await _typeDate(tester, from, '25/10/2026');
+      await _typeDate(tester, to, '20/10/2026');
+
+      await _typeDate(tester, to, '30/10/2026');
+
+      expect(find.byKey(const Key('history-filter-error')), findsNothing);
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 25));
+      expect(repository.listRequests.last.to, DateTime.utc(2026, 10, 30));
+    });
+
+    testWidgets('a la API viajan fechaDesde y fechaHasta como yyyy-MM-dd', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAnaDates(tester, repository);
+      await _typeDate(tester, from, '05/10/2026');
+      await _typeDate(tester, to, '30/10/2026');
+
+      final params = repository.listRequests.last.toQueryParameters();
+
+      expect(params['fechaDesde'], '2026-10-05');
+      expect(params['fechaHasta'], '2026-10-30');
+    });
+
+    testWidgets('una fecha que no existe avisa y no cambia el filtro', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAnaDates(tester, repository);
+      final before = repository.listRequests.length;
+
+      await _typeDate(tester, from, '31/02/2026');
+
+      expect(find.text(noExiste), findsOneWidget);
+      expect(repository.listRequests, hasLength(before));
+      expect(repository.listRequests.last.from, isNull);
+    });
+
+    testWidgets('un texto incompleto no cambia el filtro ni consulta', (
+      tester,
+    ) async {
+      final repository = _AnaRepository();
+      await _pumpAnaDates(tester, repository);
+      final before = repository.listRequests.length;
+
+      await _typeDate(tester, from, '20/10');
+
+      expect(repository.listRequests, hasLength(before));
+      expect(repository.listRequests.last.from, isNull);
+    });
+
+    testWidgets('Limpiar vacía los dos campos y vuelve a from y to nulos', (
+      tester,
+    ) async {
+      final repository = _DatedAnaRepository();
+      await _pumpAnaDates(tester, repository);
+      await _typeDate(tester, from, '20/10/2026');
+      await _typeDate(tester, to, '30/10/2026');
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 20));
+      expect(repository.listRequests.last.to, DateTime.utc(2026, 10, 30));
+      expect(find.byKey(const Key('appointment-101')), findsNothing);
+
+      final clear = find.byKey(const Key('history-clear-filters'));
+      await tester.ensureVisible(clear);
+      await tester.pumpAndSettle();
+      await tester.tap(clear);
+      await tester.pumpAndSettle();
+
+      expect(_dateText(tester, from), '');
+      expect(_dateText(tester, to), '');
+      expect(find.byKey(const Key('appointment-101')), findsOneWidget);
+      expect(find.byKey(const Key('history-filter-error')), findsNothing);
+    });
+
+    testWidgets('Limpiar también borra el aviso de rango', (tester) async {
+      await _pumpAnaDates(tester, _AnaRepository());
+      await _typeDate(tester, from, '25/10/2026');
+      await _typeDate(tester, to, '20/10/2026');
+      expect(find.byKey(const Key('history-filter-error')), findsOneWidget);
+
+      final clear = find.byKey(const Key('history-clear-filters'));
+      await tester.ensureVisible(clear);
+      await tester.pumpAndSettle();
+      await tester.tap(clear);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('history-filter-error')), findsNothing);
+    });
+
+    testWidgets('elegir un día en el calendario (Aceptar) llena el campo y '
+        'aplica el filtro', (tester) async {
+      final repository = _AnaRepository();
+      await _pumpAnaDates(tester, repository);
+      await _typeDate(tester, from, '20/10/2026');
+
+      await tester.tap(
+        find.descendant(
+          of: _dateField(from),
+          matching: find.byTooltip('Elegir la fecha desde'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('15'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Aceptar'));
+      await tester.pumpAndSettle();
+
+      expect(_dateText(tester, from), '15/10/2026');
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 15));
+    });
+
+    testWidgets('cambiar una fecha estando en la página 2 vuelve a la '
+        'página 1', (tester) async {
+      final repository = _AnaRepository(pageSize: 2);
+      await _pumpAnaDates(tester, repository);
+      final next = find.byKey(const Key('history-next'));
+      await tester.ensureVisible(next);
+      await tester.pumpAndSettle();
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(repository.listRequests.last.page, 1);
+
+      await _typeDate(tester, from, '20/10/2026');
+
+      expect(repository.listRequests.last.page, 0);
+      expect(repository.listRequests.last.from, DateTime.utc(2026, 10, 20));
+    });
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('a 320 px con texto x$scale no desborda y las etiquetas '
+          'Desde y Hasta no se cortan', (tester) async {
+        await loadRoboto();
+        await _pumpAnaDates(
+          tester,
+          _AnaRepository(consultas: const []),
+          size: const Size(320, 2400),
+          textScale: scale,
+        );
+        await tester.ensureVisible(_dateField(to));
+        await tester.pumpAndSettle();
+
+        expect(tester.takeException(), isNull);
+        for (final (key, label) in [(from, 'Desde'), (to, 'Hasta')]) {
+          final text = find.descendant(
+            of: _dateField(key),
+            matching: find.text(label),
+          );
+          expect(text, findsOneWidget);
+          final paragraph = tester.renderObject<RenderParagraph>(text);
+          expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+        }
+        final fromRect = tester.getRect(_dateField(from));
+        final toRect = tester.getRect(_dateField(to));
+        // Apilados y a todo el ancho disponible: 320 menos 24 + 24 del
+        // contenido centrado y 16 + 16 del relleno de la pantalla.
+        expect(toRect.top, greaterThan(fromRect.bottom - 1));
+        expect(fromRect.width, closeTo(240, 1));
+        expect(toRect.width, closeTo(240, 1));
+      });
+    }
+  });
+
   testWidgets('el paginador del historial usa botones con borde, igual que '
       'los demás', (tester) async {
     await loadRoboto();
