@@ -18,25 +18,28 @@ import uy.edu.proyecto.backend.atencion.ResultadoConsultaResponse.PaseDTO;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
 import uy.edu.proyecto.backend.notificacion.NotificacionEnvios;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 @Service
 public class AtencionService {
 
     private static final String ATENDIDA = "ATENDIDA";
     private static final String NO_SE_PRESENTO = "NO_SE_PRESENTO";
-    private static final int VIGENCIA_PASE_PREDETERMINADA = 90;
 
     private final AtencionRepository repository;
     private final Clock clock;
+    private final ParametroService parametros;
     private final NotificacionEnvios envios;
 
     public AtencionService(
             AtencionRepository repository,
             Clock clock,
+            ParametroService parametros,
             NotificacionEnvios envios
     ) {
         this.repository = repository;
         this.clock = clock;
+        this.parametros = parametros;
         this.envios = envios;
     }
 
@@ -215,11 +218,14 @@ public class AtencionService {
                         "No se puede repetir la especialidad destino en los pases"
                 );
             }
+            int vigenciaMinima = parametros.paseVigenciaMinimaDias();
+            int vigenciaMaxima = parametros.paseVigenciaMaximaDias();
             int vigencia = solicitud.vigenciaDias() == null
-                    ? VIGENCIA_PASE_PREDETERMINADA
+                    ? parametros.paseVigenciaInicialDias()
                     : solicitud.vigenciaDias();
-            if (vigencia < 1 || vigencia > 365) {
-                throw validacion("vigenciaDias debe estar entre 1 y 365");
+            if (vigencia < vigenciaMinima || vigencia > vigenciaMaxima) {
+                throw validacion("vigenciaDias debe estar entre " + vigenciaMinima
+                        + " y " + vigenciaMaxima);
             }
             solicitudesValidadas.add(new SolicitudPaseValidada(
                     especialidadId,

@@ -60,7 +60,7 @@ PostgreSQL.
 | 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21, 22 | Pacientes del turno (`consulta.paciente.id` para abrir historia #40; con `llegada`, `orden`, `sentido`; sondeo cada 15 s) | CONFIRMADA | feat/cierre-rf21-tiempo-real 27/10/2026 | [contrato #30](contrato-v1.md#e30) |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases (pantalla Flutter `/medico/consultas/:id/resultado`) | CONFIRMADA | PR #40 | [contrato #31](contrato-v1.md#e31) |
 | 32 | `GET /api/notificaciones` | SOCIO | RNF-23 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
-| 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push | CAMBIADA | - | [contrato #33](contrato-v1.md#e33) |
+| 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push solo Android (201 si lo crea; 200 si ya existía, lo reasigna al socio o lo vuelve a habilitar; `token` recortado, no vacío y máximo 4096 caracteres después de recortar; si no, 400) | CONFIRMADA | - | [contrato #33](contrato-v1.md#e33) |
 | 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | CONFIRMADA (integrada en avances, PR #24) | - | [contrato #34](contrato-v1.md#e34) |
 | 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | CONFIRMADA (integrada en avances, PR #25; agrega `fechasActivas` y `utilizacion`; interpretación histórica desde `turno_evento` en el PR #38, JSON sin cambios) | - | [contrato #35](contrato-v1.md#e35) |
 | 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | CONFIRMADA (integrada en avances; usa `estados`, `totalConsultas`, `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`) | - | [contrato #36](contrato-v1.md#e36) |
@@ -100,6 +100,7 @@ PostgreSQL.
 | 70 | `GET /api/estadisticas/pases` | ADMINISTRADOR | 43 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | feat/front-rf43-rf44-estadisticas 11/11/2026 | [contrato #70](contrato-v1.md#e70) |
 | 71 | `GET /api/estadisticas/franjas` | ADMINISTRADOR | 44 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | feat/front-rf43-rf44-estadisticas 11/11/2026 | [contrato #71](contrato-v1.md#e71) |
 | 72 | `POST /api/turnos-semanales/{id}/consultorio/vista-previa` | FUNCIONARIO | 20 | Vista previa de fechas, consultas y cruces del consultorio destino (solo lectura) | EN DESARROLLO (rama feat/front-rf20-consultorio-parcial) | feat/front-rf20-consultorio-parcial 12/11/2026 | [contrato #72](contrato-v1.md#e72) |
+| 73 | `POST /api/dispositivos/baja` | SOCIO | RNF-23 | Baja del token push antes de cerrar sesión (204 siempre; no borra la fila, solo deshabilita; mismo `token` recortado, no vacío y máximo 4096 caracteres después de recortar; si no, 400) | CONFIRMADA | - | [contrato #73](contrato-v1.md#e73) |
 
 ## Rutas de la prueba de concepto
 
@@ -119,11 +120,15 @@ migran: se usa solo el modelo del Proyecto 2026.
 | POST /api/reservas | #17 `POST /api/consultas` | migrado en Flutter (reserva por `numeroId`) |
 | GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | migrado en backend y Flutter; usa filtros y paginación del contrato |
 | PATCH /api/reservas/{id}/cancelacion | #20 `POST /api/consultas/{id}/cancelar` | Implementado en backend; el frontend debe habilitar la acción |
-| `POST /api/notificaciones/registro` | #33 | se mantiene (no usa el esquema `"POC"`) |
+| `POST /api/notificaciones/registro` | #33 | se elimina en la tarjeta de registro push (RNF-23); la reemplaza `POST /api/dispositivos` (#33). Se borra de esta tabla cuando se elimine el código |
 
-La ruta de registro de notificaciones que existe en el backend es
-`POST /api/notificaciones/registro`; no se implementó la ruta contractual
-`POST /api/dispositivos`.
+La ruta de registro de notificaciones que existe hoy en el backend es
+`POST /api/notificaciones/registro` (cuerpo `{fid}`, guarda en memoria). Se
+elimina en la tarjeta "RNF-23 Push Android: registro real del dispositivo":
+la reemplaza la ruta contractual `POST /api/dispositivos` (#33, cuerpo
+`{token}`, guarda en `dispositivo_push`), con la baja `POST /api/dispositivos/baja`
+(#73). Mientras exista el código, esta fila y la constante del cliente se
+mantienen.
 
 ## Endpoint adicional verificado
 

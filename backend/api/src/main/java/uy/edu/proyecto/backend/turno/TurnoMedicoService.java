@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
+import uy.edu.proyecto.backend.parametro.VentanaAgendar;
 
 @Service
 public class TurnoMedicoService {
@@ -20,13 +22,16 @@ public class TurnoMedicoService {
 
     private final TurnoMedicoRepository repository;
     private final Clock clock;
+    private final ParametroService parametros;
 
     public TurnoMedicoService(
             TurnoMedicoRepository repository,
-            Clock clock
+            Clock clock,
+            ParametroService parametros
     ) {
         this.repository = repository;
         this.clock = clock;
+        this.parametros = parametros;
     }
 
     @Transactional(readOnly = true)
@@ -62,16 +67,15 @@ public class TurnoMedicoService {
             throw validacion("sentido debe ser asc o desc");
         }
 
-        OffsetDateTime minimoInicio = OffsetDateTime.now(clock).plusHours(2);
+        VentanaAgendar ventana = parametros.ventanaAgendar(OffsetDateTime.now(clock));
         return repository.obtenerNumeros(
                         medicoId,
                         turnoId,
                         llegada,
                         orden,
                         sentido,
-                        LocalDate.now(clock),
-                        LocalDate.now(clock).plusDays(30),
-                        minimoInicio
+                        ventana.minimoInicio(),
+                        ventana.maximoInicio()
                 )
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,

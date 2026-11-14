@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolicitados;
 
@@ -21,15 +22,17 @@ public class CancelacionFuncionarioService {
     private final TurnoFechasRepository notificaciones;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final ParametroService parametros;
 
     public CancelacionFuncionarioService(CancelacionFuncionarioRepository repository,
             ConsultaRepository consultaRepository, TurnoFechasRepository notificaciones,
-            ApplicationEventPublisher events, Clock clock) {
+            ApplicationEventPublisher events, Clock clock, ParametroService parametros) {
         this.repository = repository;
         this.consultaRepository = consultaRepository;
         this.notificaciones = notificaciones;
         this.events = events;
         this.clock = clock;
+        this.parametros = parametros;
     }
 
     @Transactional
@@ -66,9 +69,11 @@ public class CancelacionFuncionarioService {
         ZonedDateTime ahora = ZonedDateTime.now(clock);
         ZonedDateTime inicio = consulta.fecha().atTime(consulta.horaInicio())
                 .atZone(clock.getZone());
-        if (inicio.isBefore(ahora.plusHours(2))) {
+        int horasMinimas = parametros.cancelarAnticipacionMinimaHoras();
+        if (inicio.isBefore(ahora.plusHours(horasMinimas))) {
             throw new ApiException(HttpStatus.CONFLICT, "CANCELACION_FUERA_DE_PLAZO",
-                    "Faltan menos de 2 horas para la consulta");
+                    "Faltan menos de " + ParametroService.horas(horasMinimas)
+                            + " para la consulta");
         }
 
         OffsetDateTime canceladaEn = repository.cancelar(consultaId, funcionarioId)

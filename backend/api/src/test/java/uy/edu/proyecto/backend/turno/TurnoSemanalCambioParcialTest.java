@@ -59,7 +59,8 @@ class TurnoSemanalCambioParcialTest {
                 repository,
                 consultaRepository,
                 Clock.fixed(Instant.parse("2026-11-10T15:00:00Z"),
-                        ZoneId.of("America/Montevideo"))
+                        ZoneId.of("America/Montevideo")),
+                uy.edu.proyecto.backend.parametro.ParametroService.porDefecto()
         );
     }
 

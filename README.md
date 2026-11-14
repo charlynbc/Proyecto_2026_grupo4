@@ -90,6 +90,28 @@ emulador no llega al `localhost` de tu máquina, hay que usar `10.0.2.2`.
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080
 ```
 
+### Parámetros de negocio
+
+Las reglas de la sección 3.1.3 de Requerimientos (anticipación para agendar y
+cancelar, consultas activas por socio, duración de un número, vigencia de pases,
+largo mínimo de contraseña y vigencia de los enlaces del correo) se cargan con
+variables de entorno: `PARAM_*`, `PASSWORD_MIN_LENGTH`, `FIRST_LOGIN_TOKEN_VALIDITY_HOURS`,
+`RECOVERY_TOKEN_VALIDITY_HOURS` y `EMAIL_CHANGE_TOKEN_VALIDITY_HOURS`.
+
+- **Todas tienen valor por defecto** (el de Requerimientos): sin cargar nada, el
+  sistema se comporta como está especificado.
+- Para usar otro valor se carga la variable y se reinicia el backend; no hace
+  falta cambiar código ni reconstruir. La lista, con valores y explicación, está
+  en `.env.example` (sección "Reglas de negocio"); para Railway, en
+  `docs/api/railway-correo.md`.
+- Un valor inválido (cero, negativo, un mínimo mayor que su máximo) impide que el
+  backend arranque y el mensaje nombra la variable.
+- Un único componente del backend (`ParametroService`) lee estas variables.
+- **El frontend conserva sus propias copias de estos valores** hasta que exista
+  un endpoint de lectura de parámetros (es un cambio de contrato y queda para
+  una tarjeta futura). Si se cambia un valor en el backend, hay que revisar
+  las copias del frontend; la regla definitiva siempre es la del servidor.
+
 ---
 
 ## Cómo trabajamos

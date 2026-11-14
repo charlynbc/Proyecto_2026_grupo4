@@ -122,7 +122,11 @@ public class ConsultaRepository {
         ).isEmpty();
     }
 
-    public Optional<NumeroParaAgendar> bloquearNumero(Long numeroId) {
+    public Optional<NumeroParaAgendar> bloquearNumero(
+            Long numeroId,
+            OffsetDateTime minimoInicio,
+            OffsetDateTime maximoInicio
+    ) {
         return jdbcTemplate.query(
                         """
                         SELECT n.id_numero, n.numero, n.hora_inicio, n.hora_fin,
@@ -138,11 +142,11 @@ public class ConsultaRepository {
                                (
                                    (t.fecha + n.hora_inicio)
                                        AT TIME ZONE 'America/Montevideo'
-                                   >= CURRENT_TIMESTAMP + INTERVAL '2 hours'
+                                   >= ?
                                    AND
                                    (t.fecha + n.hora_inicio)
                                        AT TIME ZONE 'America/Montevideo'
-                                   <= CURRENT_TIMESTAMP + INTERVAL '30 days'
+                                   <= ?
                                ) AS ventana_valida
                         FROM public.numero n
                         JOIN public.turno t ON t.id_turno = n.id_turno
@@ -182,6 +186,8 @@ public class ConsultaRepository {
                                 rs.getBoolean("medico_habilitado"),
                                 rs.getBoolean("ventana_valida")
                         ),
+                        minimoInicio,
+                        maximoInicio,
                         numeroId
                 )
                 .stream()
@@ -226,30 +232,30 @@ public class ConsultaRepository {
         return cantidad == null ? 0 : cantidad;
     }
 
-    public boolean tieneConsultaAgendadaEnEspecialidad(
+    /** Consultas activas del socio en una especialidad (el limite sale de un parametro). */
+    public long contarConsultasAgendadasEnEspecialidad(
             Long socioId,
             Long especialidadId
     ) {
-        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+        Long cantidad = jdbcTemplate.queryForObject(
                 """
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM public.consulta consulta
-                    JOIN public.numero numero
-                      ON numero.id_numero = consulta.id_numero
-                    JOIN public.turno turno ON turno.id_turno = numero.id_turno
-                    JOIN public.turno_semanal semanal
-                      ON semanal.id_turno_semanal = turno.id_turno_semanal
-                    WHERE consulta.id_socio = ?
-                      AND
+                SELECT COUNT(*)
+                FROM public.consulta consulta
+                JOIN public.numero numero
+                  ON numero.id_numero = consulta.id_numero
+                JOIN public.turno turno ON turno.id_turno = numero.id_turno
+                JOIN public.turno_semanal semanal
+                  ON semanal.id_turno_semanal = turno.id_turno_semanal
+                WHERE consulta.id_socio = ?
+                  AND
                 """ + CONSULTA_ACTIVA + """
-                      AND semanal.id_especialidad = ?
-                )
+                  AND semanal.id_especialidad = ?
                 """,
-                Boolean.class,
+                Long.class,
                 socioId,
                 especialidadId
-        ));
+        );
+        return cantidad == null ? 0 : cantidad;
     }
 
     public boolean tieneConsultaSuperpuesta(

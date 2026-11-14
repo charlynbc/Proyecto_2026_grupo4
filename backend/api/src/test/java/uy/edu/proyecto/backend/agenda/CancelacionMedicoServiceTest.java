@@ -30,6 +30,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.DatosConsulta;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.ResumenCancelable;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.TurnoFecha;
@@ -55,7 +56,8 @@ class CancelacionMedicoServiceTest {
         turnoFechas = mock(TurnoFechasRepository.class);
         events = mock(ApplicationEventPublisher.class);
         service = new CancelacionMedicoService(
-                repository, consultaRepository, turnoFechas, events, RELOJ);
+                repository, consultaRepository, turnoFechas, events, RELOJ,
+                ParametroService.porDefecto());
         when(repository.ciMedico(5L)).thenReturn(Optional.of("10000044"));
     }
 

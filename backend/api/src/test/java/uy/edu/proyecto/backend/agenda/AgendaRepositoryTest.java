@@ -1,6 +1,7 @@
 package uy.edu.proyecto.backend.agenda;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
 
@@ -19,6 +20,11 @@ import static org.mockito.Mockito.when;
 
 class AgendaRepositoryTest {
 
+    private static final OffsetDateTime MINIMO =
+            OffsetDateTime.parse("2026-10-20T12:00:00-03:00");
+    private static final OffsetDateTime MAXIMO =
+            OffsetDateTime.parse("2026-10-30T08:00:00-03:00");
+
     @Test
     void consultaSoloMedicoNoFiltraEspecialidadYConservaVentana() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
@@ -27,7 +33,8 @@ class AgendaRepositoryTest {
                         .<org.springframework.jdbc.core.RowMapper<NumeroDisponibleDTO>>any(),
                 any(Object[].class))).thenReturn(List.of());
         new AgendaRepository(jdbc).consultarDisponibilidad(
-                new FiltroDisponibilidadDTO(null, 17L, null, null, "fecha", "asc"));
+                new FiltroDisponibilidadDTO(null, 17L, null, null, "fecha", "asc"),
+                MINIMO, MAXIMO);
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Object[]> parametros = ArgumentCaptor.forClass(Object[].class);
@@ -38,7 +45,7 @@ class AgendaRepositoryTest {
         assertFalse(sql.getValue().contains("ts.id_especialidad = ?"));
         assertTrue(sql.getValue().contains("ts.id_medico = ?"));
         assertTrue(sql.getValue().contains("c.habilitada = TRUE"));
-        assertEquals(List.of(17L), Arrays.asList(parametros.getValue()));
+        assertEquals(List.of(MINIMO, MAXIMO, 17L), Arrays.asList(parametros.getValue()));
     }
 
     @Test
@@ -60,7 +67,7 @@ class AgendaRepositoryTest {
                 LocalDate.of(2026, 11, 20),
                 "apellidoMedico",
                 "desc"
-        ));
+        ), MINIMO, MAXIMO);
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<Object[]> parametrosCaptor =
@@ -74,8 +81,11 @@ class AgendaRepositoryTest {
 
         String sql = sqlCaptor.getValue();
         assertTrue(sql.contains("t.estado = 'ACTIVO'"));
-        assertTrue(sql.contains("CURRENT_TIMESTAMP + INTERVAL '2 hours'"));
-        assertTrue(sql.contains("CURRENT_TIMESTAMP + INTERVAL '30 days'"));
+        assertTrue(sql.replaceAll("\\s+", " ").contains(
+                "((t.fecha + n.hora_inicio) AT TIME ZONE 'America/Montevideo') >= ? "
+                + "AND ((t.fecha + n.hora_inicio) AT TIME ZONE 'America/Montevideo') <= ?"));
+        assertFalse(sql.contains("INTERVAL"));
+        assertFalse(sql.contains("CURRENT_TIMESTAMP"));
         assertTrue(sql.contains("consulta.estado = 'AGENDADA'"));
         assertTrue(sql.contains("p.apellido DESC"));
         assertTrue(sql.contains("t.fecha >= ?"));
@@ -84,6 +94,8 @@ class AgendaRepositoryTest {
         assertFalse(sql.contains("UPDATE "));
         assertEquals(
                 List.of(
+                        MINIMO,
+                        MAXIMO,
                         3L,
                         17L,
                         LocalDate.of(2026, 10, 20),
