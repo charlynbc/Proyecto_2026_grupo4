@@ -2320,9 +2320,9 @@ Reglas comunes (sección 3.1.4 de Requerimientos). Cada carga masiva tiene **dos
 
 **Formato del archivo**
 
-- CSV con codificación **UTF-8** (se acepta la marca BOM inicial) y **encabezados**.
+- CSV con codificación **UTF-8** (se acepta la marca BOM inicial) y **encabezados**. Un archivo guardado en otra codificación (por ejemplo Latin-1, el "CSV (delimitado por comas)" de Excel con tildes o eñes) o como Unicode UTF-16 se rechaza con `400 CSV_INVALIDO` y un mensaje que pide guardarlo de nuevo como CSV UTF-8.
 - Separador: **coma o punto y coma** (se detecta en la línea de encabezado). Los campos entrecomillados pueden contener el separador.
-- Las columnas deben ser **exactamente** las indicadas (ni faltantes ni adicionales, sin repetir); de lo contrario `400 CSV_INVALIDO`.
+- Las columnas deben ser **exactamente** las indicadas (ni faltantes ni adicionales, sin repetir, escritas en minúsculas y sin espacios alrededor); de lo contrario `400 CSV_INVALIDO`. El `message` dice qué corregir y no hace falta interpretarlo: nombra las columnas que faltan y las que sobran con su nombre exacto, y distingue la primera fila con columnas sin nombre (por ejemplo un separador de más al final), con espacios alrededor de un nombre o con una columna repetida.
 - Límites: **1 MB** por archivo y **1000 filas** de datos. Superarlos responde `400 CSV_INVALIDO`.
 - El archivo viaja como `multipart/form-data` en el campo `archivo` y **no se almacena** en el servidor.
 - Una fila con una cantidad distinta de columnas se rechaza con ese motivo; las demás se procesan.

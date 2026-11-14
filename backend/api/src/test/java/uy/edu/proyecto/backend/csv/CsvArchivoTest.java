@@ -189,4 +189,242 @@ class CsvArchivoTest {
         assertEquals("CSV_INVALIDO", exception.getCode());
         assertTrue(exception.getMessage().contains("1000"));
     }
+
+    /* ---------- Mensajes de cabecera que dicen que hacer ---------- */
+
+    private static ApiException rechazoDeParseo(String csv) {
+        ApiException error = assertThrows(
+                ApiException.class, () -> CsvArchivo.parsear(csv, COLUMNAS));
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("CSV_INVALIDO", error.getCode());
+        return error;
+    }
+
+    @Test
+    void columnaQueSobraSeNombra() {
+        ApiException error = rechazoDeParseo(
+                "nombre,requiere_pase,extra\nCardiologia,si,x\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Sobra la columna: extra. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void columnaQueFaltaSeNombra() {
+        ApiException error = rechazoDeParseo("nombre\nCardiologia\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Falta la columna: requiere_pase. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void faltanYSobranColumnasSeNombranLasDosListas() {
+        ApiException error = rechazoDeParseo(
+                "name,requiere_pase\nCardiologia,si\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Falta la columna: nombre. "
+                + "Sobra la columna: name. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void variasColumnasQueFaltanYSobranVanEnPlural() {
+        ApiException error = rechazoDeParseo("uno,dos\nA,B\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Faltan las columnas: nombre, requiere_pase. "
+                + "Sobran las columnas: uno, dos. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void mayusculasSeExplicanConLosNombresExactos() {
+        ApiException error = rechazoDeParseo(
+                "Nombre;Requiere_pase\nCardiologia;si\n");
+
+        assertEquals("El archivo no tiene las columnas esperadas. "
+                + "Faltan las columnas: nombre, requiere_pase. "
+                + "Sobran las columnas: Nombre, Requiere_pase. "
+                + "Los nombres de las columnas se escriben en minúsculas. "
+                + "Las columnas deben ser exactamente: nombre, requiere_pase.",
+                error.getMessage());
+    }
+
+    @Test
+    void cabeceraConEspaciosDiceQueColumnasTienenEspacios() {
+        ApiException error = rechazoDeParseo(
+                "nombre , requiere_pase\nCardiologia,si\n");
+
+        assertEquals("La primera fila tiene columnas con espacios al principio "
+                + "o al final: 'nombre ', ' requiere_pase'. "
+                + "Borre esos espacios y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void cabeceraConEspaciosSoloAlPrincipioDeUnaColumna() {
+        ApiException error = rechazoDeParseo(
+                " nombre;requiere_pase\nCardiologia;si\n");
+
+        assertEquals("La primera fila tiene columnas con espacios al principio "
+                + "o al final: ' nombre'. "
+                + "Borre esos espacios y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void puntoYComaDeMasAlFinalDiceQueHayUnaColumnaSinNombre() {
+        ApiException error = rechazoDeParseo(
+                "nombre;requiere_pase;\nCardiologia;si;\n");
+
+        assertEquals("La primera fila tiene columnas sin nombre (posición 3). "
+                + "Puede ser un separador de más al final: "
+                + "bórrelo y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void comaDeMasAlFinalTambienDiceQueHayUnaColumnaSinNombre() {
+        ApiException error = rechazoDeParseo(
+                "nombre,requiere_pase,\nCardiologia,si,\n");
+
+        assertEquals("La primera fila tiene columnas sin nombre (posición 3). "
+                + "Puede ser un separador de más al final: "
+                + "bórrelo y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void variasColumnasSinNombreVanEnPlural() {
+        ApiException error = rechazoDeParseo(
+                "nombre;requiere_pase;;\nCardiologia;si;;\n");
+
+        assertEquals("La primera fila tiene columnas sin nombre (posiciones 3, 4). "
+                + "Puede ser un separador de más al final: "
+                + "bórrelo y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void columnaRepetidaSeNombra() {
+        ApiException error = assertThrows(
+                ApiException.class,
+                () -> CsvArchivo.parsear(
+                        "nombre,nombre\nCardiologia,si\n", List.of("nombre")));
+
+        assertEquals("La columna 'nombre' está repetida en la primera fila. "
+                + "Cada columna debe aparecer una sola vez.",
+                error.getMessage());
+    }
+
+    @Test
+    void cabeceraConEspaciosYOtrosErroresInformaPrimeroLosEspacios() {
+        ApiException error = rechazoDeParseo("nombre ,otra\nA,B\n");
+
+        assertEquals("La primera fila tiene columnas con espacios al principio "
+                + "o al final: 'nombre '. "
+                + "Borre esos espacios y vuelva a cargar el archivo.",
+                error.getMessage());
+    }
+
+    @Test
+    void archivoQueNoEsUtf8SugiereGuardarloComoCsvUtf8() {
+        byte[] latin1 = "nombre,requiere_pase\nCardiología,si\n"
+                .getBytes(StandardCharsets.ISO_8859_1);
+        var archivo = new MockMultipartFile("archivo", "a.csv", "text/csv", latin1);
+
+        ApiException error = assertThrows(
+                ApiException.class, () -> CsvArchivo.leerUtf8(archivo));
+
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("CSV_INVALIDO", error.getCode());
+        assertEquals("El archivo no está guardado con codificación UTF-8, "
+                + "por eso las tildes y las eñes no se leen bien. "
+                + "Guárdelo de nuevo como CSV UTF-8 (en Excel: Guardar como, "
+                + "tipo CSV UTF-8 delimitado por comas) y vuelva a cargarlo.",
+                error.getMessage());
+    }
+
+    private static final String MENSAJE_UTF16 =
+            "El archivo está guardado como Unicode (UTF-16) y no se puede leer. "
+                    + "Guárdelo de nuevo como CSV UTF-8 (en Excel: Guardar como, "
+                    + "tipo CSV UTF-8 delimitado por comas) y vuelva a cargarlo.";
+
+    private static ApiException rechazoDeLectura(byte[] bytes) {
+        var archivo = new MockMultipartFile("archivo", "a.csv", "text/csv", bytes);
+        ApiException error = assertThrows(
+                ApiException.class, () -> CsvArchivo.leerUtf8(archivo));
+        assertEquals(HttpStatus.BAD_REQUEST, error.getStatus());
+        assertEquals("CSV_INVALIDO", error.getCode());
+        return error;
+    }
+
+    @Test
+    void utf16ConMarcaBomLittleEndianSeDetecta() {
+        byte[] texto = "nombre,requiere_pase\nCardiologia,si\n"
+                .getBytes(StandardCharsets.UTF_16LE);
+        byte[] bytes = new byte[texto.length + 2];
+        bytes[0] = (byte) 0xFF;
+        bytes[1] = (byte) 0xFE;
+        System.arraycopy(texto, 0, bytes, 2, texto.length);
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
+    void utf16ConMarcaBomBigEndianSeDetecta() {
+        byte[] texto = "nombre,requiere_pase\nCardiologia,si\n"
+                .getBytes(StandardCharsets.UTF_16BE);
+        byte[] bytes = new byte[texto.length + 2];
+        bytes[0] = (byte) 0xFE;
+        bytes[1] = (byte) 0xFF;
+        System.arraycopy(texto, 0, bytes, 2, texto.length);
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
+    void utf16LittleEndianSinMarcaBomSeDetectaPorLosBytesNulos() {
+        byte[] bytes = "nombre,requiere_pase\nCardiologia,si\n"
+                .getBytes(StandardCharsets.UTF_16LE);
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
+    void utf16BigEndianSinMarcaBomSeDetectaPorLosBytesNulos() {
+        byte[] bytes = "nombre,requiere_pase\nCardiologia,si\n"
+                .getBytes(StandardCharsets.UTF_16BE);
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
+    void utf16ConMarcaBomSeDetectaAunqueNoHayaBytesNulos() {
+        // Caracteres U+0104 en UTF-16LE: bytes 04 01, sin ningun cero.
+        byte[] bytes = {(byte) 0xFF, (byte) 0xFE, 0x04, 0x01, 0x04, 0x01};
+
+        assertEquals(MENSAJE_UTF16, rechazoDeLectura(bytes).getMessage());
+    }
+
+    @Test
+    void utf8ConMarcaBomSigueSiendoValido() {
+        byte[] texto = "nombre,requiere_pase\nCardiología,si\n"
+                .getBytes(StandardCharsets.UTF_8);
+        byte[] bytes = new byte[texto.length + 3];
+        bytes[0] = (byte) 0xEF;
+        bytes[1] = (byte) 0xBB;
+        bytes[2] = (byte) 0xBF;
+        System.arraycopy(texto, 0, bytes, 3, texto.length);
+        var archivo = new MockMultipartFile("archivo", "a.csv", "text/csv", bytes);
+
+        assertTrue(CsvArchivo.leerUtf8(archivo).contains("Cardiología"));
+    }
 }
