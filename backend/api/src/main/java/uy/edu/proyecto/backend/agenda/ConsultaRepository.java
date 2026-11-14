@@ -122,7 +122,11 @@ public class ConsultaRepository {
         ).isEmpty();
     }
 
-    public Optional<NumeroParaAgendar> bloquearNumero(Long numeroId) {
+    public Optional<NumeroParaAgendar> bloquearNumero(
+            Long numeroId,
+            OffsetDateTime minimoInicio,
+            OffsetDateTime maximoInicio
+    ) {
         return jdbcTemplate.query(
                         """
                         SELECT n.id_numero, n.numero, n.hora_inicio, n.hora_fin,
@@ -138,11 +142,11 @@ public class ConsultaRepository {
                                (
                                    (t.fecha + n.hora_inicio)
                                        AT TIME ZONE 'America/Montevideo'
-                                   >= CURRENT_TIMESTAMP + INTERVAL '2 hours'
+                                   >= ?
                                    AND
                                    (t.fecha + n.hora_inicio)
                                        AT TIME ZONE 'America/Montevideo'
-                                   <= CURRENT_TIMESTAMP + INTERVAL '30 days'
+                                   <= ?
                                ) AS ventana_valida
                         FROM public.numero n
                         JOIN public.turno t ON t.id_turno = n.id_turno
@@ -182,6 +186,8 @@ public class ConsultaRepository {
                                 rs.getBoolean("medico_habilitado"),
                                 rs.getBoolean("ventana_valida")
                         ),
+                        minimoInicio,
+                        maximoInicio,
                         numeroId
                 )
                 .stream()

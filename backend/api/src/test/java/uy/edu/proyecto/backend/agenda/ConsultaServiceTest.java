@@ -1,8 +1,10 @@
 package uy.edu.proyecto.backend.agenda;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +36,14 @@ class ConsultaServiceTest {
     private static final Long NUMERO_ID = 4501L;
     private static final CrearConsultaRequest SOLICITUD =
             new CrearConsultaRequest(NUMERO_ID, null);
+    private static final Clock RELOJ = Clock.fixed(
+            OffsetDateTime.parse("2026-10-20T08:00:00-03:00").toInstant(),
+            ZoneId.of("America/Montevideo")
+    );
+    private static final OffsetDateTime MINIMO =
+            OffsetDateTime.parse("2026-10-20T10:00:00-03:00");
+    private static final OffsetDateTime MAXIMO =
+            OffsetDateTime.parse("2026-11-19T08:00:00-03:00");
 
     @Mock
     private ConsultaRepository repository;
@@ -42,9 +52,9 @@ class ConsultaServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ConsultaService(repository, ParametroService.porDefecto());
+        service = new ConsultaService(repository, ParametroService.porDefecto(), RELOJ);
         lenient().when(repository.bloquearSocioHabilitado(SOCIO_ID)).thenReturn(true);
-        lenient().when(repository.bloquearNumero(NUMERO_ID))
+        lenient().when(repository.bloquearNumero(NUMERO_ID, MINIMO, MAXIMO))
                 .thenReturn(Optional.of(numero(false)));
         lenient().when(repository.contarConsultasAgendadas(SOCIO_ID)).thenReturn(0L);
         lenient().when(repository.contarConsultasAgendadasEnEspecialidad(SOCIO_ID, 3L))
@@ -100,12 +110,13 @@ class ConsultaServiceTest {
         );
 
         assertEquals("NO_ENCONTRADO", exception.getCode());
-        verify(repository, never()).bloquearNumero(NUMERO_ID);
+        verify(repository, never()).bloquearNumero(NUMERO_ID, MINIMO, MAXIMO);
     }
 
     @Test
     void rechazaNumeroDesconocido() {
-        when(repository.bloquearNumero(NUMERO_ID)).thenReturn(Optional.empty());
+        when(repository.bloquearNumero(NUMERO_ID, MINIMO, MAXIMO))
+                .thenReturn(Optional.empty());
 
         ApiException exception = assertThrows(
                 ApiException.class,
@@ -118,7 +129,7 @@ class ConsultaServiceTest {
 
     @Test
     void rechazaFechaSuspendidaOMedicoInactivo() {
-        when(repository.bloquearNumero(NUMERO_ID))
+        when(repository.bloquearNumero(NUMERO_ID, MINIMO, MAXIMO))
                 .thenReturn(Optional.of(numero(false, "SUSPENDIDO", true)));
 
         ApiException exception = assertThrows(
@@ -132,7 +143,7 @@ class ConsultaServiceTest {
 
     @Test
     void rechazaVentanaFueraDeDosHorasYTtreintaDias() {
-        when(repository.bloquearNumero(NUMERO_ID))
+        when(repository.bloquearNumero(NUMERO_ID, MINIMO, MAXIMO))
                 .thenReturn(Optional.of(numero(false, "ACTIVO", false)));
 
         ApiException exception = assertThrows(
@@ -141,7 +152,42 @@ class ConsultaServiceTest {
         );
 
         assertEquals("ANTICIPACION_INVALIDA", exception.getCode());
+        assertEquals("El número debe estar entre 2 horas y 30 días desde ahora",
+                exception.getMessage());
         verify(repository, never()).contarConsultasAgendadas(SOCIO_ID);
+    }
+
+    private ApiException rechazoDeVentana(ParametroService parametros) {
+        OffsetDateTime minimo = OffsetDateTime.parse("2026-10-20T08:00:00-03:00")
+                .plusHours(parametros.agendarAnticipacionMinimaHoras());
+        OffsetDateTime maximo = OffsetDateTime.parse("2026-10-20T08:00:00-03:00")
+                .plusDays(parametros.agendarAnticipacionMaximaDias());
+        when(repository.bloquearNumero(NUMERO_ID, minimo, maximo))
+                .thenReturn(Optional.of(numero(false, "ACTIVO", false)));
+        return assertThrows(ApiException.class,
+                () -> conParametros(parametros).agendar(SOCIO_ID, SOLICITUD));
+    }
+
+    @Test
+    void laVentanaSeArmaConLosValoresConfigurados() {
+        ApiException exception = rechazoDeVentana(
+                ParametrosDePrueba.nuevo().agendar(4, 10).construir());
+
+        assertEquals("ANTICIPACION_INVALIDA", exception.getCode());
+        assertEquals("El número debe estar entre 4 horas y 10 días desde ahora",
+                exception.getMessage());
+        verify(repository).bloquearNumero(NUMERO_ID,
+                OffsetDateTime.parse("2026-10-20T12:00:00-03:00"),
+                OffsetDateTime.parse("2026-10-30T08:00:00-03:00"));
+    }
+
+    @Test
+    void elMensajeDeVentanaUsaSingularConUnaHoraYUnDia() {
+        ApiException exception = rechazoDeVentana(
+                ParametrosDePrueba.nuevo().agendar(1, 1).construir());
+
+        assertEquals("El número debe estar entre 1 hora y 1 día desde ahora",
+                exception.getMessage());
     }
 
     @Test
@@ -176,7 +222,7 @@ class ConsultaServiceTest {
     }
 
     private ConsultaService conParametros(ParametroService parametros) {
-        return new ConsultaService(repository, parametros);
+        return new ConsultaService(repository, parametros, RELOJ);
     }
 
     @Test
@@ -257,7 +303,7 @@ class ConsultaServiceTest {
 
     @Test
     void exigePaseCuandoEspecialidadLoRequiere() {
-        when(repository.bloquearNumero(NUMERO_ID))
+        when(repository.bloquearNumero(NUMERO_ID, MINIMO, MAXIMO))
                 .thenReturn(Optional.of(numero(true)));
 
         ApiException exception = assertThrows(
@@ -272,7 +318,7 @@ class ConsultaServiceTest {
     @Test
     void consumePasePropioVigenteYGuardaSuIdentificador() {
         CrearConsultaRequest solicitud = new CrearConsultaRequest(NUMERO_ID, 77L);
-        when(repository.bloquearNumero(NUMERO_ID))
+        when(repository.bloquearNumero(NUMERO_ID, MINIMO, MAXIMO))
                 .thenReturn(Optional.of(numero(true)));
         when(repository.bloquearPaseDisponible(
                 77L,
@@ -300,7 +346,7 @@ class ConsultaServiceTest {
     @Test
     void rechazaPaseAjenoVencidoOYaUtilizado() {
         CrearConsultaRequest solicitud = new CrearConsultaRequest(NUMERO_ID, 88L);
-        when(repository.bloquearNumero(NUMERO_ID))
+        when(repository.bloquearNumero(NUMERO_ID, MINIMO, MAXIMO))
                 .thenReturn(Optional.of(numero(true)));
         when(repository.bloquearPaseDisponible(
                 88L, SOCIO_ID, 3L, LocalDate.of(2026, 11, 3)

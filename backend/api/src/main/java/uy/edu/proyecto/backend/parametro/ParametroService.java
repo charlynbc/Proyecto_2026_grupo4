@@ -1,5 +1,7 @@
 package uy.edu.proyecto.backend.parametro;
 
+import java.time.OffsetDateTime;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -97,6 +99,16 @@ public class ParametroService {
     /** Los valores de la seccion 3.1.3 de Requerimientos, para tests y como referencia. */
     public static ParametroService porDefecto() {
         return new ParametroService(30, 2, 2, 1, 3, 10, 60, 5, 90, 1, 365, 24);
+    }
+
+    /**
+     * Regla unica de la ventana de agendar: desde ahora mas la anticipacion
+     * minima hasta ahora mas la maxima, ambos como instantes.
+     */
+    public VentanaAgendar ventanaAgendar(OffsetDateTime ahora) {
+        return new VentanaAgendar(
+                ahora.plusHours(agendarAnticipacionMinimaHoras),
+                ahora.plusDays(agendarAnticipacionMaximaDias));
     }
 
     public int agendarAnticipacionMaximaDias() {

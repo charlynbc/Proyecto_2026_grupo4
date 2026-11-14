@@ -1,5 +1,8 @@
 package uy.edu.proyecto.backend.agenda;
 
+import java.time.Clock;
+import java.time.OffsetDateTime;
+
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -8,16 +11,20 @@ import org.springframework.transaction.annotation.Transactional;
 import uy.edu.proyecto.backend.agenda.ConsultaRepository.NumeroParaAgendar;
 import uy.edu.proyecto.backend.exception.ApiException;
 import uy.edu.proyecto.backend.parametro.ParametroService;
+import uy.edu.proyecto.backend.parametro.VentanaAgendar;
 
 @Service
 public class ConsultaService {
 
     private final ConsultaRepository repository;
     private final ParametroService parametros;
+    private final Clock clock;
 
-    public ConsultaService(ConsultaRepository repository, ParametroService parametros) {
+    public ConsultaService(ConsultaRepository repository, ParametroService parametros,
+            Clock clock) {
         this.repository = repository;
         this.parametros = parametros;
+        this.clock = clock;
     }
 
     @Transactional
@@ -32,7 +39,9 @@ public class ConsultaService {
             throw noEncontrado("No existe una cuenta de socio activa");
         }
 
-        NumeroParaAgendar numero = repository.bloquearNumero(request.numeroId())
+        VentanaAgendar ventana = parametros.ventanaAgendar(OffsetDateTime.now(clock));
+        NumeroParaAgendar numero = repository.bloquearNumero(
+                        request.numeroId(), ventana.minimoInicio(), ventana.maximoInicio())
                 .orElseThrow(() -> noEncontrado("No existe el número indicado"));
 
         if (!"ACTIVO".equals(numero.estadoTurno())
@@ -45,7 +54,11 @@ public class ConsultaService {
         if (!numero.ventanaValida()) {
             throw conflicto(
                     "ANTICIPACION_INVALIDA",
-                    "El número debe estar entre 2 horas y 30 días desde ahora"
+                    "El número debe estar entre "
+                            + ParametroService.horas(parametros.agendarAnticipacionMinimaHoras())
+                            + " y "
+                            + ParametroService.dias(parametros.agendarAnticipacionMaximaDias())
+                            + " desde ahora"
             );
         }
 

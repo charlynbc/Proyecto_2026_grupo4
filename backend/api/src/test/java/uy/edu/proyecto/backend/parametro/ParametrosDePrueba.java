@@ -26,6 +26,12 @@ public final class ParametrosDePrueba {
         return new ParametrosDePrueba();
     }
 
+    public ParametrosDePrueba agendar(int minimaHoras, int maximaDias) {
+        this.agendarMinimaHoras = minimaHoras;
+        this.agendarMaximaDias = maximaDias;
+        return this;
+    }
+
     public ParametrosDePrueba cancelarHoras(int valor) {
         this.cancelarMinimaHoras = valor;
         return this;

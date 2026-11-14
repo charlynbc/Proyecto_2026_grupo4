@@ -10,6 +10,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
+import uy.edu.proyecto.backend.parametro.ParametrosDePrueba;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -32,7 +34,8 @@ class TurnoMedicoServiceTest {
 
         TurnosMedicoResponse response = new TurnoMedicoService(
                 repository,
-                RELOJ
+                RELOJ,
+                ParametroService.porDefecto()
         ).listar(17L, "2026-10-20");
 
         assertEquals(List.of(), response.items());
@@ -44,7 +47,7 @@ class TurnoMedicoServiceTest {
         TurnoMedicoRepository repository = mock(TurnoMedicoRepository.class);
 
         assertThrows(ApiException.class, () ->
-                new TurnoMedicoService(repository, RELOJ)
+                new TurnoMedicoService(repository, RELOJ, ParametroService.porDefecto())
                         .listar(17L, "20-10-2026")
         );
     }
@@ -54,7 +57,8 @@ class TurnoMedicoServiceTest {
         TurnoMedicoRepository repository = mock(TurnoMedicoRepository.class);
         TurnoMedicoService service = new TurnoMedicoService(
                 repository,
-                RELOJ
+                RELOJ,
+                ParametroService.porDefecto()
         );
 
         assertThrows(ApiException.class, () ->
@@ -66,13 +70,78 @@ class TurnoMedicoServiceTest {
                 null,
                 "hora",
                 "asc",
-                LocalDate.of(2026, 10, 20),
-                LocalDate.of(2026, 11, 19),
-                OffsetDateTime.parse("2026-10-20T10:00:00-03:00")
+                OffsetDateTime.parse("2026-10-20T10:00:00-03:00"),
+                OffsetDateTime.parse("2026-11-19T08:00:00-03:00")
         )).thenReturn(Optional.empty());
 
         assertThrows(ApiException.class, () ->
                 service.obtenerNumeros(17L, 44L, null, null, null)
+        );
+    }
+
+    @Test
+    void laVentanaDeNumerosDisponiblesSaleDeLosParametrosComoInstantes() {
+        TurnoMedicoRepository repository = mock(TurnoMedicoRepository.class);
+        TurnoMedicoService service = new TurnoMedicoService(
+                repository,
+                RELOJ,
+                ParametrosDePrueba.nuevo().agendar(4, 10).construir()
+        );
+        when(repository.obtenerNumeros(
+                17L,
+                44L,
+                null,
+                "hora",
+                "asc",
+                OffsetDateTime.parse("2026-10-20T12:00:00-03:00"),
+                OffsetDateTime.parse("2026-10-30T08:00:00-03:00")
+        )).thenReturn(Optional.empty());
+
+        assertThrows(ApiException.class, () ->
+                service.obtenerNumeros(17L, 44L, null, null, null)
+        );
+
+        verify(repository).obtenerNumeros(
+                17L,
+                44L,
+                null,
+                "hora",
+                "asc",
+                OffsetDateTime.parse("2026-10-20T12:00:00-03:00"),
+                OffsetDateTime.parse("2026-10-30T08:00:00-03:00")
+        );
+    }
+
+    @Test
+    void conValoresPorDefectoElMaximoEsElInstanteTreintaDiasDespuesYNoUnaFecha() {
+        TurnoMedicoRepository repository = mock(TurnoMedicoRepository.class);
+        TurnoMedicoService service = new TurnoMedicoService(
+                repository,
+                RELOJ,
+                ParametroService.porDefecto()
+        );
+        when(repository.obtenerNumeros(
+                17L,
+                44L,
+                true,
+                "horaLlegada",
+                "desc",
+                OffsetDateTime.parse("2026-10-20T10:00:00-03:00"),
+                OffsetDateTime.parse("2026-11-19T08:00:00-03:00")
+        )).thenReturn(Optional.empty());
+
+        assertThrows(ApiException.class, () ->
+                service.obtenerNumeros(17L, 44L, true, "horaLlegada", "desc")
+        );
+
+        verify(repository).obtenerNumeros(
+                17L,
+                44L,
+                true,
+                "horaLlegada",
+                "desc",
+                OffsetDateTime.parse("2026-10-20T10:00:00-03:00"),
+                OffsetDateTime.parse("2026-11-19T08:00:00-03:00")
         );
     }
 }

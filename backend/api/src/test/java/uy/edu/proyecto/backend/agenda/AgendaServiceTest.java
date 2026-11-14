@@ -1,6 +1,9 @@
 package uy.edu.proyecto.backend.agenda;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -9,6 +12,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
+import uy.edu.proyecto.backend.parametro.ParametrosDePrueba;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -19,6 +24,15 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AgendaServiceTest {
 
+    private static final Clock RELOJ = Clock.fixed(
+            OffsetDateTime.parse("2026-10-20T08:00:00-03:00").toInstant(),
+            ZoneId.of("America/Montevideo")
+    );
+    private static final OffsetDateTime MINIMO =
+            OffsetDateTime.parse("2026-10-20T10:00:00-03:00");
+    private static final OffsetDateTime MAXIMO =
+            OffsetDateTime.parse("2026-11-19T08:00:00-03:00");
+
     @Mock
     private AgendaRepository repository;
 
@@ -26,10 +40,11 @@ class AgendaServiceTest {
     void consultaDisponibilidadConOrdenYSentidoPorDefecto() {
         when(repository.existeEspecialidad(3L)).thenReturn(true);
         when(repository.consultarDisponibilidad(
-                new FiltroDisponibilidadDTO(3L, null, null, null, "fecha", "asc")
+                new FiltroDisponibilidadDTO(3L, null, null, null, "fecha", "asc"),
+                MINIMO, MAXIMO
         )).thenReturn(List.of());
 
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
 
         assertEquals(
                 List.of(),
@@ -39,7 +54,8 @@ class AgendaServiceTest {
         );
         verify(repository).existeEspecialidad(3L);
         verify(repository).consultarDisponibilidad(
-                new FiltroDisponibilidadDTO(3L, null, null, null, "fecha", "asc")
+                new FiltroDisponibilidadDTO(3L, null, null, null, "fecha", "asc"),
+                MINIMO, MAXIMO
         );
     }
 
@@ -47,22 +63,24 @@ class AgendaServiceTest {
     void consultaSoloPorMedicoEnTodasSusEspecialidades() {
         when(repository.existeMedico(17L)).thenReturn(true);
         when(repository.consultarDisponibilidad(
-                new FiltroDisponibilidadDTO(null, 17L, null, null, "fecha", "asc")
+                new FiltroDisponibilidadDTO(null, 17L, null, null, "fecha", "asc"),
+                MINIMO, MAXIMO
         )).thenReturn(List.of());
 
-        new AgendaService(repository).consultarDisponibilidad(
+        new AgendaService(repository, ParametroService.porDefecto(), RELOJ).consultarDisponibilidad(
                 null, "17", null, null, null, null);
 
         verify(repository).existeMedico(17L);
         verify(repository).consultarDisponibilidad(
-                new FiltroDisponibilidadDTO(null, 17L, null, null, "fecha", "asc"));
+                new FiltroDisponibilidadDTO(null, 17L, null, null, "fecha", "asc"),
+                MINIMO, MAXIMO);
     }
 
     @Test
     void medicoInexistenteSinEspecialidadDevuelve404() {
         when(repository.existeMedico(777L)).thenReturn(false);
         ApiException exception = assertThrows(ApiException.class,
-                () -> new AgendaService(repository).consultarDisponibilidad(
+                () -> new AgendaService(repository, ParametroService.porDefecto(), RELOJ).consultarDisponibilidad(
                         null, "777", null, null, null, null));
         assertEquals("NO_ENCONTRADO", exception.getCode());
         verify(repository).existeMedico(777L);
@@ -80,10 +98,11 @@ class AgendaServiceTest {
                         LocalDate.of(2026, 11, 20),
                         "apellidoMedico",
                         "desc"
-                )
+                ),
+                MINIMO, MAXIMO
         )).thenReturn(List.of());
 
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
         service.consultarDisponibilidad(
                 "3",
                 "17",
@@ -100,12 +119,32 @@ class AgendaServiceTest {
                 LocalDate.of(2026, 11, 20),
                 "apellidoMedico",
                 "desc"
-        ));
+        ), MINIMO, MAXIMO);
+    }
+
+    @Test
+    void laVentanaSeCalculaConElRelojYLosParametrosConfigurados() {
+        when(repository.existeEspecialidad(3L)).thenReturn(true);
+        OffsetDateTime minimo = OffsetDateTime.parse("2026-10-20T12:00:00-03:00");
+        OffsetDateTime maximo = OffsetDateTime.parse("2026-10-30T08:00:00-03:00");
+        when(repository.consultarDisponibilidad(
+                new FiltroDisponibilidadDTO(3L, null, null, null, "fecha", "asc"),
+                minimo, maximo
+        )).thenReturn(List.of());
+
+        new AgendaService(repository,
+                ParametrosDePrueba.nuevo().agendar(4, 10).construir(), RELOJ)
+                .consultarDisponibilidad("3", null, null, null, null, null);
+
+        verify(repository).consultarDisponibilidad(
+                new FiltroDisponibilidadDTO(3L, null, null, null, "fecha", "asc"),
+                minimo, maximo
+        );
     }
 
     @Test
     void rechazaAmbosFiltrosFaltantesAntesDeConsultarRepositorio() {
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
 
         ApiException exception = assertThrows(
                 ApiException.class,
@@ -120,7 +159,7 @@ class AgendaServiceTest {
 
     @Test
     void rechazaIdsVaciosYNoPositivos() {
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
         for (String invalido : List.of("", " ", "0", "-2", "abc")) {
             assertEquals("VALIDACION", assertThrows(ApiException.class,
                     () -> service.consultarDisponibilidad(
@@ -131,7 +170,7 @@ class AgendaServiceTest {
 
     @Test
     void rechazaIdsNoNumericosConErrorDeValidacion() {
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
 
         ApiException exception = assertThrows(
                 ApiException.class,
@@ -146,7 +185,7 @@ class AgendaServiceTest {
 
     @Test
     void rechazaRangoDeFechasInvertido() {
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
 
         ApiException exception = assertThrows(
                 ApiException.class,
@@ -166,7 +205,7 @@ class AgendaServiceTest {
 
     @Test
     void rechazaOrdenNoPermitido() {
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
 
         ApiException exception = assertThrows(
                 ApiException.class,
@@ -182,7 +221,7 @@ class AgendaServiceTest {
     @Test
     void especialidadInexistenteDevuelveNoEncontrado() {
         when(repository.existeEspecialidad(33L)).thenReturn(false);
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
 
         ApiException exception = assertThrows(
                 ApiException.class,
@@ -199,7 +238,7 @@ class AgendaServiceTest {
     void medicoInexistenteDevuelveNoEncontrado() {
         when(repository.existeEspecialidad(3L)).thenReturn(true);
         when(repository.existeMedico(17L)).thenReturn(false);
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
 
         ApiException exception = assertThrows(
                 ApiException.class,
@@ -213,7 +252,7 @@ class AgendaServiceTest {
 
     @Test
     void rechazaFormatoDeFechaInvalido() {
-        AgendaService service = new AgendaService(repository);
+        AgendaService service = new AgendaService(repository, ParametroService.porDefecto(), RELOJ);
 
         ApiException exception = assertThrows(
                 ApiException.class,
