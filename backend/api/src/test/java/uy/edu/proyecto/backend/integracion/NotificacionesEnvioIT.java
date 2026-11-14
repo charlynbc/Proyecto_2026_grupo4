@@ -134,7 +134,7 @@ class NotificacionesEnvioIT extends BaseIntegracionIT {
         verify(correoSender).enviar(new CorreoMensaje(
                 correoDe(ciSocio1),
                 "Consulta cancelada",
-                "Tu consulta del " + fecha + " fue cancelada a tu solicitud."));
+                "Tu consulta del " + fechaUruguaya(fecha) + " fue cancelada a tu solicitud."));
     }
 
     @Test
