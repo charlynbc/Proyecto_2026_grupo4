@@ -63,6 +63,8 @@ class ApiRoutes {
       '/api/funcionario/consultas/$appointmentId/cancelar';
   static const String notifications = '/api/notificaciones';
   static const String devices = '/api/dispositivos';
+  // Baja del token push (fila 73): POST con `{token}`, antes de cerrar sesión.
+  static const String devicesDeactivate = '/api/dispositivos/baja';
   static const String statsSpecialties = '/api/estadisticas/especialidades';
   static const String statsShifts = '/api/estadisticas/turnos';
   static const String statsAppointments = '/api/estadisticas/consultas';
@@ -172,6 +174,7 @@ class ApiRoutes {
     staffAppointmentCancel(1),
     notifications,
     devices,
+    devicesDeactivate,
     statsSpecialties,
     statsShifts,
     statsAppointments,
