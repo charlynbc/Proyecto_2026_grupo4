@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 class ValidarEnlaceServiceTest {
 
@@ -24,9 +25,11 @@ class ValidarEnlaceServiceTest {
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
     private final ApplicationEventPublisher eventos = mock(ApplicationEventPublisher.class);
     private final PrimerIngresoService primerIngresoService =
-            new PrimerIngresoService(primerIngreso, encoder, eventos, 8, 24);
+            new PrimerIngresoService(
+                    primerIngreso, encoder, eventos, ParametroService.porDefecto());
     private final RecuperacionService recuperacionService =
-            new RecuperacionService(recuperacion, sesiones, encoder, eventos, 8, 24);
+            new RecuperacionService(
+                    recuperacion, sesiones, encoder, eventos, ParametroService.porDefecto());
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})

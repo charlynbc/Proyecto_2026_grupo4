@@ -7,7 +7,6 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Set;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.auth.PrimerIngresoRepository.CuentaPendiente;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.usuario.CiUruguaya;
 
 @Service
@@ -32,25 +32,19 @@ public class PrimerIngresoService {
     private final PrimerIngresoRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
-    private final int minimumPasswordLength;
-    private final int tokenValidityHours;
+    private final ParametroService parametros;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PrimerIngresoService(
             PrimerIngresoRepository repository,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher eventPublisher,
-            @Value("${app.auth.password-min-length:8}") int minimumPasswordLength,
-            @Value("${app.auth.first-login-token-validity-hours:24}") int tokenValidityHours
+            ParametroService parametros
     ) {
-        if (tokenValidityHours <= 0) {
-            throw new IllegalArgumentException("La validez del enlace debe ser positiva");
-        }
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
         this.eventPublisher = eventPublisher;
-        this.minimumPasswordLength = minimumPasswordLength;
-        this.tokenValidityHours = tokenValidityHours;
+        this.parametros = parametros;
     }
 
     @Transactional
@@ -67,6 +61,7 @@ public class PrimerIngresoService {
         if (cuentaPendiente.isPresent()) {
             var cuenta = cuentaPendiente.get();
             repository.invalidarEnlacesPendientes(cuenta.id());
+            int tokenValidityHours = parametros.enlacePrimerIngresoHoras();
             String token = generarToken();
             repository.crearEnlace(
                     cuenta.id(),
@@ -145,7 +140,7 @@ public class PrimerIngresoService {
         if (request.telefono1().trim().length() > 30
                 || (request.telefono2() != null
                     && request.telefono2().trim().length() > 30)
-                || request.password().length() < minimumPasswordLength
+                || request.password().length() < parametros.contrasenaLongitudMinima()
                 || request.password().getBytes(StandardCharsets.UTF_8).length
                     > MAX_BCRYPT_PASSWORD_BYTES) {
             throw validacion("Los datos de activacion no son validos");

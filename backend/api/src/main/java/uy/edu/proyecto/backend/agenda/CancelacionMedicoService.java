@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.DatosConsulta;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.ResumenCancelable;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.TurnoFecha;
@@ -27,7 +28,6 @@ import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicita
 @Service
 public class CancelacionMedicoService {
 
-    private static final long HORAS_MINIMAS = 2;
     private static final int MOTIVO_MAX_LENGTH = 1000;
 
     private final CancelacionMedicoRepository repository;
@@ -35,15 +35,17 @@ public class CancelacionMedicoService {
     private final TurnoFechasRepository turnoFechas;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final ParametroService parametros;
 
     public CancelacionMedicoService(CancelacionMedicoRepository repository,
             ConsultaRepository consultaRepository, TurnoFechasRepository turnoFechas,
-            ApplicationEventPublisher events, Clock clock) {
+            ApplicationEventPublisher events, Clock clock, ParametroService parametros) {
         this.repository = repository;
         this.consultaRepository = consultaRepository;
         this.turnoFechas = turnoFechas;
         this.events = events;
         this.clock = clock;
+        this.parametros = parametros;
     }
 
     @Transactional
@@ -171,9 +173,11 @@ public class CancelacionMedicoService {
     }
 
     private void verificarAnticipacion(ZonedDateTime inicio, ZonedDateTime ahora) {
-        if (inicio.isBefore(ahora.plusHours(HORAS_MINIMAS))) {
+        int horasMinimas = parametros.cancelarAnticipacionMinimaHoras();
+        if (inicio.isBefore(ahora.plusHours(horasMinimas))) {
             throw conflicto("CANCELACION_FUERA_DE_PLAZO",
-                    "Faltan menos de 2 horas para la hora del número");
+                    "Faltan menos de " + ParametroService.horas(horasMinimas)
+                            + " para la hora del número");
         }
     }
 

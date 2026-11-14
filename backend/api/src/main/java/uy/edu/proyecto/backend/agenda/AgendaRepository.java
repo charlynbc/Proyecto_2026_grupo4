@@ -2,6 +2,7 @@ package uy.edu.proyecto.backend.agenda;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -50,7 +51,9 @@ public class AgendaRepository {
     }
 
     public List<NumeroDisponibleDTO> consultarDisponibilidad(
-            FiltroDisponibilidadDTO filtros
+            FiltroDisponibilidadDTO filtros,
+            OffsetDateTime minimoInicio,
+            OffsetDateTime maximoInicio
     ) {
         StringBuilder sql = new StringBuilder("""
                 SELECT n.id_numero, t.id_turno, n.numero, t.fecha,
@@ -76,10 +79,10 @@ public class AgendaRepository {
                   AND t.estado = 'ACTIVO'
                   AND ((t.fecha + n.hora_inicio)
                        AT TIME ZONE 'America/Montevideo')
-                      >= CURRENT_TIMESTAMP + INTERVAL '2 hours'
+                      >= ?
                   AND ((t.fecha + n.hora_inicio)
                        AT TIME ZONE 'America/Montevideo')
-                      <= CURRENT_TIMESTAMP + INTERVAL '30 days'
+                      <= ?
                   AND NOT EXISTS (
                       SELECT 1
                       FROM public.consulta consulta
@@ -88,6 +91,8 @@ public class AgendaRepository {
                   )
                 """);
         List<Object> parametros = new ArrayList<>();
+        parametros.add(minimoInicio);
+        parametros.add(maximoInicio);
         if (filtros.especialidadId() != null) {
             sql.append(" AND ts.id_especialidad = ?");
             parametros.add(filtros.especialidadId());

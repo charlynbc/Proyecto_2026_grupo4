@@ -38,12 +38,14 @@ class ConsultaRepositoryActivasTest {
     void elLimitePorEspecialidadNoCuentaLasAgendadasDeDiasTerminadosSinResultado() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
 
-        new ConsultaRepository(jdbc).tieneConsultaAgendadaEnEspecialidad(7L, 3L);
+        new ConsultaRepository(jdbc).contarConsultasAgendadasEnEspecialidad(7L, 3L);
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         verify(jdbc).queryForObject(
-                sql.capture(), eq(Boolean.class), eq(7L), eq(3L));
+                sql.capture(), eq(Long.class), eq(7L), eq(3L));
         verificarDefinicionDeActiva(sql.getValue());
+        assertTrue(sql.getValue().contains("COUNT(*)"));
+        assertFalse(sql.getValue().contains("EXISTS"));
         assertTrue(sql.getValue().contains("semanal.id_especialidad = ?"));
     }
 }

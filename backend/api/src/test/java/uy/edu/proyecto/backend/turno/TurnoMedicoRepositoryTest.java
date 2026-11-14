@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -63,9 +64,8 @@ class TurnoMedicoRepositoryTest {
                 true,
                 "horaLlegada",
                 "desc",
-                LocalDate.of(2026, 10, 20),
-                LocalDate.of(2026, 11, 19),
-                OffsetDateTime.parse("2026-10-20T10:00:00-03:00")
+                OffsetDateTime.parse("2026-10-20T10:00:00-03:00"),
+                OffsetDateTime.parse("2026-11-19T08:00:00-03:00")
         );
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
@@ -81,9 +81,18 @@ class TurnoMedicoRepositoryTest {
         assertTrue(sql.getValue().contains("ORDER BY aviso.registrada_en DESC NULLS LAST"));
         assertTrue(sql.getValue().contains("AT TIME ZONE 'America/Montevideo'"));
         assertTrue(sql.getValue().contains("paciente.id_cuenta AS paciente_id"));
-        assertEquals(LocalDate.of(2026, 10, 20), parametros.getValue()[0]);
-        assertEquals(LocalDate.of(2026, 11, 19), parametros.getValue()[1]);
-        assertEquals(17L, parametros.getValue()[3]);
-        assertEquals(301L, parametros.getValue()[4]);
+        assertTrue(sql.getValue().replaceAll("\\s+", " ").contains(
+                "AND ((t.fecha + n.hora_inicio) AT TIME ZONE 'America/Montevideo') >= ? "
+                + "AND ((t.fecha + n.hora_inicio) AT TIME ZONE 'America/Montevideo') <= ? "
+                + ") AS disponible"));
+        assertFalse(sql.getValue().contains("t.fecha BETWEEN"));
+        assertEquals(
+                List.of(
+                        OffsetDateTime.parse("2026-10-20T10:00:00-03:00"),
+                        OffsetDateTime.parse("2026-11-19T08:00:00-03:00"),
+                        17L,
+                        301L
+                ),
+                java.util.Arrays.asList(parametros.getValue()));
     }
 }
