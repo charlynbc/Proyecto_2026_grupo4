@@ -1,6 +1,7 @@
 package uy.edu.proyecto.backend.agenda;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -8,6 +9,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -18,6 +20,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class ConsultaRepositoryTest {
+
+    private static final OffsetDateTime MINIMO =
+            OffsetDateTime.parse("2026-10-20T12:00:00-03:00");
+    private static final OffsetDateTime MAXIMO =
+            OffsetDateTime.parse("2026-10-30T08:00:00-03:00");
 
     @Test
     void bloqueaSocioNumeroYTurnoParaSerializarReservasConcurrentes() {
@@ -36,7 +43,7 @@ class ConsultaRepositoryTest {
 
         ConsultaRepository repository = new ConsultaRepository(jdbcTemplate);
         repository.bloquearSocioHabilitado(91L);
-        repository.bloquearNumero(4501L);
+        repository.bloquearNumero(4501L, MINIMO, MAXIMO);
 
         ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
         verify(jdbcTemplate, org.mockito.Mockito.times(2)).query(
@@ -50,6 +57,35 @@ class ConsultaRepositoryTest {
         assertTrue(queries.contains("FOR UPDATE OF t, n"));
         assertTrue(queries.contains("id_cuenta = ?"));
         assertTrue(queries.contains("n.id_numero = ?"));
+    }
+
+    @Test
+    void laVentanaDeAgendarLlegaComoInstantesYNoComoIntervalosFijos() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.query(
+                anyString(),
+                org.mockito.ArgumentMatchers
+                        .<RowMapper<ConsultaRepository.NumeroParaAgendar>>any(),
+                any(Object[].class)
+        )).thenReturn(List.of());
+
+        new ConsultaRepository(jdbcTemplate).bloquearNumero(4501L, MINIMO, MAXIMO);
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> parametros = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate).query(
+                sql.capture(),
+                org.mockito.ArgumentMatchers
+                        .<RowMapper<ConsultaRepository.NumeroParaAgendar>>any(),
+                parametros.capture()
+        );
+        assertTrue(sql.getValue().replaceAll("\\s+", " ").contains(
+                "AT TIME ZONE 'America/Montevideo' >= ? AND (t.fecha + n.hora_inicio) "
+                + "AT TIME ZONE 'America/Montevideo' <= ? ) AS ventana_valida"));
+        assertFalse(sql.getValue().contains("INTERVAL"));
+        assertFalse(sql.getValue().contains("CURRENT_TIMESTAMP"));
+        assertEquals(List.of(MINIMO, MAXIMO, 4501L),
+                java.util.Arrays.asList(parametros.getValue()));
     }
 
     @Test

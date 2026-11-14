@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import uy.edu.proyecto.backend.consultorio.Consultorio;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.turno.TurnoSemanalRepository.CuentaMedica;
 import uy.edu.proyecto.backend.turno.TurnoSemanalRepository.NumeroExistente;
 import uy.edu.proyecto.backend.turno.TurnoSemanalRepository.NumeroInstancia;
@@ -35,15 +36,18 @@ public class TurnoSemanalService {
     private final TurnoSemanalRepository repository;
     private final TurnoConsultaRepository consultaRepository;
     private final Clock clock;
+    private final ParametroService parametros;
 
     public TurnoSemanalService(
             TurnoSemanalRepository repository,
             TurnoConsultaRepository consultaRepository,
-            Clock clock
+            Clock clock,
+            ParametroService parametros
     ) {
         this.repository = repository;
         this.consultaRepository = consultaRepository;
         this.clock = clock;
+        this.parametros = parametros;
     }
 
     @Transactional
@@ -580,15 +584,20 @@ public class TurnoSemanalService {
             if (!inicio.isBefore(fin)) {
                 throw validacion("horaInicio debe ser anterior a horaFin");
             }
+            int paso = parametros.numeroDuracionPasoMinutos();
             if (inicio.getSecond() != 0 || fin.getSecond() != 0
                     || inicio.getNano() != 0 || fin.getNano() != 0
-                    || inicio.getMinute() % 5 != 0
-                    || fin.getMinute() % 5 != 0) {
-                throw validacion("Los horarios deben estar en múltiplos de 5 minutos");
+                    || inicio.getMinute() % paso != 0
+                    || fin.getMinute() % paso != 0) {
+                throw validacion("Los horarios deben estar en múltiplos de "
+                        + ParametroService.minutos(paso));
             }
+            int minimo = parametros.numeroDuracionMinimaMinutos();
+            int maximo = parametros.numeroDuracionMaximaMinutos();
             long duracion = java.time.Duration.between(inicio, fin).toMinutes();
-            if (duracion < 10 || duracion > 60) {
-                throw validacion("La duración debe estar entre 10 y 60 minutos");
+            if (duracion < minimo || duracion > maximo) {
+                throw validacion("La duración debe estar entre " + minimo + " y "
+                        + ParametroService.minutos(maximo));
             }
             numeros.add(new NumeroValidado(
                     solicitado.numero(),

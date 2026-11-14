@@ -24,6 +24,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import uy.edu.proyecto.backend.auth.PrimerIngresoRepository.CuentaPendiente;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 class PrimerIngresoServiceTest {
 
@@ -36,8 +37,7 @@ class PrimerIngresoServiceTest {
             repository,
             passwordEncoder,
             eventPublisher,
-            8,
-            24
+            ParametroService.porDefecto()
     );
 
     @Test

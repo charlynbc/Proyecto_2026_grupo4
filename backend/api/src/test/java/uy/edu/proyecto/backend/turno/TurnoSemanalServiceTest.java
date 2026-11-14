@@ -45,7 +45,8 @@ class TurnoSemanalServiceTest {
                 repository,
                 consultaRepository,
                 java.time.Clock.system(
-                        java.time.ZoneId.of("America/Montevideo"))
+                        java.time.ZoneId.of("America/Montevideo")),
+                uy.edu.proyecto.backend.parametro.ParametroService.porDefecto()
         );
         lenient().when(repository.bloquearMedico(17L)).thenReturn(Optional.of(
                 new CuentaMedica(17L, "MEDICO", true, "Ana", "Pérez")

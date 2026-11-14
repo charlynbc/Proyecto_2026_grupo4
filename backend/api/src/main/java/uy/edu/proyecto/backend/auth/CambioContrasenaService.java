@@ -2,13 +2,13 @@ package uy.edu.proyecto.backend.auth;
 
 import java.nio.charset.StandardCharsets;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 /**
  * RF-04: cambio de contrasena del usuario autenticado. La identidad sale del JWT
@@ -25,18 +25,18 @@ public class CambioContrasenaService {
     private final CuentaAuthRepository cuentaRepository;
     private final SesionRepository sesionRepository;
     private final PasswordEncoder passwordEncoder;
-    private final int minimumPasswordLength;
+    private final ParametroService parametros;
 
     public CambioContrasenaService(
             CuentaAuthRepository cuentaRepository,
             SesionRepository sesionRepository,
             PasswordEncoder passwordEncoder,
-            @Value("${app.auth.password-min-length:8}") int minimumPasswordLength
+            ParametroService parametros
     ) {
         this.cuentaRepository = cuentaRepository;
         this.sesionRepository = sesionRepository;
         this.passwordEncoder = passwordEncoder;
-        this.minimumPasswordLength = minimumPasswordLength;
+        this.parametros = parametros;
     }
 
     @Transactional
@@ -83,6 +83,7 @@ public class CambioContrasenaService {
                 || estaVacio(request.passwordNueva())) {
             throw validacion("Falta un campo obligatorio");
         }
+        int minimumPasswordLength = parametros.contrasenaLongitudMinima();
         if (request.passwordNueva().length() < minimumPasswordLength
                 || request.passwordNueva()
                         .getBytes(StandardCharsets.UTF_8).length

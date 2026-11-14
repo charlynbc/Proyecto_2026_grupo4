@@ -17,6 +17,7 @@ import uy.edu.proyecto.backend.atencion.AtencionRepository.ConsultaResultado;
 import uy.edu.proyecto.backend.atencion.ResultadoConsultaRequest.PaseNuevoRequest;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -49,7 +50,7 @@ class AtencionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AtencionService(repository, RELOJ);
+        service = new AtencionService(repository, RELOJ, ParametroService.porDefecto());
         lenient().when(repository.buscarSocioId(MEDICO_ID, CONSULTA_ID))
                 .thenReturn(Optional.of(SOCIO_ID));
         lenient().when(repository.bloquearSocio(SOCIO_ID)).thenReturn(true);

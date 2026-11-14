@@ -1,6 +1,8 @@
 package uy.edu.proyecto.backend.agenda;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
@@ -8,14 +10,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
+import uy.edu.proyecto.backend.parametro.VentanaAgendar;
 
 @Service
 public class AgendaService {
 
     private final AgendaRepository repository;
+    private final ParametroService parametros;
+    private final Clock clock;
 
-    public AgendaService(AgendaRepository repository) {
+    public AgendaService(AgendaRepository repository, ParametroService parametros,
+            Clock clock) {
         this.repository = repository;
+        this.parametros = parametros;
+        this.clock = clock;
     }
 
     public List<NumeroDisponibleDTO> consultarDisponibilidad(
@@ -66,6 +75,7 @@ public class AgendaService {
             throw noEncontrado("No existe el médico indicado");
         }
 
+        VentanaAgendar ventana = parametros.ventanaAgendar(OffsetDateTime.now(clock));
         return repository.consultarDisponibilidad(new FiltroDisponibilidadDTO(
                 especialidadId,
                 medicoId,
@@ -73,7 +83,7 @@ public class AgendaService {
                 hasta,
                 ordenNormalizado,
                 sentidoNormalizado
-        ));
+        ), ventana.minimoInicio(), ventana.maximoInicio());
     }
 
     private LocalDate parsearFecha(String valor, String campo) {
