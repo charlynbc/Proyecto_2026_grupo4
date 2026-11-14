@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 class CambioContrasenaServiceTest {
 
@@ -29,7 +30,7 @@ class CambioContrasenaServiceTest {
             cuentaRepository,
             sesionRepository,
             passwordEncoder,
-            8
+            ParametroService.porDefecto()
     );
 
     @Test

@@ -11,19 +11,24 @@ import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.agenda.ConsultaRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 // RF-10: cancelación de una consulta propia por el socio.
 @Service
 public class CancelacionService {
 
-    private static final long HORAS_MINIMAS = 2;
-
     private final ConsultaRepository repository;
     private final Clock clock;
+    private final ParametroService parametros;
 
-    public CancelacionService(ConsultaRepository repository, Clock clock) {
+    public CancelacionService(
+            ConsultaRepository repository,
+            Clock clock,
+            ParametroService parametros
+    ) {
         this.repository = repository;
         this.clock = clock;
+        this.parametros = parametros;
     }
 
     @Transactional
@@ -65,10 +70,12 @@ public class CancelacionService {
         ZonedDateTime inicio = consulta.fecha()
                 .atTime(consulta.horaInicio())
                 .atZone(clock.getZone());
-        if (inicio.isBefore(ahora.plusHours(HORAS_MINIMAS))) {
+        int horasMinimas = parametros.cancelarAnticipacionMinimaHoras();
+        if (inicio.isBefore(ahora.plusHours(horasMinimas))) {
             throw conflicto(
                     "CANCELACION_FUERA_DE_PLAZO",
-                    "Faltan menos de 2 horas para la hora del número"
+                    "Faltan menos de " + ParametroService.horas(horasMinimas)
+                            + " para la hora del número"
             );
         }
 

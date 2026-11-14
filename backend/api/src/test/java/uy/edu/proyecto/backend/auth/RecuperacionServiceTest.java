@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import uy.edu.proyecto.backend.auth.RecuperacionRepository.CuentaRecuperacion;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 class RecuperacionServiceTest {
 
@@ -39,8 +40,7 @@ class RecuperacionServiceTest {
             sesionRepository,
             passwordEncoder,
             eventPublisher,
-            8,
-            24
+            ParametroService.porDefecto()
     );
 
     @Test

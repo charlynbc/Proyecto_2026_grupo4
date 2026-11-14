@@ -22,6 +22,7 @@ import org.springframework.http.HttpStatus;
 
 import uy.edu.proyecto.backend.auth.TokenHash;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.usuario.DatosPersonalesRepository.ContactoCuenta;
 
 class DatosPersonalesServiceTest {
@@ -33,7 +34,7 @@ class DatosPersonalesServiceTest {
     private final DatosPersonalesService service = new DatosPersonalesService(
             repository,
             eventPublisher,
-            24
+            ParametroService.porDefecto()
     );
 
     private ContactoCuenta contactoActual() {
