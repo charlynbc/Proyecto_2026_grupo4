@@ -42,9 +42,7 @@ class _MyAppState extends ConsumerState<MyApp> {
   StreamSubscription<ForegroundPushMessage>? _pushSubscription;
 
   Future<void> _onAuthenticated() async {
-    final service = await ref.read(pushNotificationServiceProvider.future);
-    final registered = await service.register();
-    if (!registered || !mounted) return;
+    final service = ref.read(pushNotificationServiceProvider);
     _pushSubscription?.cancel();
     _pushSubscription = service.foregroundMessages.listen((message) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
