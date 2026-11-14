@@ -9,7 +9,7 @@ import '../../../core/forms/email_field_rules.dart';
 import '../../../core/forms/phone_field_rules.dart';
 import '../../../core/forms/submit_state.dart';
 import '../../../core/network/api_exception.dart';
-import '../../../core/utils/ui_date.dart' show formatUiDate;
+import '../../../core/utils/ui_date.dart' show formatUiDate, parseUiDate;
 import '../../../core/utils/uruguay_time.dart';
 import '../../auth/models/user_role.dart';
 import '../../auth/widgets/credential_fields.dart';
@@ -19,7 +19,7 @@ import '../providers/correct_user_controller.dart';
 import '../repositories/user_correction_repository.dart';
 import '../screens/user_routes.dart';
 import 'new_user_form.dart'
-    show SpecialtiesPicker, kFirstBirthYear, parseUiDate, validateBirthDateText;
+    show SpecialtiesPicker, kFirstBirthYear, validateBirthDateText;
 
 /// Formulario de corrección de los datos de una cuenta (RF-38). Parte de los
 /// datos actuales y manda solo lo que cambió. El cliente valida para ayudar;

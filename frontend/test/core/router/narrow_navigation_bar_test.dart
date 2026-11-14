@@ -1,4 +1,5 @@
 import 'package:agenda_medica/core/fakes/datos_prueba.dart';
+import 'package:agenda_medica/core/router/adaptive_nav_bar.dart';
 import 'package:agenda_medica/features/agenda/screens/availability_screen.dart';
 import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
@@ -39,7 +40,7 @@ Future<void> _loginAs(
 
 double _labelHeight(WidgetTester tester, String label) {
   final text = find.descendant(
-    of: find.byType(NavigationBar),
+    of: find.byType(AdaptiveNavBar),
     matching: find.byWidgetPredicate(
       (widget) => widget is Text && widget.data == label,
     ),
@@ -52,9 +53,9 @@ double _labelHeight(WidgetTester tester, String label) {
 }
 
 void _expectNarrowShell(WidgetTester tester) {
-  expect(find.byType(NavigationBar), findsOneWidget);
+  expect(find.byType(AdaptiveNavBar), findsOneWidget);
   expect(find.byType(NavigationRail), findsNothing);
-  expect(tester.getSize(find.byType(NavigationBar)).width, 320);
+  expect(tester.getSize(find.byType(AdaptiveNavBar)).width, 320);
   expect(tester.view.physicalSize, const Size(320, 800));
   expect(tester.view.devicePixelRatio, 1);
   expect(tester.takeException(), isNull);
@@ -65,19 +66,16 @@ void _expectCenteredLines(
   String label,
   List<TextSelection> words,
 ) {
-  final destination = find.descendant(
-    of: find.byType(NavigationBar),
-    matching: find.byWidgetPredicate(
-      (widget) => widget is NavigationDestination && widget.label == label,
-    ),
+  final text = find.descendant(
+    of: find.byType(AdaptiveNavBar),
+    matching: find.text(label),
   );
-  expect(destination, findsOneWidget);
-  final text = find.descendant(of: destination, matching: find.text(label));
   expect(text, findsOneWidget);
+  final destination = find.ancestor(of: text, matching: find.byType(Column));
+  expect(destination, findsOneWidget);
   final paragraph = tester.renderObject<RenderParagraph>(text);
   final icons = find.descendant(of: destination, matching: find.byType(Icon));
   expect(icons, findsWidgets);
-  // Flutter superpone ambos iconos durante la transición; comparten el centro.
   final iconCenterX = tester.getCenter(icons.first).dx;
 
   // Cajas ajustadas a las palabras, sin espacios finales que sesguen el centro.
@@ -172,14 +170,13 @@ void main() {
 
       expect(pases, closeTo(cartelera, 0.01), reason: 'Pases en una línea');
       expect(atenciones, closeTo(cartelera, 0.01));
-      _expectCenteredLines(tester, 'Atenciones', [const TextSelection(baseOffset: 0, extentOffset: 10)]);
+      _expectCenteredLines(tester, 'Atenciones', [
+        const TextSelection(baseOffset: 0, extentOffset: 10),
+      ]);
       expect(turnos, greaterThan(0));
       expect(
-        find.descendant(
-          of: find.byType(NavigationBar),
-          matching: find.byType(NavigationDestination),
-        ),
-        findsNWidgets(4),
+        tester.widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar)).destinations,
+        hasLength(4),
       );
       expect(tester.takeException(), isNull);
     } finally {
@@ -195,7 +192,7 @@ void main() {
     try {
       await _loginAs(tester, container, UserRole.socio);
       expect(locationOf(container), '/socio/inicio');
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(AdaptiveNavBar), findsNothing);
 
       final shortcut = find.byKey(const Key('home-shortcut-disponibilidad'));
       expect(
@@ -209,13 +206,13 @@ void main() {
       _expectNarrowShell(tester);
 
       final reservationLabel = find.descendant(
-        of: find.byType(NavigationBar),
+        of: find.byType(AdaptiveNavBar),
         matching: find.text('Reservar consulta'),
       );
       expect(reservationLabel, findsOneWidget);
       expect(
         find.descendant(
-          of: find.byType(NavigationBar),
+          of: find.byType(AdaptiveNavBar),
           matching: find.text('Disponibilidad'),
         ),
         findsNothing,
@@ -272,7 +269,7 @@ void main() {
         ]);
       }
 
-      final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+      final bar = tester.widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar));
       expect(bar.destinations, hasLength(5));
       expect(bar.selectedIndex, 1);
       expectSocioLabelsCentered();
@@ -280,7 +277,9 @@ void main() {
       await goTo(tester, container, '/socio/cartelera');
       expect(locationOf(container), '/socio/cartelera');
       expect(
-        tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
+        tester
+            .widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar))
+            .selectedIndex,
         4,
       );
       expectSocioLabelsCentered();
@@ -301,7 +300,7 @@ void main() {
 
         final rail = find.byType(NavigationRail);
         expect(rail, findsOneWidget);
-        expect(find.byType(NavigationBar), findsNothing);
+        expect(find.byType(AdaptiveNavBar), findsNothing);
         final destination = find.descendant(
           of: rail,
           matching: find.text('Reservar consulta'),
@@ -328,7 +327,7 @@ void main() {
         await goTo(tester, container, '/socio/cartelera');
         expect(locationOf(container), '/socio/cartelera');
         final destination = find.descendant(
-          of: find.byType(NavigationBar),
+          of: find.byType(AdaptiveNavBar),
           matching: find.text('Reservar consulta'),
         );
         expect(destination, findsOneWidget);
@@ -404,7 +403,7 @@ void main() {
           findsOneWidget,
           reason: role.name,
         );
-        expect(find.byType(NavigationBar), findsNothing, reason: role.name);
+        expect(find.byType(AdaptiveNavBar), findsNothing, reason: role.name);
         expect(tester.takeException(), isNull, reason: role.name);
       } finally {
         await unmountApp(tester);
