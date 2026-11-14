@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.context.ApplicationEventPublisher;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.NumeroExistente;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.RecursoTurno;
@@ -386,23 +387,13 @@ public class TurnoFechasService {
             TurnoFecha turno,
             String observacion
     ) {
-        StringBuilder contenido = new StringBuilder(
-                "Tu consulta del " + turno.fecha()
-                        + " fue cancelada por la institución."
+        return NotificacionTextos.cuerpoSuspensionPorFuncionario(
+                turno.fecha(),
+                consulta.horaInicio(),
+                consulta.horaFin(),
+                consulta.numero(),
+                observacion
         );
-        if (consulta.horaInicio() != null) {
-            contenido.append(" Horario: ")
-                    .append(consulta.horaInicio())
-                    .append(" a ")
-                    .append(consulta.horaFin())
-                    .append(" (número ")
-                    .append(consulta.numero())
-                    .append(").");
-        }
-        if (observacion != null) {
-            contenido.append(" ").append(observacion);
-        }
-        return contenido.toString();
     }
 
     private int sumarConsultas(List<TurnoFecha> turnos) {
