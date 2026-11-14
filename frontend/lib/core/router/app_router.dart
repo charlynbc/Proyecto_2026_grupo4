@@ -27,6 +27,7 @@ import '../../features/cuenta/screens/edit_account_screen.dart';
 import '../../features/cuenta/screens/change_password_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
+import '../../features/notificaciones/providers/notification_list_provider.dart';
 import '../../features/notificaciones/screens/notifications_screen.dart';
 import '../../features/medico/screens/doctor_attention_routes.dart';
 import '../../features/medico/screens/doctor_attentions_screen.dart';
@@ -246,6 +247,13 @@ RouteBase _roleShell(UserRole role) {
       navigationShell: navigationShell,
       sections: role.sections,
       role: role,
+      onSectionReopened: (context, section) {
+        // La lista de avisos se pide de nuevo cada vez que se abre la pestaña.
+        if (section.slug == 'avisos') {
+          ProviderScope.containerOf(context)
+              .invalidate(notificationListProvider);
+        }
+      },
     ),
     branches: [
       for (final section in role.sections)
