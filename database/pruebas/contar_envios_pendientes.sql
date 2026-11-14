@@ -1,7 +1,7 @@
 -- Cuenta los envios de notificacion que siguen PENDIENTES, por tipo de aviso y
 -- por canal. Solo lee: no modifica ni borra nada.
 --
--- Para que correrlo antes del despliegue de "el despacho envia avisos de todos
+-- Conviene correrlo antes del despliegue de "el despacho envia avisos de todos
 -- los tipos". Hasta ahora el despacho solo tomaba los envios de SUSPENSION, asi
 -- que los de CANCELACION quedaron PENDIENTE para siempre. Con el cambio, el
 -- poller (cada 30 s, hasta 100 por ciclo) los empieza a enviar todos, incluso
