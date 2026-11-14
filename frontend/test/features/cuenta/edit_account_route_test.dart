@@ -1,3 +1,4 @@
+import 'package:agenda_medica/core/router/adaptive_nav_bar.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,7 +25,7 @@ void main() {
       await tester.tap(edit);
       await tester.pumpAndSettle();
       expect(topOf(router), '/cuenta/editar');
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(AdaptiveNavBar), findsNothing);
       expect(find.text('Editar mis datos'), findsOneWidget);
 
       const fields = {
