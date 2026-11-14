@@ -69,6 +69,8 @@ Los listados que el Diseño declara `List<...>` (catálogos, disponibilidad, con
 
 Los filtros son parámetros de query, opcionales salvo que se indique. Un filtro vacío equivale a no enviarlo. Los filtros de rango (`fechaDesde`, `fechaHasta`) son inclusivos en ambos extremos. Si `fechaDesde` es posterior a `fechaHasta`, `400 VALIDACION`.
 
+**Búsquedas de texto (13/11/2026).** Los filtros de texto que se describen como "sin distinguir mayúsculas ni tildes" (`nombre` de especialidades, `nombre` y `ubicacion` de consultorios, `q` de usuarios, `texto` de la historia clínica y `paciente` de las atenciones del médico) comparan el texto y los datos sin mayúsculas y sin tildes en las vocales (`á é í ó ú` y `ü`): `per`, `perez` y `pérez` encuentran "Pérez" y también "Perez". La `ñ` es una letra distinta de la `n`: `munoz` no encuentra "Muñoz". El texto buscado se compara como contiene y los espacios de los extremos no cuentan; `%` y `_` se buscan literalmente.
+
 ### 1.6 Identificadores y nombres
 
 - Una entidad se identifica con `id`. Una referencia a otra entidad se llama `<entidad>Id` (`numeroId`, `paseId`, `especialidadId`, `medicoId`, `consultorioId`), como en las firmas de las figuras 1 a 7 del Diseño (secciones 2.1 a 2.7).
@@ -422,7 +424,7 @@ Cambia la contraseña del usuario autenticado. La identidad sale del JWT; el cli
 - **RF:** RF-29 (catálogo), y los formularios de RF-08, RF-13, RF-14, RF-17, RF-24 y RF-31. **Diseño:** `EspecialidadDTO`. **Estado:** PROPUESTA.
 
 Sin parámetros devuelve todas las especialidades, sin paginar, ordenadas por `nombre`.
-**RF-36 implementado:** filtros opcionales `nombre` (contiene texto, sin distinguir mayúsculas, máximo 120 caracteres), `requierePase` (`true` o `false`). Orden opcional `orden=nombre` (predeterminado) o `orden=fechaAlta` (ascendente). Se pueden combinar los filtros. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva exactamente la respuesta original.
+**RF-36 implementado:** filtros opcionales `nombre` (contiene texto, sin distinguir mayúsculas ni tildes, máximo 120 caracteres), `requierePase` (`true` o `false`). Orden opcional `orden=nombre` (predeterminado) o `orden=fechaAlta` (ascendente). Se pueden combinar los filtros. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva exactamente la respuesta original.
 
 **Respuesta 200**
 
@@ -471,7 +473,7 @@ Sin parámetros devuelve todas las especialidades, sin paginar, ordenadas por `n
 - **RF:** RF-33 (catálogo) y el formulario de RF-13. **Diseño:** `ConsultorioDTO`. **Estado:** PROPUESTA.
 
 Sin parámetros devuelve todos los consultorios, sin paginar, ordenados por `nombre`.
-**RF-37 implementado:** filtros opcionales `nombre` (contiene nombre o número textual, sin distinguir mayúsculas, máximo 120 caracteres), `ubicacion` (contiene texto sin distinguir mayúsculas, máximo 200 caracteres). Orden opcional `orden=nombre` (predeterminado) o `orden=ubicacion` (ascendente). Los filtros se pueden combinar. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva la respuesta original.
+**RF-37 implementado:** filtros opcionales `nombre` (contiene nombre o número textual, sin distinguir mayúsculas ni tildes, máximo 120 caracteres), `ubicacion` (contiene texto sin distinguir mayúsculas ni tildes, máximo 200 caracteres). Orden opcional `orden=nombre` (predeterminado) o `orden=ubicacion` (ascendente). Los filtros se pueden combinar. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva la respuesta original.
 
 **Respuesta 200**
 
@@ -637,7 +639,7 @@ Una fila por cuenta. Una persona con varias cuentas (incluidas las de empleado a
 |---|---|---|
 | `rol` | `Rol` | |
 | `estado` | `EstadoCuenta` | `ACTIVA` o `INACTIVA`. |
-| `q` | texto | Coincidencia parcial, sin distinguir mayúsculas, con CI o apellido. `%` y `_` se buscan literalmente. `texto` se acepta como alias; si ambos llegan con valores distintos, `400 VALIDACION`. |
+| `q` | texto | Coincidencia parcial, sin distinguir mayúsculas ni tildes, con CI o apellido. `%` y `_` se buscan literalmente. `texto` se acepta como alias; si ambos llegan con valores distintos, `400 VALIDACION`. |
 | `orden` | `apellido` o `fechaAlta` | Por defecto `apellido`. Otro valor: `400 VALIDACION`. Desempate estable por `id`. |
 | `sentido` | `asc` o `desc` | Por defecto `asc`. Otro valor: `400 VALIDACION`. |
 | `page`, `size` | | Sección 1.3. |
@@ -1094,7 +1096,7 @@ El servidor toma la identidad del socio del JWT validado. **No existe parámetro
 | `fechaDesde`, `fechaHasta` | fecha `YYYY-MM-DD` | Inclusivas. Se aplican a la fecha de atención en `America/Montevideo`. |
 | `especialidadId` | entero | |
 | `medicoId` | entero | |
-| `texto` | texto | Contenido en el tratamiento, sin distinguir mayúsculas. `%` y `_` se buscan literalmente. |
+| `texto` | texto | Contenido en el tratamiento, sin distinguir mayúsculas ni tildes. `%` y `_` se buscan literalmente. |
 | `orden` | `fecha` (alias de `fecha_atencion`), `fecha_atencion` o `especialidad` | Por defecto `fecha_atencion`. |
 | `sentido` | `asc` o `desc` | Por defecto `desc`. |
 
@@ -2016,7 +2018,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 |---|---|---|---|
 | `fechaDesde` | fecha | sí | Inclusiva. Sobre la fecha de atención en `America/Montevideo`. |
 | `fechaHasta` | fecha | sí | Inclusiva. `fechaDesde` posterior a `fechaHasta` → `400 VALIDACION`. |
-| `paciente` | texto | no | CI o apellido del paciente (contiene, sin distinguir mayúsculas). Máximo 100 caracteres. |
+| `paciente` | texto | no | CI o apellido del paciente (contiene, sin distinguir mayúsculas ni tildes). Máximo 100 caracteres. |
 | `especialidadId` | entero | no | Especialidad del turno en que se atendió. |
 | `orden` | `fecha` o `apellido` | no | Por defecto `fecha` (la más reciente primero). |
 | `sentido` | `asc` o `desc` | no | Por defecto `desc` con `fecha` y `asc` con `apellido`. |

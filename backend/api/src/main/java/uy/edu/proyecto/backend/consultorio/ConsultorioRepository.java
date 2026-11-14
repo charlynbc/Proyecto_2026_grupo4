@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import uy.edu.proyecto.backend.busqueda.TextoBusqueda;
 
 @Repository
 public class ConsultorioRepository {
@@ -45,12 +46,12 @@ public class ConsultorioRepository {
                 """);
         List<Object> params = new ArrayList<>();
         if (nombre != null && !nombre.isBlank()) {
-            sql.append(" AND nombre ILIKE ?");
-            params.add("%" + nombre + "%");
+            sql.append(" AND " + TextoBusqueda.contiene("nombre"));
+            params.add(TextoBusqueda.patron(nombre));
         }
         if (ubicacion != null && !ubicacion.isBlank()) {
-            sql.append(" AND ubicacion ILIKE ?");
-            params.add("%" + ubicacion + "%");
+            sql.append(" AND " + TextoBusqueda.contiene("ubicacion"));
+            params.add(TextoBusqueda.patron(ubicacion));
         }
         sql.append(" ORDER BY ");
         sql.append("ubicacion".equals(orden) ? "ubicacion" : "nombre");

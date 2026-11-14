@@ -70,6 +70,37 @@ class PadronUsuariosIT extends BaseIntegracionIT {
         assertEquals(1, listar("?rol=medico").path("total").asInt(), "El rol no distingue mayusculas");
     }
 
+    private List<Long> idsDe(String q) {
+        List<Long> ids = new ArrayList<>();
+        listar("?q=" + q).path("items").forEach(i -> ids.add(i.path("id").asLong()));
+        return ids;
+    }
+
+    @Test
+    void laBusquedaIgnoraTildesYMayusculas() {
+        jdbc.update("UPDATE persona SET apellido = 'Pérez' WHERE ci = ?", ciSocio1);
+
+        assertEquals(List.of(idSocio1), idsDe("per"));
+        assertEquals(List.of(idSocio1), idsDe("perez"));
+        assertEquals(List.of(idSocio1), idsDe("p%C3%A9rez"));
+        assertEquals(List.of(idSocio1), idsDe("P%C3%89REZ"));
+
+        jdbc.update("UPDATE persona SET apellido = 'Perez' WHERE ci = ?", ciSocio1);
+
+        assertEquals(List.of(idSocio1), idsDe("p%C3%A9rez"));
+        assertEquals(List.of(idSocio1), idsDe("PEREZ"));
+    }
+
+    @Test
+    void laBusquedaConservaLaEnieComoLetraDistinta() {
+        jdbc.update("UPDATE persona SET apellido = 'Muñoz' WHERE ci = ?", ciSocio1);
+        jdbc.update("UPDATE persona SET apellido = 'MUNOZ' WHERE ci = ?", ciSocio2);
+
+        assertEquals(List.of(idSocio1), idsDe("mu%C3%B1oz"));
+        assertEquals(List.of(idSocio1), idsDe("MU%C3%91OZ"));
+        assertEquals(List.of(idSocio2), idsDe("munoz"));
+    }
+
     @Test
     void qYTextoSonEquivalentesYUnaContradiccionSeRechaza() {
         assertEquals(listar("?q=Soca").path("items"), listar("?texto=Soca").path("items"));
