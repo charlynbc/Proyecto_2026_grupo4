@@ -1,6 +1,7 @@
 import 'package:agenda_medica/core/config/app_locale.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/core/widgets/pagination_bar.dart';
+import 'package:agenda_medica/features/historia_clinica/screens/medical_history_screen.dart';
 import 'package:agenda_medica/features/notificaciones/models/app_notification.dart';
 import 'package:agenda_medica/features/notificaciones/models/app_notification_page.dart';
 import 'package:agenda_medica/features/notificaciones/models/notification_query.dart';
@@ -141,6 +142,11 @@ GoRouter _router() => GoRouter(
       path: '/socio/consultas/:id',
       builder: (context, state) =>
           Scaffold(body: Text('Detalle ${state.pathParameters['id']}')),
+    ),
+    GoRoute(
+      path: '/socio/historia',
+      builder: (context, state) =>
+          const Scaffold(body: Text('Lista de historia clínica')),
     ),
   ],
 );
@@ -400,6 +406,67 @@ void main() {
 
       expect(find.text('Detalle 9001'), findsOneWidget);
     });
+  });
+
+  group('destino según el tipo de aviso', () {
+    final createdAt = DateTime.utc(2026, 10, 16, 14, 20);
+
+    test('la ruta de la historia clínica es /socio/historia', () {
+      expect(kMedicalHistoryPath, '/socio/historia');
+    });
+
+    testWidgets('un aviso de historia actualizada abre la lista de la '
+        'historia clínica y al retroceder vuelve a Avisos', (tester) async {
+      final historia = _notification(
+        15020,
+        'HISTORIA_ACTUALIZADA',
+        'Historia clínica actualizada',
+        9110,
+        'Tu historia clínica fue actualizada.',
+        createdAt,
+      );
+      final router = _router();
+      await _pump(tester, _one([historia]), router: router);
+
+      await tester.tap(find.byKey(const Key('notification-15020')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lista de historia clínica'), findsOneWidget);
+      expect(find.text('Detalle 9110'), findsNothing);
+      expect(find.byType(NotificationsScreen), findsNothing);
+
+      router.pop();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+      expect(find.text('Lista de historia clínica'), findsNothing);
+    });
+
+    for (final (type, title, consultaId) in [
+      ('AGENDA', 'Consulta agendada', 9101),
+      ('CANCELACION', 'Consulta cancelada', 9102),
+      ('SUSPENSION', 'Turno suspendido', 9103),
+      ('RECORDATORIO', 'Recordatorio de consulta', 9104),
+    ]) {
+      testWidgets('un aviso de tipo $type abre el detalle de la consulta '
+          '$consultaId', (tester) async {
+        final aviso = _notification(
+          15030,
+          type,
+          title,
+          consultaId,
+          'Contenido de prueba.',
+          createdAt,
+        );
+        await _pump(tester, _one([aviso]), router: _router());
+
+        await tester.tap(find.byKey(const Key('notification-15030')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Detalle $consultaId'), findsOneWidget);
+        expect(find.text('Lista de historia clínica'), findsNothing);
+      });
+    }
   });
 
   group('a 320 px de ancho (con Roboto)', () {

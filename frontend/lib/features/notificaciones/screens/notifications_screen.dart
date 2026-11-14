@@ -7,6 +7,8 @@ import '../../../core/widgets/centered_content.dart';
 import '../../../core/widgets/pagination_bar.dart';
 import '../../agenda/screens/appointments_pending_screen.dart';
 import '../../auth/widgets/logout_button.dart';
+import '../../historia_clinica/screens/medical_history_screen.dart';
+import '../models/app_notification.dart';
 import '../models/app_notification_page.dart';
 import '../models/notification_query.dart';
 import '../providers/notification_list_provider.dart';
@@ -127,13 +129,21 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         for (final notification in result.items)
           NotificationCard(
             notification: notification,
-            onTap: () =>
-                context.push('$kAppointmentsPath/${notification.consultaId}'),
+            onTap: () => context.push(_destination(notification)),
           ),
         _pagination(result),
       ],
     );
   }
+
+  /// A dónde lleva un aviso: el de historia actualizada, a la historia clínica
+  /// (el aviso no trae el id de la atención, así que va a la lista); los
+  /// demás, al detalle de la consulta a la que se refieren.
+  String _destination(AppNotification notification) =>
+      switch (notification.type) {
+        'HISTORIA_ACTUALIZADA' => kMedicalHistoryPath,
+        _ => '$kAppointmentsPath/${notification.consultaId}',
+      };
 
   Widget _pagination(AppNotificationPage result) {
     return PaginationBar(
