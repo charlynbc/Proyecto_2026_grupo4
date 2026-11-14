@@ -340,6 +340,15 @@ public class SecurityConfig {
                                         )
 
                                         .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/dispositivos",
+                                                "/api/dispositivos/baja"
+                                        )
+                                        .hasRole(
+                                                "SOCIO"
+                                        )
+
+                                        .requestMatchers(
                                                 HttpMethod.GET,
                                                 "/api/medico/turnos",
                                                 "/api/medico/turnos/**"
