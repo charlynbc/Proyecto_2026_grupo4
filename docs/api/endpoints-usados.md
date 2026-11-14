@@ -120,15 +120,6 @@ migran: se usa solo el modelo del Proyecto 2026.
 | POST /api/reservas | #17 `POST /api/consultas` | migrado en Flutter (reserva por `numeroId`) |
 | GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | migrado en backend y Flutter; usa filtros y paginación del contrato |
 | PATCH /api/reservas/{id}/cancelacion | #20 `POST /api/consultas/{id}/cancelar` | Implementado en backend; el frontend debe habilitar la acción |
-| `POST /api/notificaciones/registro` | #33 | se elimina en la tarjeta de registro push (RNF-23); la reemplaza `POST /api/dispositivos` (#33). Se borra de esta tabla cuando se elimine el código |
-
-La ruta de registro de notificaciones que existe hoy en el backend es
-`POST /api/notificaciones/registro` (cuerpo `{fid}`, guarda en memoria). Se
-elimina en la tarjeta "RNF-23 Push Android: registro real del dispositivo":
-la reemplaza la ruta contractual `POST /api/dispositivos` (#33, cuerpo
-`{token}`, guarda en `dispositivo_push`), con la baja `POST /api/dispositivos/baja`
-(#73). Mientras exista el código, esta fila y la constante del cliente se
-mantienen.
 
 ## Endpoint adicional verificado
 
