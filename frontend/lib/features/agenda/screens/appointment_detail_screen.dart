@@ -22,7 +22,7 @@ class AppointmentDetailScreen extends ConsumerWidget {
     final appointment = ref.watch(appointmentDetailProvider(id));
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detalle de consulta'),
+        title: const Text('Consulta'),
         actions: const [LogoutButton()],
       ),
       body: CenteredContent(
