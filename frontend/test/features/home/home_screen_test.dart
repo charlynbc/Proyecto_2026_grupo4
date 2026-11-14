@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agenda_medica/core/config/app_config.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/core/router/adaptive_nav_bar.dart';
 import 'package:agenda_medica/core/router/app_router.dart';
 import 'package:agenda_medica/core/theme/app_theme.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
@@ -137,7 +138,7 @@ void main() {
         greaterThanOrEqualTo(tester.getBottomLeft(logo).dy),
       );
       expect(find.byType(NavigationRail), findsNothing);
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(AdaptiveNavBar), findsNothing);
       expect(find.text('Médica Oriental'), findsOneWidget);
       expect(find.text('Lucía Fernández'), findsOneWidget);
       expect(find.text('Socio'), findsOneWidget);
@@ -329,7 +330,7 @@ void main() {
         );
         if (width < 600) {
           expect(find.text('Socio'), findsOneWidget);
-          expect(find.byType(NavigationBar), findsNothing);
+          expect(find.byType(AdaptiveNavBar), findsNothing);
           final first = find.byKey(const Key('home-shortcut-disponibilidad'));
           final second = find.byKey(const Key('home-shortcut-consultas'));
           final third = find.byKey(const Key('home-shortcut-historia'));
