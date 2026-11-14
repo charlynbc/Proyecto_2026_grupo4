@@ -226,30 +226,30 @@ public class ConsultaRepository {
         return cantidad == null ? 0 : cantidad;
     }
 
-    public boolean tieneConsultaAgendadaEnEspecialidad(
+    /** Consultas activas del socio en una especialidad (el limite sale de un parametro). */
+    public long contarConsultasAgendadasEnEspecialidad(
             Long socioId,
             Long especialidadId
     ) {
-        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+        Long cantidad = jdbcTemplate.queryForObject(
                 """
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM public.consulta consulta
-                    JOIN public.numero numero
-                      ON numero.id_numero = consulta.id_numero
-                    JOIN public.turno turno ON turno.id_turno = numero.id_turno
-                    JOIN public.turno_semanal semanal
-                      ON semanal.id_turno_semanal = turno.id_turno_semanal
-                    WHERE consulta.id_socio = ?
-                      AND
+                SELECT COUNT(*)
+                FROM public.consulta consulta
+                JOIN public.numero numero
+                  ON numero.id_numero = consulta.id_numero
+                JOIN public.turno turno ON turno.id_turno = numero.id_turno
+                JOIN public.turno_semanal semanal
+                  ON semanal.id_turno_semanal = turno.id_turno_semanal
+                WHERE consulta.id_socio = ?
+                  AND
                 """ + CONSULTA_ACTIVA + """
-                      AND semanal.id_especialidad = ?
-                )
+                  AND semanal.id_especialidad = ?
                 """,
-                Boolean.class,
+                Long.class,
                 socioId,
                 especialidadId
-        ));
+        );
+        return cantidad == null ? 0 : cantidad;
     }
 
     public boolean tieneConsultaSuperpuesta(

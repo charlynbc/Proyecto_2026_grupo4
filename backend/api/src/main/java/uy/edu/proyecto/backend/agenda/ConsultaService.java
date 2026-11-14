@@ -7,14 +7,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.agenda.ConsultaRepository.NumeroParaAgendar;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 @Service
 public class ConsultaService {
 
     private final ConsultaRepository repository;
+    private final ParametroService parametros;
 
-    public ConsultaService(ConsultaRepository repository) {
+    public ConsultaService(ConsultaRepository repository, ParametroService parametros) {
         this.repository = repository;
+        this.parametros = parametros;
     }
 
     @Transactional
@@ -46,20 +49,23 @@ public class ConsultaService {
             );
         }
 
+        int limiteTotal = parametros.consultasActivasTotal();
         long consultasActivas = repository.contarConsultasAgendadas(socioId);
-        if (consultasActivas >= 3) {
+        if (consultasActivas >= limiteTotal) {
             throw conflicto(
                     "LIMITE_TOTAL",
-                    "El socio ya tiene el máximo de tres consultas agendadas"
+                    mensajeLimiteTotal(limiteTotal)
             );
         }
-        if (repository.tieneConsultaAgendadaEnEspecialidad(
+        int limiteEspecialidad = parametros.consultasActivasPorEspecialidad();
+        long enLaEspecialidad = repository.contarConsultasAgendadasEnEspecialidad(
                 socioId,
                 numero.especialidad().id()
-        )) {
+        );
+        if (enLaEspecialidad >= limiteEspecialidad) {
             throw conflicto(
                     "LIMITE_ESPECIALIDAD",
-                    "El socio ya tiene una consulta agendada en esta especialidad"
+                    mensajeLimiteEspecialidad(limiteEspecialidad)
             );
         }
         if (repository.tieneConsultaSuperpuesta(
@@ -91,6 +97,19 @@ public class ConsultaService {
         }
         repository.crearNotificacionAgenda(consulta.id());
         return consulta;
+    }
+
+    private static String mensajeLimiteTotal(int limite) {
+        return "El socio ya tiene el máximo de " + ParametroService.consultas(limite)
+                + (limite == 1 ? " agendada" : " agendadas");
+    }
+
+    private static String mensajeLimiteEspecialidad(int limite) {
+        if (limite == 1) {
+            return "El socio ya tiene una consulta agendada en esta especialidad";
+        }
+        return "El socio ya tiene el máximo de " + ParametroService.consultas(limite)
+                + " agendadas en esta especialidad";
     }
 
     private Long validarPase(

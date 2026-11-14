@@ -15,6 +15,8 @@ import uy.edu.proyecto.backend.agenda.ConsultaRepository.NumeroParaAgendar;
 import uy.edu.proyecto.backend.consultorio.Consultorio;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
+import uy.edu.proyecto.backend.parametro.ParametrosDePrueba;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -40,13 +42,13 @@ class ConsultaServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ConsultaService(repository);
+        service = new ConsultaService(repository, ParametroService.porDefecto());
         lenient().when(repository.bloquearSocioHabilitado(SOCIO_ID)).thenReturn(true);
         lenient().when(repository.bloquearNumero(NUMERO_ID))
                 .thenReturn(Optional.of(numero(false)));
         lenient().when(repository.contarConsultasAgendadas(SOCIO_ID)).thenReturn(0L);
-        lenient().when(repository.tieneConsultaAgendadaEnEspecialidad(SOCIO_ID, 3L))
-                .thenReturn(false);
+        lenient().when(repository.contarConsultasAgendadasEnEspecialidad(SOCIO_ID, 3L))
+                .thenReturn(0L);
         lenient().when(repository.tieneConsultaSuperpuesta(
                 SOCIO_ID,
                 LocalDate.of(2026, 11, 3),
@@ -152,13 +154,15 @@ class ConsultaServiceTest {
         );
 
         assertEquals("LIMITE_TOTAL", exception.getCode());
+        assertEquals("El socio ya tiene el máximo de 3 consultas agendadas",
+                exception.getMessage());
         verify(repository, never()).crear(SOCIO_ID, numero(false), null);
     }
 
     @Test
     void limitaUnaConsultaAgendadaPorEspecialidad() {
-        when(repository.tieneConsultaAgendadaEnEspecialidad(SOCIO_ID, 3L))
-                .thenReturn(true);
+        when(repository.contarConsultasAgendadasEnEspecialidad(SOCIO_ID, 3L))
+                .thenReturn(1L);
 
         ApiException exception = assertThrows(
                 ApiException.class,
@@ -166,7 +170,72 @@ class ConsultaServiceTest {
         );
 
         assertEquals("LIMITE_ESPECIALIDAD", exception.getCode());
+        assertEquals("El socio ya tiene una consulta agendada en esta especialidad",
+                exception.getMessage());
         verify(repository, never()).crear(SOCIO_ID, numero(false), null);
+    }
+
+    private ConsultaService conParametros(ParametroService parametros) {
+        return new ConsultaService(repository, parametros);
+    }
+
+    @Test
+    void conTotalDeCincoSePermiteLaTerceraYSeRechazaLaQuinta() {
+        ConsultaService cinco = conParametros(
+                ParametrosDePrueba.nuevo().consultasTotal(5).construir());
+        when(repository.contarConsultasAgendadas(SOCIO_ID)).thenReturn(3L);
+        when(repository.crear(SOCIO_ID, numero(false), null))
+                .thenReturn(Optional.of(consultaEsperada(null)));
+
+        assertEquals(9001L, cinco.agendar(SOCIO_ID, SOLICITUD).id());
+
+        when(repository.contarConsultasAgendadas(SOCIO_ID)).thenReturn(5L);
+        ApiException exception = assertThrows(
+                ApiException.class, () -> cinco.agendar(SOCIO_ID, SOLICITUD));
+        assertEquals("LIMITE_TOTAL", exception.getCode());
+        assertEquals("El socio ya tiene el máximo de 5 consultas agendadas",
+                exception.getMessage());
+    }
+
+    @Test
+    void conTotalDeUnaElMensajeVaEnSingular() {
+        ConsultaService una = conParametros(
+                ParametrosDePrueba.nuevo().consultasTotal(1).construir());
+        when(repository.contarConsultasAgendadas(SOCIO_ID)).thenReturn(1L);
+
+        ApiException exception = assertThrows(
+                ApiException.class, () -> una.agendar(SOCIO_ID, SOLICITUD));
+
+        assertEquals("LIMITE_TOTAL", exception.getCode());
+        assertEquals("El socio ya tiene el máximo de 1 consulta agendada",
+                exception.getMessage());
+    }
+
+    @Test
+    void conDosPorEspecialidadSePermiteLaSegundaYSeRechazaLaTercera() {
+        ConsultaService dos = conParametros(
+                ParametrosDePrueba.nuevo().consultasPorEspecialidad(2).construir());
+        when(repository.contarConsultasAgendadasEnEspecialidad(SOCIO_ID, 3L)).thenReturn(1L);
+        when(repository.crear(SOCIO_ID, numero(false), null))
+                .thenReturn(Optional.of(consultaEsperada(null)));
+
+        assertEquals(9001L, dos.agendar(SOCIO_ID, SOLICITUD).id());
+
+        when(repository.contarConsultasAgendadasEnEspecialidad(SOCIO_ID, 3L)).thenReturn(2L);
+        ApiException exception = assertThrows(
+                ApiException.class, () -> dos.agendar(SOCIO_ID, SOLICITUD));
+        assertEquals("LIMITE_ESPECIALIDAD", exception.getCode());
+        assertEquals("El socio ya tiene el máximo de 2 consultas agendadas en esta especialidad",
+                exception.getMessage());
+    }
+
+    @Test
+    void conElValorPorDefectoUnaConsultaEnLaEspecialidadNoImpideLaDeOtra() {
+        // contarConsultasAgendadasEnEspecialidad solo cuenta la especialidad 3: 0 deja pasar.
+        when(repository.crear(SOCIO_ID, numero(false), null))
+                .thenReturn(Optional.of(consultaEsperada(null)));
+
+        assertEquals(9001L, service.agendar(SOCIO_ID, SOLICITUD).id());
     }
 
     @Test
