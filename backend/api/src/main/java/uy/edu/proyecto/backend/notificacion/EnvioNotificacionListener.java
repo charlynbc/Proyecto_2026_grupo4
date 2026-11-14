@@ -21,9 +21,11 @@ public class EnvioNotificacionListener {
     }
 
     /**
-     * Entrega despues del commit de la operacion. Un envio que falla no impide
-     * intentar los demas ni sale como excepcion (RNF-24): queda PENDIENTE y lo
-     * reintenta el poller.
+     * Entrega despues del commit de la operacion. Un envio que falla en el
+     * proveedor no impide intentar los demas ni sale como excepcion (RNF-24):
+     * el dispatcher lo deja FALLIDO, con sus intentos anotados. Solo si falla
+     * la base de datos el dispatcher propaga la excepcion: aca se registra y
+     * ese envio queda PENDIENTE, para que lo tome el poller.
      */
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void enviar(EnviosNotificacionSolicitados evento) {
