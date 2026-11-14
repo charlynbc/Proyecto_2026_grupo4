@@ -144,6 +144,21 @@ class ParametroServiceTest {
                 error.getMessage());
         assertTrue(error.getMessage().contains("PARAM_PASE_VIGENCIA_MAXIMA_DIAS"),
                 error.getMessage());
+        // El mensaje es el de este chequeo y no el de la vigencia inicial fuera de rango.
+        assertTrue(error.getMessage().contains("no puede ser mayor que"), error.getMessage());
+    }
+
+    @Test
+    void laVigenciaMinimaIgualALaMaximaEsValidaSiLaInicialCoincide() {
+        Integer[] valores = valoresPorDefecto();
+        valores[8] = 30;
+        valores[9] = 30;
+        valores[10] = 30;
+
+        ParametroService p = assertDoesNotThrow(() -> crear(valores));
+
+        assertEquals(30, p.paseVigenciaMinimaDias());
+        assertEquals(30, p.paseVigenciaMaximaDias());
     }
 
     @Test
