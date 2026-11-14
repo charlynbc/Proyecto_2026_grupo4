@@ -299,6 +299,22 @@ public class TurnoFechasRepository {
         );
     }
 
+    /** El correo de la cuenta, o vacio si no tiene. */
+    public Optional<String> correoDelSocio(Long socioId) {
+        List<String> correos = jdbcTemplate.query(
+                """
+                SELECT correo
+                FROM public.cuenta
+                WHERE id_cuenta = ?
+                """,
+                (rs, rowNum) -> rs.getString("correo"),
+                socioId
+        );
+        return correos.isEmpty()
+                ? Optional.empty()
+                : Optional.ofNullable(correos.getFirst());
+    }
+
     public List<Long> registrarEnviosNotificacion(
             Long notificacionId,
             Long socioId,

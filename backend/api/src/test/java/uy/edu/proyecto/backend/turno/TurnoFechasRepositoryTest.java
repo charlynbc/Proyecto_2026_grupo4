@@ -188,6 +188,42 @@ class TurnoFechasRepositoryTest {
     }
 
     @Test
+    void correoDelSocioLeeElCorreoDeLaCuentaYAdmiteQueNoTenga() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.query(
+                anyString(),
+                org.mockito.ArgumentMatchers.<RowMapper<String>>any(),
+                any(Object[].class)
+        )).thenReturn(List.of("socio@example.com"));
+        TurnoFechasRepository repository = new TurnoFechasRepository(jdbc);
+
+        assertEquals(java.util.Optional.of("socio@example.com"), repository.correoDelSocio(91L));
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<RowMapper<String>> mapper = ArgumentCaptor.forClass(RowMapper.class);
+        verify(jdbc).query(sql.capture(), mapper.capture(), any(Object[].class));
+        assertTrue(sql.getValue().contains("FROM public.cuenta"));
+        assertTrue(sql.getValue().contains("WHERE id_cuenta = ?"));
+        ResultSet rs = mock(ResultSet.class);
+        when(rs.getString("correo")).thenReturn(null);
+        assertEquals(null, mapper.getValue().mapRow(rs, 0));
+    }
+
+    @Test
+    void sinFilaOConCorreoNuloNoHayCorreo() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.query(
+                anyString(),
+                org.mockito.ArgumentMatchers.<RowMapper<String>>any(),
+                any(Object[].class)
+        )).thenReturn(List.of(), java.util.Collections.singletonList(null));
+        TurnoFechasRepository repository = new TurnoFechasRepository(jdbc);
+
+        assertEquals(java.util.Optional.empty(), repository.correoDelSocio(91L));
+        assertEquals(java.util.Optional.empty(), repository.correoDelSocio(91L));
+    }
+
+    @Test
     void sinCorreoYSinDispositivosNoSeCreaNingunaFila() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.query(

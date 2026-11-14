@@ -439,13 +439,16 @@ public class ConsultaRepository {
                 .findFirst();
     }
 
-    public void crearNotificacionAgenda(Long consultaId) {
-        jdbcTemplate.update(
+    public Long crearNotificacionAgenda(Long consultaId, String contenido) {
+        return jdbcTemplate.queryForObject(
                 """
                 INSERT INTO public.notificacion (id_consulta, tipo, contenido)
-                VALUES (?, 'AGENDA', 'Consulta agendada')
+                VALUES (?, 'AGENDA', ?)
+                RETURNING id_notificacion
                 """,
-                consultaId
+                Long.class,
+                consultaId,
+                contenido
         );
     }
 
