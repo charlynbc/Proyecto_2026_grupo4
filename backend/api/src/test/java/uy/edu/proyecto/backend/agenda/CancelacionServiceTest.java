@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import uy.edu.proyecto.backend.agenda.ConsultaRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -45,7 +46,7 @@ class CancelacionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new CancelacionService(repository, RELOJ);
+        service = new CancelacionService(repository, RELOJ, ParametroService.porDefecto());
     }
 
     private void socioHabilitado() {
