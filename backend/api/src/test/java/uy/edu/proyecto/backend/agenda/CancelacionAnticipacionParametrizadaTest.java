@@ -265,6 +265,23 @@ class CancelacionAnticipacionParametrizadaTest {
     }
 
     @Test
+    void elFuncionarioConCuatroHorasCancelaUnaConsultaQueEmpiezaExactamenteALas13() {
+        CancelacionDTO dto = funcionarioConConsulta(cancelarCon(4), LocalTime.of(13, 0))
+                .cancelar(5L, "12");
+
+        assertEquals("CANCELADA_SOCIO", dto.estado());
+    }
+
+    @Test
+    void elFuncionarioConCuatroHorasNoCancelaUnaConsultaQueEmpiezaALas1259() {
+        ApiException error = assertThrows(ApiException.class,
+                () -> funcionarioConConsulta(cancelarCon(4), LocalTime.of(12, 59))
+                        .cancelar(5L, "12"));
+
+        assertEquals("CANCELACION_FUERA_DE_PLAZO", error.getCode());
+    }
+
+    @Test
     void elMensajeDelFuncionarioConElValorPorDefectoDiceDosHoras() {
         ApiException error = assertThrows(ApiException.class,
                 () -> funcionarioConConsulta(ParametroService.porDefecto(), LocalTime.of(10, 0))
