@@ -2,13 +2,16 @@ package uy.edu.proyecto.backend.dispositivo;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import uy.edu.proyecto.backend.exception.ApiErrorResponse;
 import uy.edu.proyecto.backend.exception.ApiException;
 
 @RestController
@@ -28,7 +31,9 @@ public class DispositivoController {
     ) {
         DispositivoRegistro registro =
                 service.registrar(socioId(jwt), request.token());
-        return ResponseEntity.ok(registro.dispositivo());
+        return ResponseEntity
+                .status(registro.creado() ? HttpStatus.CREATED : HttpStatus.OK)
+                .body(registro.dispositivo());
     }
 
     @PostMapping("/baja")
@@ -38,6 +43,17 @@ public class DispositivoController {
     ) {
         service.darDeBaja(socioId(jwt), request.token());
         return ResponseEntity.noContent().build();
+    }
+
+    // Cuerpo ausente o JSON roto: el contrato pide 400 VALIDACION, como en los otros controladores.
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> solicitudMalFormada() {
+        return ResponseEntity
+                .badRequest()
+                .body(new ApiErrorResponse(
+                        "VALIDACION",
+                        "Faltan datos o la solicitud no tiene un formato válido."
+                ));
     }
 
     private Long socioId(Jwt jwt) {
