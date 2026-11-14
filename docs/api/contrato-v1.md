@@ -1646,7 +1646,7 @@ El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni
 #### #33 · `POST /api/dispositivos`
 
 - **Roles:** SOCIO.
-- **RF:** RNF-23 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA (pasa a CONFIRMADA cuando se integre el backend; hoy el backend solo tiene `POST /api/notificaciones/registro`, que esta ruta reemplaza).
+- **RF:** RNF-23 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA (pasa a CONFIRMADA cuando se integre el backend; implementada en la rama `feat/dispositivos-push`. Reemplaza a `POST /api/notificaciones/registro`, el registro de prueba en memoria, que se elimina en la etapa de frontend).
 
 Registra el token de Firebase del dispositivo Android del socio autenticado. El socio dueño sale del JWT; el cuerpo no lleva identificador de socio. El backend no distingue la plataforma: el registro es solo para Android (RNF-23) y el cliente web no llama a este endpoint. El cliente lo llama al iniciar sesión un socio en Android, cuando ya otorgó el permiso de notificaciones.
 
