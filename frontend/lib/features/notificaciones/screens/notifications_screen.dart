@@ -33,6 +33,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Al volver a la pestaña de Avisos se empieza de nuevo por la página 1.
+    ref.listen(notificationListReopenedProvider, (_, _) {
+      if (_page != 0) setState(() => _page = 0);
+    });
     final query = _query;
     final notifications = ref.watch(notificationListProvider(query));
     return Scaffold(

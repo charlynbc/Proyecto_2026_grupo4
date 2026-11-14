@@ -21,6 +21,20 @@ class NotificationListRefresh extends Notifier<int> {
 final notificationListRefreshProvider =
     NotifierProvider<NotificationListRefresh, int>(NotificationListRefresh.new);
 
+/// Se incrementa al volver a la pestaña de Avisos: la pantalla vuelve a la
+/// primera página.
+class NotificationListReopened extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void reopened() => state++;
+}
+
+final notificationListReopenedProvider =
+    NotifierProvider<NotificationListReopened, int>(
+      NotificationListReopened.new,
+    );
+
 final notificationRepositoryProvider = FutureProvider<NotificationRepository>((
   ref,
 ) async {
@@ -31,14 +45,15 @@ final notificationRepositoryProvider = FutureProvider<NotificationRepository>((
 
 /// La página de avisos que corresponde a [NotificationQuery].
 ///
+/// Se libera cuando la pantalla deja de mirar esa página (`autoDispose`): al
+/// volver a una página que se dejó, se pide de nuevo en vez de mostrar la
+/// guardada.
+///
 /// Sin reintento automático (`retry` en `null`): Riverpod 3 reintenta solo
 /// hasta 10 veces, con esperas de 0,2 a 6,4 s, y durante ese tiempo la
 /// pantalla seguiría mostrando el cargando en vez del aviso con "Reintentar".
-final notificationListProvider =
-    FutureProvider.family<AppNotificationPage, NotificationQuery>((
-      ref,
-      query,
-    ) async {
+final notificationListProvider = FutureProvider.autoDispose
+    .family<AppNotificationPage, NotificationQuery>((ref, query) async {
       ref.watch(notificationListRefreshProvider);
       final repository = await ref.watch(notificationRepositoryProvider.future);
       return repository.list(query);

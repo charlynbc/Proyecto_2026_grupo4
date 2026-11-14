@@ -139,23 +139,75 @@ void main() {
     await unmountApp(tester);
   });
 
-  testWidgets('al volver se pide de nuevo la página en la que estaba', (
-    tester,
-  ) async {
+  testWidgets('al volver se vuelve a la primera página', (tester) async {
+    final repository = _Repository();
+    final container = await _start(tester, repository);
+    await goTo(tester, container, '/socio/avisos');
+    expect(find.text('Página 1'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('notifications-next')));
+    await tester.pumpAndSettle();
+    expect(repository.requestedPages, [0, 1]);
+    expect(find.text('Versión 2'), findsOneWidget);
+    expect(find.text('Página 2'), findsOneWidget);
+
+    await goTo(tester, container, '/socio/consultas');
+    await goTo(tester, container, '/socio/avisos');
+
+    // Un solo pedido nuevo, de la página 0 (no vuelve a pedir la página 1).
+    expect(repository.requestedPages, [0, 1, 0]);
+    expect(find.text('Versión 3'), findsOneWidget);
+    expect(find.text('Versión 2'), findsNothing);
+    expect(find.text('Página 1'), findsOneWidget);
+    expect(find.text('Página 2'), findsNothing);
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('notifications-previous')),
+          )
+          .onPressed,
+      isNull,
+    );
+    await unmountApp(tester);
+  });
+
+  testWidgets('después de volver, Siguiente pide la página 1 de nuevo y no la '
+      'guardada', (tester) async {
     final repository = _Repository();
     final container = await _start(tester, repository);
     await goTo(tester, container, '/socio/avisos');
     await tester.tap(find.byKey(const Key('notifications-next')));
     await tester.pumpAndSettle();
-    expect(repository.requestedPages, [0, 1]);
-    expect(find.text('Versión 2'), findsOneWidget);
-
     await goTo(tester, container, '/socio/consultas');
     await goTo(tester, container, '/socio/avisos');
+    expect(repository.requestedPages, [0, 1, 0]);
 
-    expect(repository.requestedPages, [0, 1, 1]);
-    expect(find.text('Versión 3'), findsOneWidget);
-    expect(find.text('Versión 2'), findsNothing);
+    await tester.tap(find.byKey(const Key('notifications-next')));
+    await tester.pumpAndSettle();
+
+    expect(repository.requestedPages, [0, 1, 0, 1]);
+    expect(find.text('Versión 4'), findsOneWidget);
+    expect(find.text('Página 2'), findsOneWidget);
+    await unmountApp(tester);
+  });
+
+  testWidgets('tocar la pestaña Avisos estando en la página 2 no cambia la '
+      'página', (tester) async {
+    final repository = _Repository();
+    final container = await _start(
+      tester,
+      repository,
+      size: const Size(320, 800),
+    );
+    await goTo(tester, container, '/socio/avisos');
+    await tester.tap(find.byKey(const Key('notifications-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('Página 2'), findsOneWidget);
+
+    await tester.tap(find.text('Avisos').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.requestedPages, [0, 1]);
+    expect(find.text('Página 2'), findsOneWidget);
     await unmountApp(tester);
   });
 
