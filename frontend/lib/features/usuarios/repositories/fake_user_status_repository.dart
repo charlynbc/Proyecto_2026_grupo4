@@ -15,8 +15,9 @@ class FakeUserStatusRepository implements UserStatusRepository {
     Set<int>? doctorsWithActiveShifts,
   }) : doctorsWithActiveShifts = doctorsWithActiveShifts ?? _carla(_db);
 
-  /// El id del administrador que "hace" los cambios en la base falsa.
-  static const int _adminId = 1;
+  /// El id del administrador que "hace" los cambios en la base falsa: el
+  /// de la cuenta de la sesión falsa.
+  static const int _adminId = kFakeAdminAccountId;
 
   final FakeAdminDatabase _db;
   final Duration latency;
@@ -36,6 +37,12 @@ class FakeUserStatusRepository implements UserStatusRepository {
   @override
   Future<AccountStatusChange> deactivate(int id) async {
     await Future<void>.delayed(latency);
+    if (id == _adminId) {
+      throw const UserStatusException(
+        UserStatusFailure.ownAccount,
+        'No puede inactivar su propia cuenta',
+      );
+    }
     final account = _employee(id);
     if (account.status == AccountStatus.inactive) {
       throw const UserStatusException(
@@ -59,6 +66,12 @@ class FakeUserStatusRepository implements UserStatusRepository {
   @override
   Future<AccountStatusChange> reactivate(int id) async {
     await Future<void>.delayed(latency);
+    if (id == _adminId) {
+      throw const UserStatusException(
+        UserStatusFailure.ownAccount,
+        'No puede reactivar su propia cuenta',
+      );
+    }
     final account = _employee(id);
     if (account.status == AccountStatus.active) {
       throw const UserStatusException(

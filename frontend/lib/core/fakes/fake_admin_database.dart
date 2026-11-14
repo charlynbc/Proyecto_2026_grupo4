@@ -6,6 +6,11 @@ import '../../features/especialidades/models/specialty.dart';
 import '../../features/usuarios/models/user_account.dart';
 import '../validators/uruguayan_ci_validator.dart';
 
+/// El id de la cuenta del administrador de prueba (Diego Fernández, CI
+/// 45678905) en [FakeAdminDatabase]: el que tiene en `accounts` y el que
+/// devuelve la cuenta de la sesión falsa. Es la única fuente.
+const int kFakeAdminAccountId = 5;
+
 /// Una cuenta del padrón falso, con los datos de la persona que el listado no
 /// muestra pero el alta necesita para sus reglas (fecha de nacimiento,
 /// especialidades).

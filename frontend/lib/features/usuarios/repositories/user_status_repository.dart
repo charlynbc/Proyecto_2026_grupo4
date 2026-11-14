@@ -21,6 +21,7 @@ enum UserStatusFailure {
   doctorHasAppointments,
   duplicateStaff,
   validation,
+  ownAccount,
   other,
 }
 

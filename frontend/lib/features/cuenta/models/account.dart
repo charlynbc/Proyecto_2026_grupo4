@@ -3,10 +3,12 @@ import '../../auth/models/user_role.dart';
 /// Los datos de la cuenta de quien está logueado (`GET /api/cuentas/me`,
 /// contrato, fila 46). RF-06 lectura.
 ///
-/// CI, nombre, apellido y rol se muestran pero no se editan por esta vía:
-/// los corrige el Administrador (RF-38).
+/// El [id] es el de la cuenta, el mismo que tiene su fila en `GET /api/usuarios`
+/// (no el de la persona). Id, CI, nombre, apellido y rol se muestran pero no
+/// se editan por esta vía: los corrige el Administrador (RF-38).
 class Account {
   const Account({
+    required this.id,
     required this.ci,
     required this.name,
     required this.lastName,
@@ -21,6 +23,7 @@ class Account {
   /// Un rol que no es de los cuatro del contrato es [FormatException]; un
   /// dato obligatorio que falta es un `TypeError` del cast.
   factory Account.fromJson(Map<String, dynamic> json) => Account(
+    id: json['id'] as int,
     ci: json['ci'] as String,
     name: json['nombre'] as String,
     lastName: json['apellido'] as String,
@@ -32,6 +35,7 @@ class Account {
     address: json['direccion'] as String,
   );
 
+  final int id;
   final String ci;
   final String name;
   final String lastName;
