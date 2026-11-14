@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.DatosConsulta;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.ResumenCancelable;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.TurnoFecha;
@@ -78,8 +79,8 @@ public class CancelacionMedicoService {
                 .cancelarConsulta(consultaId, medicoId, motivoValido)
                 .orElseThrow(() -> conflicto("CONSULTA_NO_AGENDADA",
                         "La consulta ya no está agendada"));
-        String contenido = "Tu consulta del " + consulta.fecha()
-                + " fue cancelada por la institución. Motivo: " + motivoValido;
+        String contenido = NotificacionTextos.cuerpoCancelacionPorMedico(
+                consulta.fecha(), motivoValido);
         Long notificacionId = repository.crearNotificacionCancelacion(consultaId, contenido);
         List<Long> envios = turnoFechas.registrarEnviosNotificacion(
                 notificacionId, consulta.socioId(), consulta.correo());
@@ -149,10 +150,9 @@ public class CancelacionMedicoService {
                 throw new IllegalStateException(
                         "La consulta dejó de estar AGENDADA mientras se cancelaba");
             }
-            String contenido = "Tu consulta del " + consulta.fecha()
-                    + " fue cancelada por la institución. Horario: "
-                    + consulta.horaInicio() + " a " + consulta.horaFin()
-                    + " (número " + consulta.numero() + "). Motivo: " + motivoValido;
+            String contenido = NotificacionTextos.cuerpoSuspensionPorMedico(
+                    consulta.fecha(), consulta.horaInicio(), consulta.horaFin(),
+                    consulta.numero(), motivoValido);
             Long notificacionId = turnoFechas.crearNotificacionSuspension(
                     consulta.id(), contenido);
             envios.addAll(turnoFechas.registrarEnviosNotificacion(
