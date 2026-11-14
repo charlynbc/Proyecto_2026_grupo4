@@ -18,15 +18,15 @@ import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.EnvioNotificacion;
 
 @Service
-public class EnvioSuspensionDispatcher {
+public class EnvioNotificacionDispatcher {
 
     private static final Logger log =
-            LoggerFactory.getLogger(EnvioSuspensionDispatcher.class);
+            LoggerFactory.getLogger(EnvioNotificacionDispatcher.class);
 
     private final TurnoFechasRepository repository;
     private final CorreoSender correoSender;
 
-    public EnvioSuspensionDispatcher(
+    public EnvioNotificacionDispatcher(
             TurnoFechasRepository repository,
             CorreoSender correoSender
     ) {

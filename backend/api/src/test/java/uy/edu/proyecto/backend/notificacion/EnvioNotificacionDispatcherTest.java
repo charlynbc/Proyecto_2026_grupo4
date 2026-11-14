@@ -21,7 +21,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class EnvioSuspensionDispatcherTest {
+class EnvioNotificacionDispatcherTest {
 
     @Mock
     private TurnoFechasRepository repository;
@@ -32,7 +32,7 @@ class EnvioSuspensionDispatcherTest {
     @Test
     void marcaEnviadoSoloCuandoProveedorConfirmaLaEntrega() {
         when(repository.buscarEnvio(601L)).thenReturn(Optional.of(envio("CORREO")));
-        EnvioSuspensionDispatcher dispatcher = new EnvioSuspensionDispatcher(
+        EnvioNotificacionDispatcher dispatcher = new EnvioNotificacionDispatcher(
                 repository, correoSender
         );
         when(repository.marcarEnvio(601L, "ENVIADO")).thenReturn(1);
@@ -52,7 +52,7 @@ class EnvioSuspensionDispatcherTest {
         when(repository.buscarEnvio(601L)).thenReturn(Optional.of(envio("CORREO")));
         doThrow(new CorreoException("sin proveedor"))
                 .when(correoSender).enviar(org.mockito.ArgumentMatchers.any());
-        EnvioSuspensionDispatcher dispatcher = new EnvioSuspensionDispatcher(
+        EnvioNotificacionDispatcher dispatcher = new EnvioNotificacionDispatcher(
                 repository, correoSender
         );
         when(repository.marcarEnvio(601L, "FALLIDO")).thenReturn(1);
@@ -65,7 +65,7 @@ class EnvioSuspensionDispatcherTest {
     @Test
     void informaSiElEnvioPersistidoNoExiste() {
         when(repository.buscarEnvio(601L)).thenReturn(Optional.empty());
-        EnvioSuspensionDispatcher dispatcher = new EnvioSuspensionDispatcher(
+        EnvioNotificacionDispatcher dispatcher = new EnvioNotificacionDispatcher(
                 repository, correoSender
         );
 

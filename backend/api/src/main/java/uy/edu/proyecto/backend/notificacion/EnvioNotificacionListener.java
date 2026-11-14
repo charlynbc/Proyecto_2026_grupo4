@@ -7,11 +7,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicitados;
 
 @Component
-public class EnvioSuspensionListener {
+public class EnvioNotificacionListener {
 
-    private final EnvioSuspensionDispatcher dispatcher;
+    private final EnvioNotificacionDispatcher dispatcher;
 
-    public EnvioSuspensionListener(EnvioSuspensionDispatcher dispatcher) {
+    public EnvioNotificacionListener(EnvioNotificacionDispatcher dispatcher) {
         this.dispatcher = dispatcher;
     }
 

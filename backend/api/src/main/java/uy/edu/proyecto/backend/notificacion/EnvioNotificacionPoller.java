@@ -4,13 +4,13 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
-public class EnvioSuspensionPoller {
+public class EnvioNotificacionPoller {
 
     private static final int MAX_ENVIOS_POR_CICLO = 100;
 
-    private final EnvioSuspensionDispatcher dispatcher;
+    private final EnvioNotificacionDispatcher dispatcher;
 
-    public EnvioSuspensionPoller(EnvioSuspensionDispatcher dispatcher) {
+    public EnvioNotificacionPoller(EnvioNotificacionDispatcher dispatcher) {
         this.dispatcher = dispatcher;
     }
 
