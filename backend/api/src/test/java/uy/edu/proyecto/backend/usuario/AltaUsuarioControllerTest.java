@@ -27,14 +27,26 @@ class AltaUsuarioControllerTest {
     private final AltaUsuarioService service = mock(AltaUsuarioService.class);
     private final UsuarioService usuarioService = mock(UsuarioService.class);
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private static final long ADMIN = 1L;
     private MockMvc mockMvc;
 
     @BeforeEach
     void configurar() {
+        var jwt = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("t")
+                .header("alg", "none").subject("1").build();
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.TestingAuthenticationToken(jwt, null, "ROLE_ADMINISTRADOR"));
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AltaUsuarioController(service, usuarioService))
+                .setCustomArgumentResolvers(
+                        new org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver())
                 .setControllerAdvice(new ApiExceptionHandler())
                 .build();
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void limpiar() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -77,7 +89,7 @@ class AltaUsuarioControllerTest {
 
     @Test
     void listarDevuelveUnaPaginaDeCuentasConLosFiltrosSolicitados() throws Exception {
-        when(usuarioService.listar("SOCIO", "ACTIVA", "45678911", 0, 10))
+        when(usuarioService.listar(ADMIN, "SOCIO", "ACTIVA", "45678911", 0, 10))
                 .thenReturn(new UsuarioCuentaPageResponse(
                         List.of(new UsuarioCuentaDTO(
                                 42L,
@@ -88,7 +100,8 @@ class AltaUsuarioControllerTest {
                                 "lucia@example.org",
                                 "ACTIVA",
                                 true,
-                                java.time.OffsetDateTime.parse("2026-09-01T09:00:00-03:00")
+                                java.time.OffsetDateTime.parse("2026-09-01T09:00:00-03:00"),
+                                false
                         )),
                         0,
                         10,
@@ -105,8 +118,9 @@ class AltaUsuarioControllerTest {
                 .andExpect(jsonPath("$.items[0].id").value(42))
                 .andExpect(jsonPath("$.items[0].ci").value("45678911"))
                 .andExpect(jsonPath("$.items[0].fechaAlta").exists())
+                .andExpect(jsonPath("$.items[0].puedeInactivar").value(false))
                 .andExpect(jsonPath("$.items[0].password").doesNotExist());
 
-        verify(usuarioService).listar("SOCIO", "ACTIVA", "45678911", 0, 10);
+        verify(usuarioService).listar(ADMIN, "SOCIO", "ACTIVA", "45678911", 0, 10);
     }
 }

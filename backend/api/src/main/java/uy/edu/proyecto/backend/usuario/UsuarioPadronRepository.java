@@ -106,7 +106,9 @@ public class UsuarioPadronRepository {
                         rs.getString("correo"),
                         rs.getString("estado"),
                         rs.getBoolean("activada"),
-                        rs.getObject("fecha_alta", OffsetDateTime.class)
+                        rs.getObject("fecha_alta", OffsetDateTime.class),
+                        // Lo completa UsuarioService con la regla de inactivacion.
+                        false
                 ),
                 parametros.toArray()
         );
