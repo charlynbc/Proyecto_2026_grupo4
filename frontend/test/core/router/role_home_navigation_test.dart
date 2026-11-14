@@ -1,4 +1,5 @@
 import 'package:agenda_medica/core/fakes/datos_prueba.dart';
+import 'package:agenda_medica/core/router/adaptive_nav_bar.dart';
 import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
@@ -62,7 +63,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(locationOf(container), entry.value.$1);
       expect(find.byType(HomeScreen), findsOneWidget);
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(AdaptiveNavBar), findsNothing);
 
       for (final shortcut in entry.value.$2.entries) {
         await goTo(tester, container, entry.value.$1);
@@ -71,24 +72,24 @@ void main() {
         await tester.tap(button);
         await tester.pumpAndSettle();
         expect(locationOf(container), shortcut.value);
-        final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+        final bar = tester.widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar));
         expect(bar.destinations.length, entry.value.$2.length);
         expect(
           find.descendant(
-            of: find.byType(NavigationBar),
+            of: find.byType(AdaptiveNavBar),
             matching: find.text('Inicio'),
           ),
           findsNothing,
         );
       }
       for (var index = 0; index < entry.value.$2.length; index++) {
-        final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
-        bar.onDestinationSelected!(index);
+        final bar = tester.widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar));
+        bar.onSelected(index);
         await tester.pumpAndSettle();
         expect(locationOf(container), entry.value.$2.values.elementAt(index));
         expect(
           tester
-              .widget<NavigationBar>(find.byType(NavigationBar))
+              .widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar))
               .selectedIndex,
           index,
         );
