@@ -224,6 +224,22 @@ class TurnoFechasRepositoryTest {
     }
 
     @Test
+    void marcarEnvioRegistraEstadoIntentoYMomentoDelUltimoIntento() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+        TurnoFechasRepository repository = new TurnoFechasRepository(jdbc);
+
+        repository.marcarEnvio(601L, "FALLIDO");
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbc).update(sql.capture(), eq("FALLIDO"), eq("FALLIDO"), eq(601L));
+        assertTrue(sql.getValue().contains("SET estado = ?"));
+        assertTrue(sql.getValue().contains("intentos = intentos + 1"));
+        assertTrue(sql.getValue().contains("ultimo_intento_en = CURRENT_TIMESTAMP"));
+        assertTrue(sql.getValue().contains("WHERE id_envio = ?"));
+    }
+
+    @Test
     void sinCorreoYSinDispositivosNoSeCreaNingunaFila() {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.query(

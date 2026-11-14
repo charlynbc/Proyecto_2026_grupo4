@@ -118,6 +118,33 @@ class EnvioNotificacionDispatcherTest {
     }
 
     @Test
+    void unaFallaInesperadaDelCorreoQuedaRegistradaComoFallidaEnVezDeSalirComoExcepcion() {
+        when(repository.buscarEnvio(601L))
+                .thenReturn(Optional.of(envio("CANCELACION", "CORREO", null)));
+        doThrow(new UnsupportedOperationException("proveedor caido"))
+                .when(correoSender).enviar(any());
+        when(repository.marcarEnvio(601L, "FALLIDO")).thenReturn(1);
+
+        dispatcher().despachar(601L);
+
+        verify(repository).marcarEnvio(601L, "FALLIDO");
+        verify(repository, never()).marcarEnvio(601L, "ENVIADO");
+    }
+
+    @Test
+    void unaFallaInesperadaDelPushQuedaRegistradaComoFallida() {
+        when(repository.buscarEnvio(601L))
+                .thenReturn(Optional.of(envio("AGENDA", "PUSH", "token-1")));
+        doThrow(new NullPointerException("respuesta vacia"))
+                .when(pushSender).enviar(any(), any(), any(), any());
+        when(repository.marcarEnvio(601L, "FALLIDO")).thenReturn(1);
+
+        dispatcher().despachar(601L);
+
+        verify(repository).marcarEnvio(601L, "FALLIDO");
+    }
+
+    @Test
     void unPushSinTokenQuedaFallidoSinLlamarAlProveedor() {
         when(repository.buscarEnvio(601L))
                 .thenReturn(Optional.of(envio("AGENDA", "PUSH", " ")));

@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import uy.edu.proyecto.backend.correo.CorreoException;
 import uy.edu.proyecto.backend.correo.CorreoMensaje;
 import uy.edu.proyecto.backend.correo.CorreoSender;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
@@ -72,8 +71,11 @@ public class EnvioNotificacionDispatcher {
                         "Canal de notificación no soportado: " + envio.canal()
                 );
             }
-        } catch (CorreoException | PushException
-                 | IllegalArgumentException | IllegalStateException exception) {
+        } catch (RuntimeException exception) {
+            // RNF-24: cualquier falla del proveedor queda registrada en el envio
+            // (estado, intentos y ultimo intento) en vez de salir como excepcion;
+            // si no, el envio quedaria PENDIENTE y el poller lo reintentaria para
+            // siempre, frenando a los que vienen detras.
             marcar(envio.envioId(), "FALLIDO");
             log.error(
                     "No se pudo entregar la notificación {} de tipo {} por canal {}; tipo de error: {}",
