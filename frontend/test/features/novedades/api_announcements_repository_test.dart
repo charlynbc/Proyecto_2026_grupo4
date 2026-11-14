@@ -342,6 +342,16 @@ void main() {
         {'id': 1, 'orden': 0, 'url': ''},
       ],
     ),
+    detail(
+      images: [
+        {'id': 1, 'orden': 0, 'url': 'ftp://ejemplo.org/a.png'},
+      ],
+    ),
+    detail(
+      images: [
+        {'id': 1, 'orden': 0, 'url': 'javascript:alert(1)'},
+      ],
+    ),
   ]) {
     test('rechaza detalle incompleto o de otra novedad: $body', () async {
       final (repo, _) = repository(body);

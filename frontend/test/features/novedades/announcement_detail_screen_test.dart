@@ -16,10 +16,12 @@ import 'package:agenda_medica/features/novedades/repositories/announcements_repo
 import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
 import 'package:agenda_medica/features/novedades/widgets/announcement_gallery.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/app_lifecycle.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_app.dart';
 import '../cuenta/account_test_support.dart' show RecordingAccountRepository;
@@ -126,6 +128,40 @@ Future<ProviderContainer> _pumpDetail(
     }
   }
   return container;
+}
+
+const _launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
+
+/// Un url_launcher de prueba: anota cada pedido de abrir un enlace y responde
+/// que se abrió ([opens]) o falla ([throws]).
+class _Launcher {
+  final urls = <String>[];
+  bool opens = true;
+  bool throws = false;
+
+  void install(WidgetTester tester) {
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(_launcherChannel, (call) async {
+      if (call.method != 'launch') return null;
+      urls.add((call.arguments as Map)['url'] as String);
+      if (throws) throw PlatformException(code: 'SIN_APLICACION');
+      return opens;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(_launcherChannel, null),
+    );
+  }
+}
+
+/// Toca un enlace del texto: llama al `onTapLink` del Markdown con [href].
+Future<void> _tapLink(WidgetTester tester, String? href) async {
+  tester.widget<MarkdownBody>(find.byType(MarkdownBody)).onTapLink!(
+    'enlace',
+    href,
+    '',
+  );
+  await tester.pump();
+  await tester.pump();
 }
 
 void main() {
@@ -284,5 +320,144 @@ void main() {
     expect(find.text('Novedad de la mutualista'), findsNothing);
     expect(find.text('Publicado el 03/11/2026'), findsOneWidget);
     expect(find.byType(AnnouncementGallery), findsOneWidget);
+  });
+
+  group('enlaces del texto', () {
+    const opened = [
+      'https://ejemplo.org/a',
+      'http://ejemplo.org/a',
+      'mailto:novedades@ejemplo.org',
+      'tel:+59899123456',
+    ];
+    for (final href in opened) {
+      testWidgets('"$href" se abre y no avisa nada', (tester) async {
+        final launcher = _Launcher()..install(tester);
+        await _pumpDetail(tester, _News());
+
+        await _tapLink(tester, href);
+
+        expect(launcher.urls, [href]);
+        expect(find.text('No pudimos abrir este enlace.'), findsNothing);
+      });
+    }
+
+    const blocked = <String?>[
+      'javascript:alert(1)',
+      'ftp://ejemplo.org/a',
+      'file:///etc/passwd',
+      'ejemplo.org',
+      '',
+      null,
+    ];
+    for (final href in blocked) {
+      testWidgets('"$href" no abre nada y avisa', (tester) async {
+        final launcher = _Launcher()..install(tester);
+        await _pumpDetail(tester, _News());
+
+        await _tapLink(tester, href);
+
+        expect(launcher.urls, isEmpty);
+        expect(find.text('No pudimos abrir este enlace.'), findsOneWidget);
+      });
+    }
+
+    testWidgets('el esquema en mayúsculas también se abre', (tester) async {
+      final launcher = _Launcher()..install(tester);
+      await _pumpDetail(tester, _News());
+
+      await _tapLink(tester, 'HTTPS://EJEMPLO.ORG');
+
+      expect(launcher.urls, hasLength(1));
+      expect(launcher.urls.single.toLowerCase(), 'https://ejemplo.org');
+      expect(find.text('No pudimos abrir este enlace.'), findsNothing);
+    });
+
+    testWidgets('si el sistema no lo abre avisa', (tester) async {
+      final launcher = _Launcher()
+        ..opens = false
+        ..install(tester);
+      await _pumpDetail(tester, _News());
+
+      await _tapLink(tester, 'https://ejemplo.org/a');
+
+      expect(launcher.urls, ['https://ejemplo.org/a']);
+      expect(find.text('No pudimos abrir este enlace.'), findsOneWidget);
+    });
+
+    testWidgets('si abrirlo falla avisa y la pantalla sigue en pie', (
+      tester,
+    ) async {
+      final launcher = _Launcher()
+        ..throws = true
+        ..install(tester);
+      await _pumpDetail(tester, _News());
+
+      await _tapLink(tester, 'https://ejemplo.org/a');
+
+      expect(launcher.urls, ['https://ejemplo.org/a']);
+      expect(find.text('No pudimos abrir este enlace.'), findsOneWidget);
+      expect(find.byType(MarkdownBody), findsOneWidget);
+      expect(find.text('Campaña de vacunación'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('imágenes dentro del texto', () {
+    for (final src in [
+      'http://ejemplo.invalid/x.png',
+      'https://ejemplo.invalid/x.png',
+      'data:image/png;base64,AAAA',
+      'resource:assets/x.png',
+    ]) {
+      testWidgets('con "$src" muestra el texto alternativo y no pide la '
+          'imagen', (tester) async {
+        await _pumpDetail(
+          tester,
+          _News()..value = makeDetail(text: '![logo]($src)'),
+        );
+
+        expect(find.text('logo'), findsOneWidget);
+        expect(find.byType(Image), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    for (final alt in ['', ' ']) {
+      testWidgets('con el texto alternativo "$alt" no muestra nada', (
+        tester,
+      ) async {
+        await _pumpDetail(
+          tester,
+          _News()
+            ..value = makeDetail(
+              text: '![$alt](https://ejemplo.invalid/x.png)',
+            ),
+        );
+
+        expect(find.byType(MarkdownBody), findsOneWidget);
+        expect(find.byType(Image), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byType(MarkdownBody),
+            matching: find.byType(Text),
+          ),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
+
+  testWidgets('volver a resumed antes de 55 minutos no vuelve a pedir el '
+      'detalle', (tester) async {
+    final repo = _News();
+    await _pumpDetail(tester, repo);
+    expect(repo.calls, [42]);
+
+    backgroundAndReturn(tester);
+    await tester.pump();
+    await tester.pump();
+
+    expect(repo.calls, [42]);
   });
 }
