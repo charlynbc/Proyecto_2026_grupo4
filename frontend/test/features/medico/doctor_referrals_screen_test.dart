@@ -346,6 +346,79 @@ void main() {
     });
   });
 
+  group('sentido del orden como botón', () {
+    final direction = find.byKey(const Key('referrals-direction'));
+
+    testWidgets('arranca en Ascendente con su flecha, y es el mismo botón', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      expect(
+        find.descendant(of: direction, matching: find.byType(TextButton)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: direction, matching: find.byType(OutlinedButton)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: direction, matching: find.text('Ascendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_upward),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'al tocarlo pasa a Descendente, pide desc y vuelve a Ascendente',
+      (tester) async {
+        final repository = await _pump(tester);
+
+        await _tapKey(tester, 'referrals-direction');
+
+        expect(
+          find.descendant(of: direction, matching: find.text('Descendente')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: direction,
+            matching: find.byIcon(Icons.arrow_downward),
+          ),
+          findsOneWidget,
+        );
+        expect(repository.queries.last, {
+          'orden': 'vencimiento',
+          'sentido': 'desc',
+        });
+
+        await _tapKey(tester, 'referrals-direction');
+
+        expect(
+          find.descendant(of: direction, matching: find.text('Ascendente')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets('a 320 px se ve completo y no desborda', (tester) async {
+      await _pump(tester, size: const Size(320, 640));
+
+      expect(find.text('Ascendente'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('Ascendente')).right,
+        lessThanOrEqualTo(320),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('a 320 px de ancho (con Roboto)', () {
     testWidgets('la lista y los filtros no desbordan', (tester) async {
       await _pump(tester, result: [_lucia, _bruno], size: const Size(320, 640));

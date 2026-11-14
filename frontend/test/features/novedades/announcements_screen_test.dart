@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:agenda_medica/core/config/app_config.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/core/router/adaptive_nav_bar.dart';
 import 'package:agenda_medica/core/router/app_router.dart';
 import 'package:agenda_medica/core/router/app_sections.dart';
 import 'package:agenda_medica/core/theme/app_theme.dart';
@@ -718,7 +719,7 @@ void main() {
           findsOneWidget,
         );
         expect(
-          find.byType(width < 600 ? NavigationBar : NavigationRail),
+          find.byType(width < 600 ? AdaptiveNavBar : NavigationRail),
           findsOneWidget,
         );
         await tester.ensureVisible(find.text('Siguiente'));

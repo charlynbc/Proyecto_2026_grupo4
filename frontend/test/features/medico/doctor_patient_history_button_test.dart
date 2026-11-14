@@ -67,6 +67,12 @@ DoctorShiftNumber _free() => const DoctorShiftNumber(
 );
 
 Future<void> _pump(WidgetTester tester, _ScriptedRepository repository) async {
+  // Ventana más alta que la de prueba por defecto: el botón del sentido con
+  // texto ocupa una línea más en la pantalla.
+  tester.view.physicalSize = const Size(800, 1000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   final router = GoRouter(
     initialLocation: '/medico/turnos',
     routes: [

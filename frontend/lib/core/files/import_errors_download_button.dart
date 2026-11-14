@@ -6,6 +6,15 @@ import 'csv_file_saver.dart';
 import 'csv_parser.dart';
 import 'picked_csv_file.dart';
 
+/// Lo que se le dice a quien baja las filas rechazadas: hay que corregir cada
+/// fila según su motivo y, antes de volver a subir el archivo, borrar las
+/// columnas que la carga no admite (`error` y las `extra_N`).
+const String kImportErrorsRetryHint =
+    'Corregí cada fila según el motivo de la columna error. Después '
+    'borrá esa columna y las columnas extra_1, extra_2, etc. (si las '
+    'hay): el archivo tiene que quedar con exactamente las mismas '
+    'columnas que el original.';
+
 /// Botón para bajar un CSV con las filas rechazadas de una carga masiva: el
 /// archivo original, solo con las filas con error y una columna `error` con el
 /// motivo, más las columnas `extra_N` si alguna fila traía celdas de más. Sin
@@ -88,6 +97,12 @@ class _ImportErrorsDownloadButtonState
             onPressed: _saving ? null : _download,
             icon: const Icon(Icons.download),
             label: Text(widget.label),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            kImportErrorsRetryHint,
+            key: const Key('import-download-hint'),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
           if (_failed) ...[
             const SizedBox(height: 8),

@@ -33,7 +33,221 @@ class RecordingRepository implements DoctorAttentionRepository {
   Future<DoctorAttention> get(int id) => fake.get(id);
 }
 
+Future<RecordingRepository> _pumpScreen(
+  WidgetTester tester, {
+  Size size = const Size(900, 1800),
+}) async {
+  final repo = RecordingRepository();
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        doctorAttentionRepositoryProvider.overrideWith((ref) async => repo),
+        specialtiesProvider.overrideWith(
+          (ref) async => [
+            const Specialty(id: 3, name: 'Cardiología', requiresReferral: true),
+          ],
+        ),
+      ],
+      child: const MaterialApp(home: DoctorAttentionsScreen()),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return repo;
+}
+
 void main() {
+  group('sentido del orden como botón', () {
+    final direction = find.byKey(const Key('attentions-direction'));
+
+    testWidgets('muestra el texto y el ícono del estado actual', (
+      tester,
+    ) async {
+      final repo = await _pumpScreen(tester);
+
+      expect(
+        find.descendant(of: direction, matching: find.byType(TextButton)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: direction, matching: find.byType(OutlinedButton)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_downward),
+        ),
+        findsOneWidget,
+      );
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
+    });
+
+    Future<void> chooseOrder(WidgetTester tester, String label) async {
+      await tester.tap(find.byKey(const Key('attentions-order')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('alterna al tocarlo y se aplica al instante', (tester) async {
+      final repo = await _pumpScreen(tester);
+
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.descendant(of: direction, matching: find.text('Ascendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_upward),
+        ),
+        findsOneWidget,
+      );
+      // Se aplica sin tocar "Buscar".
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
+    });
+
+    testWidgets('pasar de fecha a apellido conserva el sentido descendente', (
+      tester,
+    ) async {
+      final repo = await _pumpScreen(tester);
+
+      await chooseOrder(tester, 'Apellido del paciente');
+
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(repo.queries.last.toQueryParameters()['orden'], 'apellido');
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
+    });
+
+    testWidgets('con apellido ascendente, pasar a fecha deja ascendente', (
+      tester,
+    ) async {
+      final repo = await _pumpScreen(tester);
+      await chooseOrder(tester, 'Apellido del paciente');
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+      expect(repo.queries.last.toQueryParameters()['orden'], 'apellido');
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+
+      await chooseOrder(tester, 'Fecha');
+
+      expect(
+        find.descendant(of: direction, matching: find.text('Ascendente')),
+        findsOneWidget,
+      );
+      expect(repo.queries.last.toQueryParameters()['orden'], 'fecha');
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+    });
+
+    // Aplicado con "Buscar": paciente 4.567.891-1. Escrito sin aplicar: "otro".
+    Future<RecordingRepository> pumpWithPending(WidgetTester tester) async {
+      final repo = await _pumpScreen(tester);
+      await tester.enterText(
+        find.byKey(const Key('attentions-patient-field')),
+        '4.567.891-1',
+      );
+      await tester.tap(find.byKey(const Key('attentions-search')));
+      await tester.pumpAndSettle();
+      expect(repo.queries.last.toQueryParameters()['paciente'], '45678911');
+      await tester.enterText(
+        find.byKey(const Key('attentions-patient-field')),
+        'otro',
+      );
+      await tester.pumpAndSettle();
+      return repo;
+    }
+
+    String patientField(WidgetTester tester) => tester
+        .widget<TextField>(find.byKey(const Key('attentions-patient-field')))
+        .controller!
+        .text;
+
+    testWidgets('cambiar el orden pide al instante con lo ya aplicado', (
+      tester,
+    ) async {
+      final repo = await pumpWithPending(tester);
+      final before = repo.queries.length;
+
+      await chooseOrder(tester, 'Apellido del paciente');
+
+      expect(repo.queries.length, before + 1);
+      final params = repo.queries.last.toQueryParameters();
+      expect(params['orden'], 'apellido');
+      expect(params['paciente'], '45678911');
+      expect(patientField(tester), 'otro');
+    });
+
+    testWidgets('tocar el sentido pide al instante con lo ya aplicado', (
+      tester,
+    ) async {
+      final repo = await pumpWithPending(tester);
+      final before = repo.queries.length;
+
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+
+      expect(repo.queries.length, before + 1);
+      final params = repo.queries.last.toQueryParameters();
+      expect(params['sentido'], 'asc');
+      expect(params['paciente'], '45678911');
+      expect(patientField(tester), 'otro');
+    });
+
+    testWidgets('Limpiar vuelve a fecha descendente', (tester) async {
+      final repo = await pumpWithPending(tester);
+      await chooseOrder(tester, 'Apellido del paciente');
+      await tester.tap(direction);
+      await tester.pumpAndSettle();
+      expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+
+      await tester.tap(find.byKey(const Key('attentions-clear')));
+      await tester.pumpAndSettle();
+
+      final params = repo.queries.last.toQueryParameters();
+      expect(params['orden'], 'fecha');
+      expect(params['sentido'], 'desc');
+      expect(params.containsKey('paciente'), isFalse);
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a 320 px se ve completo y no desborda', (tester) async {
+      await loadRoboto();
+      await _pumpScreen(tester, size: const Size(320, 900));
+
+      expect(find.text('Descendente'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('Descendente')).right,
+        lessThanOrEqualTo(320),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   for (final width in [1200.0, 360.0, 320.0]) {
     testWidgets(
       'el indicador de carga de Especialidad es cuadrado a ${width.toInt()} px',
@@ -118,10 +332,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Apellido del paciente').last);
     await tester.pumpAndSettle();
-    expect(find.text('Ascendente'), findsOneWidget);
+    expect(find.text('Descendente'), findsOneWidget);
     await tester.tap(find.byKey(const Key('attentions-search')));
     await tester.pumpAndSettle();
-    expect(repo.queries.last.toQueryParameters()['sentido'], 'asc');
+    expect(repo.queries.last.toQueryParameters()['sentido'], 'desc');
     await tester.tap(find.byKey(const Key('attentions-clear')));
     await tester.pumpAndSettle();
     expect(
