@@ -13,6 +13,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/load_roboto.dart';
+
 class _StubAdapter implements HttpClientAdapter {
   _StubAdapter(this.status, this.body);
 
@@ -139,7 +141,17 @@ DoctorShiftNumber _reserved(
   arrivedAt: arrivedAt,
 );
 
-Future<void> _pump(WidgetTester tester, _ScriptedRepository repository) async {
+/// Arma la pantalla en una ventana de [size]: la más alta que la de prueba por
+/// defecto, porque el botón del sentido con texto ocupa una línea más.
+Future<void> _pump(
+  WidgetTester tester,
+  _ScriptedRepository repository, {
+  Size size = const Size(800, 1000),
+}) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   final router = GoRouter(
     initialLocation: '/medico/turnos',
     routes: [
@@ -424,6 +436,84 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(repository.lastAscending, isFalse);
+    });
+
+    testWidgets('el sentido es un botón con el texto y el ícono del estado', (
+      tester,
+    ) async {
+      final repository = _ScriptedRepository()..numbers = [_reserved(1)];
+      await _pump(tester, repository);
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pump();
+      await tester.pump();
+      final direction = find.byKey(const Key('doctor-direction'));
+
+      expect(
+        find.descendant(of: direction, matching: find.byType(TextButton)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: direction, matching: find.byType(IconButton)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: direction, matching: find.text('Ascendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_upward),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Orden ascendente'), findsOneWidget);
+
+      await tester.tap(direction);
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.lastAscending, isFalse);
+      expect(
+        find.descendant(of: direction, matching: find.text('Descendente')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: direction,
+          matching: find.byIcon(Icons.arrow_downward),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Orden descendente'), findsOneWidget);
+
+      await tester.tap(direction);
+      await tester.pump();
+      await tester.pump();
+
+      expect(repository.lastAscending, isTrue);
+      expect(
+        find.descendant(of: direction, matching: find.text('Ascendente')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a 320 px el botón del sentido se ve completo y no desborda', (
+      tester,
+    ) async {
+      await loadRoboto();
+      final repository = _ScriptedRepository()..numbers = [_reserved(1)];
+      await _pump(tester, repository, size: const Size(320, 900));
+      await tester.tap(find.byKey(const Key('doctor-shift-7')));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Ascendente'), findsOneWidget);
+      expect(
+        tester.getRect(find.text('Ascendente')).right,
+        lessThanOrEqualTo(320),
+      );
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('se actualiza solo cuando cambia el servidor', (tester) async {

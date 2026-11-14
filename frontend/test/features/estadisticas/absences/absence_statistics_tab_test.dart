@@ -314,7 +314,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(4));
+    expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(6));
     expect(find.byKey(const Key('stats-tab-absences')), findsOneWidget);
     expect(find.text('Inasistencias'), findsOneWidget);
   });

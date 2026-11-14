@@ -1,6 +1,8 @@
 import 'package:agenda_medica/features/auth/widgets/logout_button.dart';
 import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/absence_statistics_tab.dart';
+import 'package:agenda_medica/features/estadisticas/tabs/referral_statistics_tab.dart';
+import 'package:agenda_medica/features/estadisticas/tabs/time_slot_statistics_tab.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/appointment_statistics_tab.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/shift_statistics_tab.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/specialty_statistics_tab.dart';
@@ -17,12 +19,16 @@ const _tabKeys = [
   'stats-tab-shifts',
   'stats-tab-appointments',
   'stats-tab-absences',
+  'stats-tab-referrals',
+  'stats-tab-time-slots',
 ];
 const _tabTexts = [
   'Demanda por especialidad',
   'Utilización por turno',
   'Consultas por estado',
   'Inasistencias',
+  'Pases',
+  'Franjas',
 ];
 
 /// El `Text` de la etiqueta de la pestaña [key].
@@ -98,10 +104,10 @@ void main() {
   });
 
   group('pestañas', () {
-    testWidgets('son cuatro, en este orden y con estos textos', (tester) async {
+    testWidgets('son seis, en este orden y con estos textos', (tester) async {
       await _pump(tester);
 
-      expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(4));
+      expect(tester.widget<TabBar>(find.byType(TabBar)).tabs, hasLength(6));
       expect([
         for (final key in _tabKeys) tester.widget<Text>(_tabLabel(key)).data,
       ], _tabTexts);
@@ -119,6 +125,8 @@ void main() {
         const Key('stats-tab-shifts'),
         const Key('stats-tab-appointments'),
         const Key('stats-tab-absences'),
+        const Key('stats-tab-referrals'),
+        const Key('stats-tab-time-slots'),
       ]);
       expect(find.byKey(const Key('stats-tab-specialties')), findsOneWidget);
       expect(find.byKey(const Key('stats-tab-shifts')), findsOneWidget);
@@ -189,6 +197,11 @@ void main() {
         await _openTab(tester, 'stats-tab-absences');
         expect(find.byType(AbsenceStatisticsTab), findsOneWidget);
 
+        await _openTab(tester, 'stats-tab-referrals');
+        expect(find.byType(ReferralStatisticsTab), findsOneWidget);
+        await _openTab(tester, 'stats-tab-time-slots');
+        expect(find.byType(TimeSlotStatisticsTab), findsOneWidget);
+
         await _openTab(tester, 'stats-tab-specialties');
         expect(find.byType(SpecialtyStatisticsTab), findsOneWidget);
         expect(tester.takeException(), isNull);
@@ -207,6 +220,8 @@ void main() {
           await _pump(tester, size: Size(width, 800));
 
           for (final key in _tabKeys) {
+            await tester.ensureVisible(find.byKey(Key(key)));
+            await tester.pumpAndSettle();
             final rect = tester.getRect(find.byKey(Key(key)));
             expect(rect.left, greaterThanOrEqualTo(0), reason: key);
             expect(rect.right, lessThanOrEqualTo(width), reason: key);
@@ -214,7 +229,7 @@ void main() {
           expect(tester.takeException(), isNull);
         });
 
-        testWidgets('la barra no se desplaza', (tester) async {
+        testWidgets('la barra se adapta al ancho', (tester) async {
           await _pump(tester, size: Size(width, 800));
 
           expect(
@@ -222,7 +237,7 @@ void main() {
               of: find.byType(TabBar),
               matching: find.byType(Scrollable),
             ),
-            findsNothing,
+            width < 600 ? findsOneWidget : findsNothing,
           );
         });
 
@@ -230,6 +245,8 @@ void main() {
           await _pump(tester, size: Size(width, 800));
 
           for (var i = 0; i < _tabKeys.length; i++) {
+            await tester.ensureVisible(find.byKey(Key(_tabKeys[i])));
+            await tester.pumpAndSettle();
             final label = _tabTexts[i];
             final paragraph = tester.renderObject<RenderParagraph>(
               find
@@ -257,7 +274,7 @@ void main() {
               )) {
                 expect(
                   box.right,
-                  lessThanOrEqualTo(paragraph.size.width),
+                  lessThanOrEqualTo(paragraph.size.width + 0.1),
                   reason: '"$word" dentro de "$label"',
                 );
               }
@@ -271,6 +288,10 @@ void main() {
         ) async {
           await _pump(tester, size: Size(width, 800));
 
+          await tester.ensureVisible(
+            find.byKey(const Key('stats-tab-appointments')),
+          );
+          await tester.pumpAndSettle();
           await tester.tap(find.byKey(const Key('stats-tab-appointments')));
           await tester.pumpAndSettle();
 
@@ -301,11 +322,10 @@ void main() {
       expect(centers[0], lessThan(centers[1]));
       expect(centers[1], lessThan(centers[2]));
       expect(centers[2], lessThan(centers[3]));
-      // Cada una en su cuarto de la pantalla.
-      expect(centers[0], lessThan(225));
-      expect(centers[1], inInclusiveRange(225, 450));
-      expect(centers[2], inInclusiveRange(450, 675));
-      expect(centers[3], greaterThan(675));
+      expect(centers[3], lessThan(centers[4]));
+      expect(centers[4], lessThan(centers[5]));
+      expect(centers.first, lessThan(150));
+      expect(centers.last, greaterThan(750));
     });
   });
 

@@ -48,6 +48,14 @@ public class InactivacionEmpleadoService {
 
     @Transactional
     public EstadoCuentaResponse inactivar(long idCuenta, long idAdministrador) {
+        if (idCuenta == idAdministrador) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "AUTO_INACTIVACION_NO_PERMITIDA",
+                    "No puede inactivar su propia cuenta"
+            );
+        }
+
         CuentaEstado cuenta = bloquearEmpleado(idCuenta);
 
         if (!cuenta.habilitada()) {
@@ -99,6 +107,14 @@ public class InactivacionEmpleadoService {
 
     @Transactional
     public EstadoCuentaResponse reactivar(long idCuenta, long idAdministrador) {
+        if (idCuenta == idAdministrador) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "AUTO_INACTIVACION_NO_PERMITIDA",
+                    "No puede reactivar su propia cuenta"
+            );
+        }
+
         CuentaEstado cuenta = bloquearEmpleado(idCuenta);
 
         if (cuenta.habilitada()) {

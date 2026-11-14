@@ -16,7 +16,9 @@ import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_rep
 import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_search_repository.dart';
 import 'package:agenda_medica/features/consultorios/screens/clinic_import_screen.dart';
 import 'package:agenda_medica/features/consultorios/screens/clinics_screen.dart';
+import 'package:agenda_medica/core/files/import_errors_download_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
@@ -607,6 +609,96 @@ void main() {
       await _tap(tester, 'import-confirm-button');
       expect(find.text('Descargar filas rechazadas'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('aviso para volver a subir el archivo con errores', () {
+    setUpAll(loadRoboto);
+    const hintText =
+        'Corregí cada fila según el motivo de la columna error. Después '
+        'borrá esa columna y las columnas extra_1, extra_2, etc. (si las '
+        'hay): el archivo tiene que quedar con exactamente las mismas '
+        'columnas que el original.';
+    final hint = find.text(hintText);
+    final button = find.byKey(const Key('import-download-button'));
+    final oneError = clinicCsvFile(
+      '$kClinicImportHeader\nConsultorio 20,Piso 3\nConsultorio 7,Piso 1\n',
+    );
+
+    void expectHintUnderButton(WidgetTester tester) {
+      expect(hint, findsOneWidget);
+      // Es del mismo widget que el botón y va justo debajo.
+      expect(
+        find.descendant(
+          of: find.byType(ImportErrorsDownloadButton),
+          matching: hint,
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(hint).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(button).dy),
+      );
+    }
+
+    testWidgets('la previsualización y el resultado lo muestran', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await _preview(tester);
+      expectHintUnderButton(tester);
+
+      await _tap(tester, 'import-confirm-button');
+      expectHintUnderButton(tester);
+    });
+
+    testWidgets('es el mismo texto con una sola fila con error', (
+      tester,
+    ) async {
+      await _pump(tester, file: oneError);
+      await _preview(tester);
+      expect(find.byKey(const Key('import-download-button')), findsOneWidget);
+      expectHintUnderButton(tester);
+
+      await _tap(tester, 'import-confirm-button');
+      expectHintUnderButton(tester);
+    });
+
+    testWidgets('sin errores ni rechazos no hay botón ni texto', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        file: clinicCsvFile('$kClinicImportHeader\nConsultorio 20,Piso 3\n'),
+      );
+      await _preview(tester);
+      expect(button, findsNothing);
+      expect(hint, findsNothing);
+
+      await _tap(tester, 'import-confirm-button');
+      expect(button, findsNothing);
+      expect(hint, findsNothing);
+    });
+
+    testWidgets('a 320 px no desborda y el texto se lee entero', (
+      tester,
+    ) async {
+      await _pump(tester, size: const Size(320, 640));
+      await _preview(tester);
+
+      for (var step = 0; step < 2; step++) {
+        await tester.ensureVisible(hint);
+        await tester.pumpAndSettle();
+        final rect = tester.getRect(hint);
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(320));
+        expect(
+          tester.renderObject<RenderParagraph>(hint).didExceedMaxLines,
+          isFalse,
+        );
+        expect(tester.takeException(), isNull);
+        if (step == 0) await _tap(tester, 'import-confirm-button');
+      }
     });
   });
 

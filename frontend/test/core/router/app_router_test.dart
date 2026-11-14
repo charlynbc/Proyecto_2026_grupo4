@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:agenda_medica/core/fakes/datos_prueba.dart';
+import 'package:agenda_medica/core/router/adaptive_nav_bar.dart';
 import 'package:agenda_medica/core/router/app_router.dart';
 import 'package:agenda_medica/core/router/app_sections.dart';
 import 'package:agenda_medica/features/auth/models/access_type.dart';
@@ -358,7 +359,7 @@ void main() {
     final container = await pumpApp(tester);
     await _loginAs(tester, container, UserRole.medico);
 
-    expect(find.byType(NavigationBar), findsNothing);
+    expect(find.byType(AdaptiveNavBar), findsNothing);
     expect(find.byType(NavigationRail), findsNothing);
     expect(locationOf(container), '/medico/inicio');
     expect(find.text('Cartelera'), findsOneWidget);
@@ -675,7 +676,7 @@ void main() {
       expect(UserRole.administrador.sectionPath(section), kStatisticsPath);
     });
 
-    testWidgets('estadísticas abre su pantalla con las cuatro pestañas y no '
+    testWidgets('estadísticas abre su pantalla con las seis pestañas y no '
         '"Próximamente"', (tester) async {
       final container = await pumpApp(tester);
       await _loginAs(tester, container, UserRole.administrador);
@@ -684,7 +685,7 @@ void main() {
 
       expect(locationOf(container), kStatisticsPath);
       expect(find.byType(StatisticsScreen), findsOneWidget);
-      expect(find.byType(Tab), findsNWidgets(4));
+      expect(find.byType(Tab), findsNWidgets(6));
       expect(find.text('Inasistencias'), findsOneWidget);
       expect(find.text('Próximamente'), findsNothing);
       // Sigue dentro del menú del administrador.

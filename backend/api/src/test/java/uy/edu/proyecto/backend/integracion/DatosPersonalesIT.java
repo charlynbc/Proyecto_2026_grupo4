@@ -2,6 +2,7 @@ package uy.edu.proyecto.backend.integracion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,6 +16,10 @@ class DatosPersonalesIT extends BaseIntegracionIT {
         return jdbc.queryForObject(
                 "SELECT correo FROM cuenta WHERE id_cuenta = ?",
                 String.class, cuenta);
+    }
+
+    private String admin() {
+        return tokenEmpleado(ciAdmin);
     }
 
     @Test
@@ -31,6 +36,52 @@ class DatosPersonalesIT extends BaseIntegracionIT {
         assertEquals("u" + ciSocio1 + "@ejemplo.invalid",
                 r.json().path("correo").asString());
         assertTrue(r.json().path("correoPendiente").isNull());
+    }
+
+    @Test
+    void obtenerDelAdministradorIncluyeElIdDeSuCuentaIgualAlDelPadron() {
+        String token = admin();
+
+        Respuesta me = get("/api/cuentas/me", token);
+
+        assertEquals(200, me.estado(), me.cuerpo());
+        assertTrue(me.json().has("id"), "La respuesta incluye el campo id");
+        assertTrue(me.json().path("id").isIntegralNumber(),
+                "El id es un numero entero");
+        assertEquals(idAdmin, me.json().path("id").asLong());
+
+        Respuesta padron = get("/api/usuarios?q=" + ciAdmin, token);
+        assertEquals(200, padron.estado(), padron.cuerpo());
+        Long idEnPadron = null;
+        for (var fila : padron.json().path("items")) {
+            if (ciAdmin.equals(fila.path("ci").asString())) {
+                idEnPadron = fila.path("id").asLong();
+            }
+        }
+        assertNotNull(idEnPadron, "El administrador figura en el padron");
+        assertEquals(idEnPadron.longValue(), me.json().path("id").asLong());
+    }
+
+    @Test
+    void obtenerDeUnSocioDevuelveElIdDeSuCuentaYNoElDeOtra() {
+        // La misma persona tiene tambien una cuenta de funcionario.
+        jdbc.update("INSERT INTO cuenta (ci, rol, correo, telefono_1, direccion,"
+                + " contrasena_hash, primer_ingreso_completado)"
+                + " VALUES (?, 'FUNCIONARIO', 'doble-me@ejemplo.invalid',"
+                + " '099111222', 'Calle 1', 'x', true)", ciSocio1);
+        Long idOtraCuenta = jdbc.queryForObject(
+                "SELECT id_cuenta FROM cuenta WHERE ci = ? AND rol = 'FUNCIONARIO'",
+                Long.class, ciSocio1);
+
+        Respuesta r = get("/api/cuentas/me", tokenSocio(ciSocio1));
+
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertTrue(r.json().path("id").isIntegralNumber());
+        assertEquals(idSocio1, r.json().path("id").asLong());
+        assertNotEquals(idOtraCuenta.longValue(), r.json().path("id").asLong(),
+                "No es el id de la otra cuenta de la misma persona");
+        assertNotEquals(idSocio2, r.json().path("id").asLong());
+        assertNotEquals(idAdmin, r.json().path("id").asLong());
     }
 
     @Test

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../auth/widgets/logout_button.dart';
 import '../tabs/absence_statistics_tab.dart';
+import '../tabs/referral_statistics_tab.dart';
+import '../tabs/time_slot_statistics_tab.dart';
 import '../tabs/appointment_statistics_tab.dart';
 import '../tabs/shift_statistics_tab.dart';
 import '../tabs/specialty_statistics_tab.dart';
@@ -28,20 +30,19 @@ class StatisticsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // En una pantalla angosta cada pestaña queda chica: 12 px y 2 px de
-    // margen hacen entrar la palabra más larga a 320 px. Más ancha, la letra
-    // de siempre.
+    // Con seis pestañas, en pantallas angostas la barra se desplaza para
+    // conservar etiquetas legibles.
     final narrow = MediaQuery.sizeOf(context).width < 600;
     return DefaultTabController(
-      length: 4,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Estadísticas'),
           actions: const [LogoutButton()],
           bottom: TabBar(
-            // Las cuatro pestañas se reparten el ancho y se ven siempre
-            // enteras: con la barra desplazable, la última quedaba fuera de
-            // la pantalla sin ninguna pista.
+            isScrollable: narrow,
+            tabAlignment: narrow ? TabAlignment.start : TabAlignment.fill,
+            // En pantallas anchas se reparten el espacio disponible.
             labelPadding: EdgeInsets.symmetric(horizontal: narrow ? 2 : 8),
             labelStyle: narrow
                 ? const TextStyle(fontSize: 12, height: 1.15)
@@ -69,6 +70,11 @@ class StatisticsScreen extends StatelessWidget {
                 key: Key('stats-tab-absences'),
                 child: _TabLabel('Inasistencias'),
               ),
+              Tab(key: Key('stats-tab-referrals'), child: _TabLabel('Pases')),
+              Tab(
+                key: Key('stats-tab-time-slots'),
+                child: _TabLabel('Franjas'),
+              ),
             ],
           ),
         ),
@@ -78,6 +84,8 @@ class StatisticsScreen extends StatelessWidget {
             ShiftStatisticsTab(),
             AppointmentStatisticsTab(),
             AbsenceStatisticsTab(),
+            ReferralStatisticsTab(),
+            TimeSlotStatisticsTab(),
           ],
         ),
       ),
