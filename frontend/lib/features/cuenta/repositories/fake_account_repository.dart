@@ -1,3 +1,4 @@
+import '../../../core/fakes/fake_admin_database.dart';
 import '../../../core/forms/email_field_rules.dart';
 import '../../auth/models/user_role.dart';
 import '../models/account.dart';
@@ -54,6 +55,7 @@ class FakeAccountRepository implements AccountRepository {
     final requestsEmailChange =
         email != null && email.toLowerCase() != current.email.toLowerCase();
     return _account = Account(
+      id: current.id,
       ci: current.ci,
       name: current.name,
       lastName: current.lastName,
@@ -70,6 +72,7 @@ class FakeAccountRepository implements AccountRepository {
   /// `TestData.people`). Ninguna tiene un correo pendiente.
   static Account personFor(UserRole role) => switch (role) {
     UserRole.socio => const Account(
+      id: 1,
       ci: '12345672',
       name: 'Ana',
       lastName: 'Rodríguez',
@@ -81,6 +84,7 @@ class FakeAccountRepository implements AccountRepository {
       address: 'Av. 18 de Julio 1234, Montevideo',
     ),
     UserRole.funcionario => const Account(
+      id: 2,
       ci: '23456783',
       name: 'Bruno',
       lastName: 'Pereira',
@@ -92,6 +96,7 @@ class FakeAccountRepository implements AccountRepository {
       address: 'Bulevar Artigas 500, Montevideo',
     ),
     UserRole.medico => const Account(
+      id: 4,
       ci: '34567894',
       name: 'Carla',
       lastName: 'Méndez',
@@ -103,6 +108,7 @@ class FakeAccountRepository implements AccountRepository {
       address: 'Av. Italia 2500, Montevideo',
     ),
     UserRole.administrador => const Account(
+      id: kFakeAdminAccountId,
       ci: '45678905',
       name: 'Diego',
       lastName: 'Fernández',

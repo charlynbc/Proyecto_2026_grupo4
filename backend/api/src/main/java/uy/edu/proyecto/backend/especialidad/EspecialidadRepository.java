@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import uy.edu.proyecto.backend.busqueda.TextoBusqueda;
 
 @Repository
 public class EspecialidadRepository {
@@ -45,8 +46,8 @@ public class EspecialidadRepository {
                 """);
         List<Object> params = new ArrayList<>();
         if (nombre != null && !nombre.isBlank()) {
-            sql.append(" AND nombre ILIKE ?");
-            params.add("%" + nombre + "%");
+            sql.append(" AND " + TextoBusqueda.contiene("nombre"));
+            params.add(TextoBusqueda.patron(nombre));
         }
         if (requierePase != null) {
             sql.append(" AND requiere_pase = ?");

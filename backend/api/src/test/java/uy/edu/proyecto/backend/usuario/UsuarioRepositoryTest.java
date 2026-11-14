@@ -38,8 +38,8 @@ class UsuarioRepositoryTest {
         assertTrue(sql.getValue().contains("JOIN public.persona p ON p.ci = c.ci"));
         assertTrue(sql.getValue().contains("c.rol = ?"));
         assertTrue(sql.getValue().contains("c.habilitada = ?"));
-        assertTrue(sql.getValue().contains("LOWER(p.ci) LIKE LOWER(?)"));
-        assertTrue(sql.getValue().contains("LOWER(p.apellido) LIKE LOWER(?)"));
+        assertTrue(sql.getValue().contains("LOWER(translate(p.ci, 'áéíóúüÁÉÍÓÚÜÑ', 'aeiouuAEIOUUñ')) LIKE ? ESCAPE '!'"));
+        assertTrue(sql.getValue().contains("LOWER(translate(p.apellido, 'áéíóúüÁÉÍÓÚÜÑ', 'aeiouuAEIOUUñ')) LIKE ? ESCAPE '!'"));
         assertTrue(sql.getValue().contains("ORDER BY p.apellido ASC, c.fecha_alta DESC"));
         assertTrue(!sql.getValue().contains("password"));
         assertTrue(!sql.getValue().contains("token"));

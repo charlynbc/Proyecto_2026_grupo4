@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/app_lifecycle.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_app.dart' show unmountApp;
 import '../cuenta/account_test_support.dart' show RecordingAccountRepository;
@@ -32,19 +33,24 @@ class _RoleSession extends SessionNotifier {
 }
 
 class _Repo extends FakeAnnouncementsRepository {
+  int latestCalls = 0;
+
   @override
-  Future<List<Announcement>> latest() async => [
-    Announcement(
-      id: 7,
-      title: 'Novedad 7',
-      publishedAt: DateTime.utc(2026, 11, 7),
-    ),
-    Announcement(
-      id: 8,
-      title: 'Novedad 8',
-      publishedAt: DateTime.utc(2026, 11, 8),
-    ),
-  ];
+  Future<List<Announcement>> latest() async {
+    latestCalls++;
+    return [
+      Announcement(
+        id: 7,
+        title: 'Novedad 7',
+        publishedAt: DateTime.utc(2026, 11, 7),
+      ),
+      Announcement(
+        id: 8,
+        title: 'Novedad 8',
+        publishedAt: DateTime.utc(2026, 11, 8),
+      ),
+    ];
+  }
 }
 
 /// Monta solo [HomeScreen] con el [role] indicado dentro de un router real de
@@ -54,6 +60,7 @@ Future<GoRouter> _pumpRoleHome(
   WidgetTester tester,
   UserRole role, {
   double width = 1280,
+  _Repo? repo,
 }) async {
   tester.view.physicalSize = Size(width, 1000);
   tester.view.devicePixelRatio = 1;
@@ -89,7 +96,9 @@ Future<GoRouter> _pumpRoleHome(
     overrides: [
       useFakesProvider.overrideWithValue(true),
       sessionProvider.overrideWith(() => _RoleSession(role)),
-      announcementsRepositoryProvider.overrideWith((ref) async => _Repo()),
+      announcementsRepositoryProvider.overrideWith(
+        (ref) async => repo ?? _Repo(),
+      ),
       accountRepositoryProvider.overrideWith(
         (ref) async => RecordingAccountRepository(),
       ),
@@ -234,5 +243,18 @@ void main() {
 
     expect(find.text('Novedad 7'), findsOneWidget);
     expect(find.text('Todavía no hay novedades publicadas.'), findsNothing);
+  });
+
+  testWidgets('volver a resumed antes de 55 minutos no vuelve a pedir las '
+      'novedades', (tester) async {
+    final repo = _Repo();
+    await _pumpRoleHome(tester, UserRole.socio, repo: repo);
+    expect(repo.latestCalls, 1);
+
+    backgroundAndReturn(tester);
+    await tester.pump();
+    await tester.pump();
+
+    expect(repo.latestCalls, 1);
   });
 }

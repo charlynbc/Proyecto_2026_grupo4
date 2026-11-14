@@ -101,6 +101,30 @@ class AtencionesMedicoIT extends BaseIntegracionIT {
         assertTrue(!r.cuerpo().contains("Afeccion ajena"), r.cuerpo());
     }
 
+    private int atencionesDelPaciente(String paciente) {
+        Respuesta r = get("/api/medico/atenciones?fechaDesde=2026-10-01&fechaHasta=2026-10-31"
+                + "&paciente=" + paciente, tokenMedico());
+        assertEquals(200, r.estado(), r.cuerpo());
+        return r.json().size();
+    }
+
+    @Test
+    void filtraPorPacienteIgnorandoTildesYMayusculas() {
+        sembrarAtencion(idMedico, idSocio1, idEspecialidad,
+                LocalDate.of(2026, 10, 20), "Afeccion tilde");
+        jdbc.update("UPDATE persona SET apellido = 'Pérez' WHERE ci = ?", ciSocio1);
+
+        assertEquals(1, atencionesDelPaciente("per"));
+        assertEquals(1, atencionesDelPaciente("perez"));
+        assertEquals(1, atencionesDelPaciente("p%C3%A9rez"));
+        assertEquals(1, atencionesDelPaciente("P%C3%89REZ"));
+
+        jdbc.update("UPDATE persona SET apellido = 'Perez' WHERE ci = ?", ciSocio1);
+
+        assertEquals(1, atencionesDelPaciente("p%C3%A9rez"));
+        assertEquals(0, atencionesDelPaciente("perezz"));
+    }
+
     @Test
     void filtraPorPacienteConCiOApellido() {
         sembrarAtenciones();

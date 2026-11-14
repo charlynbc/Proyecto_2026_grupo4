@@ -44,7 +44,8 @@ class HistoriaClinicaRepositoryTest {
         assertTrue(sql.getValue().contains("(a.registrada_en AT TIME ZONE 'America/Montevideo')::date <= ?"));
         assertTrue(sql.getValue().contains("especialidad.id_especialidad = ?"));
         assertTrue(sql.getValue().contains("medico.id_cuenta = ?"));
-        assertTrue(sql.getValue().contains("LOWER(COALESCE(a.tratamiento, '')) LIKE LOWER(?) ESCAPE '!'"));
+        assertTrue(sql.getValue().contains("LOWER(translate(COALESCE(a.tratamiento, ''), "
+                + "'áéíóúüÁÉÍÓÚÜÑ', 'aeiouuAEIOUUñ')) LIKE ? ESCAPE '!'"));
         assertTrue(sql.getValue().contains("ORDER BY especialidad.nombre asc, a.id_atencion asc"));
         assertTrue(java.util.Arrays.equals(
                 new Object[] {

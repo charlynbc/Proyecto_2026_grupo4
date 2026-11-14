@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../helpers/load_roboto.dart';
+import '../cuenta/account_test_support.dart' show textOf;
 
 class _StubAdapter implements HttpClientAdapter {
   _StubAdapter(this.status, this.body);
@@ -70,6 +71,8 @@ const _shiftJson = {
 /// consultas, para comprobar el sondeo sin tocar el servidor.
 class _ScriptedRepository implements DoctorShiftRepository {
   List<DoctorShift> shifts = [_shift(reserved: 0)];
+  final dates = <String>[];
+  String? get lastDate => dates.isEmpty ? null : dates.last;
   List<DoctorShiftNumber> numbers = [_free(1), _free(2)];
   Object? failure;
   int shiftCalls = 0;
@@ -80,6 +83,7 @@ class _ScriptedRepository implements DoctorShiftRepository {
 
   @override
   Future<List<DoctorShift>> listShifts(String date) async {
+    dates.add(date);
     shiftCalls++;
     if (failure != null) throw failure!;
     return shifts;
@@ -147,6 +151,8 @@ Future<void> _pump(
   WidgetTester tester,
   _ScriptedRepository repository, {
   Size size = const Size(800, 1000),
+  DateTime? now,
+  double textScale = 1.0,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -175,8 +181,16 @@ Future<void> _pump(
         doctorPollIntervalProvider.overrideWithValue(
           const Duration(seconds: 3),
         ),
+        if (now != null) doctorClockProvider.overrideWithValue(() => now),
       ],
-      child: MaterialApp.router(routerConfig: router),
+      child: MaterialApp.router(
+        routerConfig: router,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+      ),
     ),
   );
   await tester.pump();
@@ -184,6 +198,94 @@ Future<void> _pump(
 }
 
 void main() {
+  group('la fecha de la pantalla', () {
+    testWidgets('se ve como dd/mm/aaaa', (tester) async {
+      await _pump(
+        tester,
+        _ScriptedRepository(),
+        now: DateTime.utc(2026, 11, 12, 15),
+      );
+
+      expect(textOf(tester, 'doctor-date'), 'Fecha: 12/11/2026');
+      expect(find.textContaining('2026-11-12'), findsNothing);
+    });
+
+    testWidgets('con un día de un dígito completa el cero', (tester) async {
+      await _pump(
+        tester,
+        _ScriptedRepository(),
+        now: DateTime.utc(2026, 3, 5, 15),
+      );
+
+      expect(textOf(tester, 'doctor-date'), 'Fecha: 05/03/2026');
+    });
+
+    testWidgets('"hoy" sale de la hora de Uruguay y no de la del aparato', (
+      tester,
+    ) async {
+      // 01:30 UTC del 13/11 son las 22:30 del 12/11 en Uruguay.
+      final repository = _ScriptedRepository();
+      await _pump(tester, repository, now: DateTime.utc(2026, 11, 13, 1, 30));
+
+      expect(textOf(tester, 'doctor-date'), 'Fecha: 12/11/2026');
+      expect(repository.lastDate, '2026-11-12');
+    });
+
+    testWidgets('al servidor viaja yyyy-MM-dd', (tester) async {
+      final repository = _ScriptedRepository();
+      await _pump(tester, repository, now: DateTime.utc(2026, 3, 5, 15));
+
+      expect(repository.dates, ['2026-03-05']);
+    });
+
+    testWidgets('"Cambiar fecha" actualiza el texto y la consulta', (
+      tester,
+    ) async {
+      final repository = _ScriptedRepository();
+      await _pump(tester, repository, now: DateTime.utc(2026, 11, 12, 15));
+
+      await tester.tap(find.byKey(const Key('doctor-date-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('15'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+
+      expect(textOf(tester, 'doctor-date'), 'Fecha: 15/11/2026');
+      expect(repository.lastDate, '2026-11-15');
+      expect(repository.dates, ['2026-11-12', '2026-11-15']);
+    });
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('a 320 px con texto x$scale la fecha y los botones no se '
+          'cortan ni desbordan', (tester) async {
+        await loadRoboto();
+        await _pump(
+          tester,
+          _ScriptedRepository(),
+          size: const Size(320, 1200),
+          now: DateTime.utc(2026, 11, 12, 15),
+          textScale: scale,
+        );
+
+        expect(tester.takeException(), isNull);
+        final date = tester.getRect(find.byKey(const Key('doctor-date')));
+        final button = tester.getRect(
+          find.byKey(const Key('doctor-date-button')),
+        );
+        final refresh = tester.getRect(find.byKey(const Key('doctor-refresh')));
+        // La fecha entera cabe en un renglón, sin partirse letra a letra.
+        expect(date.left, greaterThanOrEqualTo(0));
+        expect(date.right, lessThanOrEqualTo(320));
+        expect(date.width, greaterThan(150));
+        expect(button.left, greaterThanOrEqualTo(0));
+        expect(button.right, lessThanOrEqualTo(320));
+        expect(refresh.left, greaterThanOrEqualTo(0));
+        expect(refresh.right, lessThanOrEqualTo(320));
+      });
+    }
+  });
+
   group('contrato con GET /api/medico/turnos', () {
     test('lista turnos con fecha y lee la respuesta real', () async {
       final (repository, adapter) = _api(200, {

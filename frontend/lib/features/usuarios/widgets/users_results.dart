@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/utils/uruguay_time.dart';
+import '../../../core/widgets/pagination_bar.dart';
 import '../models/role_label.dart';
 import '../models/user_account.dart';
 import '../models/user_page.dart';
@@ -193,28 +194,14 @@ class _Pager extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(userFiltersControllerProvider.notifier);
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 12,
-      children: [
-        OutlinedButton(
-          onPressed: page.hasPrevious
-              ? () => controller.goToPage(page.page - 1)
-              : null,
-          child: const Text('Anterior'),
-        ),
-        Text(
+    return PaginationBar(
+      label:
           'Página ${page.page + 1} de ${page.pageCount} · '
           '${page.total} ${page.total == 1 ? 'cuenta' : 'cuentas'}',
-        ),
-        OutlinedButton(
-          onPressed: page.hasNext
-              ? () => controller.goToPage(page.page + 1)
-              : null,
-          child: const Text('Siguiente'),
-        ),
-      ],
+      hasPrevious: page.hasPrevious,
+      hasNext: page.hasNext,
+      onPrevious: () => controller.goToPage(page.page - 1),
+      onNext: () => controller.goToPage(page.page + 1),
     );
   }
 }

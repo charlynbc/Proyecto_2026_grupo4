@@ -12,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import uy.edu.proyecto.backend.especialidad.Especialidad;
+import uy.edu.proyecto.backend.busqueda.TextoBusqueda;
 
 @Repository
 public class HistoriaClinicaRepository {
@@ -21,10 +22,6 @@ public class HistoriaClinicaRepository {
             "(a.registrada_en AT TIME ZONE 'America/Montevideo')::date";
 
     private final JdbcTemplate jdbcTemplate;
-
-    private static String escaparLike(String texto) {
-        return texto.replace("!", "!!").replace("%", "!%").replace("_", "!_");
-    }
 
     public HistoriaClinicaRepository(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -85,8 +82,8 @@ public class HistoriaClinicaRepository {
             parametros.add(medicoId);
         }
         if (texto != null && !texto.isBlank()) {
-            sql.append(" AND LOWER(COALESCE(a.tratamiento, '')) LIKE LOWER(?) ESCAPE '!'");
-                        parametros.add("%" + escaparLike(texto.trim()) + "%");
+            sql.append(" AND " + TextoBusqueda.contiene("COALESCE(a.tratamiento, '')"));
+            parametros.add(TextoBusqueda.patron(texto));
         }
 
         String campoOrden = "fecha_atencion".equals(orden)

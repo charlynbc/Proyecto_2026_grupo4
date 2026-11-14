@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../models/shift.dart';
 import '../../../core/utils/ui_date.dart';
+import '../../../core/widgets/pagination_bar.dart';
 import '../models/shift_number.dart';
 import '../models/shift_page.dart';
 import '../models/weekday_names.dart';
@@ -206,28 +207,14 @@ class _Pager extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(shiftFiltersControllerProvider.notifier);
-    return Wrap(
-      alignment: WrapAlignment.center,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 12,
-      children: [
-        OutlinedButton(
-          onPressed: page.hasPrevious
-              ? () => controller.goToPage(page.page - 1)
-              : null,
-          child: const Text('Anterior'),
-        ),
-        Text(
+    return PaginationBar(
+      label:
           'Página ${page.page + 1} de ${page.pageCount} · '
           '${page.total} ${page.total == 1 ? 'turno' : 'turnos'}',
-        ),
-        OutlinedButton(
-          onPressed: page.hasNext
-              ? () => controller.goToPage(page.page + 1)
-              : null,
-          child: const Text('Siguiente'),
-        ),
-      ],
+      hasPrevious: page.hasPrevious,
+      hasNext: page.hasNext,
+      onPrevious: () => controller.goToPage(page.page - 1),
+      onNext: () => controller.goToPage(page.page + 1),
     );
   }
 }

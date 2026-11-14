@@ -69,6 +69,8 @@ Los listados que el Diseño declara `List<...>` (catálogos, disponibilidad, con
 
 Los filtros son parámetros de query, opcionales salvo que se indique. Un filtro vacío equivale a no enviarlo. Los filtros de rango (`fechaDesde`, `fechaHasta`) son inclusivos en ambos extremos. Si `fechaDesde` es posterior a `fechaHasta`, `400 VALIDACION`.
 
+**Búsquedas de texto (13/11/2026).** Los filtros de texto que se describen como "sin distinguir mayúsculas ni tildes" (`nombre` de especialidades, `nombre` y `ubicacion` de consultorios, `q` de usuarios, `texto` de la historia clínica y `paciente` de las atenciones del médico) comparan el texto y los datos sin mayúsculas y sin tildes en las vocales (`á é í ó ú` y `ü`): `per`, `perez` y `pérez` encuentran "Pérez" y también "Perez". La `ñ` es una letra distinta de la `n`: `munoz` no encuentra "Muñoz". El texto buscado se compara como contiene y los espacios de los extremos no cuentan; `%` y `_` se buscan literalmente.
+
 ### 1.6 Identificadores y nombres
 
 - Una entidad se identifica con `id`. Una referencia a otra entidad se llama `<entidad>Id` (`numeroId`, `paseId`, `especialidadId`, `medicoId`, `consultorioId`), como en las firmas de las figuras 1 a 7 del Diseño (secciones 2.1 a 2.7).
@@ -422,7 +424,7 @@ Cambia la contraseña del usuario autenticado. La identidad sale del JWT; el cli
 - **RF:** RF-29 (catálogo), y los formularios de RF-08, RF-13, RF-14, RF-17, RF-24 y RF-31. **Diseño:** `EspecialidadDTO`. **Estado:** PROPUESTA.
 
 Sin parámetros devuelve todas las especialidades, sin paginar, ordenadas por `nombre`.
-**RF-36 implementado:** filtros opcionales `nombre` (contiene texto, sin distinguir mayúsculas, máximo 120 caracteres), `requierePase` (`true` o `false`). Orden opcional `orden=nombre` (predeterminado) o `orden=fechaAlta` (ascendente). Se pueden combinar los filtros. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva exactamente la respuesta original.
+**RF-36 implementado:** filtros opcionales `nombre` (contiene texto, sin distinguir mayúsculas ni tildes, máximo 120 caracteres), `requierePase` (`true` o `false`). Orden opcional `orden=nombre` (predeterminado) o `orden=fechaAlta` (ascendente). Se pueden combinar los filtros. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva exactamente la respuesta original.
 
 **Respuesta 200**
 
@@ -471,7 +473,7 @@ Sin parámetros devuelve todas las especialidades, sin paginar, ordenadas por `n
 - **RF:** RF-33 (catálogo) y el formulario de RF-13. **Diseño:** `ConsultorioDTO`. **Estado:** PROPUESTA.
 
 Sin parámetros devuelve todos los consultorios, sin paginar, ordenados por `nombre`.
-**RF-37 implementado:** filtros opcionales `nombre` (contiene nombre o número textual, sin distinguir mayúsculas, máximo 120 caracteres), `ubicacion` (contiene texto sin distinguir mayúsculas, máximo 200 caracteres). Orden opcional `orden=nombre` (predeterminado) o `orden=ubicacion` (ascendente). Los filtros se pueden combinar. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva la respuesta original.
+**RF-37 implementado:** filtros opcionales `nombre` (contiene nombre o número textual, sin distinguir mayúsculas ni tildes, máximo 120 caracteres), `ubicacion` (contiene texto sin distinguir mayúsculas ni tildes, máximo 200 caracteres). Orden opcional `orden=nombre` (predeterminado) o `orden=ubicacion` (ascendente). Los filtros se pueden combinar. Responde `400 VALIDACION` para valores incorrectos; sin filtros conserva la respuesta original.
 
 **Respuesta 200**
 
@@ -637,7 +639,7 @@ Una fila por cuenta. Una persona con varias cuentas (incluidas las de empleado a
 |---|---|---|
 | `rol` | `Rol` | |
 | `estado` | `EstadoCuenta` | `ACTIVA` o `INACTIVA`. |
-| `q` | texto | Coincidencia parcial, sin distinguir mayúsculas, con CI o apellido. `%` y `_` se buscan literalmente. `texto` se acepta como alias; si ambos llegan con valores distintos, `400 VALIDACION`. |
+| `q` | texto | Coincidencia parcial, sin distinguir mayúsculas ni tildes, con CI o apellido. `%` y `_` se buscan literalmente. `texto` se acepta como alias; si ambos llegan con valores distintos, `400 VALIDACION`. |
 | `orden` | `apellido` o `fechaAlta` | Por defecto `apellido`. Otro valor: `400 VALIDACION`. Desempate estable por `id`. |
 | `sentido` | `asc` o `desc` | Por defecto `asc`. Otro valor: `400 VALIDACION`. |
 | `page`, `size` | | Sección 1.3. |
@@ -656,7 +658,8 @@ Una fila por cuenta. Una persona con varias cuentas (incluidas las de empleado a
       "correo": "lucia.fernandez@example.org",
       "estado": "ACTIVA",
       "activada": true,
-      "fechaAlta": "2026-09-01T09:00:00-03:00"
+      "fechaAlta": "2026-09-01T09:00:00-03:00",
+      "puedeInactivar": false
     }
   ],
   "page": 0,
@@ -664,6 +667,8 @@ Una fila por cuenta. Una persona con varias cuentas (incluidas las de empleado a
   "total": 1
 }
 ```
+
+`puedeInactivar` (booleano, desde el 13/11/2026) dice si `POST /api/usuarios/{id}/inactivar` (fila 61) aceptaría hoy esa cuenta. Es `true` solo si la cuenta está activa, no es de un socio, no es la cuenta del administrador que consulta y, si es de un médico, no tiene fechas de turnos activas ni consultas agendadas cuyo día todavía no terminó. En cualquier otro caso es `false`. Sale de la misma regla que usa la inactivación, pero es una foto del momento del listado: otro cambio posterior puede hacer que la operación igual responda `409`, y el cliente debe seguir mostrando ese error. No dice nada sobre reactivar: el cliente decide ofrecer "Reactivar" por `estado`.
 
 La respuesta **nunca** incluye hashes de contraseña, tokens ni enlaces de activación (S19).
 
@@ -1091,7 +1096,7 @@ El servidor toma la identidad del socio del JWT validado. **No existe parámetro
 | `fechaDesde`, `fechaHasta` | fecha `YYYY-MM-DD` | Inclusivas. Se aplican a la fecha de atención en `America/Montevideo`. |
 | `especialidadId` | entero | |
 | `medicoId` | entero | |
-| `texto` | texto | Contenido en el tratamiento, sin distinguir mayúsculas. `%` y `_` se buscan literalmente. |
+| `texto` | texto | Contenido en el tratamiento, sin distinguir mayúsculas ni tildes. `%` y `_` se buscan literalmente. |
 | `orden` | `fecha` (alias de `fecha_atencion`), `fecha_atencion` o `especialidad` | Por defecto `fecha_atencion`. |
 | `sentido` | `asc` o `desc` | Por defecto `desc`. |
 
@@ -2013,7 +2018,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 |---|---|---|---|
 | `fechaDesde` | fecha | sí | Inclusiva. Sobre la fecha de atención en `America/Montevideo`. |
 | `fechaHasta` | fecha | sí | Inclusiva. `fechaDesde` posterior a `fechaHasta` → `400 VALIDACION`. |
-| `paciente` | texto | no | CI o apellido del paciente (contiene, sin distinguir mayúsculas). Máximo 100 caracteres. |
+| `paciente` | texto | no | CI o apellido del paciente (contiene, sin distinguir mayúsculas ni tildes). Máximo 100 caracteres. |
 | `especialidadId` | entero | no | Especialidad del turno en que se atendió. |
 | `orden` | `fecha` o `apellido` | no | Por defecto `fecha` (la más reciente primero). |
 | `sentido` | `asc` o `desc` | no | Por defecto `desc` con `fecha` y `asc` con `apellido`. |
@@ -2317,9 +2322,9 @@ Reglas comunes (sección 3.1.4 de Requerimientos). Cada carga masiva tiene **dos
 
 **Formato del archivo**
 
-- CSV con codificación **UTF-8** (se acepta la marca BOM inicial) y **encabezados**.
+- CSV con codificación **UTF-8** (se acepta la marca BOM inicial) y **encabezados**. Un archivo guardado en otra codificación (por ejemplo Latin-1, el "CSV (delimitado por comas)" de Excel con tildes o eñes) o como Unicode UTF-16 se rechaza con `400 CSV_INVALIDO` y un mensaje que pide guardarlo de nuevo como CSV UTF-8.
 - Separador: **coma o punto y coma** (se detecta en la línea de encabezado). Los campos entrecomillados pueden contener el separador.
-- Las columnas deben ser **exactamente** las indicadas (ni faltantes ni adicionales, sin repetir); de lo contrario `400 CSV_INVALIDO`.
+- Las columnas deben ser **exactamente** las indicadas (ni faltantes ni adicionales, sin repetir, escritas en minúsculas y sin espacios alrededor); de lo contrario `400 CSV_INVALIDO`. El `message` dice qué corregir y no hace falta interpretarlo: nombra las columnas que faltan y las que sobran con su nombre exacto, y distingue la primera fila con columnas sin nombre (por ejemplo un separador de más al final), con espacios alrededor de un nombre o con una columna repetida.
 - Límites: **1 MB** por archivo y **1000 filas** de datos. Superarlos responde `400 CSV_INVALIDO`.
 - El archivo viaja como `multipart/form-data` en el campo `archivo` y **no se almacena** en el servidor.
 - Una fila con una cantidad distinta de columnas se rechaza con ese motivo; las demás se procesan.

@@ -17,10 +17,10 @@ class ClinicImportScreen extends ConsumerWidget {
   const ClinicImportScreen({super.key});
 
   static const String _instructions =
-      'Elegí un archivo CSV con un consultorio por fila y dos columnas, en '
-      'este orden: nombre y ubicacion. Los que ya existen no se modifican. '
-      'Formato: separador coma o punto y coma, UTF-8, hasta 1 MB y 1000 '
-      'filas.';
+      'Elegí un archivo CSV con un consultorio por fila y estas dos columnas '
+      '(el orden no importa): nombre y ubicacion. Los que ya existen no se '
+      'modifican. Formato: separador coma o punto y coma, UTF-8 (en Excel: '
+      'Guardar como, CSV UTF-8), hasta 1 MB y 1000 filas.';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

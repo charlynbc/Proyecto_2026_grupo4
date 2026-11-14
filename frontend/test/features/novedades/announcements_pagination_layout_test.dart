@@ -131,6 +131,69 @@ Future<void> _tapControl(WidgetTester tester, Finder button) async {
 void main() {
   setUpAll(loadRoboto);
 
+  group('bordes de paginación y texto grande', () {
+    void expectVisibleControls(WidgetTester tester) {
+      _expectControls(
+        tester,
+        page: 1,
+        previousEnabled: false,
+        nextEnabled: true,
+      );
+      final screen = tester.getRect(find.byType(Scaffold));
+      final rects = [
+        tester.getRect(_previous),
+        tester.getRect(find.text('Página 1')),
+        tester.getRect(_next),
+      ];
+      for (final rect in rects) {
+        expect(rect.width, greaterThan(0));
+        expect(rect.height, greaterThan(0));
+        expect(rect.left, greaterThanOrEqualTo(screen.left));
+        expect(rect.right, lessThanOrEqualTo(screen.right));
+        expect(rect.top, greaterThanOrEqualTo(screen.top));
+        expect(rect.bottom, lessThanOrEqualTo(screen.bottom));
+      }
+      for (var i = 0; i < rects.length; i++) {
+        for (var j = i + 1; j < rects.length; j++) {
+          expect(rects[i].overlaps(rects[j]), isFalse);
+        }
+      }
+      expect(tester.takeException(), isNull);
+    }
+
+    for (final width in [340.0, 351.0]) {
+      testWidgets('a $width px muestra el diseño compacto sin desbordes', (
+        tester,
+      ) async {
+        await _pumpList(tester, _News(), width: width);
+
+        _expectLayout(tester, narrow: true);
+        expectVisibleControls(tester);
+      });
+    }
+
+    testWidgets('a 352 px conserva los tres controles en una fila', (
+      tester,
+    ) async {
+      await _pumpList(tester, _News(), width: 352);
+
+      _expectLayout(tester, narrow: false);
+      expectVisibleControls(tester);
+    });
+
+    // El caso 320 px con escala 2 ya está cubierto por los tests originales.
+    for (final (width, scale) in [(340.0, 2.0), (320.0, 3.0), (340.0, 3.0)]) {
+      testWidgets(
+        'a $width px con texto x$scale los controles son visibles y no se solapan',
+        (tester) async {
+          await _pumpList(tester, _News(), width: width, scale: scale);
+
+          expectVisibleControls(tester);
+        },
+      );
+    }
+  });
+
   testWidgets('a 320 px centra Página arriba y alinea los botones debajo', (
     tester,
   ) async {

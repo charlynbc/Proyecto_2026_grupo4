@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agenda_medica/core/config/app_locale.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/core/widgets/pagination_bar.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_page.dart';
 import 'package:agenda_medica/features/agenda/models/appointment_history_query.dart';
@@ -20,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/load_roboto.dart';
+import '../../helpers/pager_layout.dart';
 
 final _appointment = Appointment(
   id: 9001,
@@ -495,7 +497,7 @@ void main() {
     }
 
     bool isEnabled(WidgetTester tester, String key) =>
-        tester.widget<TextButton>(find.byKey(Key(key))).onPressed != null;
+        tester.widget<OutlinedButton>(find.byKey(Key(key))).onPressed != null;
 
     testWidgets('con el total real avisa y deja volver a la anterior', (
       tester,
@@ -1502,6 +1504,145 @@ void main() {
         expect(toRect.width, closeTo(240, 1));
       });
     }
+  });
+
+  testWidgets('el paginador del historial usa botones con borde, igual que '
+      'los demás', (tester) async {
+    await loadRoboto();
+    await _pump(
+      tester,
+      const AppointmentsPendingScreen(),
+      _PagedHistoryRepository({
+        0: (items: [_appointment], total: 25),
+        1: (items: const [], total: 25),
+      }),
+    );
+    await tester.ensureVisible(find.byKey(const Key('history-next')));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(OutlinedButton, 'Anterior'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Siguiente'), findsOneWidget);
+    expect(
+      tester.widget(find.byKey(const Key('history-previous'))),
+      isA<OutlinedButton>(),
+    );
+    expect(
+      tester.widget(find.byKey(const Key('history-next'))),
+      isA<OutlinedButton>(),
+    );
+    expect(
+      find.descendant(
+        of: find.byType(PaginationBar),
+        matching: find.byType(TextButton),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('a 411 px el paginador del historial va en una fila y centrado', (
+    tester,
+  ) async {
+    await loadRoboto();
+    await _pump(
+      tester,
+      const AppointmentsPendingScreen(),
+      _PagedHistoryRepository({
+        0: (items: [_appointment], total: 25),
+        1: (items: const [], total: 25),
+      }),
+    );
+    tester.view.physicalSize = const Size(411, 1800);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('history-next')));
+    await tester.pumpAndSettle();
+
+    expectWidePager(
+      tester,
+      label: find.text('Página 1'),
+      previous: find.byKey(const Key('history-previous')),
+      next: find.byKey(const Key('history-next')),
+    );
+    final left = tester.getRect(find.byKey(const Key('history-previous'))).left;
+    final right = tester.getRect(find.byKey(const Key('history-next'))).right;
+    expect((left + right) / 2, closeTo(205.5, 2));
+  });
+
+  for (final width in [320.0, 411.0]) {
+    testWidgets('a $width px con texto al doble el paginador del historial no '
+        'desborda y queda dentro de la pantalla', (tester) async {
+      await loadRoboto();
+      await _pump(
+        tester,
+        const AppointmentsPendingScreen(),
+        _PagedHistoryRepository({
+          0: (items: [_appointment], total: 25),
+          1: (items: const [], total: 25),
+        }),
+      );
+      tester.view.physicalSize = Size(width, 1800);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('history-next')));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      for (final key in ['history-previous', 'history-next']) {
+        final rect = tester.getRect(find.byKey(Key(key)));
+        expect(rect.left, greaterThanOrEqualTo(0), reason: key);
+        expect(rect.right, lessThanOrEqualTo(width), reason: key);
+      }
+    });
+  }
+
+  testWidgets('a 320 px el paginador del historial pone la página arriba '
+      'y los botones lado a lado', (tester) async {
+    await loadRoboto();
+    await _pump(
+      tester,
+      const AppointmentsPendingScreen(),
+      _PagedHistoryRepository({
+        0: (items: [_appointment], total: 25),
+        1: (items: const [], total: 25),
+      }),
+    );
+    tester.view.physicalSize = const Size(320, 1800);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('history-next')));
+    await tester.pumpAndSettle();
+
+    expectNarrowPager(
+      tester,
+      label: find.text('Página 1'),
+      previous: find.byKey(const Key('history-previous')),
+      next: find.byKey(const Key('history-next')),
+    );
+  });
+
+  testWidgets('con texto al doble el paginador del historial no desborda', (
+    tester,
+  ) async {
+    await loadRoboto();
+    await _pump(
+      tester,
+      const AppointmentsPendingScreen(),
+      _PagedHistoryRepository({
+        0: (items: [_appointment], total: 25),
+        1: (items: const [], total: 25),
+      }),
+    );
+    tester.view.physicalSize = const Size(360, 1800);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('history-next')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getRect(find.byKey(const Key('history-next'))).right,
+      lessThanOrEqualTo(360),
+    );
   });
 
   group('filtros a 320 px de ancho (con Roboto)', () {

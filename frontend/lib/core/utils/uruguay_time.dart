@@ -7,9 +7,10 @@ class UruguayTime {
 
   /// Hoy en Uruguay, como fecha pura (sin hora) en UTC: se usa solo como
   /// clave de comparación/caché, nunca como un instante real, y sumar días
-  /// sobre UTC no se corre por el horario de verano del dispositivo.
-  static DateTime today() {
-    final nowInUruguay = DateTime.now().toUtc().add(_offset);
+  /// sobre UTC no se corre por el horario de verano del dispositivo. [now]
+  /// permite fijar el instante actual en las pruebas.
+  static DateTime today({DateTime? now}) {
+    final nowInUruguay = (now ?? DateTime.now()).toUtc().add(_offset);
     return DateTime.utc(
       nowInUruguay.year,
       nowInUruguay.month,

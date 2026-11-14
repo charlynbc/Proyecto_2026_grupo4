@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import uy.edu.proyecto.backend.busqueda.TextoBusqueda;
 
 @Repository
 public class UsuarioPadronRepository {
@@ -66,12 +67,9 @@ public class UsuarioPadronRepository {
         }
 
         if (texto != null && !texto.isBlank()) {
-            String literal = texto.trim().replace("!", "!!")
-                    .replace("%", "!%")
-                    .replace("_", "!_");
-            String textoBusqueda = "%" + literal + "%";
-            sql.append(" AND (LOWER(p.ci) LIKE LOWER(?) ESCAPE '!'"
-                    + " OR LOWER(p.apellido) LIKE LOWER(?) ESCAPE '!')");
+            String textoBusqueda = TextoBusqueda.patron(texto);
+            sql.append(" AND (" + TextoBusqueda.contiene("p.ci")
+                    + " OR " + TextoBusqueda.contiene("p.apellido") + ")");
             parametros.add(textoBusqueda);
             parametros.add(textoBusqueda);
         }
@@ -106,7 +104,9 @@ public class UsuarioPadronRepository {
                         rs.getString("correo"),
                         rs.getString("estado"),
                         rs.getBoolean("activada"),
-                        rs.getObject("fecha_alta", OffsetDateTime.class)
+                        rs.getObject("fecha_alta", OffsetDateTime.class),
+                        // Lo completa UsuarioService con la regla de inactivacion.
+                        false
                 ),
                 parametros.toArray()
         );

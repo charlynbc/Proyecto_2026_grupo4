@@ -8,6 +8,7 @@ void main() {
   test('lee el JSON del contrato', () {
     final account = Account.fromJson(luciaJson());
 
+    expect(account.id, 42);
     expect(account.ci, '45678911');
     expect(account.name, 'Lucía');
     expect(account.lastName, 'Fernández');
@@ -48,6 +49,19 @@ void main() {
     expect(
       () => Account.fromJson({...luciaJson(), 'rol': 'ENFERMERO'}),
       throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('sin id falla', () {
+    final json = luciaJson()..remove('id');
+
+    expect(() => Account.fromJson(json), throwsA(isA<TypeError>()));
+  });
+
+  test('un id de texto falla', () {
+    expect(
+      () => Account.fromJson({...luciaJson(), 'id': '42'}),
+      throwsA(isA<TypeError>()),
     );
   });
 

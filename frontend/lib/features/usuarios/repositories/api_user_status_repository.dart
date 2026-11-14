@@ -52,6 +52,7 @@ class ApiUserStatusRepository implements UserStatusRepository {
         UserStatusFailure.doctorHasAppointments,
       'EMPLEADO_DUPLICADO' => UserStatusFailure.duplicateStaff,
       'VALIDACION' => UserStatusFailure.validation,
+      'AUTO_INACTIVACION_NO_PERMITIDA' => UserStatusFailure.ownAccount,
       _ => UserStatusFailure.other,
     };
     return UserStatusException(failure, ApiException.fromDio(e).message);

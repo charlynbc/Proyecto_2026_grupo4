@@ -20,6 +20,7 @@ import 'package:go_router/go_router.dart';
 
 /// El JSON del ejemplo del contrato (fila 46), escrito a mano.
 Map<String, dynamic> luciaJson({String? pendingEmail}) => {
+  'id': 42,
   'ci': '45678911',
   'nombre': 'Lucía',
   'apellido': 'Fernández',
@@ -38,6 +39,7 @@ Account lucia({
   String? phone2,
   UserRole role = UserRole.socio,
 }) => Account(
+  id: 42,
   ci: '45678911',
   name: 'Lucía',
   lastName: 'Fernández',

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/widgets/centered_content.dart';
+import '../../../core/widgets/pagination_bar.dart';
 import '../../../core/widgets/sort_direction_button.dart';
 import '../../../core/widgets/ui_date_field.dart';
 import '../../auth/widgets/logout_button.dart';
@@ -577,23 +578,14 @@ class _AppointmentsPendingScreenState
   }
 
   Widget _pagination(AppointmentHistoryPage result) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        TextButton(
-          key: const Key('history-previous'),
-          onPressed: result.hasPrevious
-              ? () => setState(() => _page -= 1)
-              : null,
-          child: const Text('Anterior'),
-        ),
-        Text('Página ${result.page + 1}'),
-        TextButton(
-          key: const Key('history-next'),
-          onPressed: result.hasNext ? () => setState(() => _page += 1) : null,
-          child: const Text('Siguiente'),
-        ),
-      ],
+    return PaginationBar(
+      previousKey: const Key('history-previous'),
+      nextKey: const Key('history-next'),
+      label: 'Página ${result.page + 1}',
+      hasPrevious: result.hasPrevious,
+      hasNext: result.hasNext,
+      onPrevious: () => setState(() => _page -= 1),
+      onNext: () => setState(() => _page += 1),
     );
   }
 }
