@@ -29,6 +29,11 @@ public class ParametroService {
     static final String PASE_VIGENCIA_MINIMA_DIAS = "PARAM_PASE_VIGENCIA_MINIMA_DIAS";
     static final String PASE_VIGENCIA_MAXIMA_DIAS = "PARAM_PASE_VIGENCIA_MAXIMA_DIAS";
     static final String RECORDATORIO_ANTELACION_HORAS = "PARAM_RECORDATORIO_ANTELACION_HORAS";
+    // Variables anteriores a los PARAM_*: conservan su nombre.
+    static final String PASSWORD_MIN_LENGTH = "PASSWORD_MIN_LENGTH";
+    static final String FIRST_LOGIN_TOKEN_VALIDITY_HOURS = "FIRST_LOGIN_TOKEN_VALIDITY_HOURS";
+    static final String EMAIL_CHANGE_TOKEN_VALIDITY_HOURS = "EMAIL_CHANGE_TOKEN_VALIDITY_HOURS";
+    static final String RECOVERY_TOKEN_VALIDITY_HOURS = "RECOVERY_TOKEN_VALIDITY_HOURS";
 
     private final int agendarAnticipacionMaximaDias;
     private final int agendarAnticipacionMinimaHoras;
@@ -42,6 +47,10 @@ public class ParametroService {
     private final int paseVigenciaMinimaDias;
     private final int paseVigenciaMaximaDias;
     private final int recordatorioAntelacionHoras;
+    private final int contrasenaLongitudMinima;
+    private final int enlacePrimerIngresoHoras;
+    private final int enlaceCambioCorreoHoras;
+    private final int enlaceRecuperacionHoras;
 
     public ParametroService(
             @Value("${app.parametros.agendar-anticipacion-maxima-dias:30}")
@@ -67,7 +76,15 @@ public class ParametroService {
             @Value("${app.parametros.pase-vigencia-maxima-dias:365}")
             Integer paseVigenciaMaximaDias,
             @Value("${app.parametros.recordatorio-antelacion-horas:24}")
-            Integer recordatorioAntelacionHoras
+            Integer recordatorioAntelacionHoras,
+            @Value("${app.auth.password-min-length:8}")
+            Integer contrasenaLongitudMinima,
+            @Value("${app.auth.first-login-token-validity-hours:24}")
+            Integer enlacePrimerIngresoHoras,
+            @Value("${app.auth.email-change-token-validity-hours:24}")
+            Integer enlaceCambioCorreoHoras,
+            @Value("${app.auth.recovery-token-validity-hours:24}")
+            Integer enlaceRecuperacionHoras
     ) {
         this.agendarAnticipacionMaximaDias =
                 positivo(AGENDAR_ANTICIPACION_MAXIMA_DIAS, agendarAnticipacionMaximaDias);
@@ -92,13 +109,21 @@ public class ParametroService {
                 positivo(PASE_VIGENCIA_MAXIMA_DIAS, paseVigenciaMaximaDias);
         this.recordatorioAntelacionHoras =
                 positivo(RECORDATORIO_ANTELACION_HORAS, recordatorioAntelacionHoras);
+        this.contrasenaLongitudMinima =
+                positivo(PASSWORD_MIN_LENGTH, contrasenaLongitudMinima);
+        this.enlacePrimerIngresoHoras =
+                positivo(FIRST_LOGIN_TOKEN_VALIDITY_HOURS, enlacePrimerIngresoHoras);
+        this.enlaceCambioCorreoHoras =
+                positivo(EMAIL_CHANGE_TOKEN_VALIDITY_HOURS, enlaceCambioCorreoHoras);
+        this.enlaceRecuperacionHoras =
+                positivo(RECOVERY_TOKEN_VALIDITY_HOURS, enlaceRecuperacionHoras);
 
         validarRangos();
     }
 
     /** Los valores de la seccion 3.1.3 de Requerimientos, para tests y como referencia. */
     public static ParametroService porDefecto() {
-        return new ParametroService(30, 2, 2, 1, 3, 10, 60, 5, 90, 1, 365, 24);
+        return new ParametroService(30, 2, 2, 1, 3, 10, 60, 5, 90, 1, 365, 24, 8, 24, 24, 24);
     }
 
     /**
@@ -157,6 +182,22 @@ public class ParametroService {
 
     public int recordatorioAntelacionHoras() {
         return recordatorioAntelacionHoras;
+    }
+
+    public int contrasenaLongitudMinima() {
+        return contrasenaLongitudMinima;
+    }
+
+    public int enlacePrimerIngresoHoras() {
+        return enlacePrimerIngresoHoras;
+    }
+
+    public int enlaceCambioCorreoHoras() {
+        return enlaceCambioCorreoHoras;
+    }
+
+    public int enlaceRecuperacionHoras() {
+        return enlaceRecuperacionHoras;
     }
 
     /** "1 hora" o "2 horas": para armar los mensajes con el valor del parametro. */

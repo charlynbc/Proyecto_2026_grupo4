@@ -18,12 +18,28 @@ public final class ParametrosDePrueba {
     private int paseMinima = 1;
     private int paseMaxima = 365;
     private int recordatorioHoras = 24;
+    private int contrasenaMinima = 8;
+    private int enlacePrimerIngreso = 24;
+    private int enlaceCambioCorreo = 24;
+    private int enlaceRecuperacion = 24;
 
     private ParametrosDePrueba() {
     }
 
     public static ParametrosDePrueba nuevo() {
         return new ParametrosDePrueba();
+    }
+
+    public ParametrosDePrueba contrasenaMinima(int valor) {
+        this.contrasenaMinima = valor;
+        return this;
+    }
+
+    public ParametrosDePrueba enlaces(int primerIngreso, int cambioCorreo, int recuperacion) {
+        this.enlacePrimerIngreso = primerIngreso;
+        this.enlaceCambioCorreo = cambioCorreo;
+        this.enlaceRecuperacion = recuperacion;
+        return this;
     }
 
     public ParametrosDePrueba agendar(int minimaHoras, int maximaDias) {
@@ -66,6 +82,7 @@ public final class ParametrosDePrueba {
                 agendarMaximaDias, agendarMinimaHoras, cancelarMinimaHoras,
                 consultasPorEspecialidad, consultasTotal,
                 duracionMinima, duracionMaxima, duracionPaso,
-                paseInicial, paseMinima, paseMaxima, recordatorioHoras);
+                paseInicial, paseMinima, paseMaxima, recordatorioHoras,
+                contrasenaMinima, enlacePrimerIngreso, enlaceCambioCorreo, enlaceRecuperacion);
     }
 }

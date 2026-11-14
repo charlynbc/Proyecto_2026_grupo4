@@ -55,6 +55,52 @@ class ParametroPropiedadesTest {
     }
 
     @Test
+    void lasPropiedadesDeAuthConservanSuNombreYSuVariable() throws IOException {
+        Properties propiedades = new Properties();
+        try (InputStream in = getClass().getResourceAsStream("/application.properties")) {
+            propiedades.load(in);
+        }
+
+        assertEquals("${PASSWORD_MIN_LENGTH:8}",
+                propiedades.getProperty("app.auth.password-min-length"));
+        assertEquals("${FIRST_LOGIN_TOKEN_VALIDITY_HOURS:24}",
+                propiedades.getProperty("app.auth.first-login-token-validity-hours"));
+        assertEquals("${EMAIL_CHANGE_TOKEN_VALIDITY_HOURS:24}",
+                propiedades.getProperty("app.auth.email-change-token-validity-hours"));
+        assertEquals("${RECOVERY_TOKEN_VALIDITY_HOURS:24}",
+                propiedades.getProperty("app.auth.recovery-token-validity-hours"));
+    }
+
+    @Test
+    void cadaPropiedadDeAuthLlegaAlParametroQueLeCorresponde() {
+        runner.withPropertyValues(
+                        "app.auth.password-min-length=12",
+                        "app.auth.first-login-token-validity-hours=36",
+                        "app.auth.email-change-token-validity-hours=72",
+                        "app.auth.recovery-token-validity-hours=6")
+                .run(contexto -> {
+                    ParametroService p = contexto.getBean(ParametroService.class);
+
+                    assertEquals(12, p.contrasenaLongitudMinima());
+                    assertEquals(36, p.enlacePrimerIngresoHoras());
+                    assertEquals(72, p.enlaceCambioCorreoHoras());
+                    assertEquals(6, p.enlaceRecuperacionHoras());
+                });
+    }
+
+    @Test
+    void sinVariablesDeAuthQuedanLosValoresDeSiempre() {
+        runner.run(contexto -> {
+            ParametroService p = contexto.getBean(ParametroService.class);
+
+            assertEquals(8, p.contrasenaLongitudMinima());
+            assertEquals(24, p.enlacePrimerIngresoHoras());
+            assertEquals(24, p.enlaceCambioCorreoHoras());
+            assertEquals(24, p.enlaceRecuperacionHoras());
+        });
+    }
+
+    @Test
     void sinVariablesDeEntornoQuedanLosValoresDeLaSeccion313() {
         runner.run(contexto -> {
             ParametroService p = contexto.getBean(ParametroService.class);

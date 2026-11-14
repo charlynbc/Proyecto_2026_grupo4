@@ -22,16 +22,21 @@ class ParametroServiceTest {
             "PARAM_PASE_VIGENCIA_INICIAL_DIAS",
             "PARAM_PASE_VIGENCIA_MINIMA_DIAS",
             "PARAM_PASE_VIGENCIA_MAXIMA_DIAS",
-            "PARAM_RECORDATORIO_ANTELACION_HORAS"
+            "PARAM_RECORDATORIO_ANTELACION_HORAS",
+            "PASSWORD_MIN_LENGTH",
+            "FIRST_LOGIN_TOKEN_VALIDITY_HOURS",
+            "EMAIL_CHANGE_TOKEN_VALIDITY_HOURS",
+            "RECOVERY_TOKEN_VALIDITY_HOURS"
     };
 
     private static Integer[] valoresPorDefecto() {
-        return new Integer[] {30, 2, 2, 1, 3, 10, 60, 5, 90, 1, 365, 24};
+        return new Integer[] {30, 2, 2, 1, 3, 10, 60, 5, 90, 1, 365, 24, 8, 24, 24, 24};
     }
 
     private static ParametroService crear(Integer[] v) {
         return new ParametroService(
-                v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11]);
+                v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11],
+                v[12], v[13], v[14], v[15]);
     }
 
     private static Integer[] con(int indice, Integer valor) {
@@ -56,11 +61,16 @@ class ParametroServiceTest {
         assertEquals(1, p.paseVigenciaMinimaDias());
         assertEquals(365, p.paseVigenciaMaximaDias());
         assertEquals(24, p.recordatorioAntelacionHoras());
+        assertEquals(8, p.contrasenaLongitudMinima());
+        assertEquals(24, p.enlacePrimerIngresoHoras());
+        assertEquals(24, p.enlaceCambioCorreoHoras());
+        assertEquals(24, p.enlaceRecuperacionHoras());
     }
 
     @Test
     void cadaParametroGuardaSuPropioValor() {
-        ParametroService p = crear(new Integer[] {45, 3, 4, 2, 5, 15, 95, 10, 60, 2, 100, 48});
+        ParametroService p = crear(new Integer[] {
+                45, 3, 4, 2, 5, 15, 95, 10, 60, 2, 100, 48, 12, 36, 72, 6});
 
         assertEquals(45, p.agendarAnticipacionMaximaDias());
         assertEquals(3, p.agendarAnticipacionMinimaHoras());
@@ -74,6 +84,10 @@ class ParametroServiceTest {
         assertEquals(2, p.paseVigenciaMinimaDias());
         assertEquals(100, p.paseVigenciaMaximaDias());
         assertEquals(48, p.recordatorioAntelacionHoras());
+        assertEquals(12, p.contrasenaLongitudMinima());
+        assertEquals(36, p.enlacePrimerIngresoHoras());
+        assertEquals(72, p.enlaceCambioCorreoHoras());
+        assertEquals(6, p.enlaceRecuperacionHoras());
     }
 
     @Test
