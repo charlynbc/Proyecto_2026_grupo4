@@ -208,6 +208,48 @@ class CancelacionFuncionarioMotivoTest {
         verify(repository, never()).cancelarPorInstitucion(any(), any(), any());
     }
 
+    /* ---------- Notificación al socio ---------- */
+
+    @Test
+    void elTextoPorOtroMotivoLlevaLaFechaConBarrasYElMotivo() {
+        assertEquals("Tu consulta del 01/11/2026 fue cancelada por la institución."
+                + " Motivo: Se rompio el equipo",
+                CancelacionFuncionarioRepository.textoPorInstitucion(
+                        LocalDate.of(2026, 11, 1), "Se rompio el equipo"));
+    }
+
+    @Test
+    void elTextoNoMencionaAlFuncionario() {
+        String texto = CancelacionFuncionarioRepository.textoPorInstitucion(
+                LocalDate.of(2026, 12, 25), "Feriado");
+
+        assertEquals("Tu consulta del 25/12/2026 fue cancelada por la institución."
+                + " Motivo: Feriado", texto);
+    }
+
+    @Test
+    void otroMotivoCreaLaNotificacionConElMotivoRecortado() {
+        preparaCancelacionInstitucional("Guardia");
+        when(repository.crearNotificacionPorInstitucion(12L, FECHA, "Guardia"))
+                .thenReturn(92L);
+        when(notificaciones.registrarEnviosNotificacion(92L, 7L, "socio@example.com"))
+                .thenReturn(List.of(93L));
+
+        service.cancelar(5L, "12", new CancelacionFuncionarioRequest(false, "  Guardia "));
+
+        verify(repository).crearNotificacionPorInstitucion(12L, FECHA, "Guardia");
+        verify(repository, never()).crearNotificacion(any(), any());
+        verify(events).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void aPedidoDelSocioConservaLaNotificacionDeSiempre() {
+        service.cancelar(5L, "12", new CancelacionFuncionarioRequest(true, "No va"));
+
+        verify(repository).crearNotificacion(12L, FECHA);
+        verify(repository, never()).crearNotificacionPorInstitucion(any(), any(), any());
+    }
+
     /* ---------- A pedido del socio: el motivo no se valida ni se usa ---------- */
 
     @Test

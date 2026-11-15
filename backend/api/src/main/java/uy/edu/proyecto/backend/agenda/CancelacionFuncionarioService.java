@@ -95,7 +95,9 @@ public class CancelacionFuncionarioService {
         OffsetDateTime canceladaEn = cancelada
                 .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT,
                         "CONSULTA_NO_AGENDADA", "La consulta ya no está agendada"));
-        Long notificacionId = repository.crearNotificacion(consultaId, consulta.fecha());
+        Long notificacionId = aPedidoDelSocio
+                ? repository.crearNotificacion(consultaId, consulta.fecha())
+                : repository.crearNotificacionPorInstitucion(consultaId, consulta.fecha(), motivo);
         List<Long> envios = notificaciones.registrarEnviosNotificacion(
                 notificacionId, consulta.socioId(), consulta.correo());
         if (!envios.isEmpty()) {

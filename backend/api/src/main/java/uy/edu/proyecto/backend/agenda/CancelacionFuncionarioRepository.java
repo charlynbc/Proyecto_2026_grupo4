@@ -3,6 +3,7 @@ package uy.edu.proyecto.backend.agenda;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class CancelacionFuncionarioRepository {
+    private static final DateTimeFormatter FECHA_AVISO = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
     private final JdbcTemplate jdbcTemplate;
 
     public CancelacionFuncionarioRepository(JdbcTemplate jdbcTemplate) {
@@ -81,6 +84,20 @@ public class CancelacionFuncionarioRepository {
                 RETURNING id_notificacion
                 """, Long.class, consultaId,
                 "Tu consulta del " + fecha + " fue cancelada a tu solicitud.");
+    }
+
+    /** Aviso de la cancelación por otro motivo (RF-19): lleva el motivo y no al funcionario. */
+    public Long crearNotificacionPorInstitucion(Long consultaId, LocalDate fecha, String motivo) {
+        return jdbcTemplate.queryForObject("""
+                INSERT INTO public.notificacion (id_consulta, tipo, contenido)
+                VALUES (?, 'CANCELACION', ?)
+                RETURNING id_notificacion
+                """, Long.class, consultaId, textoPorInstitucion(fecha, motivo));
+    }
+
+    static String textoPorInstitucion(LocalDate fecha, String motivo) {
+        return "Tu consulta del " + fecha.format(FECHA_AVISO)
+                + " fue cancelada por la institución. Motivo: " + motivo;
     }
 
     public record DatosConsulta(
