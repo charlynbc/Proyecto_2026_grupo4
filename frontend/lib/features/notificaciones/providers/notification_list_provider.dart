@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
@@ -51,6 +52,30 @@ final notificationRepositoryProvider = FutureProvider<NotificationRepository>((
   return ApiNotificationRepository(dio);
 });
 
+/// Vuelve a pedir la lista cuando la pantalla que la mira vuelve a verse.
+///
+/// El shell mantiene montadas las secciones ya visitadas y la lista queda
+/// debajo del detalle de un aviso: mientras no se ve, Riverpod pausa sus
+/// suscripciones pero no descarta el provider, y lo que mostraba puede estar
+/// viejo. Al volver a verse (`onResume`) se mueve el contador de refresco y la
+/// página que se está mirando se pide de nuevo; mientras llega, la pantalla
+/// sigue mostrando lo anterior.
+///
+/// Riverpod no deja usar la `Ref` dentro de un ciclo de vida, y al reabrir la
+/// pestaña la pantalla todavía puede estar cambiando de página: el pedido se
+/// difiere hasta el fin del cuadro siguiente, y si para entonces esa página ya
+/// no se mira (`ref.mounted` en falso) no se pide.
+void _refetchWhenVisibleAgain(Ref ref) {
+  ref.onResume(() {
+    Future.microtask(() async {
+      await WidgetsBinding.instance.endOfFrame;
+      if (ref.mounted) {
+        ref.read(notificationListRefreshProvider.notifier).refresh();
+      }
+    });
+  });
+}
+
 /// La página de avisos que corresponde a [NotificationQuery].
 ///
 /// Se libera cuando la pantalla deja de mirar esa página (`autoDispose`): al
@@ -63,6 +88,7 @@ final notificationRepositoryProvider = FutureProvider<NotificationRepository>((
 final notificationListProvider = FutureProvider.autoDispose
     .family<AppNotificationPage, NotificationQuery>((ref, query) async {
       ref.watch(notificationListRefreshProvider);
+      _refetchWhenVisibleAgain(ref);
       final repository = await ref.watch(notificationRepositoryProvider.future);
       return repository.list(query);
     }, retry: (_, _) => null);

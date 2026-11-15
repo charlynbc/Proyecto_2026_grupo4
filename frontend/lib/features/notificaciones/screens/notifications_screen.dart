@@ -50,7 +50,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         maxWidth: 700,
         child: Padding(
           padding: const EdgeInsets.all(16),
+          // Al volver a la pantalla se vuelve a pedir la lista: mientras
+          // llega, se sigue viendo la anterior en vez de una ruedita.
           child: notifications.when(
+            skipLoadingOnReload: true,
             loading: () => const Padding(
               padding: EdgeInsets.all(32),
               child: Center(child: CircularProgressIndicator()),
