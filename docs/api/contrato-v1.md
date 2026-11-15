@@ -1901,7 +1901,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 - **Roles:** FUNCIONARIO exclusivamente.
 - **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración. El cuerpo con `aPedidoDelSocio` y `motivo` es una ampliación propuesta (rama `feat/rf19-cancelacion-con-motivo`), todavía sin implementar en el backend de integración.
 - **Ruta:** `id`, identificador entero positivo de consulta.
-- **Cuerpo** (`CancelacionFuncionarioDTO`, entrada), **opcional**: sin cuerpo se conserva el comportamiento anterior (`aPedidoDelSocio` verdadero).
+- **Cuerpo** (`CancelacionFuncionarioRequest`, entrada), **opcional**: sin cuerpo se conserva el comportamiento anterior (`aPedidoDelSocio` verdadero).
 
 | Campo | Tipo | Obligatorio | Notas |
 |---|---|---|---|
