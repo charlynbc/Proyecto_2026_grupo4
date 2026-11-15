@@ -582,6 +582,320 @@ void main() {
     );
   });
 
+  group('cancelar por otro motivo', () {
+    final inDialog = find.byType(AlertDialog);
+    final causeSocio = find.byKey(const Key('cancel-cause-socio'));
+    final causeOther = find.byKey(const Key('cancel-cause-other'));
+    final reasonField = find.byKey(const Key('cancel-schedule-reason'));
+    final confirm = find.byKey(const Key('confirm-cancel-schedule'));
+
+    StaffCancellationResult result(String status, {bool referral = false}) =>
+        StaffCancellationResult(
+          appointmentId: 9001,
+          status: status,
+          cancelledAt: DateTime.utc(2026, 10, 30, 13),
+          referralReturned: referral,
+        );
+
+    Future<_CancellationRepository> open(
+      WidgetTester tester, {
+      String status = 'CANCELADA_INSTITUCION',
+      Size size = const Size(1300, 1800),
+    }) async {
+      final cancellation = _CancellationRepository()..result = result(status);
+      await _pump(
+        tester,
+        entry: _entry('AGENDADA'),
+        cancellation: cancellation,
+        size: size,
+      );
+      await _openDialog(tester);
+      return cancellation;
+    }
+
+    Future<void> chooseOther(WidgetTester tester) async {
+      // En pantalla angosta con texto grande hay que desplazar el diálogo.
+      await tester.ensureVisible(causeOther);
+      await tester.tap(causeOther);
+      await tester.pump();
+    }
+
+    Future<void> confirmAndSettle(WidgetTester tester) async {
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    testWidgets('ofrece las dos causas, con A pedido del socio elegida y sin '
+        'campo de motivo', (tester) async {
+      await open(tester);
+
+      expect(find.text('A pedido del socio'), findsOneWidget);
+      expect(find.text('Otro motivo (administrativo u otro)'), findsOneWidget);
+      expect(reasonField, findsNothing);
+      expect(
+        find.text(
+          'La cancelación es a pedido del socio y se le avisa por notificación.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('A pedido del socio cancela sin motivo', (tester) async {
+      final cancellation = await open(tester, status: 'CANCELADA_SOCIO');
+
+      await confirmAndSettle(tester);
+
+      expect(cancellation.reasons, [null]);
+      expect(find.text('Consulta cancelada.'), findsOneWidget);
+    });
+
+    testWidgets('Otro motivo muestra el campo con contador de 1000 y avisa '
+        'que el socio ve el motivo', (tester) async {
+      await open(tester);
+
+      await chooseOther(tester);
+
+      expect(reasonField, findsOneWidget);
+      expect(find.text('0/1000'), findsOneWidget);
+      expect(find.text('Motivo de la cancelación'), findsOneWidget);
+      expect(
+        find.text(
+          'El socio va a ver el motivo en el detalle de su consulta y en la '
+          'notificación.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'La cancelación es a pedido del socio y se le avisa por notificación.',
+        ),
+        findsNothing,
+      );
+    });
+
+    for (final blank in ['', '    ']) {
+      testWidgets('Otro motivo con el campo vacío ("$blank") muestra el error '
+          'y no cancela', (tester) async {
+        final cancellation = await open(tester);
+        await chooseOther(tester);
+        if (blank.isNotEmpty) await tester.enterText(reasonField, blank);
+
+        await confirmAndSettle(tester);
+
+        expect(
+          find.text('Escribí el motivo de la cancelación.'),
+          findsOneWidget,
+        );
+        expect(cancellation.cancelCalls, 0);
+        expect(inDialog, findsOneWidget);
+      });
+    }
+
+    testWidgets('el error del campo vacío se va al escribir', (tester) async {
+      await open(tester);
+      await chooseOther(tester);
+      await confirmAndSettle(tester);
+      expect(find.text('Escribí el motivo de la cancelación.'), findsOneWidget);
+
+      await tester.enterText(reasonField, 'G');
+      await tester.pump();
+
+      expect(find.text('Escribí el motivo de la cancelación.'), findsNothing);
+    });
+
+    testWidgets('Otro motivo manda el motivo recortado y avisa que el socio '
+        'lo puede ver', (tester) async {
+      final cancellation = await open(tester);
+      await chooseOther(tester);
+      await tester.enterText(reasonField, '  Se rompió el equipo  ');
+
+      await confirmAndSettle(tester);
+
+      expect(cancellation.cancelledIds, [9001]);
+      expect(cancellation.reasons, ['Se rompió el equipo']);
+      expect(inDialog, findsNothing);
+      expect(
+        find.text(
+          'Consulta cancelada por otro motivo. El socio puede ver el '
+          'motivo.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Otro motivo con pase devuelto lo dice', (tester) async {
+      final cancellation = await open(tester);
+      cancellation.result = result('CANCELADA_INSTITUCION', referral: true);
+      await chooseOther(tester);
+      await tester.enterText(reasonField, 'Guardia');
+
+      await confirmAndSettle(tester);
+
+      expect(
+        find.text(
+          'Consulta cancelada por otro motivo. El socio puede ver el '
+          'motivo. El pase volvió a estar disponible.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('si el servidor responde CANCELADA_SOCIO avisa que no '
+        'registró el motivo', (tester) async {
+      final cancellation = await open(tester, status: 'CANCELADA_SOCIO');
+      await chooseOther(tester);
+      await tester.enterText(reasonField, 'Guardia');
+
+      await confirmAndSettle(tester);
+
+      expect(cancellation.reasons, ['Guardia']);
+      expect(inDialog, findsNothing);
+      expect(
+        find.text(
+          'La consulta se canceló, pero el sistema no guardó el '
+          'motivo. El socio no lo va a ver: avisale por otro medio.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Consulta cancelada.'), findsNothing);
+    });
+
+    testWidgets('el campo no deja pasar de 1000 caracteres', (tester) async {
+      await open(tester);
+      await chooseOther(tester);
+
+      await tester.enterText(reasonField, 'a' * 1001);
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(reasonField).controller!.text.length,
+        1000,
+      );
+      expect(find.text('1000/1000'), findsOneWidget);
+    });
+
+    testWidgets('Volver después de elegir Otro motivo no cancela', (
+      tester,
+    ) async {
+      final cancellation = await open(tester);
+      await chooseOther(tester);
+      await tester.enterText(reasonField, 'Guardia');
+
+      await tester.tap(find.byKey(const Key('dismiss-cancel-schedule-dialog')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(inDialog, findsNothing);
+      expect(cancellation.cancelCalls, 0);
+    });
+
+    testWidgets('volver a A pedido del socio no manda el motivo escrito', (
+      tester,
+    ) async {
+      final cancellation = await open(tester, status: 'CANCELADA_SOCIO');
+      await chooseOther(tester);
+      await tester.enterText(reasonField, 'Guardia');
+      await tester.tap(causeSocio);
+      await tester.pump();
+
+      await confirmAndSettle(tester);
+
+      expect(reasonField, findsNothing);
+      expect(cancellation.reasons, [null]);
+    });
+
+    testWidgets('mientras se envía se apagan las opciones y el campo', (
+      tester,
+    ) async {
+      final cancellation = await open(tester);
+      cancellation.completer = Completer<void>();
+      await chooseOther(tester);
+      await tester.enterText(reasonField, 'Guardia');
+
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
+      await tester.pump();
+
+      expect(tester.widget<TextField>(reasonField).enabled, isFalse);
+      expect(
+        tester.widget<RadioListTile<Object?>>(causeSocio).enabled,
+        isFalse,
+      );
+      expect(
+        tester.widget<RadioListTile<Object?>>(causeOther).enabled,
+        isFalse,
+      );
+      expect(cancellation.cancelCalls, 1);
+    });
+
+    testWidgets('un error del servidor se muestra y deja reintentar', (
+      tester,
+    ) async {
+      final cancellation = await open(tester);
+      cancellation.exception = const StaffCancellationException(
+        StaffCancellationFailure.validation,
+        'El motivo no puede tener más de 1000 caracteres.',
+      );
+      await chooseOther(tester);
+      await tester.enterText(reasonField, 'Guardia');
+
+      await confirmAndSettle(tester);
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('cancel-schedule-error')))
+            .data,
+        'El motivo no puede tener más de 1000 caracteres.',
+      );
+      expect(inDialog, findsOneWidget);
+      expect(tester.widget<TextField>(reasonField).controller!.text, 'Guardia');
+    });
+
+    group('a 320 px con Roboto y el texto al doble', () {
+      setUpAll(loadRoboto);
+
+      testWidgets('el diálogo con Otro motivo no desborda y se puede '
+          'confirmar', (tester) async {
+        final cancellation = await open(tester, size: const Size(320, 640));
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pump();
+        expect(
+          MediaQuery.of(tester.element(inDialog)).textScaler.scale(10),
+          20,
+        );
+        await chooseOther(tester);
+        await tester.ensureVisible(reasonField);
+        await tester.enterText(reasonField, 'Se rompió el equipo');
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        await confirmAndSettle(tester);
+
+        expect(tester.takeException(), isNull);
+        expect(cancellation.reasons, ['Se rompió el equipo']);
+      });
+
+      testWidgets('el error del campo vacío no desborda', (tester) async {
+        await open(tester, size: const Size(320, 640));
+        tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await tester.pump();
+        await chooseOther(tester);
+
+        await confirmAndSettle(tester);
+
+        expect(
+          find.text('Escribí el motivo de la cancelación.'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    });
+  });
+
   group('cancelación a 320 px con Roboto', () {
     setUpAll(loadRoboto);
 

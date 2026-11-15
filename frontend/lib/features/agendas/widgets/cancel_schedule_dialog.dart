@@ -18,6 +18,9 @@ Future<void> showCancelScheduleDialog({
   builder: (_) => _CancelScheduleDialog(ref: ref, entry: entry),
 );
 
+/// Por qué cancela el funcionario (RF-19).
+enum _Cause { socio, other }
+
 class _CancelScheduleDialog extends ConsumerStatefulWidget {
   const _CancelScheduleDialog({required this.ref, required this.entry});
 
@@ -30,15 +33,44 @@ class _CancelScheduleDialog extends ConsumerStatefulWidget {
 }
 
 class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
+  final _reason = TextEditingController();
+  _Cause _cause = _Cause.socio;
   bool _sending = false;
   bool _sendStarted = false;
+  String? _fieldError;
   String? _error;
+
+  @override
+  void dispose() {
+    _reason.dispose();
+    super.dispose();
+  }
+
+  void _chooseCause(_Cause? cause) {
+    if (_sending || cause == null) return;
+    setState(() {
+      _cause = cause;
+      _fieldError = null;
+      _error = null;
+    });
+  }
 
   Future<void> _cancel() async {
     if (_sendStarted) return;
+    // Sin motivo es a pedido del socio. Por otro motivo el campo es
+    // obligatorio; el servidor vuelve a validarlo.
+    String? reason;
+    if (_cause == _Cause.other) {
+      reason = _reason.text.trim();
+      if (reason.isEmpty) {
+        setState(() => _fieldError = 'Escribí el motivo de la cancelación.');
+        return;
+      }
+    }
     _sendStarted = true;
     setState(() {
       _sending = true;
+      _fieldError = null;
       _error = null;
     });
 
@@ -48,17 +80,37 @@ class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
       final repository = await widget.ref.read(
         staffCancellationRepositoryProvider.future,
       );
-      final result = await repository.cancel(widget.entry.appointmentId);
+      final result = await repository.cancel(
+        widget.entry.appointmentId,
+        reason: reason,
+      );
       if (!mounted) return;
       navigator.pop();
       widget.ref.invalidate(schedulesPageProvider);
+      final String message;
+      if (reason == null) {
+        message = result.referralReturned
+            ? 'Consulta cancelada. El pase volvió a estar disponible.'
+            : 'Consulta cancelada.';
+      } else if (result.status == 'CANCELADA_INSTITUCION') {
+        message = result.referralReturned
+            ? 'Consulta cancelada por otro motivo. El socio puede ver el '
+                  'motivo. El pase volvió a estar disponible.'
+            : 'Consulta cancelada por otro motivo. El socio puede ver el '
+                  'motivo.';
+      } else {
+        // El servidor canceló pero no guardó el motivo (todavía no lo
+        // entiende): se avisa para que el funcionario le cuente al socio.
+        message =
+            'La consulta se canceló, pero el sistema no guardó el motivo. '
+            'El socio no lo va a ver: avisale por otro medio.';
+      }
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            result.referralReturned
-                ? 'Consulta cancelada. El pase volvió a estar disponible.'
-                : 'Consulta cancelada.',
-          ),
+          content: Text(message),
+          duration: reason != null && result.status != 'CANCELADA_INSTITUCION'
+              ? const Duration(seconds: 10)
+              : const Duration(seconds: 4),
         ),
       );
     } on StaffCancellationException catch (error) {
@@ -110,9 +162,60 @@ class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
                 Text(formatUiDate(entry.date)),
                 Text(entry.startTime),
                 const SizedBox(height: 8),
-                const Text(
-                  'La cancelación es a pedido del socio y se le avisa por notificación.',
+                RadioGroup<_Cause>(
+                  groupValue: _cause,
+                  onChanged: _chooseCause,
+                  child: Column(
+                    children: [
+                      RadioListTile<_Cause>(
+                        key: const Key('cancel-cause-socio'),
+                        contentPadding: EdgeInsets.zero,
+                        enabled: !_sending,
+                        value: _Cause.socio,
+                        title: const Text('A pedido del socio'),
+                      ),
+                      RadioListTile<_Cause>(
+                        key: const Key('cancel-cause-other'),
+                        contentPadding: EdgeInsets.zero,
+                        enabled: !_sending,
+                        value: _Cause.other,
+                        title: const Text(
+                          'Otro motivo (administrativo u otro)',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 8),
+                if (_cause == _Cause.other) ...[
+                  TextField(
+                    key: const Key('cancel-schedule-reason'),
+                    controller: _reason,
+                    enabled: !_sending,
+                    maxLength: kStaffCancellationReasonMaxLength,
+                    minLines: 2,
+                    maxLines: 4,
+                    textCapitalization: TextCapitalization.sentences,
+                    onChanged: (_) {
+                      if (_fieldError != null) {
+                        setState(() => _fieldError = null);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Motivo de la cancelación',
+                      errorText: _fieldError,
+                      errorMaxLines: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'El socio va a ver el motivo en el detalle de su consulta '
+                    'y en la notificación.',
+                  ),
+                ] else
+                  const Text(
+                    'La cancelación es a pedido del socio y se le avisa por notificación.',
+                  ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
                   Text(_error!, key: const Key('cancel-schedule-error')),
