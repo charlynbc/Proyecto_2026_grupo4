@@ -78,7 +78,7 @@ class _News extends FakeAnnouncementsRepository {
   }
 
   @override
-  Future<List<Announcement>> latest() async => items.take(5).toList();
+  Future<List<Announcement>> carousel() async => items.take(5).toList();
 
   @override
   Future<AnnouncementDetail> detail(int id) async {
@@ -128,7 +128,7 @@ Future<ProviderContainer> _pumpList(
       // Mantiene la caché en la sesión de administrador durante la prueba de
       // invalidación. Cambiar a socio también refrescaría el provider.
       if (observeLatestAsAdmin)
-        latestAnnouncementsProvider.overrideWith((ref) => repo.latest()),
+        latestAnnouncementsProvider.overrideWith((ref) => repo.carousel()),
     ],
   );
   addTearDown(() async {

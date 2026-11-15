@@ -58,5 +58,5 @@ final latestAnnouncementsProvider =
       final repository = await ref.watch(
         announcementsRepositoryProvider.future,
       );
-      return repository.latest();
+      return repository.carousel();
     }, retry: (_, _) => null);

@@ -49,7 +49,7 @@ class _News extends FakeAnnouncementsRepository {
   final calls = <int>[];
 
   @override
-  Future<List<Announcement>> latest() async => [];
+  Future<List<Announcement>> carousel() async => [];
 
   @override
   Future<AnnouncementDetail> detail(int id) async {
