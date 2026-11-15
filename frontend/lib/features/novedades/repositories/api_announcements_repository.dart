@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/api_routes.dart';
 import '../../../core/utils/uruguay_time.dart';
+import '../models/admin_announcement.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_draft.dart';
@@ -133,6 +134,97 @@ class ApiAnnouncementsRepository implements AnnouncementsRepository {
       throw const ApiException();
     } on TypeError {
       throw const ApiException();
+    }
+  }
+
+  @override
+  Future<List<AdminAnnouncement>> adminList() async {
+    try {
+      final response = await _dio.get<Object?>(ApiRoutes.adminAnnouncements);
+      final data = response.data;
+      if (data is! List) throw const ApiException();
+      return [
+        for (final item in data)
+          AdminAnnouncement.fromJson(item as Map<String, dynamic>),
+      ];
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    } on FormatException {
+      throw const ApiException();
+    } on TypeError {
+      throw const ApiException();
+    }
+  }
+
+  @override
+  Future<void> updateValidity(
+    int id, {
+    DateTime? from,
+    required DateTime? until,
+  }) async {
+    try {
+      await _dio.put<Object?>(
+        ApiRoutes.adminAnnouncementValidity(id),
+        data: {
+          'vigenteDesde': from == null ? null : UruguayTime.toIso(from),
+          'vigenteHasta': until == null ? null : UruguayTime.toIso(until),
+        },
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  @override
+  Future<List<CarouselSlot>> adminCarousel() async {
+    try {
+      final response = await _dio.get<Object?>(ApiRoutes.adminCarousel);
+      return _slotsOf(response.data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    } on FormatException {
+      throw const ApiException();
+    } on TypeError {
+      throw const ApiException();
+    }
+  }
+
+  @override
+  Future<List<CarouselSlot>> saveCarousel(List<CarouselSlot> slots) async {
+    try {
+      final response = await _dio.put<Object?>(
+        ApiRoutes.adminCarousel,
+        data: {
+          'posiciones': [for (final slot in slots) slot.toJson()],
+        },
+      );
+      return _slotsOf(response.data);
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    } on FormatException {
+      throw const ApiException();
+    } on TypeError {
+      throw const ApiException();
+    }
+  }
+
+  static List<CarouselSlot> _slotsOf(Object? data) {
+    if (data is! Map<String, dynamic> || data['posiciones'] is! List) {
+      throw const ApiException();
+    }
+    return [
+      for (final item in data['posiciones'] as List)
+        CarouselSlot.fromJson(item as Map<String, dynamic>),
+    ];
+  }
+
+  @override
+  Future<void> delete(int id) async {
+    if (id <= 0) throw const AnnouncementNotFoundException();
+    try {
+      await _dio.delete<Object?>(ApiRoutes.adminAnnouncement(id));
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error);
     }
   }
 }
