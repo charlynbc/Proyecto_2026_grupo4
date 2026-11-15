@@ -100,7 +100,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text(
-          'Novedades',
+          'Cartelera',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

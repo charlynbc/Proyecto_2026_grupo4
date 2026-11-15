@@ -292,6 +292,24 @@ void main() {
     },
   );
 
+  for (final role in [UserRole.socio, UserRole.administrador]) {
+    testWidgets('el título del listado es Cartelera para ${role.name}', (
+      tester,
+    ) async {
+      await _pumpList(tester, _News(), role: role);
+
+      final appBar = find.byType(AppBar);
+      expect(
+        find.descendant(of: appBar, matching: find.text('Cartelera')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: appBar, matching: find.text('Novedades')),
+        findsNothing,
+      );
+    });
+  }
+
   testWidgets('deshabilita Publicar mientras el envío está pendiente', (
     tester,
   ) async {
