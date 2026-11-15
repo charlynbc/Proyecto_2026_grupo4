@@ -20,7 +20,7 @@ AppNotification _notification(
   int id,
   String type,
   String title,
-  int consultaId,
+  int? consultaId,
   String content,
   DateTime createdAt,
 ) => AppNotification(
@@ -405,6 +405,90 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Detalle 9001'), findsOneWidget);
+    });
+  });
+
+  group('aviso sin consulta', () {
+    final sinConsulta = _notification(
+      15040,
+      'AGENDA',
+      'Consulta agendada',
+      null,
+      'Aviso que no cuelga de ninguna consulta.',
+      DateTime.utc(2026, 10, 17, 14),
+    );
+
+    ListTile tileOf(WidgetTester tester, int id) =>
+        tester.widget<ListTile>(find.byKey(Key('notification-$id')));
+
+    testWidgets('se muestra completo, con título, contenido y fecha', (
+      tester,
+    ) async {
+      await _pump(tester, _one([sinConsulta]), router: _router());
+
+      expect(find.text('Consulta agendada'), findsOneWidget);
+      expect(
+        find.text('Aviso que no cuelga de ninguna consulta.'),
+        findsOneWidget,
+      );
+      expect(find.text('17/10/2026 11:00'), findsOneWidget);
+    });
+
+    testWidgets('tocarlo no navega a ningún lado', (tester) async {
+      await _pump(tester, _one([sinConsulta]), router: _router());
+
+      await tester.tap(find.byKey(const Key('notification-15040')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+      expect(find.textContaining('Detalle'), findsNothing);
+    });
+
+    testWidgets('no es tocable y no muestra la flecha de abrir', (
+      tester,
+    ) async {
+      await _pump(tester, _one([sinConsulta]), router: _router());
+
+      expect(tileOf(tester, 15040).onTap, isNull);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('notification-15040')),
+          matching: find.byIcon(Icons.chevron_right),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('los avisos con consulta siguen siendo tocables y con '
+        'flecha', (tester) async {
+      await _pump(tester, _one([sinConsulta, _agenda]), router: _router());
+
+      expect(tileOf(tester, 15003).onTap, isNotNull);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('notification-15003')),
+          matching: find.byIcon(Icons.chevron_right),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('uno de historia actualizada sigue abriendo la historia '
+        'clínica aunque no traiga consulta', (tester) async {
+      final historia = _notification(
+        15041,
+        'HISTORIA_ACTUALIZADA',
+        'Historia clínica actualizada',
+        null,
+        'Tu historia clínica fue actualizada.',
+        DateTime.utc(2026, 10, 17, 15),
+      );
+      await _pump(tester, _one([historia]), router: _router());
+
+      await tester.tap(find.byKey(const Key('notification-15041')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Lista de historia clínica'), findsOneWidget);
     });
   });
 

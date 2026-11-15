@@ -126,24 +126,29 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           key: const Key('notifications-total'),
         ),
         const SizedBox(height: 8),
-        for (final notification in result.items)
-          NotificationCard(
-            notification: notification,
-            onTap: () => context.push(_destination(notification)),
-          ),
+        for (final notification in result.items) _card(notification),
         _pagination(result),
       ],
     );
   }
 
+  Widget _card(AppNotification notification) {
+    final path = _destination(notification);
+    return NotificationCard(
+      notification: notification,
+      onTap: path == null ? null : () => context.push(path),
+    );
+  }
+
   /// A dónde lleva un aviso: el de historia actualizada, a la historia clínica
   /// (el aviso no trae el id de la atención, así que va a la lista); los
-  /// demás, al detalle de la consulta a la que se refieren.
-  String _destination(AppNotification notification) =>
-      switch (notification.type) {
-        'HISTORIA_ACTUALIZADA' => kMedicalHistoryPath,
-        _ => '$kAppointmentsPath/${notification.consultaId}',
-      };
+  /// demás, al detalle de la consulta a la que se refieren. Un aviso sin
+  /// consulta no lleva a ningún lado (`null`) y no se puede tocar.
+  String? _destination(AppNotification notification) {
+    if (notification.type == 'HISTORIA_ACTUALIZADA') return kMedicalHistoryPath;
+    final consultaId = notification.consultaId;
+    return consultaId == null ? null : '$kAppointmentsPath/$consultaId';
+  }
 
   Widget _pagination(AppNotificationPage result) {
     return PaginationBar(

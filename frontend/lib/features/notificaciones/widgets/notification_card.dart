@@ -5,6 +5,8 @@ import '../models/app_notification.dart';
 
 /// Un aviso del socio: ícono según el tipo, título, contenido y fecha y hora
 /// de Uruguay. Al tocarlo se llama [onTap]; la navegación es de quien lo usa.
+/// Sin [onTap] (un aviso que no lleva a ningún lado) no se puede tocar y no
+/// muestra la flecha de abrir.
 class NotificationCard extends StatelessWidget {
   const NotificationCard({super.key, required this.notification, this.onTap});
 
@@ -35,7 +37,7 @@ class NotificationCard extends StatelessWidget {
             ),
           ],
         ),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: onTap == null ? null : const Icon(Icons.chevron_right),
         onTap: onTap,
       ),
     );
