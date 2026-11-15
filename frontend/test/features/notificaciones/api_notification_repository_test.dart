@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/features/notificaciones/models/app_notification_page.dart';
 import 'package:agenda_medica/features/notificaciones/models/notification_query.dart';
 import 'package:agenda_medica/features/notificaciones/repositories/api_notification_repository.dart';
 import 'package:agenda_medica/features/notificaciones/repositories/notification_repository.dart';
@@ -12,7 +13,7 @@ Map<String, dynamic> _notification({
   int id = 15001,
   String type = 'SUSPENSION',
   String title = 'Turno suspendido',
-  int consultaId = 9001,
+  Object? consultaId = 9001,
   String content = 'Se suspendió el turno del 20/10/2026.',
   String createdAt = '2026-10-16T11:20:00-03:00',
 }) => {
@@ -99,6 +100,72 @@ void main() {
     expect(first.createdAt, DateTime.utc(2026, 10, 16, 14, 20));
     expect(result.items.last.id, 15000);
     expect(result.items.last.type, 'AGENDA');
+  });
+
+  test('un aviso con consultaId null se lee y queda sin consulta', () async {
+    final (repository, _) = _repository(200, {
+      'items': [_notification(id: 15007, consultaId: null)],
+      'page': 0,
+      'size': 20,
+      'total': 1,
+    });
+
+    await expectLater(
+      repository.list(const NotificationQuery()),
+      completion(
+        isA<AppNotificationPage>()
+            .having((p) => p.items, 'items', hasLength(1))
+            .having((p) => p.items.single.id, 'id', 15007)
+            .having((p) => p.items.single.consultaId, 'consultaId', isNull),
+      ),
+    );
+  });
+
+  test(
+    'un aviso sin la clave consultaId se lee y queda sin consulta',
+    () async {
+      final item = _notification(id: 15008)..remove('consultaId');
+      final (repository, _) = _repository(200, {
+        'items': [item],
+        'page': 0,
+        'size': 20,
+        'total': 1,
+      });
+
+      await expectLater(
+        repository.list(const NotificationQuery()),
+        completion(
+          isA<AppNotificationPage>().having(
+            (p) => p.items.single.consultaId,
+            'consultaId',
+            isNull,
+          ),
+        ),
+      );
+    },
+  );
+
+  test('los campos que el cliente no conoce se ignoran', () async {
+    final item = _notification(id: 15009, consultaId: 9004)
+      ..['leida'] = true
+      ..['canal'] = 'PUSH';
+    final (repository, _) = _repository(200, {
+      'items': [item],
+      'page': 0,
+      'size': 20,
+      'total': 1,
+      'extra': {'algo': 1},
+    });
+
+    await expectLater(
+      repository.list(const NotificationQuery()),
+      completion(
+        isA<AppNotificationPage>()
+            .having((p) => p.items.single.id, 'id', 15009)
+            .having((p) => p.items.single.consultaId, 'consultaId', 9004)
+            .having((p) => p.total, 'total', 1),
+      ),
+    );
   });
 
   test('sin parámetros pide la página 0 de 20', () async {

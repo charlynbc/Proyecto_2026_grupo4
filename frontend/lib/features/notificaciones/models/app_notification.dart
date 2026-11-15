@@ -3,9 +3,11 @@
 /// [type] es uno de `AGENDA`, `CANCELACION`, `SUSPENSION`,
 /// `HISTORIA_ACTUALIZADA` o `RECORDATORIO`. Un tipo que el cliente no conoce
 /// se muestra igual (con un ícono genérico): el servidor es quien lo define.
-/// [title] lo deriva el servidor del tipo; [consultaId] siempre viene
-/// informado porque todo aviso cuelga de una consulta. [createdAt] es un
-/// instante: para mostrarlo se pasa por `UruguayTime.toUruguay`.
+/// [title] lo deriva el servidor del tipo. [consultaId] hoy siempre viene
+/// informado (todo aviso cuelga de una consulta), pero el contrato pide
+/// tolerar `null` o la ausencia de la clave: un aviso sin consulta se muestra
+/// igual y no se puede abrir. [createdAt] es un instante: para mostrarlo se
+/// pasa por `UruguayTime.toUruguay`.
 class AppNotification {
   const AppNotification({
     required this.id,
@@ -21,7 +23,7 @@ class AppNotification {
         id: json['id'] as int,
         type: json['tipo'] as String,
         title: json['titulo'] as String,
-        consultaId: json['consultaId'] as int,
+        consultaId: json['consultaId'] as int?,
         content: json['contenido'] as String,
         createdAt: DateTime.parse(json['creadaEn'] as String),
       );
@@ -29,7 +31,7 @@ class AppNotification {
   final int id;
   final String type;
   final String title;
-  final int consultaId;
+  final int? consultaId;
   final String content;
   final DateTime createdAt;
 }
