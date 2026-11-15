@@ -41,11 +41,13 @@ class _CancellationRepository implements StaffCancellationRepository {
   Completer<void>? completer;
   int cancelCalls = 0;
   final cancelledIds = <int>[];
+  final reasons = <String?>[];
 
   @override
-  Future<StaffCancellationResult> cancel(int id) async {
+  Future<StaffCancellationResult> cancel(int id, {String? reason}) async {
     cancelCalls++;
     cancelledIds.add(id);
+    reasons.add(reason);
     final pending = completer;
     if (pending != null) await pending.future;
     if (exception != null) throw exception!;

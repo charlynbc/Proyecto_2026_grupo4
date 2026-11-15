@@ -36,7 +36,7 @@ class FakeScheduleRepository implements ScheduleRepository {
   }
 
   /// Permite cancelar consultas desde el fake del funcionario.
-  void markCancelled(int id) {
+  void markCancelled(int id, {String status = 'CANCELADA_SOCIO'}) {
     final index = _entries.indexWhere((entry) => entry.appointmentId == id);
     if (index == -1) return;
 
@@ -50,7 +50,7 @@ class FakeScheduleRepository implements ScheduleRepository {
       startMinutes: entry.startMinutes,
       endMinutes: entry.endMinutes,
       clinic: entry.clinic,
-      status: 'CANCELADA_SOCIO',
+      status: status,
       arrivedAt: entry.arrivedAt,
     );
   }
