@@ -40,6 +40,25 @@ void main() {
       },
     );
 
+    test('gestión de la cartelera del administrador, valores a mano', () {
+      expect(ApiRoutes.adminAnnouncements, '/api/admin/anuncios');
+      expect(
+        ApiRoutes.adminAnnouncementValidity(42),
+        '/api/admin/anuncios/42/vigencia',
+      );
+      expect(ApiRoutes.adminAnnouncement(42), '/api/admin/anuncios/42');
+      expect(ApiRoutes.adminCarousel, '/api/admin/carrusel');
+      expect(
+        ApiRoutes.all,
+        containsAll([
+          '/api/admin/anuncios',
+          '/api/admin/anuncios/1/vigencia',
+          '/api/admin/anuncios/1',
+          '/api/admin/carrusel',
+        ]),
+      );
+    });
+
     test('carrusel del Inicio, valor escrito a mano', () {
       expect(ApiRoutes.announcementsCarousel, '/api/anuncios/carrusel');
       expect(ApiRoutes.all, contains('/api/anuncios/carrusel'));
