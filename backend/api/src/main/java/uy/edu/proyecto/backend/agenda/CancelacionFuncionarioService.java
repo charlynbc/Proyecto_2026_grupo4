@@ -17,6 +17,8 @@ import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicita
 
 @Service
 public class CancelacionFuncionarioService {
+    private static final int MOTIVO_MAX_LENGTH = 1000;
+
     private final CancelacionFuncionarioRepository repository;
     private final ConsultaRepository consultaRepository;
     private final TurnoFechasRepository notificaciones;
@@ -35,8 +37,18 @@ public class CancelacionFuncionarioService {
         this.parametros = parametros;
     }
 
-    @Transactional
     public CancelacionDTO cancelar(Long funcionarioId, String id) {
+        return cancelar(funcionarioId, id, null);
+    }
+
+    @Transactional
+    public CancelacionDTO cancelar(Long funcionarioId, String id,
+            CancelacionFuncionarioRequest request) {
+        boolean aPedidoDelSocio = request == null || request.esAPedidoDelSocio();
+        if (!aPedidoDelSocio) {
+            // Primero de todo, como en la cancelación del médico.
+            validarMotivo(request.motivo());
+        }
         Long consultaId;
         try {
             consultaId = Long.valueOf(id);
@@ -88,6 +100,19 @@ public class CancelacionFuncionarioService {
         boolean paseDevuelto = consulta.venceElPase() != null
                 && !consulta.venceElPase().isBefore(ahora.toLocalDate());
         return new CancelacionDTO(consultaId, "CANCELADA_SOCIO", canceladaEn, paseDevuelto);
+    }
+
+    private String validarMotivo(String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "motivo es obligatorio");
+        }
+        String limpio = motivo.trim();
+        if (limpio.length() > MOTIVO_MAX_LENGTH) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "motivo no puede superar 1000 caracteres");
+        }
+        return limpio;
     }
 
     private ApiException validacion() {
