@@ -17,31 +17,44 @@ class NotificationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final value = notification;
     final (icon, label) = notificationIconFor(value.type);
+    final date = formatUiDateTime(value.createdAt);
     return Card(
-      child: ListTile(
-        key: Key('notification-${value.id}'),
-        leading: Icon(
-          icon,
-          key: Key('notification-icon-${value.id}'),
-          semanticLabel: label,
-        ),
-        title: Text(value.title),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value.content, key: Key('notification-content-${value.id}')),
-            const SizedBox(height: 4),
-            Text(
-              formatUiDateTime(value.createdAt),
-              key: Key('notification-date-${value.id}'),
-            ),
-          ],
-        ),
-        trailing: onTap == null ? null : const Icon(Icons.chevron_right),
+      // Un lector de pantalla lee cada aviso como una sola etiqueta (título,
+      // contenido y fecha con hora), sin leer aparte el ícono ni la flecha.
+      child: Semantics(
+        label: '${value.title}. ${_sentence(value.content)} $date',
+        button: onTap != null,
         onTap: onTap,
+        excludeSemantics: true,
+        child: ListTile(
+          key: Key('notification-${value.id}'),
+          leading: Icon(
+            icon,
+            key: Key('notification-icon-${value.id}'),
+            semanticLabel: label,
+          ),
+          title: Text(value.title),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value.content, key: Key('notification-content-${value.id}')),
+              const SizedBox(height: 4),
+              Text(date, key: Key('notification-date-${value.id}')),
+            ],
+          ),
+          trailing: onTap == null ? null : const Icon(Icons.chevron_right),
+          onTap: onTap,
+        ),
       ),
     );
   }
+}
+
+/// El texto terminado en punto (o en otro cierre de oración), para que la
+/// etiqueta que lee un lector de pantalla no junte la oración con la fecha.
+String _sentence(String text) {
+  final trimmed = text.trimRight();
+  return RegExp(r'[.!?]$').hasMatch(trimmed) ? trimmed : '$trimmed.';
 }
 
 /// El ícono de cada tipo de aviso y la descripción que lee un lector de
