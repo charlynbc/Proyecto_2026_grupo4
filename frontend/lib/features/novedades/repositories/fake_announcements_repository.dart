@@ -60,6 +60,13 @@ class FakeAnnouncementsRepository implements AnnouncementsRepository {
   final DateTime Function() _now;
   final List<FakeAnnouncementEntry> _entries;
 
+  /// Las novedades vigentes ahora: el listado, el detalle y el carrusel
+  /// comparten esta regla y este reloj.
+  Iterable<FakeAnnouncementEntry> get _visible {
+    final now = _now();
+    return _entries.where((entry) => entry.isVisibleAt(now));
+  }
+
   @override
   Future<void> publish(AnnouncementDraft draft) async {
     // El mismo 400 que responde el servidor.
@@ -97,7 +104,7 @@ class FakeAnnouncementsRepository implements AnnouncementsRepository {
   @override
   Future<AnnouncementPage> list({int page = 0}) async {
     if (page < 0) throw ArgumentError.value(page, 'page');
-    final items = [for (final e in _entries) Announcement.fromDetail(e.detail)];
+    final items = [for (final e in _visible) Announcement.fromDetail(e.detail)];
     return AnnouncementPage(
       items: items
           .skip(page * AnnouncementPage.pageSize)
@@ -110,7 +117,8 @@ class FakeAnnouncementsRepository implements AnnouncementsRepository {
 
   @override
   Future<AnnouncementDetail> detail(int id) async {
-    for (final entry in _entries) {
+    // Como el servidor: una novedad fuera de vigencia responde 404.
+    for (final entry in _visible) {
       if (entry.detail.id == id) return entry.detail;
     }
     throw const AnnouncementNotFoundException();
@@ -120,10 +128,9 @@ class FakeAnnouncementsRepository implements AnnouncementsRepository {
   /// posiciones vacías no se rellenan.
   @override
   Future<List<Announcement>> carousel() async {
-    final now = _now();
     final chosen = [
-      for (final entry in _entries)
-        if (entry.position != null && entry.isVisibleAt(now)) entry,
+      for (final entry in _visible)
+        if (entry.position != null) entry,
     ]..sort((a, b) => a.position!.compareTo(b.position!));
     return [for (final entry in chosen) Announcement.fromDetail(entry.detail)];
   }
