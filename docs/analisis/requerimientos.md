@@ -178,7 +178,7 @@ Mantiene los datos de los que depende la operación (usuarios, especialidades y 
 
 **Socio:** consultar la disponibilidad, agendar y cancelar consultas, y consultar su histórico de agendas y su historia clínica.
 
-**Funcionario:** dar de alta y modificar turnos semanales; suspender y rehabilitar fechas de esos turnos; registrar el aviso de llegada de los socios; consultar turnos y agendas; y cancelar consultas a pedido del socio.
+**Funcionario:** dar de alta y modificar turnos semanales; suspender y rehabilitar fechas de esos turnos; registrar el aviso de llegada de los socios; consultar turnos y agendas; y cancelar consultas a pedido del socio o por otro motivo.
 
 **Médico:** ver los turnos de una fecha y sus números, con los pacientes asignados; consultar la historia clínica previa de los pacientes con consultas agendadas con él; registrar la atención o que el paciente no se presentó a la consulta; emitir pases; consultar sus atenciones y sus pases; y cancelar consultas.
 
@@ -218,7 +218,7 @@ Cada número agendado da lugar a una consulta. Los estados que el sistema guarda
 
 **Cancelada por el socio:** la canceló el socio o, a pedido suyo, un funcionario.
 
-**Cancelada por la institución:** la canceló un médico o una suspensión de la fecha del turno.
+**Cancelada por la institución:** la canceló un médico, un funcionario por otro motivo o una suspensión de la fecha del turno.
 
 **No se presentó a la consulta:** el médico indicó que un socio con aviso de llegada registrado ese día no se presentó a su consulta. El registro es definitivo, sin rectificación ni reapertura. Se conserva el aviso de llegada para las demás consultas de ese día.
 
@@ -324,7 +324,7 @@ Adicionalmente, se especifica de forma explícita el nivel de criticidad asignad
 
 **RF-18 \[Crítico\] Consulta de agendas:** Permitir que el funcionario busque y consulte las consultas agendadas, con el fin de realizar el seguimiento en ventanilla y asistir al socio. Para cada consulta se detallará: identificador, socio, médico, especialidad, fecha, hora, consultorio, estado y la confirmación de llegada junto con su hora correspondiente. **Filtros:** CI del socio, identificador, fecha, médico, estado y aviso de llegada. Orden: fecha y hora de la consulta y hora de llegada. Filtrando por la fecha de hoy y por avisos de llegada se obtiene la lista de socios presentes en tiempo real.
 
-**RF-19 \[No crítico\] Cancelación de consulta por el funcionario:** Permitir que el funcionario cancele una consulta Agendada, a pedido del socio. Puede hacerlo hasta 2 horas antes del inicio de la consulta. El funcionario decide si corresponde. La consulta pasa a Cancelada por el socio, se guarda qué funcionario la canceló y el sistema envía al socio una notificación sobre la cancelación (RNF-24). El pase utilizado se devuelve según RF-09. El número vuelve a ofrecerse si todavía cumple la anticipación mínima. Aplica el conflicto de interés de la sección 3.1.5.
+**RF-19 \[No crítico\] Cancelación de consulta por el funcionario:** Permitir que el funcionario cancele una consulta Agendada, a pedido del socio o por otro motivo (administrativo u otro). Puede hacerlo hasta 2 horas antes del inicio de la consulta. El funcionario decide si corresponde y elige una de las dos causas. A pedido del socio, la consulta pasa a Cancelada por el socio y no se pide motivo. Por otro motivo, el funcionario debe escribir un motivo obligatorio de hasta 1000 caracteres, la consulta pasa a Cancelada por la institución y el socio puede ver el motivo en el detalle de su consulta y en la notificación. En ambos casos se guarda qué funcionario la canceló y el sistema envía al socio una notificación sobre la cancelación (RNF-24). El pase utilizado se devuelve según RF-09. El número vuelve a ofrecerse si todavía cumple la anticipación mínima. Aplica el conflicto de interés de la sección 3.1.5.
 
 **RF-20 \[No crítico\] Modificación de turno semanal:** Permitir que el funcionario cambie únicamente el consultorio de una configuración semanal, para todas las fechas actuales y futuras o para una selección de turnos concretos de ese mismo patrón. Una vista previa de solo lectura informa, para cada fecha, su identificador, estado ACTIVO/SUSPENDIDO, consultorio actual, cantidad de consultas Agendadas y los números en solapamiento con el consultorio destino. Los conflictos con otros turnos activos impiden el cambio y no pueden confirmarse forzadamente. Si hay consultas Agendadas en fechas seleccionadas, el funcionario debe confirmar explícitamente el cambio; no se cancelan ni trasladan las reservas y el sistema no envía todavía avisos automáticos a los socios (limitación conocida). Solo se modifican las fechas seleccionadas de hoy en adelante; nunca las anteriores. Las fechas SUSPENDIDAS pueden cambiarse sin validar cruces en ese momento, que se revalidan al rehabilitar (RF-15). El consultorio del patrón semanal se actualiza cuando, después del cambio, todas las fechas futuras del turno quedan en el consultorio destino, aunque la solicitud sea parcial. Ejemplo: si primero se cambia una fecha al consultorio 7 y después se cambian las restantes, el patrón también queda en el consultorio 7. El detalle informa cuando el consultorio varía entre fechas futuras. No se pueden modificar médico, especialidad, día de semana ni horarios de números: requieren dar de alta otro turno.
 
