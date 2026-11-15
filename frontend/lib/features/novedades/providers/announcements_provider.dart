@@ -11,6 +11,12 @@ import '../repositories/announcements_repository.dart';
 import '../repositories/api_announcements_repository.dart';
 import '../repositories/fake_announcements_repository.dart';
 
+/// El reloj con que los formularios de la cartelera validan el fin de la
+/// visibilidad; se reemplaza en pruebas.
+final announcementClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
 final announcementsRepositoryProvider = FutureProvider<AnnouncementsRepository>(
   (ref) async {
     if (ref.watch(useFakesProvider)) return FakeAnnouncementsRepository();
