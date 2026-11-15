@@ -39,6 +39,7 @@ import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/novedades/screens/announcement_detail_screen.dart';
+import '../../features/novedades/screens/admin_announcements_screen.dart';
 import '../../features/novedades/screens/announcements_screen.dart';
 import '../../features/novedades/screens/new_announcement_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
@@ -268,7 +269,9 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
   if (path == role.announcementsPath) {
     return GoRoute(
       path: path,
-      builder: (context, state) => AnnouncementsScreen(role: role),
+      builder: (context, state) => role == UserRole.administrador
+          ? const AdminAnnouncementsScreen()
+          : AnnouncementsScreen(role: role),
       routes: [
         GoRoute(
           path: ':id',
