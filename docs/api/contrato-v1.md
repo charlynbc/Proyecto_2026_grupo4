@@ -1396,7 +1396,7 @@ Detalle operativo, **sin datos clínicos**. Filtrando por hoy y por llegada se o
 |---|---|---|
 | `ci` | texto | CI del socio. |
 | `consultaId` | entero | Identificador de la consulta. |
-| `fecha` | fecha | **Una sola fecha**, no un rango: el Diseño aclara que no se inventa un rango para RF-18 (S12). |
+| `fecha` | fecha | **Una sola fecha**, no un rango: el Diseño aclara que no se inventa un rango para RF-18 (S12). Es opcional: sin `fecha` se listan las consultas de todos los días, con el mismo orden y la misma paginación. |
 | `medicoId` | entero | |
 | `estado` | `EstadoConsulta` | |
 | `llegada` | booleano | `true` solo con aviso de llegada, `false` solo sin él. |
@@ -2928,7 +2928,8 @@ Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2"
 - **Se ve:** filtros "CI del socio", "Identificador", "Fecha" (precargada con hoy), "Médico", "Estado" y "Aviso de llegada" (elegido "Con aviso"), botón "Buscar". Leyenda: "Filtrando por la fecha de hoy y por avisos de llegada se obtiene la lista de socios presentes, en tiempo real · Orden: fecha y hora ▾". Tabla: ID (`000123`), Socio ("Apellido, Nombre" y CI debajo), Médico, Especialidad, Fecha y hora, Consultorio, Estado, Llegada (hora en negrita si llegó, "Sin aviso" si no). Las filas con aviso se resaltan.
 - **Endpoints:** "Buscar" → #28 (`ci`, `consultaId`, `fecha`, `medicoId`, `estado`, `llegada`; orden `fechaHora` o `horaLlegada`). Lista de médicos → #10. Refresco cada 15 s (arquitectura 8.5). `llegadaEn: null` es "Sin aviso".
 - **Coincide con el contrato:** una sola fecha, no un rango (S12). El filtro "Aviso de llegada" tiene tres opciones (Todos, Con aviso, Sin aviso) y se corresponde con `llegada` ausente, `true` y `false`.
-- **No usa:** paginación (la pantalla no dibuja paginador, P-32).
+- **Diferencias del cliente con el mockup:** el campo "Identificador" se llama "N.º de consulta" (es el `consultaId`) y la "Fecha" es opcional: empieza con la de hoy y la cruz del campo la borra; sin `fecha`, #28 devuelve las consultas de todos los días y no es un error.
+- **Paginación:** el mockup no dibuja paginador (P-32), pero #28 es paginado y la pantalla del cliente sí lo dibuja.
 
 #### 6.1.6 Turnos y pacientes de una fecha (imagen 4) · RF-21
 
