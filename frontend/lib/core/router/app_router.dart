@@ -177,28 +177,27 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => PasswordRecoveryCompleteScreen(
           token: state.uri.queryParameters['token'] ?? '',
         ),
-        routes: [
-          GoRoute(
-            path: 'solicitar',
-            builder: (context, state) => PasswordRecoveryRequestScreen(
-              access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
-            ),
-          ),
-        ],
+      ),
+      // Hermana y no hija de la anterior: una subruta apila la del enlace del
+      // correo (con el token vacío) debajo, y el atrás de Android la mostraría.
+      GoRoute(
+        path: kRecoveryRequestPath,
+        builder: (context, state) => PasswordRecoveryRequestScreen(
+          access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
+        ),
       ),
       GoRoute(
         path: kFirstLoginPath,
         builder: (context, state) => FirstLoginActivationScreen(
           token: state.uri.queryParameters['token'] ?? '',
         ),
-        routes: [
-          GoRoute(
-            path: 'solicitar',
-            builder: (context, state) => FirstLoginRequestScreen(
-              access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
-            ),
-          ),
-        ],
+      ),
+      // Hermana por el mismo motivo que la de recuperación.
+      GoRoute(
+        path: kFirstLoginRequestPath,
+        builder: (context, state) => FirstLoginRequestScreen(
+          access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
+        ),
       ),
       // El guard de `redirectFor` deja entrar solo al médico: el prefijo
       // `/medico` es de ese rol.
