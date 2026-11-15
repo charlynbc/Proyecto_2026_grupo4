@@ -103,18 +103,23 @@ class CancelacionFuncionarioMotivoTest {
     @Test
     void elLargoSeMideDespuesDeRecortar() {
         // 1000 caracteres con espacios alrededor: recortado mide 1000 y pasa.
+        preparaCancelacionInstitucional(texto(1000));
+
         CancelacionDTO respuesta = service.cancelar(5L, "12",
                 new CancelacionFuncionarioRequest(false, "  " + texto(1000) + "  "));
 
-        assertEquals(12L, respuesta.consultaId());
+        assertEquals("CANCELADA_INSTITUCION", respuesta.estado());
+        verify(repository).cancelarPorInstitucion(12L, 5L, texto(1000));
     }
 
     @Test
     void otroMotivoConMilCaracteresPasa() {
+        preparaCancelacionInstitucional(texto(1000));
+
         CancelacionDTO respuesta = service.cancelar(5L, "12",
                 new CancelacionFuncionarioRequest(false, texto(1000)));
 
-        assertEquals(12L, respuesta.consultaId());
+        assertEquals("CANCELADA_INSTITUCION", respuesta.estado());
     }
 
     @Test
@@ -124,6 +129,83 @@ class CancelacionFuncionarioMotivoTest {
         verify(repository, never()).ciFuncionario(any());
         verify(repository, never()).buscarSocio(any());
         verify(repository, never()).cancelar(any(), any());
+    }
+
+    /* ---------- Por otro motivo: estado y motivo guardados ---------- */
+
+    private void preparaCancelacionInstitucional(String motivoGuardado) {
+        when(repository.cancelarPorInstitucion(12L, 5L, motivoGuardado)).thenReturn(
+                Optional.of(OffsetDateTime.parse("2026-10-30T09:01:00-03:00")));
+    }
+
+    @Test
+    void otroMotivoDejaCanceladaInstitucionConElMotivoRecortado() {
+        preparaCancelacionInstitucional("Se rompio el equipo");
+
+        CancelacionDTO respuesta = service.cancelar(5L, "12",
+                new CancelacionFuncionarioRequest(false, "  Se rompio el equipo  "));
+
+        assertEquals("CANCELADA_INSTITUCION", respuesta.estado());
+        assertEquals(12L, respuesta.consultaId());
+        assertEquals(OffsetDateTime.parse("2026-10-30T09:01:00-03:00"), respuesta.canceladaEn());
+        verify(repository).cancelarPorInstitucion(12L, 5L, "Se rompio el equipo");
+        verify(repository, never()).cancelar(any(), any());
+    }
+
+    @Test
+    void otroMotivoDevuelveElPaseVigente() {
+        preparaCancelacionInstitucional("Guardia");
+
+        CancelacionDTO respuesta = service.cancelar(5L, "12",
+                new CancelacionFuncionarioRequest(false, "Guardia"));
+
+        assertEquals(true, respuesta.paseDevuelto());
+    }
+
+    @Test
+    void aPedidoDelSocioConMotivoNoLoGuardaYQuedaCanceladaSocio() {
+        CancelacionDTO respuesta = service.cancelar(5L, "12",
+                new CancelacionFuncionarioRequest(true, "Esto no se guarda"));
+
+        assertEquals("CANCELADA_SOCIO", respuesta.estado());
+        verify(repository).cancelar(12L, 5L);
+        verify(repository, never()).cancelarPorInstitucion(any(), any(), any());
+    }
+
+    @Test
+    void otroMotivoSobreConsultaQueYaNoEstaAgendadaDa409() {
+        when(repository.cancelarPorInstitucion(12L, 5L, "Guardia"))
+                .thenReturn(Optional.empty());
+
+        ApiException error = rechazo(new CancelacionFuncionarioRequest(false, "Guardia"));
+
+        assertEquals(409, error.getStatus().value());
+        assertEquals("CONSULTA_NO_AGENDADA", error.getCode());
+    }
+
+    @Test
+    void otroMotivoRespetaElPlazoDeDosHoras() {
+        when(repository.bloquearConsulta(12L, 7L)).thenReturn(Optional.of(
+                new DatosConsulta(7L, "12345678", "socio@example.com", "AGENDADA",
+                        LocalDate.of(2026, 10, 30), LocalTime.of(10, 0), null)));
+
+        ApiException error = rechazo(new CancelacionFuncionarioRequest(false, "Guardia"));
+
+        assertEquals("CANCELACION_FUERA_DE_PLAZO", error.getCode());
+        verify(repository, never()).cancelarPorInstitucion(any(), any(), any());
+    }
+
+    @Test
+    void otroMotivoRespetaElConflictoDeInteres() {
+        when(repository.bloquearConsulta(12L, 7L)).thenReturn(Optional.of(
+                new DatosConsulta(7L, "87654321", "socio@example.com", "AGENDADA",
+                        FECHA, LocalTime.NOON, null)));
+
+        ApiException error = rechazo(new CancelacionFuncionarioRequest(false, "Guardia"));
+
+        assertEquals(403, error.getStatus().value());
+        assertEquals("CONFLICTO_INTERES", error.getCode());
+        verify(repository, never()).cancelarPorInstitucion(any(), any(), any());
     }
 
     /* ---------- A pedido del socio: el motivo no se valida ni se usa ---------- */

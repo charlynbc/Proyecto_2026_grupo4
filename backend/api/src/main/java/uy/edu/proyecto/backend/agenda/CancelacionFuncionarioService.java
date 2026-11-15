@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
@@ -45,10 +46,9 @@ public class CancelacionFuncionarioService {
     public CancelacionDTO cancelar(Long funcionarioId, String id,
             CancelacionFuncionarioRequest request) {
         boolean aPedidoDelSocio = request == null || request.esAPedidoDelSocio();
-        if (!aPedidoDelSocio) {
-            // Primero de todo, como en la cancelación del médico.
-            validarMotivo(request.motivo());
-        }
+        // Primero de todo, como en la cancelación del médico. Con aPedidoDelSocio
+        // el motivo se ignora: no se valida ni se guarda.
+        String motivo = aPedidoDelSocio ? null : validarMotivo(request.motivo());
         Long consultaId;
         try {
             consultaId = Long.valueOf(id);
@@ -88,7 +88,11 @@ public class CancelacionFuncionarioService {
                             + " para la consulta");
         }
 
-        OffsetDateTime canceladaEn = repository.cancelar(consultaId, funcionarioId)
+        String estado = aPedidoDelSocio ? "CANCELADA_SOCIO" : "CANCELADA_INSTITUCION";
+        Optional<OffsetDateTime> cancelada = aPedidoDelSocio
+                ? repository.cancelar(consultaId, funcionarioId)
+                : repository.cancelarPorInstitucion(consultaId, funcionarioId, motivo);
+        OffsetDateTime canceladaEn = cancelada
                 .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT,
                         "CONSULTA_NO_AGENDADA", "La consulta ya no está agendada"));
         Long notificacionId = repository.crearNotificacion(consultaId, consulta.fecha());
@@ -99,7 +103,7 @@ public class CancelacionFuncionarioService {
         }
         boolean paseDevuelto = consulta.venceElPase() != null
                 && !consulta.venceElPase().isBefore(ahora.toLocalDate());
-        return new CancelacionDTO(consultaId, "CANCELADA_SOCIO", canceladaEn, paseDevuelto);
+        return new CancelacionDTO(consultaId, estado, canceladaEn, paseDevuelto);
     }
 
     private String validarMotivo(String motivo) {

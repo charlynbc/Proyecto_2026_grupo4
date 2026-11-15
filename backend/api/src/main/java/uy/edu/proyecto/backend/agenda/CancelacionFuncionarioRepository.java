@@ -61,6 +61,19 @@ public class CancelacionFuncionarioRepository {
                 funcionarioId, consultaId).stream().findFirst();
     }
 
+    /** Cancelación por otro motivo (RF-19): queda de la institución, con el motivo guardado. */
+    public Optional<OffsetDateTime> cancelarPorInstitucion(
+            Long consultaId, Long funcionarioId, String motivo) {
+        return jdbcTemplate.query("""
+                UPDATE public.consulta
+                SET estado = 'CANCELADA_INSTITUCION', cancelada_por = ?,
+                    cancelada_en = CURRENT_TIMESTAMP, motivo_cancelacion = ?
+                WHERE id_consulta = ? AND estado = 'AGENDADA'
+                RETURNING cancelada_en
+                """, (rs, rowNum) -> rs.getObject("cancelada_en", OffsetDateTime.class),
+                funcionarioId, motivo, consultaId).stream().findFirst();
+    }
+
     public Long crearNotificacion(Long consultaId, LocalDate fecha) {
         return jdbcTemplate.queryForObject("""
                 INSERT INTO public.notificacion (id_consulta, tipo, contenido)
