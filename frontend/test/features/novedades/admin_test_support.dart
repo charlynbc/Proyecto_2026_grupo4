@@ -148,6 +148,14 @@ class AdminTestRepo extends FakeAnnouncementsRepository {
     return super.saveCarousel(slots);
   }
 
+  final detailIds = <int>[];
+
+  @override
+  Future<AnnouncementDetail> detail(int id) {
+    detailIds.add(id);
+    return super.detail(id);
+  }
+
   /// Otro administrador la eliminó entre que se cargó la pantalla y se tocó.
   Future<void> deleteBehindTheScenes(int id) => super.delete(id);
 }
@@ -189,9 +197,8 @@ Future<ProviderContainer> pumpAdminScreen(
         theme: appTheme,
         routerConfig: router,
         builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(scale)),
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(scale)),
           child: child!,
         ),
       ),

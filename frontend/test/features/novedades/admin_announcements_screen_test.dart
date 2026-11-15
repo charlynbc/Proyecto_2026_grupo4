@@ -230,6 +230,93 @@ void main() {
     });
   });
 
+  group('Ver el detalle', () {
+    Finder view(int id) => find.byKey(ValueKey('admin-view-$id'));
+
+    testWidgets('el botón Ver aparece solo en las vigentes', (tester) async {
+      await _pump(tester, _Repo());
+
+      expect(
+        find.descendant(of: _card(30), matching: find.text('Ver')),
+        findsOneWidget,
+      );
+      expect(view(30), findsOneWidget);
+      expect(view(20), findsNothing);
+      expect(view(10), findsNothing);
+      expect(find.text('Ver'), findsOneWidget);
+    });
+
+    testWidgets('Ver abre el detalle de esa novedad', (tester) async {
+      final repo = _Repo();
+      final container = await _pump(tester, repo);
+
+      await tester.ensureVisible(view(30));
+      await tester.tap(view(30));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/admin/cartelera/30?desde=cartelera');
+      expect(repo.detailIds, [30]);
+      expect(find.text('Jornada de vacunación'), findsOneWidget);
+      expect(find.text('Texto 30'), findsOneWidget);
+    });
+
+    testWidgets('volver desde el detalle regresa a la Cartelera', (
+      tester,
+    ) async {
+      final container = await _pump(tester, _Repo());
+      await tester.ensureVisible(view(30));
+      await tester.tap(view(30));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Volver a novedades'));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/admin/cartelera');
+      expect(_card(30), findsOneWidget);
+    });
+
+    testWidgets('si el detalle responde 404 muestra el mensaje y la lista se '
+        'recarga al volver', (tester) async {
+      final repo = _Repo();
+      await _pump(tester, repo);
+      final loadsBefore = repo.listCalls;
+      // Se eliminó mientras la lista seguía abierta.
+      await repo.deleteBehindTheScenes(30);
+
+      await tester.ensureVisible(view(30));
+      await tester.tap(view(30));
+      await tester.pumpAndSettle();
+
+      expect(find.text('No encontramos esta novedad.'), findsOneWidget);
+
+      await tester.tap(find.text('Volver a novedades'));
+      await tester.pumpAndSettle();
+
+      expect(repo.listCalls, greaterThan(loadsBefore));
+      expect(_card(30), findsNothing);
+      expect(_card(20), findsOneWidget);
+    });
+
+    testWidgets('con una vigente a 320 px y texto al doble no se corta', (
+      tester,
+    ) async {
+      await _pump(tester, _Repo(), width: 320, scale: 2);
+
+      for (final key in [
+        'admin-view-30',
+        'admin-validity-30',
+        'admin-delete-30',
+      ]) {
+        final finder = find.byKey(ValueKey(key));
+        await tester.ensureVisible(finder);
+        final rect = tester.getRect(finder);
+        expect(rect.left, greaterThanOrEqualTo(0), reason: key);
+        expect(rect.right, lessThanOrEqualTo(320), reason: key);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('navegación', () {
     for (final role in [
       UserRole.socio,

@@ -204,6 +204,9 @@ class _AdminAnnouncementsScreenState
                               _AdminAnnouncementCard(
                                 item: item,
                                 busy: _busyId != null,
+                                onView: () => context.go(
+                                  '$_listPath/${item.id}?desde=cartelera',
+                                ),
                                 onChangeValidity: () => context.push(
                                   '$_listPath/${item.id}/vigencia',
                                 ),
@@ -227,12 +230,14 @@ class _AdminAnnouncementCard extends StatelessWidget {
   const _AdminAnnouncementCard({
     required this.item,
     required this.busy,
+    required this.onView,
     required this.onChangeValidity,
     required this.onDelete,
   });
 
   final AdminAnnouncement item;
   final bool busy;
+  final VoidCallback onView;
   final VoidCallback onChangeValidity;
   final VoidCallback onDelete;
 
@@ -276,6 +281,15 @@ class _AdminAnnouncementCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 4,
               children: [
+                // El detalle solo existe para las vigentes: el servidor
+                // responde 404 para las programadas y las vencidas.
+                if (item.status == AnnouncementStatus.active)
+                  TextButton.icon(
+                    key: ValueKey('admin-view-${item.id}'),
+                    onPressed: busy ? null : onView,
+                    icon: const Icon(Icons.visibility_outlined),
+                    label: const Text('Ver'),
+                  ),
                 TextButton.icon(
                   key: ValueKey('admin-validity-${item.id}'),
                   onPressed: busy ? null : onChangeValidity,
