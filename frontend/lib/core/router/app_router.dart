@@ -40,6 +40,7 @@ import '../../features/historia_clinica/screens/medical_history_detail_screen.da
 import '../../features/home/screens/home_screen.dart';
 import '../../features/novedades/screens/announcement_detail_screen.dart';
 import '../../features/novedades/screens/admin_announcements_screen.dart';
+import '../../features/novedades/screens/announcement_validity_screen.dart';
 import '../../features/novedades/screens/announcements_screen.dart';
 import '../../features/novedades/screens/new_announcement_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
@@ -232,6 +233,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '${UserRole.administrador.announcementsPath}/nueva',
         builder: (context, state) => const NewAnnouncementScreen(),
+      ),
+      GoRoute(
+        path: '${UserRole.administrador.announcementsPath}/:id/vigencia',
+        redirect: (context, state) => _appointmentId(state) == null
+            ? UserRole.administrador.announcementsPath
+            : null,
+        builder: (context, state) =>
+            AnnouncementValidityScreen(id: _appointmentId(state)!),
       ),
       for (final role in UserRole.values) _roleShell(role),
     ],

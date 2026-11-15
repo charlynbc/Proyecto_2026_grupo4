@@ -1,161 +1,25 @@
 import 'dart:async';
 
-import 'package:agenda_medica/core/config/app_config.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
-import 'package:agenda_medica/core/router/app_router.dart';
 import 'package:agenda_medica/core/router/app_sections.dart';
-import 'package:agenda_medica/core/theme/app_theme.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
-import 'package:agenda_medica/features/auth/providers/session_provider.dart';
-import 'package:agenda_medica/features/cuenta/providers/account_repository_provider.dart';
-import 'package:agenda_medica/features/novedades/models/admin_announcement.dart';
-import 'package:agenda_medica/features/novedades/models/announcement_detail.dart';
-import 'package:agenda_medica/features/novedades/providers/announcements_provider.dart';
-import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_app.dart';
-import '../cuenta/account_test_support.dart' show RecordingAccountRepository;
+import 'admin_test_support.dart';
 
-// "Ahora" fijo: 14/11/2026 12:00 en Uruguay (15:00 UTC).
-final _now = DateTime.utc(2026, 11, 14, 15);
-
-class _Session extends SessionNotifier {
-  _Session(this.role);
-  final UserRole role;
-
-  @override
-  SessionState build() => SessionState(
-    status: SessionStatus.authenticated,
-    role: role,
-    accessToken: 'test-session',
-  );
-}
-
-FakeAnnouncementEntry _entry(
-  int id,
-  String title, {
-  required DateTime published,
-  DateTime? from,
-  DateTime? until,
-  int? position,
-}) => FakeAnnouncementEntry(
-  detail: AnnouncementDetail(
-    id: id,
-    title: title,
-    text: 'Texto $id',
-    publishedAt: published,
-  ),
-  visibleFrom: from,
-  visibleUntil: until,
-  position: position,
-);
-
-List<FakeAnnouncementEntry> _seed() => [
-  _entry(
-    30,
-    'Jornada de vacunación',
-    published: DateTime.utc(2026, 11, 12, 12),
-    until: DateTime.utc(2026, 12, 1, 3),
-    position: 2,
-  ),
-  _entry(
-    20,
-    'Horarios de verano',
-    published: DateTime.utc(2026, 11, 10, 12),
-    from: DateTime.utc(2026, 11, 20, 3),
-    until: DateTime.utc(2026, 11, 21, 2, 59),
-  ),
-  _entry(
-    10,
-    'Campaña anterior',
-    published: DateTime.utc(2026, 10, 1, 12),
-    until: DateTime.utc(2026, 11, 1, 3),
-  ),
-];
-
-class _Repo extends FakeAnnouncementsRepository {
-  _Repo({List<FakeAnnouncementEntry>? seed})
-    : super(now: () => _now, seed: seed ?? _seed());
-
-  final calls = <String>[];
-  int listCalls = 0;
-  Object? listError;
-  Completer<void>? listPending;
-  Completer<void>? deletePending;
-  ApiException? deleteError;
-
-  @override
-  Future<List<AdminAnnouncement>> adminList() async {
-    listCalls++;
-    if (listError != null) throw listError!;
-    if (listPending != null) await listPending!.future;
-    return super.adminList();
-  }
-
-  @override
-  Future<void> delete(int id) async {
-    calls.add('delete:$id');
-    if (deleteError != null) throw deleteError!;
-    if (deletePending != null) await deletePending!.future;
-    return super.delete(id);
-  }
-
-  /// Otro administrador la eliminó entre que se cargó la lista y se tocó.
-  Future<void> deleteBehindTheScenes(int id) => super.delete(id);
-}
+typedef _Repo = AdminTestRepo;
 
 Future<ProviderContainer> _pump(
   WidgetTester tester,
-  _Repo repo, {
+  AdminTestRepo repo, {
   double width = 1280,
   double scale = 1,
   UserRole role = UserRole.administrador,
-}) async {
-  tester.view.physicalSize = Size(width, 1600);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  final container = ProviderContainer(
-    overrides: [
-      useFakesProvider.overrideWithValue(true),
-      sessionProvider.overrideWith(() => _Session(role)),
-      announcementClockProvider.overrideWithValue(() => _now),
-      accountRepositoryProvider.overrideWith(
-        (ref) async => RecordingAccountRepository(),
-      ),
-      announcementsRepositoryProvider.overrideWith((ref) async => repo),
-    ],
-  );
-  addTearDown(() async {
-    await unmountApp(tester);
-    container.dispose();
-  });
-  final router = container.read(goRouterProvider)..go(role.announcementsPath);
-  await tester.pumpWidget(
-    UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp.router(
-        theme: appTheme,
-        routerConfig: router,
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context)
-              .copyWith(textScaler: TextScaler.linear(scale)),
-          child: child!,
-        ),
-      ),
-    ),
-  );
-  if (repo.listPending == null) {
-    await tester.pumpAndSettle();
-  } else {
-    await tester.pump();
-    await tester.pump();
-  }
-  return container;
-}
+}) => pumpAdminScreen(tester, repo, width: width, scale: scale, role: role);
 
 Finder _card(int id) => find.byKey(ValueKey('admin-announcement-$id'));
 
