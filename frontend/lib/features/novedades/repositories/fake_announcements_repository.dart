@@ -1,3 +1,4 @@
+import '../../../core/network/api_exception.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_draft.dart';
@@ -6,10 +7,19 @@ import 'announcements_repository.dart';
 
 /// Solo para USE_FAKES y pruebas. No descarga imágenes ni utiliza la red.
 class FakeAnnouncementsRepository implements AnnouncementsRepository {
+  /// [now] es el reloj con que se valida el fin de la visibilidad; se puede
+  /// reemplazar en pruebas.
+  FakeAnnouncementsRepository({DateTime Function()? now})
+    : _now = now ?? DateTime.now;
+
+  final DateTime Function() _now;
   final _published = <AnnouncementDetail>[];
 
   @override
   Future<void> publish(AnnouncementDraft draft) async {
+    // El mismo 400 que responde el servidor.
+    final visibilityError = draft.validateVisibility(_now());
+    if (visibilityError != null) throw ApiException(visibilityError);
     _published.insert(
       0,
       AnnouncementDetail(

@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/api_routes.dart';
+import '../../../core/utils/uruguay_time.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_draft.dart';
@@ -27,6 +28,10 @@ class ApiAnnouncementsRepository implements AnnouncementsRepository {
               if (draft.summary?.trim().isNotEmpty ?? false)
                 'resumen': draft.summary,
               if (draft.text?.trim().isNotEmpty ?? false) 'texto': draft.text,
+              if (draft.visibleFrom != null)
+                'vigenteDesde': UruguayTime.toIso(draft.visibleFrom!),
+              if (draft.visibleUntil != null)
+                'vigenteHasta': UruguayTime.toIso(draft.visibleUntil!),
             }),
             contentType: DioMediaType('application', 'json'),
           ),
