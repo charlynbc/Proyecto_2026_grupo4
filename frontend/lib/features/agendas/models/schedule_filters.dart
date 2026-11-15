@@ -16,9 +16,9 @@ enum ScheduleOrder {
 /// RF-18).
 ///
 /// La [date] es una clave de día en UTC y la elige quien arma el filtro
-/// (normalmente hoy en Uruguay): la agenda se consulta de a un día. [ci] y
-/// [appointmentId] guardan lo que se escribió; al armar el pedido se les dejan
-/// solo los dígitos.
+/// (normalmente hoy en Uruguay): la agenda se consulta de a un día, o de todos
+/// si es `null`. [ci] y [appointmentId] guardan lo que se escribió; al armar el
+/// pedido se les dejan solo los dígitos.
 class ScheduleFilters {
   const ScheduleFilters({
     required this.date,
@@ -36,7 +36,8 @@ class ScheduleFilters {
   /// Tamaño de página por defecto del contrato.
   static const int kDefaultPageSize = 20;
 
-  final DateTime date;
+  /// El día de las consultas, o `null` para ver las de todos los días.
+  final DateTime? date;
 
   /// Cédula del socio, tal como se escribió.
   final String? ci;
@@ -65,7 +66,8 @@ class ScheduleFilters {
       if (ciDigits.isNotEmpty) 'ci': ciDigits,
       if (idDigits.isNotEmpty) 'consultaId': ?int.tryParse(idDigits),
       'medicoId': ?doctorId,
-      'fecha': formatApiDate(date),
+      // Sin fecha no se manda: el servidor responde con todos los días.
+      'fecha': ?(date == null ? null : formatApiDate(date!)),
       'estado': ?status,
       'llegada': ?arrived,
       'orden': order.apiValue,
@@ -78,7 +80,7 @@ class ScheduleFilters {
   /// Copia con los cambios indicados, sin tocar la página. Para cambiar de
   /// página.
   ScheduleFilters copyWith({
-    DateTime? date,
+    ValueGetter<DateTime?>? date,
     ValueGetter<String?>? ci,
     ValueGetter<String?>? appointmentId,
     ValueGetter<int?>? doctorId,
@@ -88,7 +90,7 @@ class ScheduleFilters {
     bool? ascending,
     int? page,
   }) => ScheduleFilters(
-    date: date ?? this.date,
+    date: date != null ? date() : this.date,
     ci: ci != null ? ci() : this.ci,
     appointmentId: appointmentId != null ? appointmentId() : this.appointmentId,
     doctorId: doctorId != null ? doctorId() : this.doctorId,
@@ -102,7 +104,7 @@ class ScheduleFilters {
 
   /// Cambia filtros u orden y vuelve a la primera página.
   ScheduleFilters withFilterChange({
-    DateTime? date,
+    ValueGetter<DateTime?>? date,
     ValueGetter<String?>? ci,
     ValueGetter<String?>? appointmentId,
     ValueGetter<int?>? doctorId,

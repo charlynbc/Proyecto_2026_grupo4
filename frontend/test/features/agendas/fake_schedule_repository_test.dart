@@ -191,7 +191,7 @@ void main() {
 
     test('por la fecha de mañana da vacío', () async {
       final page = await _repository().search(
-        _filters().copyWith(date: DateTime.utc(2026, 10, 27)),
+        _filters().copyWith(date: () => DateTime.utc(2026, 10, 27)),
       );
 
       expect(page.items, isEmpty);
@@ -200,7 +200,7 @@ void main() {
 
     test('por la fecha de ayer da vacío', () async {
       final page = await _repository().search(
-        _filters().copyWith(date: DateTime.utc(2026, 10, 25)),
+        _filters().copyWith(date: () => DateTime.utc(2026, 10, 25)),
       );
 
       expect(page.items, isEmpty);
@@ -270,7 +270,11 @@ void main() {
         _filters().copyWith(order: ScheduleOrder.arrivalTime, ascending: false),
       );
 
-      expect(_ids(page), [9001, 9002, 9003, 9004, 9005]);
+      // Como el servidor (`llegada_en DESC NULLS LAST, fecha DESC,
+      // hora_inicio DESC`): llegaron 9001 (08:55) y 9002 (08:40); al final las
+      // que no llegaron, por hora de inicio descendente: 9005 (15:00), 9004
+      // (10:30) y 9003 (10:00).
+      expect(_ids(page), [9001, 9002, 9005, 9004, 9003]);
     });
   });
 

@@ -62,7 +62,9 @@ class _ScheduleFilterBarState extends ConsumerState<ScheduleFilterBar> {
     final applied = ref.read(scheduleFiltersControllerProvider);
     _ciController = TextEditingController(text: applied.ci ?? '');
     _idController = TextEditingController(text: applied.appointmentId ?? '');
-    _dateController = TextEditingController(text: formatUiDate(applied.date));
+    _dateController = TextEditingController(
+      text: applied.date == null ? '' : formatUiDate(applied.date!),
+    );
     _doctorId = applied.doctorId;
     _status = applied.status;
     _arrived = applied.arrived;
