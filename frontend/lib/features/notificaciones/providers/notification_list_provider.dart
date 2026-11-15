@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
+import '../../auth/providers/session_provider.dart';
+import '../../auth/repositories/fake_auth_repository.dart';
 import '../models/app_notification_page.dart';
 import '../models/notification_query.dart';
 import '../repositories/api_notification_repository.dart';
@@ -38,7 +40,13 @@ final notificationListReopenedProvider =
 final notificationRepositoryProvider = FutureProvider<NotificationRepository>((
   ref,
 ) async {
-  if (ref.watch(useFakesProvider)) return FakeNotificationRepository();
+  if (ref.watch(useFakesProvider)) {
+    // El Fake, como el servidor, lista solo los avisos de quien ingresó.
+    final ci = fakeCiOfToken(
+      ref.watch(sessionProvider.select((session) => session.accessToken)),
+    );
+    return FakeNotificationRepository(currentCi: ci ?? '');
+  }
   final dio = await ref.watch(dioProvider.future);
   return ApiNotificationRepository(dio);
 });

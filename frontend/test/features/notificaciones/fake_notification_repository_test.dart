@@ -1,3 +1,4 @@
+import 'package:agenda_medica/core/fakes/fake_notification_seed.dart';
 import 'package:agenda_medica/features/notificaciones/models/app_notification.dart';
 import 'package:agenda_medica/features/notificaciones/models/notification_query.dart';
 import 'package:agenda_medica/features/notificaciones/repositories/fake_notification_repository.dart';
@@ -179,6 +180,224 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('reglas del servidor', () {
+    // 15/11/2026 12:00 en Uruguay.
+    final now = DateTime.utc(2026, 11, 15, 15);
+
+    FakeStoredNotification stored(
+      int id,
+      DateTime createdAt, {
+      String owner = kFakeMemberCi,
+      DateTime? scheduledFor,
+      String type = 'AGENDA',
+    }) => FakeStoredNotification(
+      AppNotification(
+        id: id,
+        type: type,
+        title: 'Aviso',
+        consultaId: 1,
+        content: 'Aviso $id',
+        createdAt: createdAt,
+      ),
+      ownerCi: owner,
+      scheduledFor: scheduledFor,
+    );
+
+    FakeNotificationRepository repo(
+      List<FakeStoredNotification> items, {
+      String ci = kFakeMemberCi,
+      DateTime Function()? clock,
+    }) => FakeNotificationRepository(
+      latency: Duration.zero,
+      stored: items,
+      currentCi: ci,
+      now: clock ?? () => now,
+    );
+
+    test('el socio solo ve los avisos propios', () async {
+      final items = [
+        stored(1, DateTime.utc(2026, 11, 10, 12)),
+        stored(2, DateTime.utc(2026, 11, 12, 12), owner: kFakeOtherMemberCi),
+        stored(3, DateTime.utc(2026, 11, 13, 12)),
+        stored(4, DateTime.utc(2026, 11, 14, 12), owner: kFakeOtherMemberCi),
+      ];
+
+      final page = await repo(items).list(const NotificationQuery());
+
+      expect(_ids(page.items), [3, 1]);
+      expect(page.total, 2);
+    });
+
+    test('otro socio ve solo los suyos', () async {
+      final items = [
+        stored(1, DateTime.utc(2026, 11, 10, 12)),
+        stored(2, DateTime.utc(2026, 11, 12, 12), owner: kFakeOtherMemberCi),
+        stored(3, DateTime.utc(2026, 11, 13, 12)),
+        stored(4, DateTime.utc(2026, 11, 14, 12), owner: kFakeOtherMemberCi),
+      ];
+
+      final page = await repo(
+        items,
+        ci: kFakeOtherMemberCi,
+      ).list(const NotificationQuery());
+
+      expect(_ids(page.items), [4, 2]);
+      expect(page.total, 2);
+    });
+
+    test('un socio sin avisos ve la lista vacía', () async {
+      final items = [stored(1, DateTime.utc(2026, 11, 10, 12))];
+
+      final page = await repo(
+        items,
+        ci: '11111111',
+      ).list(const NotificationQuery());
+
+      expect(page.items, isEmpty);
+      expect(page.total, 0);
+    });
+
+    test(
+      'un recordatorio con fecha futura no aparece ni cuenta en el total',
+      () async {
+        final items = [
+          stored(1, DateTime.utc(2026, 11, 10, 12)),
+          stored(
+            2,
+            DateTime.utc(2026, 11, 14, 12),
+            type: 'RECORDATORIO',
+            scheduledFor: now.add(const Duration(hours: 1)),
+          ),
+          stored(
+            3,
+            DateTime.utc(2026, 11, 13, 12),
+            type: 'RECORDATORIO',
+            scheduledFor: now.subtract(const Duration(hours: 1)),
+          ),
+        ];
+
+        final page = await repo(items).list(const NotificationQuery());
+
+        expect(_ids(page.items), [3, 1]);
+        expect(page.total, 2);
+      },
+    );
+
+    test('el recordatorio aparece cuando llega su hora', () async {
+      final scheduled = DateTime.utc(2026, 11, 16, 15);
+      var clock = scheduled.subtract(const Duration(minutes: 1));
+      final items = [
+        stored(1, DateTime.utc(2026, 11, 10, 12)),
+        stored(
+          2,
+          DateTime.utc(2026, 11, 14, 12),
+          type: 'RECORDATORIO',
+          scheduledFor: scheduled,
+        ),
+      ];
+      final repository = repo(items, clock: () => clock);
+
+      final before = await repository.list(const NotificationQuery());
+      clock = scheduled;
+      final atTheHour = await repository.list(const NotificationQuery());
+
+      expect(_ids(before.items), [1]);
+      expect(_ids(atTheHour.items), [2, 1]);
+    });
+
+    test('el total de la paginación no cuenta lo que no se lista', () async {
+      final items = [
+        for (var i = 1; i <= 25; i++)
+          stored(i, DateTime.utc(2026, 11, 1).add(Duration(hours: i))),
+        for (var i = 101; i <= 103; i++)
+          stored(
+            i,
+            DateTime.utc(2026, 11, 14, i - 100),
+            owner: kFakeOtherMemberCi,
+          ),
+        stored(
+          201,
+          DateTime.utc(2026, 11, 14, 12),
+          type: 'RECORDATORIO',
+          scheduledFor: now.add(const Duration(days: 1)),
+        ),
+      ];
+
+      final last = await repo(items)
+          .list(const NotificationQuery(page: 2, size: 10));
+
+      expect(last.total, 25);
+      expect(_ids(last.items), [5, 4, 3, 2, 1]);
+      expect(last.hasNext, isFalse);
+    });
+  });
+
+  group('semilla relativa a la hora actual', () {
+    // 15/11/2026 12:00 en Uruguay.
+    final now = DateTime.utc(2026, 11, 15, 15);
+    late List<FakeStoredNotification> seed;
+
+    setUp(() => seed = fakeNotificationSeed(now));
+
+    test('trae avisos de otro socio y recordatorios futuros para probar las '
+        'reglas', () {
+      expect(seed.where((s) => s.ownerCi == kFakeOtherMemberCi), hasLength(3));
+      expect(
+        seed.where(
+          (s) => s.scheduledFor != null && s.scheduledFor!.isAfter(now),
+        ),
+        hasLength(2),
+      );
+    });
+
+    test('la socia de prueba ve 26 avisos y ninguno de los ocultos', () async {
+      final page = await FakeNotificationRepository(
+        latency: Duration.zero,
+        now: () => now,
+      ).list(const NotificationQuery(size: 100));
+
+      expect(page.total, 26);
+      expect(page.items, hasLength(26));
+    });
+
+    test('todos los avisos visibles son del pasado y el más nuevo es de las '
+        'últimas 24 horas', () async {
+      final page = await FakeNotificationRepository(
+        latency: Duration.zero,
+        now: () => now,
+      ).list(const NotificationQuery(size: 100));
+
+      for (final n in page.items) {
+        expect(n.createdAt.isAfter(now), isFalse, reason: 'aviso ${n.id}');
+      }
+      expect(
+        page.items.first.createdAt.isAfter(
+          now.subtract(const Duration(hours: 24)),
+        ),
+        isTrue,
+      );
+      expect(
+        page.items.last.createdAt.isAfter(
+          now.subtract(const Duration(days: 120)),
+        ),
+        isTrue,
+      );
+    });
+
+    test('los avisos se corren con la hora: con otro "ahora" siguen siendo '
+        'del pasado', () async {
+      final later = DateTime.utc(2027, 3, 1, 15);
+      final page = await FakeNotificationRepository(
+        latency: Duration.zero,
+        now: () => later,
+      ).list(const NotificationQuery(size: 100));
+
+      for (final n in page.items) {
+        expect(n.createdAt.isAfter(later), isFalse, reason: 'aviso ${n.id}');
+      }
     });
   });
 

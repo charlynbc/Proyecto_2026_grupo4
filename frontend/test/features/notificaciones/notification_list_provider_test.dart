@@ -1,5 +1,7 @@
 import 'package:agenda_medica/core/config/app_config.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
+import 'package:agenda_medica/features/auth/models/user_role.dart';
+import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/notificaciones/models/app_notification_page.dart';
 import 'package:agenda_medica/features/notificaciones/models/notification_query.dart';
 import 'package:agenda_medica/features/notificaciones/providers/notification_list_provider.dart';
@@ -133,7 +135,9 @@ void main() {
     expect(repository.calls, 2);
   });
 
-  testWidgets('con USE_FAKES el repositorio es el falso', (tester) async {
+  // Con `test` y no `testWidgets`: el provider mira la sesión, que al armarse
+  // pide el refresh con una latencia falsa y deja un temporizador.
+  test('con USE_FAKES el repositorio es el falso', () async {
     final container = ProviderContainer(
       overrides: [useFakesProvider.overrideWithValue(true)],
     );
@@ -144,5 +148,48 @@ void main() {
     );
 
     expect(repository, isA<FakeNotificationRepository>());
+  });
+
+  group('con USE_FAKES la lista es la del socio autenticado', () {
+    Future<AppNotificationPage> listAs(String? ci) async {
+      final container = ProviderContainer(
+        overrides: [useFakesProvider.overrideWithValue(true)],
+      );
+      addTearDown(container.dispose);
+      if (ci != null) {
+        container
+            .read(sessionProvider.notifier)
+            .setAuthenticated(
+              accessToken: 'token-de-prueba-$ci',
+              role: UserRole.socio,
+            );
+      }
+      final repository = await container.read(
+        notificationRepositoryProvider.future,
+      );
+      return repository.list(const NotificationQuery(size: 100));
+    }
+
+    // Con `test` y no `testWidgets`: el Fake espera su latencia con un
+    // `Future.delayed`, que en `testWidgets` (reloj simulado) no avanza solo.
+    test('la socia de prueba ve sus 26 avisos', () async {
+      final page = await listAs('12345672');
+
+      expect(page.total, 26);
+    });
+
+    test('otro socio ve solo sus 3 avisos, los de la semilla', () async {
+      final page = await listAs('90000046');
+
+      expect(page.total, 3);
+      expect([for (final n in page.items) n.id], [203, 202, 201]);
+    });
+
+    test('un socio sin avisos ve la lista vacía', () async {
+      final page = await listAs('11111111');
+
+      expect(page.total, 0);
+      expect(page.items, isEmpty);
+    });
   });
 }

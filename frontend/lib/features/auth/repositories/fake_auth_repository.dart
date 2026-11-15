@@ -4,6 +4,17 @@ import '../models/user_role.dart';
 import '../providers/session_provider.dart';
 import 'auth_repository.dart';
 
+/// El token de acceso de la sesión falsa es este prefijo más la cédula.
+const String kFakeTokenPrefix = 'token-de-prueba-';
+
+/// La cédula con que se ingresó, leída del token de acceso de la sesión falsa,
+/// o `null` si no es un token del Fake. Lo usan los repositorios falsos que
+/// tienen que saber quién está autenticado.
+String? fakeCiOfToken(String? token) =>
+    token != null && token.startsWith(kFakeTokenPrefix)
+    ? token.substring(kFakeTokenPrefix.length)
+    : null;
+
 /// Implementación en memoria de [AuthRepository] para `USE_FAKES=true`.
 ///
 /// Acepta cualquier cédula de `TestData.people` con la contraseña
@@ -34,7 +45,7 @@ class FakeAuthRepository implements AuthRepository {
         AccessType.forRole(role) != access) {
       throw const InvalidCredentialsException();
     }
-    _session.setAuthenticated(accessToken: 'token-de-prueba-$ci', role: role);
+    _session.setAuthenticated(accessToken: '$kFakeTokenPrefix$ci', role: role);
   }
 
   /// No hay cookie de refresh en memoria: al arrancar la app no hay sesión

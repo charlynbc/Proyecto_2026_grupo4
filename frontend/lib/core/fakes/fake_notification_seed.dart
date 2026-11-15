@@ -1,194 +1,27 @@
 import '../../features/notificaciones/models/app_notification.dart';
+import '../utils/ui_date.dart';
+import '../utils/uruguay_time.dart';
 
-/// Los avisos con que arranca la socia de los datos de prueba, para que la
-/// lista de Avisos tenga qué mostrar (y varias páginas) con `USE_FAKES=true`.
-/// Cuelgan de las tres consultas de `seedMemberAppointments` (ids 1, 2 y 3).
-/// Los instantes están en UTC; los ids 12 y 13, y los 25 y 26, comparten
-/// instante a propósito para probar el desempate por id.
-final List<AppNotification> kFakeNotificationSeed = [
-  _n(
-    1,
-    'AGENDA',
-    3,
-    'Tu consulta de Medicina General con Carla Méndez quedó agendada para el 23/09/2026 a las 14:00.',
-    DateTime.utc(2026, 9, 10, 15),
-  ),
-  _n(
-    2,
-    'RECORDATORIO',
-    3,
-    'Mañana tenés consulta de Medicina General a las 14:00.',
-    DateTime.utc(2026, 9, 22, 12),
-  ),
-  _n(
-    3,
-    'HISTORIA_ACTUALIZADA',
-    3,
-    'Tu historia clínica fue actualizada.',
-    DateTime.utc(2026, 9, 23, 18, 30),
-  ),
-  _n(
-    4,
-    'AGENDA',
-    2,
-    'Tu consulta de Medicina General con Carla Méndez quedó agendada para el 13/10/2026 a las 08:00.',
-    DateTime.utc(2026, 9, 28, 13, 10),
-  ),
-  _n(
-    5,
-    'CANCELACION',
-    2,
-    'Tu consulta del 13/10/2026 fue cancelada a tu solicitud.',
-    DateTime.utc(2026, 10, 2, 14, 45),
-  ),
-  _n(
-    6,
-    'AGENDA',
-    1,
-    'Tu consulta de Dermatología con Florencia Acosta quedó agendada para el 05/11/2026 a las 09:30.',
-    DateTime.utc(2026, 10, 21, 15),
-  ),
-  _n(
-    7,
-    'RECORDATORIO',
-    2,
-    'Mañana tenés consulta de Medicina General a las 08:00.',
-    DateTime.utc(2026, 10, 12, 11),
-  ),
-  _n(
-    8,
-    'SUSPENSION',
-    3,
-    'Tu consulta del 23/09/2026 fue cancelada por la institución. Horario: 14:00 a 14:30 (número 3). El médico no atiende ese día.',
-    DateTime.utc(2026, 10, 3, 13),
-  ),
-  _n(
-    9,
-    'HISTORIA_ACTUALIZADA',
-    1,
-    'Tu historia clínica fue actualizada.',
-    DateTime.utc(2026, 10, 24, 17, 15),
-  ),
-  _n(
-    10,
-    'CANCELACION',
-    3,
-    'Tu consulta del 23/09/2026 fue cancelada por la institución. Motivo: el médico no puede atender.',
-    DateTime.utc(2026, 10, 25, 11, 20),
-  ),
-  _n(
-    11,
-    'AGENDA',
-    2,
-    'Tu consulta de Medicina General con Carla Méndez quedó agendada para el 20/11/2026 a las 10:00.',
-    DateTime.utc(2026, 10, 26, 14),
-  ),
-  _n(
-    12,
-    'RECORDATORIO',
-    1,
-    'Mañana tenés consulta de Dermatología a las 09:30.',
-    DateTime.utc(2026, 11, 4, 12),
-  ),
-  _n(
-    13,
-    'SUSPENSION',
-    1,
-    'Tu consulta del 05/11/2026 fue cancelada por la institución. Horario: 09:30 a 10:00 (número 2). Se reprograma la semana próxima.',
-    DateTime.utc(2026, 11, 4, 12),
-  ),
-  _n(
-    14,
-    'AGENDA',
-    3,
-    'Tu consulta de Cardiología con Esteban Silva quedó agendada para el 02/12/2026 a las 11:00.',
-    DateTime.utc(2026, 11, 5, 16),
-  ),
-  _n(
-    15,
-    'CANCELACION',
-    1,
-    'Tu consulta del 05/11/2026 fue cancelada a tu solicitud.',
-    DateTime.utc(2026, 11, 5, 18, 5),
-  ),
-  _n(
-    16,
-    'HISTORIA_ACTUALIZADA',
-    2,
-    'Tu historia clínica fue actualizada.',
-    DateTime.utc(2026, 11, 6, 13, 40),
-  ),
-  _n(
-    17,
-    'AGENDA',
-    1,
-    'Tu consulta de Pediatría con Florencia Acosta quedó agendada para el 10/12/2026 a las 15:30.',
-    DateTime.utc(2026, 11, 7, 12, 30),
-  ),
-  _n(
-    18,
-    'RECORDATORIO',
-    3,
-    'Mañana tenés consulta de Cardiología a las 11:00.',
-    DateTime.utc(2026, 11, 8, 12),
-  ),
-  _n(
-    19,
-    'SUSPENSION',
-    2,
-    'Tu consulta del 20/11/2026 fue cancelada por la institución. Horario: 10:00 a 10:30 (número 4).',
-    DateTime.utc(2026, 11, 9, 14, 15),
-  ),
-  _n(
-    20,
-    'CANCELACION',
-    2,
-    'Tu consulta del 20/11/2026 fue cancelada por la institución. Motivo: licencia del médico.',
-    DateTime.utc(2026, 11, 10, 15),
-  ),
-  _n(
-    21,
-    'HISTORIA_ACTUALIZADA',
-    3,
-    'Tu historia clínica fue actualizada.',
-    DateTime.utc(2026, 11, 11, 19),
-  ),
-  _n(
-    22,
-    'AGENDA',
-    2,
-    'Tu consulta de Traumatología con Carla Méndez quedó agendada para el 15/12/2026 a las 09:00.',
-    DateTime.utc(2026, 11, 12, 13),
-  ),
-  _n(
-    23,
-    'RECORDATORIO',
-    2,
-    'Mañana tenés consulta de Traumatología a las 09:00.',
-    DateTime.utc(2026, 11, 13, 12),
-  ),
-  _n(
-    24,
-    'CANCELACION',
-    3,
-    'Tu consulta del 02/12/2026 fue cancelada a tu solicitud.',
-    DateTime.utc(2026, 11, 13, 20, 50),
-  ),
-  _n(
-    25,
-    'SUSPENSION',
-    1,
-    'Tu consulta del 10/12/2026 fue cancelada por la institución. Horario: 15:30 a 16:00 (número 5).',
-    DateTime.utc(2026, 11, 14, 11),
-  ),
-  _n(
-    26,
-    'HISTORIA_ACTUALIZADA',
-    1,
-    'Tu historia clínica fue actualizada.',
-    DateTime.utc(2026, 11, 14, 11),
-  ),
-];
+/// La socia de los datos de prueba (`TestData.people`).
+const String kFakeMemberCi = '12345672';
+
+/// Otro socio, para probar que el servidor solo lista los avisos propios.
+const String kFakeOtherMemberCi = '90000046';
+
+/// Un aviso guardado en el Fake: a quién le pertenece ([ownerCi]) y, si es un
+/// recordatorio diferido, cuándo le toca aparecer ([scheduledFor]). Como el
+/// servidor, solo se lista a su dueño y recién desde [scheduledFor].
+class FakeStoredNotification {
+  const FakeStoredNotification(
+    this.notification, {
+    this.ownerCi = kFakeMemberCi,
+    this.scheduledFor,
+  });
+
+  final AppNotification notification;
+  final String ownerCi;
+  final DateTime? scheduledFor;
+}
 
 const Map<String, String> _titles = {
   'AGENDA': 'Consulta agendada',
@@ -198,17 +31,103 @@ const Map<String, String> _titles = {
   'RECORDATORIO': 'Recordatorio de consulta',
 };
 
-AppNotification _n(
-  int id,
-  String type,
-  int consultaId,
-  String content,
-  DateTime createdAt,
-) => AppNotification(
-  id: id,
-  type: type,
-  title: _titles[type]!,
-  consultaId: consultaId,
-  content: content,
-  createdAt: createdAt,
-);
+const List<String> _typeCycle = [
+  'AGENDA',
+  'RECORDATORIO',
+  'HISTORIA_ACTUALIZADA',
+  'CANCELACION',
+  'SUSPENSION',
+];
+
+/// Cuánto hace que se creó cada uno de los 26 avisos visibles de la socia de
+/// prueba, del 1 al 26 (el 1 es el más viejo). Los ids 12 y 13, y los 25 y 26,
+/// comparten instante a propósito para probar el desempate por id. El más
+/// nuevo es de hace 5 horas y el más viejo de hace 100 días.
+const List<Duration> _ago = [
+  Duration(days: 100),
+  Duration(days: 95),
+  Duration(days: 92),
+  Duration(days: 88),
+  Duration(days: 80),
+  Duration(days: 75),
+  Duration(days: 70),
+  Duration(days: 66),
+  Duration(days: 60),
+  Duration(days: 55),
+  Duration(days: 50),
+  Duration(days: 45),
+  Duration(days: 45),
+  Duration(days: 40),
+  Duration(days: 36),
+  Duration(days: 30),
+  Duration(days: 26),
+  Duration(days: 21),
+  Duration(days: 17),
+  Duration(days: 12),
+  Duration(days: 9),
+  Duration(days: 6),
+  Duration(days: 3),
+  Duration(days: 1),
+  Duration(hours: 5),
+  Duration(hours: 5),
+];
+
+String _content(String type, DateTime createdAt) {
+  final date = formatUiDate(
+    UruguayTime.toUruguay(createdAt.add(const Duration(days: 14))),
+  );
+  return switch (type) {
+    'AGENDA' =>
+      'Tu consulta de Medicina General con Carla Méndez quedó agendada para '
+          'el $date a las 14:00.',
+    'RECORDATORIO' => 'Mañana tenés consulta de Medicina General a las 14:00.',
+    'HISTORIA_ACTUALIZADA' => 'Tu historia clínica fue actualizada.',
+    'CANCELACION' => 'Tu consulta del $date fue cancelada a tu solicitud.',
+    _ =>
+      'Tu consulta del $date fue cancelada por la institución. Horario: '
+          '14:00 a 14:30 (número 3). Motivo: el médico no atiende ese día.',
+  };
+}
+
+AppNotification _n(int id, String type, int consultaId, DateTime createdAt) =>
+    AppNotification(
+      id: id,
+      type: type,
+      title: _titles[type]!,
+      consultaId: consultaId,
+      content: _content(type, createdAt),
+      createdAt: createdAt,
+    );
+
+/// Los avisos con que arranca el Fake, relativos a [now] para que la lista
+/// siempre tenga fechas verosímiles.
+///
+/// La socia de prueba tiene 26 avisos visibles (varias páginas de 10 y de 20),
+/// colgados de las tres consultas de `seedMemberAppointments` (ids 1, 2 y 3).
+/// Además hay avisos que el servidor no le mostraría, para ejercitar sus
+/// reglas: dos recordatorios que le tocan aparecer en el futuro y tres avisos
+/// de otro socio.
+List<FakeStoredNotification> fakeNotificationSeed(DateTime now) => [
+  for (var id = 1; id <= _ago.length; id++)
+    FakeStoredNotification(
+      _n(
+        id,
+        _typeCycle[(id - 1) % _typeCycle.length],
+        (id % 3) + 1,
+        now.subtract(_ago[id - 1]),
+      ),
+    ),
+  FakeStoredNotification(
+    _n(101, 'RECORDATORIO', 1, now.subtract(const Duration(hours: 2))),
+    scheduledFor: now.add(const Duration(days: 1)),
+  ),
+  FakeStoredNotification(
+    _n(102, 'RECORDATORIO', 2, now.subtract(const Duration(hours: 1))),
+    scheduledFor: now.add(const Duration(days: 3)),
+  ),
+  for (var id = 201; id <= 203; id++)
+    FakeStoredNotification(
+      _n(id, 'AGENDA', 1, now.subtract(const Duration(hours: 3))),
+      ownerCi: kFakeOtherMemberCi,
+    ),
+];
