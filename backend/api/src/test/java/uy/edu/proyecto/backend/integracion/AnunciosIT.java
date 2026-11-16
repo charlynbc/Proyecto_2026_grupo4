@@ -29,10 +29,10 @@ class AnunciosIT extends BaseIntegracionIT {
     private static final byte[] PNG = Base64.getDecoder().decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l5sAAAAASUVORK5CYII=");
     private static final String DATOS_TEXTO = """
-            {"titulo":"Campaña de vacunación","texto":"**Comienza** el lunes"}
+            {"titulo":"Campaña de vacunación","texto":"**Comienza** el lunes","vigenteHasta":"2099-01-01T00:00:00Z"}
             """;
     private static final String DATOS_SIN_TEXTO = """
-            {"titulo":"Campaña de vacunación"}
+            {"titulo":"Campaña de vacunación","vigenteHasta":"2099-01-01T00:00:00Z"}
             """;
 
     @MockitoBean
