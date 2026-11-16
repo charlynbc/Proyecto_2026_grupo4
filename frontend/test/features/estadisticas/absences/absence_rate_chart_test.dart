@@ -18,15 +18,16 @@ AbsenceGroup _group(
   int id = 1,
   int noShow = 0,
   int missed = 0,
+  int notAttended = 0,
   int total = 1,
 }) => AbsenceGroup(
   id: id,
   name: name,
   lastName: lastName,
-  attended: total - noShow - missed,
+  attended: total - noShow - missed - notAttended,
   noShow: noShow,
   missed: missed,
-  notAttended: 0,
+  notAttended: notAttended,
   total: total,
   percentage: percentage.toDouble(),
   percentageText: text,
@@ -206,6 +207,24 @@ void main() {
       expect(find.text('1 inasistencia de 1'), findsOneWidget);
       expect(find.text('4 inasistencias de 10'), findsOneWidget);
       expect(find.text('1 inasistencias de 1'), findsNothing);
+    });
+
+    testWidgets('el total del conteo es el del servidor: incluye las no '
+        'atendidas y las inasistencias no las incluyen', (tester) async {
+      // 5 atendidas + 2 no asistió + 1 no se presentó + 2 no atendidas = 10.
+      await _pump(tester, [
+        _group(
+          'Cardiología',
+          30,
+          '30 %',
+          noShow: 2,
+          missed: 1,
+          notAttended: 2,
+          total: 10,
+        ),
+      ]);
+
+      expect(find.text('3 inasistencias de 10'), findsOneWidget);
     });
 
     testWidgets('el conteo va entre el nombre y la barra', (tester) async {
