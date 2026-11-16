@@ -19,6 +19,11 @@ class AbsenceRateChart extends StatelessWidget {
     required this.grouping,
   });
 
+  /// Cuántas filas entran como máximo. Los grupos llegan de mayor a menor
+  /// porcentaje, así que quedan los 10 mayores.
+  static const int maxRows = 10;
+
+  /// Todos los grupos de la respuesta; se dibujan los primeros [maxRows].
   final List<AbsenceGroup> items;
   final AbsenceGrouping grouping;
 
@@ -70,8 +75,9 @@ class AbsenceRateChart extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final valueStyle = theme.textTheme.bodyMedium;
+    final shown = items.take(maxRows).toList();
     final valueWidth = _valueWidth(
-      items,
+      shown,
       valueStyle,
       MediaQuery.textScalerOf(context),
     );
@@ -89,22 +95,33 @@ class AbsenceRateChart extends StatelessWidget {
           key: const Key('absence-chart-title'),
           style: theme.textTheme.titleMedium,
         ),
+        if (items.length > maxRows)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Los $maxRows mayores de ${items.length}',
+              key: const Key('absence-chart-notice'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
         const SizedBox(height: 12),
         Semantics(
           container: true,
-          label: _summary(items),
+          label: _summary(shown),
           child: ExcludeSemantics(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (var i = 0; i < items.length; i++)
+                for (var i = 0; i < shown.length; i++)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          _fullName(items[i]),
+                          _fullName(shown[i]),
                           style: theme.textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 4),
@@ -113,14 +130,14 @@ class AbsenceRateChart extends StatelessWidget {
                             Expanded(
                               child: _Bar(
                                 index: i,
-                                fraction: items[i].percentage / 100,
+                                fraction: shown[i].percentage / 100,
                               ),
                             ),
                             const SizedBox(width: 8),
                             SizedBox(
                               width: valueWidth,
                               child: Text(
-                                items[i].percentageText,
+                                shown[i].percentageText,
                                 style: valueStyle,
                               ),
                             ),
