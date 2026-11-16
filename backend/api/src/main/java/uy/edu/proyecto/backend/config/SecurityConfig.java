@@ -117,6 +117,9 @@ public class SecurityConfig {
                                                 "ADMINISTRADOR"
                                         )
 
+                                        .requestMatchers("/api/admin/anuncios/**", "/api/admin/anuncios", "/api/admin/carrusel")
+                                        .hasRole("ADMINISTRADOR")
+
                                         .requestMatchers(HttpMethod.POST, "/api/anuncios")
                                         .hasRole("ADMINISTRADOR")
 
