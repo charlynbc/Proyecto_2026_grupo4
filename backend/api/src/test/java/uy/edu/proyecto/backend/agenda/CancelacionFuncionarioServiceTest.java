@@ -20,6 +20,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import uy.edu.proyecto.backend.exception.ApiException;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.agenda.CancelacionFuncionarioRepository.DatosConsulta;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 class CancelacionFuncionarioServiceTest {
     private CancelacionFuncionarioRepository repository;
@@ -37,7 +38,8 @@ class CancelacionFuncionarioServiceTest {
         service = new CancelacionFuncionarioService(repository, consultaRepository,
                 notificaciones, events,
                 Clock.fixed(Instant.parse("2026-10-30T12:00:00Z"),
-                        ZoneId.of("America/Montevideo")));
+                        ZoneId.of("America/Montevideo")),
+                ParametroService.porDefecto());
         when(repository.ciFuncionario(5L)).thenReturn(Optional.of("87654321"));
         when(repository.buscarSocio(12L)).thenReturn(Optional.of(7L));
         when(consultaRepository.bloquearSocioHabilitado(7L)).thenReturn(true);
@@ -64,7 +66,7 @@ class CancelacionFuncionarioServiceTest {
         assertEquals("CANCELADA_SOCIO", respuesta.estado());
         assertEquals(true, respuesta.paseDevuelto());
         verify(repository).cancelar(12L, 5L);
-        verify(events).publishEvent(any(uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicitados.class));
+        verify(events).publishEvent(any(uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolicitados.class));
     }
 
     @Test

@@ -99,9 +99,40 @@ Variables (los valores secretos se cargan en el panel de Railway, nunca en Git):
 | `FIRST_LOGIN_URL` | sí | `https://<dominio-de-railway>/#/primer-ingreso` (sin `?token=`). |
 | `RECOVERY_URL` | sí | `https://<dominio-de-railway>/#/recuperacion` (sin `?token=`). |
 | `CHANGE_EMAIL_URL` | sí | `https://<dominio-de-railway>/#/cambio-correo` (sin `?token=`). |
-| `PASSWORD_MIN_LENGTH` | no | Por defecto 8. |
-| `RECOVERY_TOKEN_VALIDITY_HOURS` | no | Por defecto 24. |
-| `EMAIL_CHANGE_TOKEN_VALIDITY_HOURS` | no | Por defecto 24. |
+
+Procesos programados de avisos. Tiene valor por defecto: solo hace falta cargarla para apagarlos.
+
+| Variable | Obligatoria | Por defecto | Descripción |
+|---|---|---|---|
+| `NOTIFICACIONES_PROCESOS_PROGRAMADOS_HABILITADOS` | no | `true` | Con `false` no corre el poller programado de envíos (ni lo hará el futuro job de recordatorios). El envío que se hace al crear la notificación no cambia. **El servicio `backend-dev` debe tener `false`**: `backend` y `backend-dev` comparten la base de pruebas, y el poller de dev marca como `FALLIDO` los envíos que agarra del otro. |
+
+Parámetros de negocio (RNF-26). **Todos tienen valor por defecto** (el definido en la sección 3.1.3
+de Requerimientos): solo hace falta cargarlos en Railway para usar un valor distinto. Los lee un único
+componente al arrancar; un valor inválido (no entero, cero o negativo, un mínimo mayor que su máximo, un
+paso que no divide el rango) impide que el servicio arranque y el log nombra la variable. Un cambio se
+aplica al reiniciar el servicio, sin reconstruirlo.
+
+| Variable | Obligatoria | Por defecto | Descripción |
+|---|---|---|---|
+| `PARAM_AGENDAR_ANTICIPACION_MAXIMA_DIAS` | no | 30 | Anticipación máxima para agendar, en días. |
+| `PARAM_AGENDAR_ANTICIPACION_MINIMA_HORAS` | no | 2 | Anticipación mínima para agendar, en horas. |
+| `PARAM_CANCELAR_ANTICIPACION_MINIMA_HORAS` | no | 2 | Anticipación mínima para cancelar, en horas. |
+| `PARAM_CONSULTAS_ACTIVAS_POR_ESPECIALIDAD` | no | 1 | Consultas activas por socio en una especialidad. |
+| `PARAM_CONSULTAS_ACTIVAS_TOTAL` | no | 3 | Consultas activas por socio en total. |
+| `PARAM_NUMERO_DURACION_MINIMA_MINUTOS` | no | 10 | Duración mínima de un número, en minutos. |
+| `PARAM_NUMERO_DURACION_MAXIMA_MINUTOS` | no | 60 | Duración máxima de un número, en minutos. |
+| `PARAM_NUMERO_DURACION_PASO_MINUTOS` | no | 5 | Paso de la duración y de los horarios de un número, en minutos. |
+| `PARAM_PASE_VIGENCIA_INICIAL_DIAS` | no | 90 | Vigencia de un pase si el médico no indica otra, en días. |
+| `PARAM_PASE_VIGENCIA_MINIMA_DIAS` | no | 1 | Vigencia mínima que el médico puede fijar, en días. |
+| `PARAM_PASE_VIGENCIA_MAXIMA_DIAS` | no | 365 | Vigencia máxima que el médico puede fijar, en días. |
+| `PARAM_RECORDATORIO_ANTELACION_HORAS` | no | 24 | Antelación del recordatorio de consulta, en horas. Se lee y valida, pero ningún envío la usa todavía. |
+| `PASSWORD_MIN_LENGTH` | no | 8 | Largo mínimo de la contraseña. |
+| `FIRST_LOGIN_TOKEN_VALIDITY_HOURS` | no | 24 | Vigencia del enlace de primer ingreso, en horas. |
+| `RECOVERY_TOKEN_VALIDITY_HOURS` | no | 24 | Vigencia del enlace de recuperación de contraseña, en horas. |
+| `EMAIL_CHANGE_TOKEN_VALIDITY_HOURS` | no | 24 | Vigencia del enlace de cambio de correo, en horas. |
+
+Las pantallas del frontend que avisan "vale 24 horas" usan texto fijo: si se cambia una de las tres
+vigencias de enlaces hay que cambiar también ese texto (ver `.env.example`).
 
 Detrás del proxy de Railway se activa `server.forward-headers-strategy=framework`
 para respetar HTTPS. Si `MAIL_PROVIDER` queda en `none`, el backend sube pero los

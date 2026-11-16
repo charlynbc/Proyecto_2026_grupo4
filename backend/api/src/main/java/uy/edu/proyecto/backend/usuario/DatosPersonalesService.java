@@ -6,7 +6,6 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.regex.Pattern;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -14,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.auth.TokenHash;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.usuario.DatosPersonalesRepository.ContactoCuenta;
 
 /**
@@ -37,21 +37,17 @@ public class DatosPersonalesService {
 
     private final DatosPersonalesRepository repository;
     private final ApplicationEventPublisher eventPublisher;
-    private final int tokenValidityHours;
+    private final ParametroService parametros;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public DatosPersonalesService(
             DatosPersonalesRepository repository,
             ApplicationEventPublisher eventPublisher,
-            @Value("${app.auth.email-change-token-validity-hours:24}")
-            int tokenValidityHours
+            ParametroService parametros
     ) {
-        if (tokenValidityHours <= 0) {
-            throw new IllegalArgumentException("La validez del enlace debe ser positiva");
-        }
         this.repository = repository;
         this.eventPublisher = eventPublisher;
-        this.tokenValidityHours = tokenValidityHours;
+        this.parametros = parametros;
     }
 
     @Transactional(readOnly = true)
@@ -110,6 +106,7 @@ public class DatosPersonalesService {
             String correoNuevo = request.correo().trim();
             if (!correoNuevo.equalsIgnoreCase(actual.correo())) {
                 repository.invalidarEnlacesCambioCorreo(idCuenta);
+                int tokenValidityHours = parametros.enlaceCambioCorreoHoras();
                 String token = generarToken();
                 repository.crearEnlaceCambioCorreo(
                         idCuenta,

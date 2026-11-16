@@ -86,9 +86,8 @@ public class TurnoMedicoRepository {
             Boolean llegada,
             String orden,
             String sentido,
-            LocalDate fechaActual,
-            LocalDate fechaMaxima,
-            OffsetDateTime inicioMinimo
+            OffsetDateTime inicioMinimo,
+            OffsetDateTime inicioMaximo
     ) {
         String filtroLlegada = "";
         if (llegada != null) {
@@ -99,9 +98,8 @@ public class TurnoMedicoRepository {
                             + " AND aviso.id_aviso_llegada IS NULL";
         }
         List<Object> parametros = List.of(
-                fechaActual,
-                fechaMaxima,
                 inicioMinimo,
+                inicioMaximo,
                 medicoId,
                 turnoId
         );
@@ -124,9 +122,10 @@ public class TurnoMedicoRepository {
                        (
                            t.estado = 'ACTIVO'
                            AND consulta.id_consulta IS NULL
-                           AND t.fecha BETWEEN ? AND ?
                            AND ((t.fecha + n.hora_inicio)
                                 AT TIME ZONE 'America/Montevideo') >= ?
+                           AND ((t.fecha + n.hora_inicio)
+                                AT TIME ZONE 'America/Montevideo') <= ?
                        ) AS disponible
                 FROM public.turno t
                 JOIN public.turno_semanal ts

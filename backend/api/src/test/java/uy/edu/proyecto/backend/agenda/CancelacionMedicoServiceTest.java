@@ -30,10 +30,11 @@ import org.springframework.context.ApplicationEventPublisher;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.DatosConsulta;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.ResumenCancelable;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.TurnoFecha;
-import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicitados;
+import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolicitados;
 
 class CancelacionMedicoServiceTest {
 
@@ -55,7 +56,8 @@ class CancelacionMedicoServiceTest {
         turnoFechas = mock(TurnoFechasRepository.class);
         events = mock(ApplicationEventPublisher.class);
         service = new CancelacionMedicoService(
-                repository, consultaRepository, turnoFechas, events, RELOJ);
+                repository, consultaRepository, turnoFechas, events, RELOJ,
+                ParametroService.porDefecto());
         when(repository.ciMedico(5L)).thenReturn(Optional.of("10000044"));
     }
 
@@ -87,9 +89,10 @@ class CancelacionMedicoServiceTest {
         assertEquals("CANCELADA_INSTITUCION", respuesta.estado());
         assertTrue(respuesta.paseDevuelto());
         verify(repository).cancelarConsulta(12L, 5L, "Imprevisto");
-        verify(repository).crearNotificacionCancelacion(eq(12L),
-                org.mockito.ArgumentMatchers.contains("Imprevisto"));
-        verify(events).publishEvent(any(EnviosSuspensionSolicitados.class));
+        verify(repository).crearNotificacionCancelacion(12L,
+                "Tu consulta del 30/10/2026 fue cancelada por la institución. "
+                        + "Motivo: Imprevisto");
+        verify(events).publishEvent(any(EnviosNotificacionSolicitados.class));
     }
 
     @Test
@@ -228,9 +231,13 @@ class CancelacionMedicoServiceTest {
         assertEquals(2, respuesta.consultasCanceladas());
         assertEquals(1, respuesta.pasesDevueltos());
         verify(turnoFechas).actualizarEstadoTurno(30L, "SUSPENDIDO");
-        verify(turnoFechas).crearNotificacionSuspension(eq(1L),
-                org.mockito.ArgumentMatchers.contains("Imprevisto"));
-        verify(events).publishEvent(any(EnviosSuspensionSolicitados.class));
+        verify(turnoFechas).crearNotificacionSuspension(1L,
+                "Tu consulta del 30/10/2026 fue cancelada por la institución. "
+                        + "Horario: 12:00 a 12:20 (número 1). Motivo: Imprevisto");
+        verify(turnoFechas).crearNotificacionSuspension(2L,
+                "Tu consulta del 30/10/2026 fue cancelada por la institución. "
+                        + "Horario: 12:20 a 12:40 (número 2). Motivo: Imprevisto");
+        verify(events).publishEvent(any(EnviosNotificacionSolicitados.class));
     }
 
     @Test

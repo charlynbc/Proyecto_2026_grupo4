@@ -7,7 +7,6 @@ import java.time.ZoneOffset;
 import java.util.Base64;
 import java.util.Set;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.auth.RecuperacionRepository.CuentaRecuperacion;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.usuario.CiUruguaya;
 
 /**
@@ -52,8 +52,7 @@ public class RecuperacionService {
     private final SesionRepository sesionRepository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
-    private final int minimumPasswordLength;
-    private final int tokenValidityHours;
+    private final ParametroService parametros;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public RecuperacionService(
@@ -61,19 +60,13 @@ public class RecuperacionService {
             SesionRepository sesionRepository,
             PasswordEncoder passwordEncoder,
             ApplicationEventPublisher eventPublisher,
-            @Value("${app.auth.password-min-length:8}") int minimumPasswordLength,
-            @Value("${app.auth.recovery-token-validity-hours:24}")
-            int tokenValidityHours
+            ParametroService parametros
     ) {
-        if (tokenValidityHours <= 0) {
-            throw new IllegalArgumentException("La validez del enlace debe ser positiva");
-        }
         this.repository = repository;
         this.sesionRepository = sesionRepository;
         this.passwordEncoder = passwordEncoder;
         this.eventPublisher = eventPublisher;
-        this.minimumPasswordLength = minimumPasswordLength;
-        this.tokenValidityHours = tokenValidityHours;
+        this.parametros = parametros;
     }
 
     @Transactional
@@ -138,6 +131,7 @@ public class RecuperacionService {
         }
 
         repository.invalidarEnlacesPendientes(cuenta.id());
+        int tokenValidityHours = parametros.enlaceRecuperacionHoras();
         String token = generarToken();
         repository.crearEnlace(
                 cuenta.id(),
@@ -170,6 +164,7 @@ public class RecuperacionService {
                 || estaVacio(request.password())) {
             throw validacion("Falta un campo obligatorio");
         }
+        int minimumPasswordLength = parametros.contrasenaLongitudMinima();
         if (request.password().length() < minimumPasswordLength
                 || request.password().getBytes(StandardCharsets.UTF_8).length
                     > MAX_BCRYPT_PASSWORD_BYTES) {

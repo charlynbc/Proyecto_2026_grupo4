@@ -117,6 +117,9 @@ public class SecurityConfig {
                                                 "ADMINISTRADOR"
                                         )
 
+                                        .requestMatchers("/api/admin/anuncios/**", "/api/admin/anuncios", "/api/admin/carrusel")
+                                        .hasRole("ADMINISTRADOR")
+
                                         .requestMatchers(HttpMethod.POST, "/api/anuncios")
                                         .hasRole("ADMINISTRADOR")
 
@@ -334,6 +337,15 @@ public class SecurityConfig {
                                         .requestMatchers(
                                                 HttpMethod.GET,
                                                 "/api/socios/me/pases/disponibles"
+                                        )
+                                        .hasRole(
+                                                "SOCIO"
+                                        )
+
+                                        .requestMatchers(
+                                                HttpMethod.POST,
+                                                "/api/dispositivos",
+                                                "/api/dispositivos/baja"
                                         )
                                         .hasRole(
                                                 "SOCIO"

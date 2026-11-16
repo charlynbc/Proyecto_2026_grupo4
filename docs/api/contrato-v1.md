@@ -198,6 +198,7 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 43 | `GET /api/medico/pases` | consulta de los pases emitidos por el médico (sin operación propia en 2.1 a 2.7) | `PaseEmitidoDTO` | - | 26 |
 | 63 | `POST /api/auth/primer-ingreso/validar` | validación anticipada sin consumo (extensión de RF-02) | `ValidarEnlaceRequest` | S02 | 02 |
 | 64 | `POST /api/auth/recuperacion/validar` | validación anticipada sin consumo (extensión de RF-05) | `ValidarEnlaceRequest` | - | 05 |
+| 73 | `POST /api/dispositivos/baja` | baja del destino push antes de cerrar sesión (sin operación en 2.1 a 2.7) | - | - | RNF-23 |
 
 La numeración `#1` a `#36` es la de `docs/api/endpoints-usados.md`; los números posteriores al #36 se reflejan en ambos documentos (el #37 es pases disponibles; el #44 es cancelación por funcionario).
 
@@ -1645,27 +1646,67 @@ El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni
 #### #33 · `POST /api/dispositivos`
 
 - **Roles:** SOCIO.
-- **RF:** RNF-23 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA.
+- **RF:** RNF-23 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA (pasa a CONFIRMADA cuando se integre el backend; implementada en la rama `feat/dispositivos-push`. Reemplaza a `POST /api/notificaciones/registro`, el registro de prueba en memoria, que se elimina en la etapa de frontend).
 
-Registra el token de Firebase del dispositivo del socio autenticado.
+Registra el token de Firebase del dispositivo Android del socio autenticado. El socio dueño sale del JWT; el cuerpo no lleva identificador de socio. El backend no distingue la plataforma: el registro es solo para Android (RNF-23) y el cliente web no llama a este endpoint. El cliente lo llama al iniciar sesión un socio en Android, cuando ya otorgó el permiso de notificaciones.
 
 **Cuerpo**
 
 | Campo | Tipo | Obligatorio | Notas |
 |---|---|---|---|
-| `token` | texto | sí | Token del servicio push. |
+| `token` | texto | sí | Token del servicio push. Se recorta quitando los espacios del principio y del final; después de recortado no puede quedar vacío ni tener más de 4096 caracteres; si no cumple, `400 VALIDACION`. |
 
 ```json
 { "token": "fcm-token-de-ejemplo" }
 ```
 
-**Respuesta 201** si lo registra, **200** si ese token ya estaba registrado para este socio (idempotente).
+**Respuesta 201** si crea el registro del dispositivo. **Respuesta 200** si el registro ya existía, en cualquiera de estos tres casos (la respuesta es la misma):
+
+- El token ya estaba registrado para este socio (idempotente).
+- El token estaba registrado a **otro socio**: se **reasigna** al socio autenticado y queda habilitado. Es el caso de un dispositivo compartido en el que inicia sesión otro socio (`token` es único en el modelo de datos).
+- El registro de este socio estaba deshabilitado (por una baja, #73): se vuelve a habilitar.
 
 ```json
 { "id": 61, "habilitado": true, "registradoEn": "2026-10-14T10:20:00-03:00" }
 ```
 
-Preguntas relacionadas: P-14.
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | `token` ausente, o vacío o de más de 4096 caracteres después de recortado. El `message` dice cuál. |
+
+`401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican como a todo endpoint protegido y no se repiten. Preguntas relacionadas: P-14.
+
+<a id="e73"></a>
+#### #73 · `POST /api/dispositivos/baja`
+
+- **Roles:** SOCIO.
+- **RF:** RNF-23 (push en Android). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA (pasa a CONFIRMADA cuando se integre el backend).
+
+Da de baja el token push del dispositivo Android del socio autenticado: pone `habilitado` en `false`, de modo que deja de recibir avisos. **Nunca borra el registro**, porque `envio_notificacion` lo referencia con `ON DELETE RESTRICT`. Se vuelve a habilitar registrándolo otra vez con #33.
+
+El cliente lo llama **antes** de cerrar sesión (#3), porque `POST /api/auth/logout` no conoce el dispositivo. Usa POST con cuerpo y no DELETE con el token en la URL para que el token no quede en los registros del servidor.
+
+**Cuerpo**
+
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `token` | texto | sí | El mismo token que se registró con #33. Se recorta quitando los espacios del principio y del final; después de recortado no puede quedar vacío ni tener más de 4096 caracteres; si no cumple, `400 VALIDACION`. |
+
+```json
+{ "token": "fcm-token-de-ejemplo" }
+```
+
+**Respuesta 204**, sin cuerpo. La baja se aplica solo si el token pertenece al socio autenticado. Si el token no existe o es de otro socio, responde igual `204` y no cambia nada (idempotente, sin revelar si el token existe).
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | `token` ausente, o vacío o de más de 4096 caracteres después de recortado. El `message` dice cuál. |
+
+`401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican como a todo endpoint protegido y no se repiten. Preguntas relacionadas: P-14.
 
 ### 3.9 Estadísticas (administrador)
 
@@ -2597,6 +2638,12 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 
 ### 3.17 Cartelera de novedades (RF-28 y RF-07)
 
+**Cambio en implementación:** el contrato de vigencia, eliminación y selección
+manual del carrusel, incluidos los efectos sobre clientes anteriores, se describe
+en [Gestión de cartelera](cartelera-administracion.md). La publicación de esta
+versión exige `vigenteHasta`; el ejemplo histórico de #65 debe actualizarse junto
+con el cliente Flutter antes de utilizarla.
+
 Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
 
 <a id="e65"></a>
@@ -2738,8 +2785,9 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
 | 69 | `GET /api/estadisticas/inasistencias` | | | | | ✔ |
 | 70 | `GET /api/estadisticas/pases` | | | | | ✔ |
 | 71 | `GET /api/estadisticas/franjas` | | | | | ✔ |
+| 73 | `POST /api/dispositivos/baja` | | ✔ | | | |
 
-Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
+Además del rol, el servidor aplica la **propiedad del recurso**: el socio solo ve lo propio (#17 a #22, #32, #33, #73) y el médico solo lo propio (#29 a #31, #38 a #43). Y el **conflicto de interés** de 3.1.5 (#26, #27, #31, #38, #39, #40). En #45, #46 y #47 la cuenta operada es siempre la del token.
 
 ## 5. Error uniforme y catálogo de códigos
 
@@ -2930,7 +2978,7 @@ Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis
 #### 6.2.1 Iniciar sesión y primer ingreso (imagen 2) · RF-01, RF-02
 
 - **Se ve:** igual que la web de empleados pero con "Acceso para socios", enlace "Es mi primera vez" y, abajo, "¿Es funcionario, médico o administrador? Ingresar por el acceso de empleados (solo web)". Mensaje de error de ejemplo: "Los datos ingresados no son correctos. Revise su cédula y contraseña." con la aclaración "No indica cuál de los dos falló."
-- **Endpoints:** "Ingresar" → #1 con `acceso: "SOCIO"`; error `401 CREDENCIALES_INVALIDAS` (el texto del mockup es el que debería mostrar, P-33). "Es mi primera vez" → #4 y #5. Tras ingresar, #33 si el socio dio permiso de notificaciones.
+- **Endpoints:** "Ingresar" → #1 con `acceso: "SOCIO"`; error `401 CREDENCIALES_INVALIDAS` (el texto del mockup es el que debería mostrar, P-33). "Es mi primera vez" → #4 y #5. Tras ingresar en Android, #33 si el socio dio permiso de notificaciones. Antes de cerrar sesión, #73 da de baja el token (#3 no conoce el dispositivo).
 - **Sin mockup:** las pantallas de pedir y completar la activación.
 
 #### 6.2.2 Consultar disponibilidad (imagen 16) · RF-08
@@ -2972,12 +3020,12 @@ Las cuatro pantallas con contenido tienen una barra inferior con "Agendar", "Mis
 | 6.1.8 Usuarios del padrón y alta | 31, 35 | #11, #12, #6 |
 | 6.1.9 Especialidades y consultorios | 29, 33 | #7, #9, #6, #8 |
 | 6.1.10 Estadísticas | 39, 40, 41 | #34, #35, #36 |
-| 6.2.1 Iniciar sesión y primer ingreso (móvil) | 01, 02 | #1, #2, #3, #4, #5, #33 |
+| 6.2.1 Iniciar sesión y primer ingreso (móvil) | 01, 02 | #1, #2, #3, #4, #5, #33, #73 |
 | 6.2.2 Consultar disponibilidad | 08 | #16, #6, #10 |
 | 6.2.3 Agendar consulta (confirmar) | 09 | #17 (y #22 para el pase, P-08) |
 | 6.2.4 Mis consultas | 11 | #18, #6, #10 (#19 y #20 sin pantalla dibujada) |
 | 6.2.5 Mi historia clínica | 12 | #21, #22, #6, #10 |
-| Sin pantalla en los mockups | RNF-23 | #32, #33 (el registro del dispositivo se hace al iniciar sesión) |
+| Sin pantalla en los mockups | RNF-23 | #32, #33, #73 (el dispositivo se registra al iniciar sesión un socio en Android y se da de baja antes de cerrar sesión) |
 
 ## 7. Correcciones y contradicciones resueltas
 
@@ -3043,7 +3091,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-11 | Paginación: `HistoriaDTO` (#21) no declara `Page<>`; la disponibilidad (#16) y las consultas de hoy son `List<>` sin tope. ¿Se pagina #16 y #21? ¿Cuál es el máximo de resultados de #16 (30 días × todos los médicos)? | #16, #21, #26 | asume los listados tal como figuran arriba. |
 | P-12 | RF-14 y RF-15 permiten suspender o rehabilitar "todos los turnos del rango". ¿`ids` vacío significa todos, o el cliente debe enviar todos los ids (y entonces tener todas las páginas de #15)? | #23, #24, #25 | exige `ids` con al menos un valor y solo opera sobre lo que el funcionario ve y selecciona. |
 | P-13 | Estadísticas: ¿"cada turno" de RF-40 es el patrón semanal o la fecha concreta? ¿El porcentaje es 0 a 100 o 0 a 1? ¿La unidad de "Sin datos" es `null`? | #34, #35, #36 | usa 0 a 100 y `null` como "Sin datos". |
-| P-14 | Notificaciones: ¿hay estado leído/no leído y cómo se marca (RF y modelo de datos no lo definen)? ¿Se listan los recordatorios aún no vencidos (`programada_para` futuro)? ¿Cuánto tiempo se conservan? ¿Se da de baja el token push al cerrar sesión o cuando otro socio inicia sesión en el mismo dispositivo (`token` es único)? RNF-23 habla de push en Android; ¿vale también el push web? | #32, #33 | lista todo sin estado de lectura; no da de baja el token. |
+| P-14 | Notificaciones: ¿hay estado leído/no leído y cómo se marca (RF y modelo de datos no lo definen)? ¿Se listan los recordatorios aún no vencidos (`programada_para` futuro)? ¿Cuánto tiempo se conservan? ¿Se da de baja el token push al cerrar sesión o cuando otro socio inicia sesión en el mismo dispositivo (`token` es único)? RNF-23 habla de push en Android; ¿vale también el push web? **Parcialmente resuelta:** el token se da de baja al cerrar sesión (el cliente llama a #73 antes de #3, que no conoce el dispositivo); si otro socio inicia sesión en el mismo dispositivo, #33 reasigna el token al socio nuevo; el push web no existe (RNF-23 lo limita a Android, decidido). Siguen abiertos el estado leído/no leído, los recordatorios futuros y cuánto tiempo se conservan. | #32, #33, #73 | lista todo sin estado de lectura; en Android registra el token con #33 al iniciar sesión y lo da de baja con #73 antes de cerrar sesión. |
 | P-15 | RF-16 pide mostrar las consultas del día para confirmar al socio. ¿Se debe mostrar también su nombre y apellido para verificar que es la persona correcta? `List<ConsultaDTO>` no los trae. | #26 | muestra solo las consultas. |
 
 | P-17 | Formato de la CI en el cable: solo dígitos (propuesta) o con puntos y guion. ¿Quién normaliza? Los mockups piden "Sin puntos ni guiones" en los campos de CI, pero no definen el formato en el cable. | #1, #4, #11, #26, #27, #28 | envía solo dígitos. |
@@ -3060,7 +3108,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-29 | Confirmar consulta (6.2.3): "En total: 1 de 3. En Cardiología: 0 de 1." necesita el conteo de consultas activas y los **límites** (3 y 1), que son parámetros del servidor (3.1.3) y no viajan en ningún endpoint. "Se usará el pase a Cardiología, vigente hasta 12/12/2026" necesita el pase y su vencimiento antes de confirmar (ver P-07 y P-08). | #17, #18, #22 | cuenta las consultas `AGENDADA` de #18 cuyo día no terminó, no muestra los límites y no muestra el recuadro de pase si no conoce uno. |
 | P-30 | Mis consultas (6.2.4) tiene: búsqueda libre "especialidad o médico"; el chip "Canceladas", que agrupa `CANCELADA_SOCIO` y `CANCELADA_INSTITUCION`; chips para `AGENDADA`, `ATENDIDA` y `NO_ASISTIO` pero ninguno para `NO_ATENDIDA` ni `NO_SE_PRESENTO`; y tarjetas canceladas sin consultorio ni número. #18 solo admite un estado exacto, ids de especialidad y médico y devuelve siempre consultorio y número. ¿Se agrega búsqueda por texto y un filtro de varios estados? ¿La tarjeta cancelada oculta consultorio y número a propósito? Tampoco se dibuja cómo se cancela una consulta (RF-10). | #18, #20 | pide cada estado por separado y junta las dos canceladas en el cliente; filtra por texto en el cliente sobre la página recibida; ofrece cancelar solo desde la tarjeta de una `AGENDADA`. |
 | P-31 | Historia clínica (6.2.5): la tarjeta se despliega en la lista con afección, tratamiento, observaciones y pases. #21 no trae el contenido clínico, así que desplegar una tarjeta es un pedido a #22 y la lista de N atenciones puede hacer N pedidos. ¿La lista debe traer el contenido? ¿Qué se muestra si `tratamiento` u `observaciones` vienen vacíos? | #21, #22 | pide #22 al desplegar cada tarjeta, una vez, y oculta la sección vacía. |
-| P-32 | Cosas del contrato que ninguna pantalla dibuja: #14 (configuración semanal, sin acceso desde 6.1.4); #19 (detalle de consulta, las tarjetas de 6.2.4 ya traen todo); #20 (sin botón de cancelar); #32 y #33 (sin pantalla de notificaciones ni de permiso de push); paginación de #12, #15, #18, #21 y #28 (ningún mockup tiene paginador); `orden` y `sentido` de #12 y #28; `cantidadPases` de #21; `cantidadReservados` de #29. Y a la inversa, hay un círculo sin rótulo arriba a la derecha de las pantallas móviles: ¿es perfil, notificaciones, otro? | #12, #14, #15, #18 a #21, #28, #29, #32, #33 | usa los parámetros por defecto, sin controles de paginación ni de orden, hasta que se definan las pantallas. |
+| P-32 | Cosas del contrato que ninguna pantalla dibuja: #14 (configuración semanal, sin acceso desde 6.1.4); #19 (detalle de consulta, las tarjetas de 6.2.4 ya traen todo); #20 (sin botón de cancelar); #32, #33 y #73 (sin pantalla de notificaciones ni de permiso de push); paginación de #12, #15, #18, #21 y #28 (ningún mockup tiene paginador); `orden` y `sentido` de #12 y #28; `cantidadPases` de #21; `cantidadReservados` de #29. Y a la inversa, hay un círculo sin rótulo arriba a la derecha de las pantallas móviles: ¿es perfil, notificaciones, otro? | #12, #14, #15, #18 a #21, #28, #29, #32, #33, #73 | usa los parámetros por defecto, sin controles de paginación ni de orden, hasta que se definan las pantallas. |
 | P-33 | Los textos de los mockups están en **usted** ("Revise su cédula y contraseña", "Elija otro número disponible") y los mensajes de este contrato están en **vos** ("Elegí otro", "Pedí uno nuevo", "No podés registrar"). Los mockups dan además textos exactos: login ("Los datos ingresados no son correctos. Revise su cédula y contraseña."), aviso ("El socio no tiene consultas agendadas para hoy.", "No puede registrar su propio aviso de llegada.") y agenda ("Otro socio agendó este número antes. Elija otro número disponible."). ¿Qué registro y qué textos devuelve el servidor en `message`? | todos los `message` | muestra el `message` tal como llega. |
 | P-34 | El enlace del correo de primer ingreso (#4, CU 3.1.2 paso 7). El cliente lo espera en `/primer-ingreso?token=<token>` y, al abrirse, no sabe si es de un socio o de un empleado: el token no dice el acceso. Hoy el cliente web usa la estrategia de URL con `#` de go_router (pendiente conocido), así que la dirección real sería `https://<host>/#/primer-ingreso?token=<token>` hasta que se cambie a URLs sin `#`. ¿Qué dirección arma el backend en el correo? | #4, #5 | acepta `/primer-ingreso?token=`; si el enlace falla ofrece pedir otro eligiendo el acceso. |
 | P-35 | Sesión caída: `401 NO_AUTENTICADO` o `401 SESION_INVALIDA` valen igual para sesión vencida, revocada o cuenta inactivada. Al cliente le conviene decirle algo distinto a una persona cuya cuenta fue inactivada (que pida ayuda a la institución). ¿Se agrega un código aparte para la cuenta inactivada? Complementa P-05. | #2 y todo endpoint protegido | muestra un solo aviso que cubre las tres causas y sugiere comunicarse con la institución si no puede ingresar. |

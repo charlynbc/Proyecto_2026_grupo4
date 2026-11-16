@@ -18,16 +18,17 @@ import org.springframework.transaction.annotation.Transactional;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.DatosConsulta;
 import uy.edu.proyecto.backend.agenda.CancelacionMedicoRepository.ResumenCancelable;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.ConsultaParaCancelar;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.TurnoFecha;
-import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicitados;
+import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolicitados;
 
 // RF-27: cancelación de una consulta propia o de todo un turno de una fecha por el médico.
 @Service
 public class CancelacionMedicoService {
 
-    private static final long HORAS_MINIMAS = 2;
     private static final int MOTIVO_MAX_LENGTH = 1000;
 
     private final CancelacionMedicoRepository repository;
@@ -35,15 +36,17 @@ public class CancelacionMedicoService {
     private final TurnoFechasRepository turnoFechas;
     private final ApplicationEventPublisher events;
     private final Clock clock;
+    private final ParametroService parametros;
 
     public CancelacionMedicoService(CancelacionMedicoRepository repository,
             ConsultaRepository consultaRepository, TurnoFechasRepository turnoFechas,
-            ApplicationEventPublisher events, Clock clock) {
+            ApplicationEventPublisher events, Clock clock, ParametroService parametros) {
         this.repository = repository;
         this.consultaRepository = consultaRepository;
         this.turnoFechas = turnoFechas;
         this.events = events;
         this.clock = clock;
+        this.parametros = parametros;
     }
 
     @Transactional
@@ -78,13 +81,13 @@ public class CancelacionMedicoService {
                 .cancelarConsulta(consultaId, medicoId, motivoValido)
                 .orElseThrow(() -> conflicto("CONSULTA_NO_AGENDADA",
                         "La consulta ya no está agendada"));
-        String contenido = "Tu consulta del " + consulta.fecha()
-                + " fue cancelada por la institución. Motivo: " + motivoValido;
+        String contenido = NotificacionTextos.cuerpoCancelacionPorMedico(
+                consulta.fecha(), motivoValido);
         Long notificacionId = repository.crearNotificacionCancelacion(consultaId, contenido);
         List<Long> envios = turnoFechas.registrarEnviosNotificacion(
                 notificacionId, consulta.socioId(), consulta.correo());
         if (!envios.isEmpty()) {
-            events.publishEvent(new EnviosSuspensionSolicitados(List.copyOf(envios)));
+            events.publishEvent(new EnviosNotificacionSolicitados(List.copyOf(envios)));
         }
         boolean paseDevuelto = consulta.venceElPase() != null
                 && !consulta.venceElPase().isBefore(ahora.toLocalDate());
@@ -149,10 +152,9 @@ public class CancelacionMedicoService {
                 throw new IllegalStateException(
                         "La consulta dejó de estar AGENDADA mientras se cancelaba");
             }
-            String contenido = "Tu consulta del " + consulta.fecha()
-                    + " fue cancelada por la institución. Horario: "
-                    + consulta.horaInicio() + " a " + consulta.horaFin()
-                    + " (número " + consulta.numero() + "). Motivo: " + motivoValido;
+            String contenido = NotificacionTextos.cuerpoSuspensionPorMedico(
+                    consulta.fecha(), consulta.horaInicio(), consulta.horaFin(),
+                    consulta.numero(), motivoValido);
             Long notificacionId = turnoFechas.crearNotificacionSuspension(
                     consulta.id(), contenido);
             envios.addAll(turnoFechas.registrarEnviosNotificacion(
@@ -164,16 +166,18 @@ public class CancelacionMedicoService {
             }
         }
         if (!envios.isEmpty()) {
-            events.publishEvent(new EnviosSuspensionSolicitados(List.copyOf(envios)));
+            events.publishEvent(new EnviosNotificacionSolicitados(List.copyOf(envios)));
         }
         return new CancelacionTurnoMedicoDTO(
                 turnoId, turno.fecha(), "SUSPENDIDO", consultas.size(), pasesDevueltos);
     }
 
     private void verificarAnticipacion(ZonedDateTime inicio, ZonedDateTime ahora) {
-        if (inicio.isBefore(ahora.plusHours(HORAS_MINIMAS))) {
+        int horasMinimas = parametros.cancelarAnticipacionMinimaHoras();
+        if (inicio.isBefore(ahora.plusHours(horasMinimas))) {
             throw conflicto("CANCELACION_FUERA_DE_PLAZO",
-                    "Faltan menos de 2 horas para la hora del número");
+                    "Faltan menos de " + ParametroService.horas(horasMinimas)
+                            + " para la hora del número");
         }
     }
 

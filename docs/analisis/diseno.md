@@ -541,7 +541,7 @@ Actor: Administrador \| Requerimiento: RF-41 \| Subsistema: estadistica
 
 ## 4.1. Transacciones y concurrencia
 
-Las operaciones que involucran más de una entidad se agrupan en transacciones de negocio. Los parámetros configurables se obtienen de la tabla parametros_sistema. El servicio delimita el trabajo atómico y los repositorios ejecutan SQL explícito bajo el contexto transaccional de Spring. La validación previa por sí sola no garantiza exclusividad: PostgreSQL debe imponer índices únicos parciales para número y pase cuando la consulta no esté cancelada.
+Las operaciones que involucran más de una entidad se agrupan en transacciones de negocio. Los parámetros configurables se leen a través de ParametroService. El servicio delimita el trabajo atómico y los repositorios ejecutan SQL explícito bajo el contexto transaccional de Spring. La validación previa por sí sola no garantiza exclusividad: PostgreSQL debe imponer índices únicos parciales para número y pase cuando la consulta no esté cancelada.
 
 Política de bloqueo de agenda y suspensión: ambas rutas adquieren en primer lugar los registros Turno concretos en orden ascendente de ID, mediante SELECT ... FOR UPDATE. Para agendar, después se bloquea el socio y, cuando aplique, el pase. Los bloqueos transaccionales se liberan al commit/rollback. Esta convención previene el cruce entre reservar y suspender y reduce interbloqueos. La condición de Turno activo se comprueba dentro de la sección crítica.
 

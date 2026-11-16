@@ -45,7 +45,8 @@ class TurnoSemanalModificacionTest {
             repository,
             consultaRepository,
             Clock.fixed(Instant.from(
-                    HOY.atStartOfDay(ZONA).toInstant()), ZONA)
+                    HOY.atStartOfDay(ZONA).toInstant()), ZONA),
+            uy.edu.proyecto.backend.parametro.ParametroService.porDefecto()
     );
 
     private PatronSemanal patron() {
