@@ -38,11 +38,11 @@ class AnuncioServiceTest {
     @Test
     void exigeTituloYContenidoAntesDeGuardar() {
         var sinContenido = assertThrows(ApiException.class,
-                () -> service.publicar(7, new AnuncioDTO.Datos("Vacunación", "Resumen", " \t "), List.of()));
+                () -> service.publicar(7, new AnuncioDTO.Datos("Vacunación", "Resumen", " \t ", null, OffsetDateTime.parse("2099-01-01T00:00:00Z")), List.of()));
         assertEquals("VALIDACION", sinContenido.getCode());
 
         var sinTitulo = assertThrows(ApiException.class,
-                () -> service.publicar(7, new AnuncioDTO.Datos("  ", null, null), List.of(png())));
+                () -> service.publicar(7, new AnuncioDTO.Datos("  ", null, null, null, OffsetDateTime.parse("2099-01-01T00:00:00Z")), List.of(png())));
         assertEquals("VALIDACION", sinTitulo.getCode());
         verifyNoInteractions(repository, almacen);
     }
@@ -53,7 +53,7 @@ class AnuncioServiceTest {
                 "no es una imagen".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
         var error = assertThrows(ApiException.class, () -> service.publicar(7,
-                new AnuncioDTO.Datos("Vacunación", null, null), List.of(falso)));
+                new AnuncioDTO.Datos("Vacunación", null, null, null, OffsetDateTime.parse("2099-01-01T00:00:00Z")), List.of(falso)));
 
         assertEquals("VALIDACION", error.getCode());
         verifyNoInteractions(repository, almacen);
@@ -63,7 +63,7 @@ class AnuncioServiceTest {
     void publicaConPortadaYDetalleEnOrden() {
         TransactionSynchronizationManager.initSynchronization();
         when(repository.crear(eq(7L), any())).thenReturn(42L);
-        when(repository.buscar(42L)).thenReturn(new AnuncioRepository.Fila(
+        when(repository.buscarCualquiera(42L)).thenReturn(new AnuncioRepository.Fila(
                 42, "Vacunación", null, "Texto", OffsetDateTime.parse("2026-11-03T12:00:00Z")));
         when(repository.imagenes(42L)).thenAnswer(invocacion -> List.of(
                 new AnuncioRepository.ImagenFila(1, 0, "primera.png"),
@@ -72,13 +72,13 @@ class AnuncioServiceTest {
         when(almacen.enlaceTemporal("segunda.png")).thenReturn("https://example.test/segunda");
 
         var detalle = service.publicar(7,
-                new AnuncioDTO.Datos(" Vacunación ", null, "Texto"), List.of(png(), png()));
+                new AnuncioDTO.Datos(" Vacunación ", null, "Texto", null, OffsetDateTime.parse("2099-01-01T00:00:00Z")), List.of(png(), png()));
 
         assertEquals(42, detalle.id());
         assertEquals(2, detalle.imagenes().size());
         assertEquals(0, detalle.imagenes().getFirst().orden());
         assertEquals("https://example.test/primera", detalle.imagenes().getFirst().url());
-        verify(repository).crear(7L, new AnuncioDTO.Datos("Vacunación", null, "Texto"));
+        verify(repository).crear(7L, new AnuncioDTO.Datos("Vacunación", null, "Texto", null, OffsetDateTime.parse("2099-01-01T00:00:00Z")));
         verify(repository).agregarImagen(eq(42L), any(), eq(0));
         verify(repository).agregarImagen(eq(42L), any(), eq(1));
     }
@@ -89,7 +89,7 @@ class AnuncioServiceTest {
         doThrow(new IllegalStateException("storage")).when(almacen).guardar(any(), any(), eq("image/png"));
 
         assertThrows(IllegalStateException.class, () -> service.publicar(7,
-                new AnuncioDTO.Datos("Vacunación", null, null), List.of(png())));
+                new AnuncioDTO.Datos("Vacunación", null, null, null, OffsetDateTime.parse("2099-01-01T00:00:00Z")), List.of(png())));
 
         verifyNoInteractions(repository);
         verify(almacen).borrar(any());
@@ -101,7 +101,7 @@ class AnuncioServiceTest {
         when(repository.crear(eq(7L), any())).thenThrow(new IllegalStateException("db"));
 
         assertThrows(IllegalStateException.class, () -> service.publicar(7,
-                new AnuncioDTO.Datos("Vacunación", null, null), List.of(png())));
+                new AnuncioDTO.Datos("Vacunación", null, null, null, OffsetDateTime.parse("2099-01-01T00:00:00Z")), List.of(png())));
 
         completar(TransactionSynchronization.STATUS_ROLLED_BACK);
         verify(almacen).borrar(any());
