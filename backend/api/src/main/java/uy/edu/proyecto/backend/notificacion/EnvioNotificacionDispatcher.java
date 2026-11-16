@@ -1,9 +1,6 @@
 package uy.edu.proyecto.backend.notificacion;
 
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.FirebaseMessagingException;
-import com.google.firebase.messaging.Message;
-import com.google.firebase.messaging.Notification;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,27 +8,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import uy.edu.proyecto.backend.correo.CorreoException;
 import uy.edu.proyecto.backend.correo.CorreoMensaje;
 import uy.edu.proyecto.backend.correo.CorreoSender;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.EnvioNotificacion;
 
 @Service
-public class EnvioSuspensionDispatcher {
+public class EnvioNotificacionDispatcher {
 
     private static final Logger log =
-            LoggerFactory.getLogger(EnvioSuspensionDispatcher.class);
+            LoggerFactory.getLogger(EnvioNotificacionDispatcher.class);
 
     private final TurnoFechasRepository repository;
     private final CorreoSender correoSender;
+    private final PushSender pushSender;
 
-    public EnvioSuspensionDispatcher(
+    public EnvioNotificacionDispatcher(
             TurnoFechasRepository repository,
-            CorreoSender correoSender
+            CorreoSender correoSender,
+            PushSender pushSender
     ) {
         this.repository = repository;
         this.correoSender = correoSender;
+        this.pushSender = pushSender;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -62,7 +61,7 @@ public class EnvioSuspensionDispatcher {
             if ("CORREO".equals(envio.canal())) {
                 correoSender.enviar(new CorreoMensaje(
                         envio.correo(),
-                        "Turno suspendido",
+                        NotificacionTextos.titulo(envio.tipo()),
                         envio.contenido()
                 ));
             } else if ("PUSH".equals(envio.canal())) {
@@ -72,12 +71,16 @@ public class EnvioSuspensionDispatcher {
                         "Canal de notificación no soportado: " + envio.canal()
                 );
             }
-        } catch (CorreoException | FirebaseMessagingException
-                 | IllegalArgumentException | IllegalStateException exception) {
+        } catch (RuntimeException exception) {
+            // RNF-24: cualquier falla del proveedor queda registrada en el envio
+            // (estado, intentos y ultimo intento) en vez de salir como excepcion;
+            // si no, el envio quedaria PENDIENTE y el poller lo reintentaria para
+            // siempre, frenando a los que vienen detras.
             marcar(envio.envioId(), "FALLIDO");
             log.error(
-                    "No se pudo entregar la notificación de suspensión {} por canal {}; tipo de error: {}",
+                    "No se pudo entregar la notificación {} de tipo {} por canal {}; tipo de error: {}",
                     envio.notificacionId(),
+                    envio.tipo(),
                     envio.canal(),
                     exception.getClass().getSimpleName()
             );
@@ -85,8 +88,9 @@ public class EnvioSuspensionDispatcher {
         }
         marcar(envio.envioId(), "ENVIADO");
         log.info(
-                "El proveedor aceptó la notificación de suspensión {} por canal {}",
+                "El proveedor aceptó la notificación {} de tipo {} por canal {}",
                 envio.notificacionId(),
+                envio.tipo(),
                 envio.canal()
         );
     }
@@ -99,21 +103,19 @@ public class EnvioSuspensionDispatcher {
         }
     }
 
-    private void enviarPush(EnvioNotificacion envio)
-            throws FirebaseMessagingException {
+    private void enviarPush(EnvioNotificacion envio) {
         if (envio.token() == null || envio.token().isBlank()) {
             throw new IllegalStateException("El dispositivo no tiene un token push");
         }
-        Message mensaje = Message.builder()
-                .setToken(envio.token())
-                .setNotification(Notification.builder()
-                        .setTitle("Turno suspendido")
-                        .setBody(envio.contenido())
-                        .build())
-                .putData("tipo", "SUSPENSION")
-                .putData("notificacionId", envio.notificacionId().toString())
-                .build();
-        FirebaseMessaging.getInstance().send(mensaje);
+        pushSender.enviar(
+                envio.token(),
+                NotificacionTextos.titulo(envio.tipo()),
+                envio.contenido(),
+                Map.of(
+                        "tipo", envio.tipo(),
+                        "notificacionId", envio.notificacionId().toString()
+                )
+        );
     }
 
 }

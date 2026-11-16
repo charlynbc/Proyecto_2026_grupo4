@@ -2669,6 +2669,12 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 
 ### 3.17 Cartelera de novedades (RF-28 y RF-07)
 
+**Cambio en implementación:** el contrato de vigencia, eliminación y selección
+manual del carrusel, incluidos los efectos sobre clientes anteriores, se describe
+en [Gestión de cartelera](cartelera-administracion.md). La publicación de esta
+versión exige `vigenteHasta`; el ejemplo histórico de #65 debe actualizarse junto
+con el cliente Flutter antes de utilizarla.
+
 Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
 
 <a id="e65"></a>
