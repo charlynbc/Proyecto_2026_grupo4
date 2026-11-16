@@ -256,46 +256,9 @@ class _Results extends StatelessWidget {
             key: Key('stats-empty'),
             textAlign: TextAlign.center,
           )
-        else ...[
+        else
           AbsenceRateChart(items: items, grouping: grouping),
-          const SizedBox(height: 16),
-          for (final item in items) _GroupCard(item: item),
-        ],
       ],
-    );
-  }
-}
-
-class _GroupCard extends StatelessWidget {
-  const _GroupCard({required this.item});
-
-  final AbsenceGroup item;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final lastName = item.lastName;
-    final title = lastName == null || lastName.isEmpty
-        ? item.name
-        : '${item.name} $lastName';
-    final absences = item.noShow + item.missed;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: theme.textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(
-              '$absences ${absences == 1 ? 'inasistencia' : 'inasistencias'}'
-              ' de ${item.total}',
-            ),
-            Text(item.percentageText, style: theme.textTheme.titleMedium),
-          ],
-        ),
-      ),
     );
   }
 }

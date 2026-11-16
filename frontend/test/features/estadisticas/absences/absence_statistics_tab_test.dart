@@ -118,12 +118,18 @@ Future<void> _pump(
   );
 }
 
-/// El texto buscado dentro de las tarjetas: el gráfico repite los nombres y
-/// los porcentajes.
-Finder _inCards(String text) =>
-    find.descendant(of: find.byType(Card), matching: find.text(text));
+/// Cuántas filas completas dibuja el gráfico (una por grupo, con su clave
+/// `stats-row-$i`).
+int _rows() => find
+    .byWidgetPredicate(
+      (w) =>
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('stats-row-'),
+    )
+    .evaluate()
+    .length;
 
-/// Cuántas filas dibuja el gráfico.
+/// Cuántas barras dibuja el gráfico.
 int _tracks() => find
     .byWidgetPredicate(
       (w) =>
@@ -219,12 +225,12 @@ void main() {
     await _pump(tester, _Repository());
     await tester.pumpAndSettle();
 
-    expect(_inCards('Cardiología'), findsOneWidget);
-    expect(_inCards('3 inasistencias de 25'), findsOneWidget);
-    expect(_inCards('12 %'), findsOneWidget);
-    expect(_inCards('Pediatría'), findsOneWidget);
-    expect(_inCards('0 inasistencias de 10'), findsOneWidget);
-    expect(_inCards('0 %'), findsOneWidget);
+    expect(find.text('Cardiología'), findsOneWidget);
+    expect(find.text('3 inasistencias de 25'), findsOneWidget);
+    expect(find.text('12 %'), findsOneWidget);
+    expect(find.text('Pediatría'), findsOneWidget);
+    expect(find.text('0 inasistencias de 10'), findsOneWidget);
+    expect(find.text('0 %'), findsOneWidget);
     expect(find.text('Agrupar por'), findsOneWidget);
   });
 
@@ -240,7 +246,7 @@ void main() {
     );
     expect(
       tester.getBottomLeft(find.byKey(const Key('stats-period-label'))).dy,
-      lessThanOrEqualTo(tester.getTopLeft(_inCards('Cardiología')).dy),
+      lessThanOrEqualTo(tester.getTopLeft(find.text('Cardiología')).dy),
     );
   });
 
@@ -369,9 +375,9 @@ void main() {
       to: null,
       grouping: AbsenceGrouping.doctor,
     ));
-    expect(_inCards('Carla Méndez'), findsOneWidget);
-    expect(_inCards('4 inasistencias de 10'), findsOneWidget);
-    expect(_inCards('40 %'), findsOneWidget);
+    expect(find.text('Carla Méndez'), findsOneWidget);
+    expect(find.text('4 inasistencias de 10'), findsOneWidget);
+    expect(find.text('40 %'), findsOneWidget);
     expect(find.text('Cardiología'), findsNothing);
   });
 
@@ -390,9 +396,9 @@ void main() {
     await _pump(tester, repository);
     await tester.pumpAndSettle();
 
-    expect(_inCards('0 inasistencias de 10'), findsOneWidget);
-    expect(_inCards('1 inasistencia de 1'), findsOneWidget);
-    expect(_inCards('4 inasistencias de 10'), findsOneWidget);
+    expect(find.text('0 inasistencias de 10'), findsOneWidget);
+    expect(find.text('1 inasistencia de 1'), findsOneWidget);
+    expect(find.text('4 inasistencias de 10'), findsOneWidget);
     expect(find.text('1 inasistencias de 1'), findsNothing);
   });
 
@@ -418,8 +424,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(_inCards('Cardiología'), findsOneWidget);
-      expect(_inCards('12 %'), findsOneWidget);
+      expect(find.text('Cardiología'), findsOneWidget);
+      expect(find.text('12 %'), findsOneWidget);
       expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
       expect(find.text('Agrupar por'), findsOneWidget);
     });
@@ -444,8 +450,8 @@ void main() {
     });
   });
 
-  group('el gráfico junto a las tarjetas', () {
-    testWidgets('por especialidad hay 6 filas en el gráfico y 6 tarjetas', (
+  group('el gráfico reemplaza a las tarjetas', () {
+    testWidgets('por especialidad hay 6 filas y ninguna tarjeta', (
       tester,
     ) async {
       await _pump(tester, _Repository((_) async => _specialties()));
@@ -457,12 +463,14 @@ void main() {
         findsOneWidget,
       );
       expect(_tracks(), 6);
-      expect(find.byType(Card), findsNWidgets(6));
-      expect(find.textContaining('Los 10 mayores'), findsNothing);
+      expect(_rows(), 6);
+      expect(find.byType(Card), findsNothing);
+      expect(find.textContaining('mayores de'), findsNothing);
     });
 
-    testWidgets('por médico hay 12 filas en el gráfico, sin aviso, y 12 '
-        'tarjetas', (tester) async {
+    testWidgets('por médico hay 12 filas, sin aviso y ninguna tarjeta', (
+      tester,
+    ) async {
       final repository = _Repository((call) async {
         if (call.grouping == AbsenceGrouping.doctor) return _doctors(12);
         return _specialties();
@@ -482,8 +490,9 @@ void main() {
         findsNothing,
       );
       expect(_tracks(), 12);
+      expect(_rows(), 12);
       expect(find.textContaining('mayores de'), findsNothing);
-      expect(find.byType(Card), findsNWidgets(12));
+      expect(find.byType(Card), findsNothing);
     });
 
     testWidgets('al volver a especialidad el gráfico vuelve a ser el de '
@@ -504,22 +513,24 @@ void main() {
         findsOneWidget,
       );
       expect(_tracks(), 6);
-      expect(find.textContaining('Los 10 mayores'), findsNothing);
+      expect(_rows(), 6);
+      expect(find.textContaining('mayores de'), findsNothing);
     });
 
-    testWidgets('el gráfico va arriba y las tarjetas debajo, con el período '
-        'encima de todo', (tester) async {
-      await _pump(tester, _Repository((_) async => _specialties()));
+    testWidgets('cada fila lleva nombre, conteo y porcentaje, y el período '
+        'queda encima del gráfico', (tester) async {
+      await _pump(tester, _Repository());
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('absence-chart')), findsOneWidget);
+      expect(find.text('Cardiología'), findsOneWidget);
+      expect(find.text('3 inasistencias de 25'), findsOneWidget);
+      expect(find.text('12 %'), findsOneWidget);
       final period = tester.getBottomLeft(
         find.byKey(const Key('stats-period-label')),
       );
       final chart = tester.getRect(find.byKey(const Key('absence-chart')));
-      final firstCard = tester.getRect(find.byType(Card).first);
       expect(period.dy, lessThanOrEqualTo(chart.top));
-      expect(chart.bottom, lessThanOrEqualTo(firstCard.top));
     });
 
     testWidgets('sin grupos no hay gráfico y dice Sin datos', (tester) async {
