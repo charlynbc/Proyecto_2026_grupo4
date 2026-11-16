@@ -34,17 +34,11 @@ class AbsenceRateChart extends StatelessWidget {
         : '${group.name} $lastName';
   }
 
-  /// Lo que lee un lector de pantalla: el grupo con más inasistencia, o que
-  /// no hay ninguna. Las barras no se anuncian: el detalle está en las
-  /// tarjetas de abajo.
-  static String _summary(List<AbsenceGroup> items) {
-    var highest = items.first;
-    for (final group in items) {
-      if (group.percentage > highest.percentage) highest = group;
-    }
-    if (highest.percentage <= 0) return 'Sin inasistencias en el período';
-    return 'Mayor inasistencia: ${_fullName(highest)}, '
-        '${highest.percentageText}';
+  /// "N inasistencias de T": solo con exactamente 1 va en singular.
+  static String countText(AbsenceGroup group) {
+    final absences = group.noShow + group.missed;
+    return '$absences ${absences == 1 ? 'inasistencia' : 'inasistencias'}'
+        ' de ${group.total}';
   }
 
   /// El ancho del valor más ancho. Todas las filas reservan el mismo, para que
@@ -107,49 +101,55 @@ class AbsenceRateChart extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 12),
-        Semantics(
-          container: true,
-          label: _summary(shown),
-          child: ExcludeSemantics(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < shown.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+        for (var i = 0; i < shown.length; i++)
+          // Un solo texto por fila para el lector de pantalla: lo que se ve
+          // queda excluido para que no se lea dos veces.
+          Semantics(
+            key: Key('stats-row-$i'),
+            container: true,
+            label:
+                '${_fullName(shown[i])}, ${countText(shown[i])}, '
+                '${shown[i].percentageText}',
+            child: ExcludeSemantics(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      _fullName(shown[i]),
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    Text(
+                      countText(shown[i]),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
                       children: [
-                        Text(
-                          _fullName(shown[i]),
-                          style: theme.textTheme.bodyMedium,
+                        Expanded(
+                          child: _Bar(
+                            index: i,
+                            fraction: shown[i].percentage / 100,
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _Bar(
-                                index: i,
-                                fraction: shown[i].percentage / 100,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              width: valueWidth,
-                              child: Text(
-                                shown[i].percentageText,
-                                style: valueStyle,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: valueWidth,
+                          child: Text(
+                            shown[i].percentageText,
+                            style: valueStyle,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
         const SizedBox(height: 4),
       ],
     );

@@ -220,10 +220,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_inCards('Cardiología'), findsOneWidget);
-    expect(find.text('3 inasistencias de 25'), findsOneWidget);
+    expect(_inCards('3 inasistencias de 25'), findsOneWidget);
     expect(_inCards('12 %'), findsOneWidget);
     expect(_inCards('Pediatría'), findsOneWidget);
-    expect(find.text('0 inasistencias de 10'), findsOneWidget);
+    expect(_inCards('0 inasistencias de 10'), findsOneWidget);
     expect(_inCards('0 %'), findsOneWidget);
     expect(find.text('Agrupar por'), findsOneWidget);
   });
@@ -370,7 +370,7 @@ void main() {
       grouping: AbsenceGrouping.doctor,
     ));
     expect(_inCards('Carla Méndez'), findsOneWidget);
-    expect(find.text('4 inasistencias de 10'), findsOneWidget);
+    expect(_inCards('4 inasistencias de 10'), findsOneWidget);
     expect(_inCards('40 %'), findsOneWidget);
     expect(find.text('Cardiología'), findsNothing);
   });
@@ -390,9 +390,9 @@ void main() {
     await _pump(tester, repository);
     await tester.pumpAndSettle();
 
-    expect(find.text('0 inasistencias de 10'), findsOneWidget);
-    expect(find.text('1 inasistencia de 1'), findsOneWidget);
-    expect(find.text('4 inasistencias de 10'), findsOneWidget);
+    expect(_inCards('0 inasistencias de 10'), findsOneWidget);
+    expect(_inCards('1 inasistencia de 1'), findsOneWidget);
+    expect(_inCards('4 inasistencias de 10'), findsOneWidget);
     expect(find.text('1 inasistencias de 1'), findsNothing);
   });
 

@@ -7,23 +7,27 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../../helpers/load_roboto.dart';
 
-/// Un grupo con el porcentaje y el texto indicados. Los conteos no se usan en
-/// el gráfico: el porcentaje es el que manda el servidor.
+/// Un grupo con el porcentaje y el texto indicados. El ancho de la barra sale
+/// del porcentaje que manda el servidor; el conteo de la fila, de `noShow` más
+/// `missed` sobre `total`.
 AbsenceGroup _group(
   String name,
   num percentage,
   String text, {
   String? lastName,
   int id = 1,
+  int noShow = 0,
+  int missed = 0,
+  int total = 1,
 }) => AbsenceGroup(
   id: id,
   name: name,
   lastName: lastName,
-  attended: 1,
-  noShow: 0,
-  missed: 0,
+  attended: total - noShow - missed,
+  noShow: noShow,
+  missed: missed,
   notAttended: 0,
-  total: 1,
+  total: total,
   percentage: percentage.toDouble(),
   percentageText: text,
 );
@@ -181,6 +185,54 @@ void main() {
       expect(value.center.dy, closeTo(track.center.dy, 8));
     });
 
+    testWidgets('cada fila dice cuántas inasistencias hubo: 0, 1 y 4', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _group('Cardiología', 0, '0 %', id: 1, total: 10),
+        _group('Pediatría', 100, '100 %', id: 2, noShow: 1, total: 1),
+        _group(
+          'Oftalmología',
+          40,
+          '40 %',
+          id: 3,
+          noShow: 3,
+          missed: 1,
+          total: 10,
+        ),
+      ]);
+
+      expect(find.text('0 inasistencias de 10'), findsOneWidget);
+      expect(find.text('1 inasistencia de 1'), findsOneWidget);
+      expect(find.text('4 inasistencias de 10'), findsOneWidget);
+      expect(find.text('1 inasistencias de 1'), findsNothing);
+    });
+
+    testWidgets('el conteo va entre el nombre y la barra', (tester) async {
+      await _pump(tester, [
+        _group('Traumatología', 40, '40 %', noShow: 8, total: 20),
+      ]);
+
+      final name = tester.rectOf(find.text('Traumatología'));
+      final count = tester.rectOf(find.text('8 inasistencias de 20'));
+      final track = tester.rectOf(_track(0));
+      expect(count.top, greaterThanOrEqualTo(name.bottom));
+      expect(count.bottom, lessThanOrEqualTo(track.top));
+    });
+
+    testWidgets('las filas llevan la clave stats-row con su posición', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _group('Cardiología', 12, '12 %', id: 1),
+        _group('Pediatría', 0, '0 %', id: 2),
+      ]);
+
+      expect(find.byKey(const Key('stats-row-0')), findsOneWidget);
+      expect(find.byKey(const Key('stats-row-1')), findsOneWidget);
+      expect(find.byKey(const Key('stats-row-2')), findsNothing);
+    });
+
     testWidgets('el nombre de un médico lleva su apellido', (tester) async {
       await _pump(tester, [
         _group('Carla', 40, '40 %', lastName: 'Méndez'),
@@ -237,15 +289,33 @@ void main() {
   });
 
   group('el texto alternativo', () {
-    testWidgets('resume al grupo con mayor inasistencia', (tester) async {
+    testWidgets('cada fila tiene su propio texto con nombre, conteo y '
+        'porcentaje', (tester) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, [
-        _group('Traumatología', 40, '40 %', id: 1),
-        _group('Cardiología', 12, '12 %', id: 2),
+        _group(
+          'Cardiología',
+          12,
+          '12 %',
+          id: 1,
+          noShow: 2,
+          missed: 1,
+          total: 25,
+        ),
+        _group('Pediatría', 100, '100 %', id: 2, noShow: 1, total: 1),
+        _group('Dermatología', 0, '0 %', id: 3, total: 10),
       ]);
 
       expect(
-        find.bySemanticsLabel('Mayor inasistencia: Traumatología, 40 %'),
+        find.bySemanticsLabel('Cardiología, 3 inasistencias de 25, 12 %'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Pediatría, 1 inasistencia de 1, 100 %'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Dermatología, 0 inasistencias de 10, 0 %'),
         findsOneWidget,
       );
       handle.dispose();
@@ -260,49 +330,46 @@ void main() {
           '45 %',
           lastName: 'Rodríguez Altamirano',
           id: 1,
+          noShow: 7,
+          missed: 2,
+          total: 20,
         ),
-        _group('Carla', 40, '40 %', lastName: 'Méndez', id: 2),
       ], grouping: AbsenceGrouping.doctor);
 
       expect(
         find.bySemanticsLabel(
-          'Mayor inasistencia: María Fernanda Rodríguez Altamirano, 45 %',
+          'María Fernanda Rodríguez Altamirano, 9 inasistencias de 20, 45 %',
         ),
         findsOneWidget,
       );
       handle.dispose();
     });
 
-    testWidgets('con todos en 0 % dice que no hay inasistencias', (
-      tester,
-    ) async {
+    testWidgets('no hay un resumen aparte del gráfico', (tester) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, [
-        _group('Cardiología', 0, '0 %', id: 1),
-        _group('Pediatría', 0, '0 %', id: 2),
+        _group('Traumatología', 40, '40 %', id: 1, noShow: 8, total: 20),
+        _group('Cardiología', 0, '0 %', id: 2, total: 10),
       ]);
 
-      expect(
-        find.bySemanticsLabel('Sin inasistencias en el período'),
-        findsOneWidget,
-      );
       expect(find.bySemanticsLabel(RegExp('Mayor inasistencia')), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('Sin inasistencias')), findsNothing);
       handle.dispose();
     });
 
-    testWidgets('las barras y los valores no se anuncian aparte', (
-      tester,
-    ) async {
+    testWidgets('el contenido de la fila no se anuncia aparte', (tester) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, [
-        _group('Traumatología', 40, '40 %', id: 1),
-        _group('Cardiología', 12, '12 %', id: 2),
+        _group('Traumatología', 40, '40 %', id: 1, noShow: 8, total: 20),
+        _group('Cardiología', 12, '12 %', id: 2, noShow: 3, total: 25),
       ]);
 
       expect(find.bySemanticsLabel('Traumatología'), findsNothing);
       expect(find.bySemanticsLabel('Cardiología'), findsNothing);
       expect(find.bySemanticsLabel('40 %'), findsNothing);
       expect(find.bySemanticsLabel('12 %'), findsNothing);
+      expect(find.bySemanticsLabel('8 inasistencias de 20'), findsNothing);
+      expect(find.bySemanticsLabel('3 inasistencias de 25'), findsNothing);
       handle.dispose();
     });
   });
@@ -382,18 +449,6 @@ void main() {
       expect(notice.bottom, lessThanOrEqualTo(first.top));
     });
 
-    testWidgets('el resumen para el lector de pantalla sale de los 10 '
-        'mostrados', (tester) async {
-      final handle = tester.ensureSemantics();
-      await _pump(tester, many(12));
-
-      expect(
-        find.bySemanticsLabel('Mayor inasistencia: Grupo 1, 99 %'),
-        findsOneWidget,
-      );
-      handle.dispose();
-    });
-
     testWidgets('a 320 px y con el texto al doble el aviso no se corta', (
       tester,
     ) async {
@@ -416,6 +471,9 @@ void main() {
         '45 %',
         lastName: 'Rodríguez Altamirano',
         id: 1,
+        noShow: 7,
+        missed: 2,
+        total: 20,
       ),
       _group(
         'Juan Sebastián',
@@ -423,6 +481,9 @@ void main() {
         '36 %',
         lastName: 'Fernández Etcheverry',
         id: 2,
+        noShow: 7,
+        missed: 2,
+        total: 25,
       ),
       _group(
         'Lucía Fernanda',
@@ -430,8 +491,10 @@ void main() {
         '12 %',
         lastName: 'Bermúdez Castellanos',
         id: 3,
+        noShow: 1,
+        total: 13,
       ),
-      _group('Santiago', 0, '0 %', lastName: 'Díaz', id: 4),
+      _group('Santiago', 0, '0 %', lastName: 'Díaz', id: 4, total: 40),
     ];
 
     testWidgets('los nombres ocupan hasta dos líneas y no se parten', (
@@ -458,6 +521,40 @@ void main() {
           );
           start += word.length + 1;
         }
+      }
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('el conteo no se corta ni parte la palabra inasistencias', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        longNames,
+        grouping: AbsenceGrouping.doctor,
+        width: 320,
+        textScale: 2,
+      );
+
+      for (final text in [
+        '9 inasistencias de 20',
+        '9 inasistencias de 25',
+        '1 inasistencia de 13',
+        '0 inasistencias de 40',
+      ]) {
+        final paragraph = tester.paragraphOf(find.text(text));
+        expect(paragraph.didExceedMaxLines, isFalse, reason: text);
+        expect(_lineCount(paragraph, 0, text.length), lessThanOrEqualTo(2));
+        final word = text.contains('inasistencias')
+            ? 'inasistencias'
+            : 'inasistencia';
+        final start = text.indexOf(word);
+        expect(
+          _lineCount(paragraph, start, start + word.length),
+          1,
+          reason: text,
+        );
+        expect(tester.rectOf(find.text(text)).right, lessThanOrEqualTo(320));
       }
       expect(tester.takeException(), isNull);
     });
