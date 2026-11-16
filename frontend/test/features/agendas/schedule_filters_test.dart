@@ -40,6 +40,30 @@ void main() {
       });
     });
 
+    test('sin fecha no se manda el parámetro fecha', () {
+      final filters = ScheduleFilters(date: null);
+
+      expect(filters.toQueryParameters(), {
+        'orden': 'fechaHora',
+        'sentido': 'asc',
+        'page': 0,
+        'size': 20,
+      });
+    });
+
+    test('sin fecha y con una cédula manda solo la cédula, el orden y la '
+        'página', () {
+      final filters = ScheduleFilters(date: null, ci: '9.000.004-6');
+
+      expect(filters.toQueryParameters(), {
+        'ci': '90000046',
+        'orden': 'fechaHora',
+        'sentido': 'asc',
+        'page': 0,
+        'size': 20,
+      });
+    });
+
     test('los filtros vacíos no se mandan', () {
       final filters = ScheduleFilters(date: _today, ci: '', appointmentId: '');
 
@@ -209,7 +233,7 @@ void main() {
 
     test('la fecha', () {
       final result = onPageThree().withFilterChange(
-        date: DateTime.utc(2026, 10, 27),
+        date: () => DateTime.utc(2026, 10, 27),
       );
 
       expect(result.date, DateTime.utc(2026, 10, 27));
@@ -299,7 +323,7 @@ void main() {
     test('cualquier diferencia los hace distintos', () {
       final base = full();
       final others = [
-        base.copyWith(date: DateTime.utc(2026, 10, 27)),
+        base.copyWith(date: () => DateTime.utc(2026, 10, 27)),
         base.copyWith(ci: () => '12345672'),
         base.copyWith(appointmentId: () => '9002'),
         base.copyWith(doctorId: () => 18),
