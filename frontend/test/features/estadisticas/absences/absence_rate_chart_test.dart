@@ -374,7 +374,7 @@ void main() {
     });
   });
 
-  group('el tope de 10 grupos', () {
+  group('se muestran todos los grupos', () {
     /// `count` grupos que bajan de 3 en 3 desde 99 %, como los manda el
     /// servidor.
     List<AbsenceGroup> many(int count) => [
@@ -393,73 +393,47 @@ void main() {
         .evaluate()
         .length;
 
-    testWidgets('con 10 grupos se dibujan los 10 y no hay aviso', (
-      tester,
-    ) async {
+    testWidgets('con 10 grupos hay 10 filas', (tester) async {
       await _pump(tester, many(10));
 
       expect(rows(tester), 10);
-      expect(find.textContaining('Los 10 mayores'), findsNothing);
     });
 
-    testWidgets('con 11 grupos se dibujan 10 y el aviso dice 11', (
-      tester,
-    ) async {
-      await _pump(tester, many(11));
+    testWidgets('con 12 grupos hay 12 filas', (tester) async {
+      await _pump(tester, many(12));
 
-      expect(rows(tester), 10);
-      expect(find.text('Los 10 mayores de 11'), findsOneWidget);
-      expect(find.text('Grupo 10'), findsOneWidget);
-      expect(find.text('Grupo 11'), findsNothing);
+      expect(rows(tester), 12);
+      expect(find.text('Grupo 11'), findsOneWidget);
+      expect(find.text('Grupo 12'), findsOneWidget);
+      expect(find.byKey(const Key('stats-row-11')), findsOneWidget);
     });
 
-    testWidgets('con 25 grupos se dibujan 10 y el aviso dice 25', (
+    testWidgets('con 25 grupos hay 25 filas', (tester) async {
+      await _pump(tester, many(25));
+
+      expect(rows(tester), 25);
+      expect(find.text('Grupo 25'), findsOneWidget);
+      expect(find.byKey(const Key('stats-row-24')), findsOneWidget);
+    });
+
+    testWidgets('no hay aviso de que se muestran solo los mayores', (
       tester,
     ) async {
       await _pump(tester, many(25));
 
-      expect(rows(tester), 10);
-      expect(find.text('Los 10 mayores de 25'), findsOneWidget);
-      expect(find.text('Los 10 mayores de 10'), findsNothing);
+      expect(find.textContaining('mayores de'), findsNothing);
+      expect(find.byKey(const Key('absence-chart-notice')), findsNothing);
     });
 
-    testWidgets('son los primeros 10 en el orden en que llegan', (
-      tester,
-    ) async {
+    testWidgets('van en el orden en que llegan', (tester) async {
       await _pump(tester, many(12));
 
-      for (var i = 1; i <= 10; i++) {
-        expect(find.text('Grupo $i'), findsOneWidget, reason: 'Grupo $i');
+      var previous = -1.0;
+      for (var i = 1; i <= 12; i++) {
+        final top = tester.rectOf(find.text('Grupo $i')).top;
+        expect(top, greaterThan(previous), reason: 'Grupo $i');
+        previous = top;
       }
-      expect(find.text('Grupo 11'), findsNothing);
-      expect(find.text('Grupo 12'), findsNothing);
-    });
-
-    testWidgets('el aviso va debajo del título y arriba de la primera fila', (
-      tester,
-    ) async {
-      await _pump(tester, many(12));
-
-      final title = tester.rectOf(
-        find.text('Porcentaje de inasistencia por especialidad'),
-      );
-      final notice = tester.rectOf(find.text('Los 10 mayores de 12'));
-      final first = tester.rectOf(find.text('Grupo 1'));
-      expect(notice.top, greaterThanOrEqualTo(title.bottom));
-      expect(notice.bottom, lessThanOrEqualTo(first.top));
-    });
-
-    testWidgets('a 320 px y con el texto al doble el aviso no se corta', (
-      tester,
-    ) async {
-      await _pump(tester, many(12), width: 320, textScale: 2);
-
-      final paragraph = tester.paragraphOf(find.text('Los 10 mayores de 12'));
-      expect(paragraph.didExceedMaxLines, isFalse);
-      expect(
-        tester.rectOf(find.text('Los 10 mayores de 12')).right,
-        lessThanOrEqualTo(320),
-      );
     });
   });
 

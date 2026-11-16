@@ -435,11 +435,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(_tracks(), 10);
-      for (final text in [
-        'Porcentaje de inasistencia por especialidad',
-        'Los 10 mayores de 12',
-      ]) {
+      expect(_tracks(), 12);
+      for (final text in ['Porcentaje de inasistencia por especialidad']) {
         final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
         expect(paragraph.didExceedMaxLines, isFalse, reason: text);
         expect(tester.getRect(find.text(text)).right, lessThanOrEqualTo(320));
@@ -464,7 +461,7 @@ void main() {
       expect(find.textContaining('Los 10 mayores'), findsNothing);
     });
 
-    testWidgets('por médico hay 10 filas en el gráfico, el aviso y 12 '
+    testWidgets('por médico hay 12 filas en el gráfico, sin aviso, y 12 '
         'tarjetas', (tester) async {
       final repository = _Repository((call) async {
         if (call.grouping == AbsenceGrouping.doctor) return _doctors(12);
@@ -484,8 +481,8 @@ void main() {
         find.text('Porcentaje de inasistencia por especialidad'),
         findsNothing,
       );
-      expect(_tracks(), 10);
-      expect(find.text('Los 10 mayores de 12'), findsOneWidget);
+      expect(_tracks(), 12);
+      expect(find.textContaining('mayores de'), findsNothing);
       expect(find.byType(Card), findsNWidgets(12));
     });
 
