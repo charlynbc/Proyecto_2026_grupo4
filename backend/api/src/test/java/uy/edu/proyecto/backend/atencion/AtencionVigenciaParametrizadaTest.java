@@ -17,6 +17,7 @@ import uy.edu.proyecto.backend.atencion.AtencionRepository.ConsultaResultado;
 import uy.edu.proyecto.backend.atencion.ResultadoConsultaRequest.PaseNuevoRequest;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.notificacion.NotificacionEnvios;
 import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.parametro.ParametrosDePrueba;
 
@@ -45,6 +46,9 @@ class AtencionVigenciaParametrizadaTest {
     @Mock
     private AtencionRepository repository;
 
+    @Mock
+    private NotificacionEnvios envios;
+
     @BeforeEach
     void setUp() {
         lenient().when(repository.buscarSocioId(MEDICO_ID, CONSULTA_ID))
@@ -64,7 +68,7 @@ class AtencionVigenciaParametrizadaTest {
     }
 
     private AtencionService servicio(ParametroService parametros) {
-        return new AtencionService(repository, RELOJ, parametros);
+        return new AtencionService(repository, RELOJ, parametros, envios);
     }
 
     private ResultadoConsultaResponse registrar(ParametroService parametros, Integer vigencia) {

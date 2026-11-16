@@ -17,6 +17,7 @@ import uy.edu.proyecto.backend.agenda.ConsultaRepository.NumeroParaAgendar;
 import uy.edu.proyecto.backend.consultorio.Consultorio;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.notificacion.NotificacionEnvios;
 import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.parametro.ParametrosDePrueba;
 
@@ -34,6 +35,9 @@ class ConsultaServiceTest {
 
     private static final Long SOCIO_ID = 91L;
     private static final Long NUMERO_ID = 4501L;
+    private static final String CUERPO_AGENDA =
+            "Tu consulta de Cardiología con Marta Rodríguez quedó agendada "
+                    + "para el 03/11/2026 a las 09:00.";
     private static final CrearConsultaRequest SOLICITUD =
             new CrearConsultaRequest(NUMERO_ID, null);
     private static final Clock RELOJ = Clock.fixed(
@@ -48,11 +52,15 @@ class ConsultaServiceTest {
     @Mock
     private ConsultaRepository repository;
 
+    @Mock
+    private NotificacionEnvios envios;
+
     private ConsultaService service;
 
     @BeforeEach
     void setUp() {
-        service = new ConsultaService(repository, ParametroService.porDefecto(), RELOJ);
+        service = new ConsultaService(
+                repository, ParametroService.porDefecto(), RELOJ, envios);
         lenient().when(repository.bloquearSocioHabilitado(SOCIO_ID)).thenReturn(true);
         lenient().when(repository.bloquearNumero(NUMERO_ID, MINIMO, MAXIMO))
                 .thenReturn(Optional.of(numero(false)));
@@ -73,12 +81,36 @@ class ConsultaServiceTest {
         when(repository.crear(SOCIO_ID, numero(false), null))
                 .thenReturn(Optional.of(expected));
 
+        when(repository.crearNotificacionAgenda(9001L, CUERPO_AGENDA)).thenReturn(7001L);
+
         ConsultaDTO actual = service.agendar(SOCIO_ID, SOLICITUD);
 
         assertAll(
                 () -> assertEquals(expected, actual),
-                () -> verify(repository).crearNotificacionAgenda(9001L)
+                () -> verify(repository).crearNotificacionAgenda(9001L, CUERPO_AGENDA)
         );
+    }
+
+    @Test
+    void despuesDeGuardarElAvisoSolicitaSusEnviosEnLaMismaOperacion() {
+        when(repository.crear(SOCIO_ID, numero(false), null))
+                .thenReturn(Optional.of(consultaEsperada(null)));
+        when(repository.crearNotificacionAgenda(9001L, CUERPO_AGENDA)).thenReturn(7001L);
+
+        service.agendar(SOCIO_ID, SOLICITUD);
+
+        org.mockito.InOrder orden = org.mockito.Mockito.inOrder(repository, envios);
+        orden.verify(repository).crearNotificacionAgenda(9001L, CUERPO_AGENDA);
+        orden.verify(envios).solicitar(7001L, SOCIO_ID);
+    }
+
+    @Test
+    void siNoSeAgendaNoSePideNingunEnvio() {
+        when(repository.crear(SOCIO_ID, numero(false), null)).thenReturn(Optional.empty());
+
+        assertThrows(ApiException.class, () -> service.agendar(SOCIO_ID, SOLICITUD));
+
+        verifyNoInteractions(envios);
     }
 
     @Test
@@ -95,7 +127,9 @@ class ConsultaServiceTest {
         assertAll(
                 () -> assertEquals(org.springframework.http.HttpStatus.CONFLICT, exception.getStatus()),
                 () -> assertEquals("NUMERO_NO_DISPONIBLE", exception.getCode()),
-                () -> verify(repository, never()).crearNotificacionAgenda(org.mockito.ArgumentMatchers.anyLong()),
+                () -> verify(repository, never()).crearNotificacionAgenda(
+                        org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString()),
+                () -> verifyNoInteractions(envios),
                 () -> verify(repository, org.mockito.Mockito.times(1)).crear(SOCIO_ID, numero(false), null)
         );
     }
@@ -222,7 +256,7 @@ class ConsultaServiceTest {
     }
 
     private ConsultaService conParametros(ParametroService parametros) {
-        return new ConsultaService(repository, parametros, RELOJ);
+        return new ConsultaService(repository, parametros, RELOJ, envios);
     }
 
     @Test
@@ -398,7 +432,8 @@ class ConsultaServiceTest {
         );
 
         assertEquals("NUMERO_NO_DISPONIBLE", exception.getCode());
-        verify(repository, never()).crearNotificacionAgenda(9001L);
+        verify(repository, never()).crearNotificacionAgenda(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyString());
     }
 
     private NumeroParaAgendar numero(boolean requierePase) {

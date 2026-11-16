@@ -17,6 +17,7 @@ import uy.edu.proyecto.backend.atencion.AtencionRepository.ConsultaResultado;
 import uy.edu.proyecto.backend.atencion.ResultadoConsultaRequest.PaseNuevoRequest;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.notificacion.NotificacionEnvios;
 import uy.edu.proyecto.backend.parametro.ParametroService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,11 +47,15 @@ class AtencionServiceTest {
     @Mock
     private AtencionRepository repository;
 
+    @Mock
+    private NotificacionEnvios envios;
+
     private AtencionService service;
 
     @BeforeEach
     void setUp() {
-        service = new AtencionService(repository, RELOJ, ParametroService.porDefecto());
+        service = new AtencionService(
+                repository, RELOJ, ParametroService.porDefecto(), envios);
         lenient().when(repository.buscarSocioId(MEDICO_ID, CONSULTA_ID))
                 .thenReturn(Optional.of(SOCIO_ID));
         lenient().when(repository.bloquearSocio(SOCIO_ID)).thenReturn(true);
@@ -82,6 +87,7 @@ class AtencionServiceTest {
                 any(), any(), any(), any(), any(), any()
         );
         verify(repository, never()).crearNotificacionHistoriaActualizada(any());
+        verifyNoInteractions(envios);
     }
 
     @Test
@@ -109,6 +115,7 @@ class AtencionServiceTest {
                 MEDICO_ID,
                 AHORA
         )).thenReturn(true);
+        when(repository.crearNotificacionHistoriaActualizada(CONSULTA_ID)).thenReturn(7002L);
 
         ResultadoConsultaResponse response = service.registrarResultado(
                 MEDICO_ID,
@@ -130,7 +137,9 @@ class AtencionServiceTest {
         assertEquals(destino, response.pases().getFirst().especialidadDestino());
         assertEquals(HOY.plusDays(90), response.pases().getFirst().venceEl());
         verify(repository).registrarAtendida(CONSULTA_ID, MEDICO_ID, AHORA);
-        verify(repository).crearNotificacionHistoriaActualizada(CONSULTA_ID);
+        org.mockito.InOrder orden = org.mockito.Mockito.inOrder(repository, envios);
+        orden.verify(repository).crearNotificacionHistoriaActualizada(CONSULTA_ID);
+        orden.verify(envios).solicitar(7002L, SOCIO_ID);
     }
 
     @Test

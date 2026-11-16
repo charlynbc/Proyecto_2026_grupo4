@@ -7,7 +7,7 @@ Estado del documento: **PROPUESTA del frontend**, 14/10/2026, rama `docs/contrat
 - **Fuentes.** Las operaciones y los DTO salen de `docs/analisis/diseno.md` secciones 2.1 a 2.7 (figuras 1 a 7) y de las secuencias S01 a S25. Las reglas salen de `requerimientos.md` (RF y RNF). Los flujos salen de `casos-de-uso.md`. Las reglas de la API (rutas bajo `/api`, recursos en plural, acciones explícitas de cambio de estado, error uniforme) salen de `arquitectura.md` 7.4, 8.3 y 8.5 y de `diseno.md` 4.5.
 - **PROPUESTA.** El Diseño no define ninguna ruta HTTP ni el nombre exacto de cada campo. Por eso **las rutas y campos de este documento son PROPUESTA**, salvo los nombres de operación, de DTO y de parámetro que figuran en la tabla de la sección 2 (esos son del Diseño), y las rutas #18 y #19, confirmadas por la implementación backend del 22/10/2026. Donde además se propone una regla o un mecanismo que ningún documento define, aparece la marca **PROPUESTA:** en el texto.
 - **Preguntas abiertas.** Lo que ningún documento resuelve está en la sección 9, sin decidir. En cada endpoint se la cita como `P-nn`. Mientras no se resuelvan, el cliente adopta el comportamiento más conservador.
-- **Mockups.** La sección 6 se hizo mirando las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), pantalla por pantalla. Las diferencias entre lo que muestra cada pantalla y lo que cubre el contrato están en esa sección y en las preguntas P-23 a P-33.
+- **Mockups.** La sección 6 se hizo mirando las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), pantalla por pantalla. Las diferencias entre lo que muestra cada pantalla y lo que cubre el contrato están en esa sección y en las preguntas P-24 a P-33.
 - **Sin código.** No hay Java ni Dart. Los ejemplos JSON usan datos ficticios.
 
 ## 1. Convenciones
@@ -185,7 +185,7 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 29 | `GET /api/medico/turnos` | `TurnoService.consultarTurnosDelMedico(medicoId, fecha)` | `TurnosPacientesDTO` | S13 | 21 |
 | 30 | `GET /api/medico/turnos/{id}/numeros` | ídem (detalle de un turno) | `TurnosPacientesDTO` | S13 | 21 |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | `AtencionService.registrarResultado(medicoId, consultaId, datos)` y `PaseService.validarYCrearEnAtencion(atencionId, solicitudes)` | `ResultadoConsultaDTO`, `PaseNuevoDTO`, `PaseDTO` | S14, S15 | 23, 24 |
-| 32 | `GET /api/notificaciones` | listado de avisos internos (sin operación de lectura en 2.1 a 2.7) | - | - | RNF-23 |
+| 32 | `GET /api/notificaciones` | lista de avisos del socio en la aplicación (no figura en 2.1 a 2.7, que solo escriben `registrarAvisoPendiente`; la define este contrato) | - | - | RNF-23 |
 | 33 | `POST /api/dispositivos` | registro de destino push (sin operación en 2.1 a 2.7) | - | - | RNF-23 |
 | 34 | `GET /api/estadisticas/especialidades` | `EstadisticaService.calcularPorEspecialidad(filtro)` | `FiltroEstadisticaDTO`, `EstadisticaEspecialidadDTO` | S20 | 39 |
 | 35 | `GET /api/estadisticas/turnos` | `EstadisticaService.calcularPorTurno(filtro)` | `FiltroEstadisticaDTO`, `EstadisticaTurnoDTO` | S21 | 40 |
@@ -1612,16 +1612,36 @@ Longitud máxima de los textos: P-18. Vencimiento y duplicados de pases en panta
 <a id="e32"></a>
 #### #32 · `GET /api/notificaciones`
 
-- **Roles:** SOCIO (solo las propias).
-- **RF:** RNF-23 ("por la interfaz del sistema"), RNF-25. **Diseño:** sin operación de lectura en 2.1 a 2.7 (solo `registrarAvisoPendiente`); el modelo de datos tiene la tabla Notificacion. **Estado:** PROPUESTA.
+- **Roles:** SOCIO exclusivamente (solo las propias).
+- **RF:** RNF-23 ("por la interfaz del sistema"), RNF-25. **Diseño:** el Diseño 2.1 a 2.7 solo tiene `registrarAvisoPendiente` (escritura); la lectura la define este contrato sobre la tabla `notificacion` del modelo de datos. **Estado:** PROPUESTA (decisiones tomadas el 15/11/2026, sección 7.1 puntos 12 y 13; pasa a CONFIRMADA cuando se integre el backend).
+
+Lista los avisos que el sistema guardó para el socio autenticado: agenda, cancelación, suspensión, historia actualizada y recordatorio (`TipoNotificacion`, sección 1.7). El socio sale del JWT; el pedido no lleva identificador de socio.
 
 | Parámetro | Tipo | Notas |
 |---|---|---|
-| `page`, `size` | | Sección 1.3. |
+| `page`, `size` | | Sección 1.3, con los mismos nombres y límites que los demás listados: `page` desde 0, `size` de 1 a 100, por defecto 20. |
 
-Orden **PROPUESTA:** más reciente primero (`creadaEn` descendente), sin parámetros de orden.
+**Reglas**
 
-**Respuesta 200**
+- **Solo los propios.** Se listan los avisos de las consultas del socio autenticado (el destinatario sale de `consulta.id_socio`). Un socio nunca ve avisos de otro.
+- **Orden:** del más nuevo al más viejo (`creadaEn` descendente). No hay parámetros de orden.
+- **Recordatorios futuros:** un aviso con `programada_para` en el futuro no se lista; aparece cuando llega su hora.
+- **Sin leído ni no leído:** la lista muestra todo. Marcar un aviso como leído queda como mejora futura y necesita una columna nueva en `notificacion`.
+- **Sin límite de retención:** en esta versión no se borran avisos.
+- **Cuándo consulta el cliente:** al abrir la pantalla y al volver a verla, como el resto de los listados. No hay consulta periódica. En Android, el push avisa mientras la aplicación no está a la vista (RNF-23).
+
+**Cada item**
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `id` | entero | `id_notificacion`. |
+| `tipo` | `TipoNotificacion` | Sección 1.7. |
+| `titulo` | texto | Título corto del aviso, armado por el servidor a partir del `tipo`. No se guarda en la tabla. El cliente lo muestra tal cual. |
+| `contenido` | texto | El texto del aviso, ya armado por el servidor (`notificacion.contenido`). El cliente lo muestra tal cual, sin armarlo ni interpretarlo. En una cancelación por otro motivo (#44, #38) lleva el motivo. |
+| `creadaEn` | instante | `creada_en`, con el formato de la sección 1.2. |
+| `consultaId` | entero | La consulta que originó el aviso. Hoy siempre está presente (`notificacion.id_consulta` no admite nulo); el cliente tolera `null`. |
+
+**Respuesta 200** (los textos de `titulo` y `contenido` del ejemplo son ilustrativos)
 
 ```json
 {
@@ -1629,9 +1649,10 @@ Orden **PROPUESTA:** más reciente primero (`creadaEn` descendente), sin paráme
     {
       "id": 15001,
       "tipo": "SUSPENSION",
-      "consultaId": 9001,
+      "titulo": "Turno suspendido",
       "contenido": "Se suspendió el turno del 20/10/2026 con la Dra. Rodríguez. Se creará otro turno la semana próxima.",
-      "creadaEn": "2026-10-16T11:20:00-03:00"
+      "creadaEn": "2026-10-16T11:20:00-03:00",
+      "consultaId": 9001
     }
   ],
   "page": 0,
@@ -1640,7 +1661,17 @@ Orden **PROPUESTA:** más reciente primero (`creadaEn` descendente), sin paráme
 }
 ```
 
-El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni observaciones (arquitectura 8.2). Preguntas relacionadas: P-14.
+Sin avisos, `items` es `[]` y `total` es `0`. `total` cuenta los avisos que se listan (no los recordatorios futuros).
+
+El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni observaciones (arquitectura 8.2).
+
+**Errores**
+
+| Status | `code` | Cuándo |
+|---|---|---|
+| 400 | `VALIDACION` | `page` o `size` fuera de los límites de la sección 1.3. |
+| 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
+| 403 | `ACCESO_DENEGADO` | El rol no es socio. |
 
 <a id="e33"></a>
 #### #33 · `POST /api/dispositivos`
@@ -1676,7 +1707,7 @@ Registra el token de Firebase del dispositivo Android del socio autenticado. El 
 |---|---|---|
 | 400 | `VALIDACION` | `token` ausente, o vacío o de más de 4096 caracteres después de recortado. El `message` dice cuál. |
 
-`401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican como a todo endpoint protegido y no se repiten. Preguntas relacionadas: P-14.
+`401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican como a todo endpoint protegido y no se repiten. Preguntas relacionadas: P-14 (resuelta, sección 7.1).
 
 <a id="e73"></a>
 #### #73 · `POST /api/dispositivos/baja`
@@ -1706,7 +1737,7 @@ El cliente lo llama **antes** de cerrar sesión (#3), porque `POST /api/auth/log
 |---|---|---|
 | 400 | `VALIDACION` | `token` ausente, o vacío o de más de 4096 caracteres después de recortado. El `message` dice cuál. |
 
-`401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican como a todo endpoint protegido y no se repiten. Preguntas relacionadas: P-14.
+`401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican como a todo endpoint protegido y no se repiten. Preguntas relacionadas: P-14 (resuelta, sección 7.1).
 
 ### 3.9 Estadísticas (administrador)
 
@@ -2638,6 +2669,12 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 
 ### 3.17 Cartelera de novedades (RF-28 y RF-07)
 
+**Cambio en implementación:** el contrato de vigencia, eliminación y selección
+manual del carrusel, incluidos los efectos sobre clientes anteriores, se describe
+en [Gestión de cartelera](cartelera-administracion.md). La publicación de esta
+versión exige `vigenteHasta`; el ejemplo histórico de #65 debe actualizarse junto
+con el cliente Flutter antes de utilizarla.
+
 Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
 
 <a id="e65"></a>
@@ -2886,7 +2923,7 @@ En #53, #55 y #57 los errores por fila viajan en el campo `error` de cada fila d
 
 ## 6. Pantallas de los mockups y endpoints que las alimentan
 
-Esta sección sale de las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), vistas pantalla por pantalla. Para cada una: lo que se ve, el endpoint que alimenta cada parte y las diferencias con el contrato. Cuando una pantalla muestra algo que el contrato no cubre, o el contrato tiene algo que ninguna pantalla usa, la diferencia está anotada acá y en la sección 9 (P-23 en adelante). Las pantallas de empleados son web; las del socio son móviles (y también existen en web, RNF-01, RNF-02). Todas las pantallas de empleados muestran arriba a la derecha "Nombre Apellido · Cerrar sesión" (`nombre` y `apellido` de #1 y #2, y #3).
+Esta sección sale de las imágenes de `diseno.md` sección 6 (`docs/analisis/imagenes/diseno/`), vistas pantalla por pantalla. Para cada una: lo que se ve, el endpoint que alimenta cada parte y las diferencias con el contrato. Cuando una pantalla muestra algo que el contrato no cubre, o el contrato tiene algo que ninguna pantalla usa, la diferencia está anotada acá y en la sección 9 (P-24 en adelante). Las pantallas de empleados son web; las del socio son móviles (y también existen en web, RNF-01, RNF-02). Todas las pantallas de empleados muestran arriba a la derecha "Nombre Apellido · Cerrar sesión" (`nombre` y `apellido` de #1 y #2, y #3).
 
 Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2") son de relleno. Los formatos que muestran (`dd/mm/aaaa`, hora de 24 h, CI como `1.234.567-8`) los arma el cliente a partir del JSON ISO de la sección 1.2.
 
@@ -3041,6 +3078,9 @@ Las rutas que propone este contrato se detallan en la sección 3. Decisiones sob
 
 11. **P-16 resuelta (RF-08, #10 y #16):** SOCIO y FUNCIONARIO pueden consultar `GET /api/medicos`; el socio recibe todos los médicos habilitados aunque no tengan números libres, con campos mínimos. La disponibilidad requiere al menos uno de los filtros `especialidadId` o `medicoId`, y por médico solo abarca todas sus especialidades. La matriz de roles ya habilitaba al socio; se actualizaron la seguridad y el resto del contrato.
 
+12. **P-14 resuelta (RNF-23, #32, #33 y #73):** la lista de avisos del socio no tiene estado leído/no leído en esta versión: muestra todo, y marcar como leído queda como mejora futura (necesita una columna nueva en `notificacion`). Los recordatorios con `programada_para` en el futuro no se listan; aparecen cuando llega su hora. Los avisos no tienen límite de retención en esta versión. El token push se da de baja al cerrar sesión (el cliente llama a #73 antes de #3, que no conoce el dispositivo); si otro socio inicia sesión en el mismo dispositivo, #33 reasigna el token al socio nuevo; el push web no existe (RNF-23 lo limita a Android).
+13. **P-23 resuelta (RNF-23, #32):** el cliente consulta la lista de avisos al abrir la pantalla y al volver a verla, como el resto de los listados; no hay consulta periódica. En Android, el push avisa cuando la aplicación no está a la vista. Las consultas cada 15 s de #28 y #30 (arquitectura 8.5) no cambian.
+
 ### 7.2 Contradicciones entre documentos
 
 Regla: si dos documentos se contradicen, gana el requerimiento, y se avisa en el PR.
@@ -3086,7 +3126,6 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-11 | Paginación: `HistoriaDTO` (#21) no declara `Page<>`; la disponibilidad (#16) y las consultas de hoy son `List<>` sin tope. ¿Se pagina #16 y #21? ¿Cuál es el máximo de resultados de #16 (30 días × todos los médicos)? | #16, #21, #26 | asume los listados tal como figuran arriba. |
 | P-12 | RF-14 y RF-15 permiten suspender o rehabilitar "todos los turnos del rango". ¿`ids` vacío significa todos, o el cliente debe enviar todos los ids (y entonces tener todas las páginas de #15)? | #23, #24, #25 | exige `ids` con al menos un valor y solo opera sobre lo que el funcionario ve y selecciona. |
 | P-13 | Estadísticas: ¿"cada turno" de RF-40 es el patrón semanal o la fecha concreta? ¿El porcentaje es 0 a 100 o 0 a 1? ¿La unidad de "Sin datos" es `null`? | #34, #35, #36 | usa 0 a 100 y `null` como "Sin datos". |
-| P-14 | Notificaciones: ¿hay estado leído/no leído y cómo se marca (RF y modelo de datos no lo definen)? ¿Se listan los recordatorios aún no vencidos (`programada_para` futuro)? ¿Cuánto tiempo se conservan? ¿Se da de baja el token push al cerrar sesión o cuando otro socio inicia sesión en el mismo dispositivo (`token` es único)? RNF-23 habla de push en Android; ¿vale también el push web? **Parcialmente resuelta:** el token se da de baja al cerrar sesión (el cliente llama a #73 antes de #3, que no conoce el dispositivo); si otro socio inicia sesión en el mismo dispositivo, #33 reasigna el token al socio nuevo; el push web no existe (RNF-23 lo limita a Android, decidido). Siguen abiertos el estado leído/no leído, los recordatorios futuros y cuánto tiempo se conservan. | #32, #33, #73 | lista todo sin estado de lectura; en Android registra el token con #33 al iniciar sesión y lo da de baja con #73 antes de cerrar sesión. |
 | P-15 | RF-16 pide mostrar las consultas del día para confirmar al socio. ¿Se debe mostrar también su nombre y apellido para verificar que es la persona correcta? `List<ConsultaDTO>` no los trae. | #26 | muestra solo las consultas. |
 
 | P-17 | Formato de la CI en el cable: solo dígitos (propuesta) o con puntos y guion. ¿Quién normaliza? Los mockups piden "Sin puntos ni guiones" en los campos de CI, pero no definen el formato en el cable. | #1, #4, #11, #26, #27, #28 | envía solo dígitos. |
@@ -3095,7 +3134,6 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-20 | Duración y vigencia del JWT del lado del cliente: ¿se incluye `expiresIn` en la respuesta de sesión? Hoy el cliente solo conoce los 15 minutos por arquitectura 8.3. | #1, #2 | renueva ante el primer `401`. |
 | P-21 | ¿Se aplican las mismas reglas de tiempo de respuesta al login para cuentas inexistentes y existentes (para que el tiempo no revele nada)? Es una exigencia de implementación, no de interfaz. | #1 | no depende de eso. |
 | P-22 | La respuesta de sesión usa `role` por compatibilidad con el cliente actual, el resto usa `rol` (como las RF). ¿Se unifica? | #1, #2 | lee `role` en la sesión. |
-| P-23 | ¿Cómo se enteran el cliente web y el Android de que algo cambió (una consulta cancelada o suspendida, una notificación nueva, un aviso de llegada) fuera de los 15 s de arquitectura 8.5? RNF-23 y RNF-25 prevén correo, notificación interna y push Android, pero no definen cómo se refresca la lista del socio ni qué recibe la web, que no tiene push (RNF-23 lo limita a Android). | #28, #30, #32 | consulta cada 15 s solo en #28 y #30; #32 solo se consulta al abrir la lista. |
 | P-24 | La pantalla de aviso de llegada (6.1.2) muestra el **nombre, el apellido y la CI del socio**, "Socio" y "Hoy 13/10/2026" antes de registrar, y el estado alternativo "El socio ya registró su llegada hoy a las 08:55 (Funcionario X)". #26 (derivado de `buscarAgendadasHoy(ci)`, S10) no trae al socio ni dice si ya hay aviso; el aviso existente solo se conoce después de #27. Amplía P-15. La fecha de hoy ¿la toma el cliente de su reloj o del servidor (hora de Uruguay)? **Parcialmente resuelta:** el Diseño 3.3.4 ya dice que la fecha del aviso la toma el servidor; queda pendiente lo del nombre y la CI del socio. | #26, #27 | muestra solo las consultas, usa el reloj del dispositivo para "Hoy" y el `200` de #27 para el estado alternativo. |
 | P-25 | Los mockups escriben "Dra. Apellido" y "Dr. Apellido" para los médicos (6.1.2, 6.1.4, 6.1.5, 6.1.6, 6.2.2 a 6.2.5). El modelo de datos no tiene ningún dato que indique el tratamiento (Persona solo tiene nombre, apellido y fecha de nacimiento). | #10, #16, #18, #21, #28, #29, #30 | muestra "nombre apellido" sin título. |
 | P-26 | Suspender y rehabilitar (6.1.4): la pantalla permite marcar filas de médicos y especialidades distintos, con los filtros en "Todos" y fechas vacías, y no tiene "seleccionar todos". `FiltroFechasDTO` (`medicoId`, `especialidadId`, `fechaDesde`, `fechaHasta`, los cuatro obligatorios en #24 y #25; #23 ya no lleva filtro) supone una sola combinación. ¿El filtro es opcional, o el cliente debe agrupar la selección y hacer un pedido por médico y especialidad? Complementa P-12. | #23, #24, #25 | exige que la selección sea de un solo médico y una sola especialidad, y envía como rango el menor y el mayor `fecha` seleccionados. |
