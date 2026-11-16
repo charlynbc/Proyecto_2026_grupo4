@@ -317,7 +317,7 @@ Restricciones relevantes: `ck_consulta_estado` (AGENDADA, ATENDIDA, CANCELADA_SO
 
 **No verificado en esta sesión.** Lo que consta en el repo:
 - `docs/analisis/arquitectura.md` describe el destino (Railway + PostgreSQL 17 en Supabase vía Supavisor).
-- `docs/api/railway-correo.md` lista variables (PORT, DB_URL/DB_USER/DB_PASSWORD, JWT_SECRET_BASE64, CORS_ALLOWED_ORIGIN, COOKIE_SECURE, COOKIE_SAME_SITE, APP_FIREBASE_ENABLED, MAIL_PROVIDER=resend, RESEND_API_KEY, MAIL_FROM, FIRST_LOGIN_URL) y avisa que Railway bloquea SMTP en planes Free/Trial/Hobby.
+- `docs/api/railway-correo.md` lista variables (PORT, DB_URL/DB_USER/DB_PASSWORD, JWT_SECRET_BASE64, CORS_ALLOWED_ORIGIN, COOKIE_SECURE, COOKIE_SAME_SITE, APP_FIREBASE_ENABLED, FIREBASE_SERVICE_ACCOUNT_JSON (JSON o base64; alternativa GOOGLE_APPLICATION_CREDENTIALS), MAIL_PROVIDER=resend, RESEND_API_KEY, MAIL_FROM, FIRST_LOGIN_URL) y avisa que Railway bloquea SMTP en planes Free/Trial/Hobby.
 - `docs/integracion/estado-2026-10-21.md`: «despliegue en Railway (no realizado)». `docs/pruebas-integracion.md` lo lista como «No cubierto».
 - No se afirma ningún despliegue de RF-39, RF-40 ni RF-41.
 - Correo RF-02 (rama `fix/primer-ingreso-correo-integracion`): probado de punta a punta en local con Mailpit (solicitud 202, correo recibido, enlace `/#/primer-ingreso?token=…`, activación, enlace reutilizado rechazado, login; SOCIO y EMPLEADO). **Resend no verificado**: faltan API key, dominio verificado en Resend y acceso al Railway de desarrollo (ver `docs/api/railway-correo.md`). El `202` por sí solo no prueba la entrega.

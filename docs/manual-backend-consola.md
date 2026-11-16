@@ -73,6 +73,19 @@ COOKIE_SECURE=false
 COOKIE_SAME_SITE=Lax
 ```
 
+Para probar avisos push en local, `APP_FIREBASE_ENABLED=true` y una de estas dos variables con la clave de la
+cuenta de servicio de Firebase:
+
+- `FIREBASE_SERVICE_ACCOUNT_JSON`: el contenido del JSON o ese mismo JSON en base64. Si tiene valor, manda.
+- `GOOGLE_APPLICATION_CREDENTIALS`: ruta a un archivo JSON. Se usa solo si la anterior está ausente o vacía.
+
+La clave es secreta: nunca va al repositorio, a `.env.example` ni a una captura. Para obtener el base64 en
+PowerShell:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\ruta\al\archivo.json"))
+```
+
 El archivo `.env` no se sube al repositorio.
 
 ### 3.1.1. Correo local con Mailpit y primer ingreso (RF-02)
