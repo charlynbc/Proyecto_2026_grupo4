@@ -299,6 +299,22 @@ public class TurnoFechasRepository {
         );
     }
 
+    /** El correo de la cuenta, o vacio si no tiene. */
+    public Optional<String> correoDelSocio(Long socioId) {
+        List<String> correos = jdbcTemplate.query(
+                """
+                SELECT correo
+                FROM public.cuenta
+                WHERE id_cuenta = ?
+                """,
+                (rs, rowNum) -> rs.getString("correo"),
+                socioId
+        );
+        return correos.isEmpty()
+                ? Optional.empty()
+                : Optional.ofNullable(correos.getFirst());
+    }
+
     public List<Long> registrarEnviosNotificacion(
             Long notificacionId,
             Long socioId,
@@ -350,6 +366,7 @@ public class TurnoFechasRepository {
         return jdbcTemplate.query(
                         """
                         SELECT envio.id_envio, envio.id_notificacion,
+                               notificacion.tipo,
                                envio.canal, envio.correo_destino,
                                dispositivo.token,
                                notificacion.contenido,
@@ -373,13 +390,13 @@ public class TurnoFechasRepository {
                         LEFT JOIN public.dispositivo_push dispositivo
                           ON dispositivo.id_dispositivo = envio.id_dispositivo
                         WHERE envio.id_envio = ?
-                          AND notificacion.tipo = 'SUSPENSION'
                           AND envio.estado = 'PENDIENTE'
                         FOR UPDATE OF envio
                         """,
                         (rs, rowNum) -> new EnvioNotificacion(
                                 rs.getLong("id_envio"),
                                 rs.getLong("id_notificacion"),
+                                rs.getString("tipo"),
                                 rs.getString("canal"),
                                 rs.getString("correo_destino"),
                                 rs.getString("token"),
@@ -401,10 +418,7 @@ public class TurnoFechasRepository {
                         """
                         SELECT id_envio
                         FROM public.envio_notificacion envio
-                        JOIN public.notificacion notificacion
-                          ON notificacion.id_notificacion = envio.id_notificacion
                         WHERE envio.estado = 'PENDIENTE'
-                          AND notificacion.tipo = 'SUSPENSION'
                         ORDER BY envio.id_envio
                         LIMIT 1
                         FOR UPDATE OF envio SKIP LOCKED
@@ -543,6 +557,7 @@ public class TurnoFechasRepository {
     public record EnvioNotificacion(
             Long envioId,
             Long notificacionId,
+            String tipo,
             String canal,
             String correo,
             String token,

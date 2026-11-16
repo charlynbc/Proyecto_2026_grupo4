@@ -106,6 +106,52 @@ void main() {
       }
     });
 
+    testWidgets('los socios presentes hoy: el refresco pide la fecha de hoy '
+        'precargada, con fecha en cada pedido', (tester) async {
+      final repository = _CountingRepository();
+      final container = _container(repository);
+      _watchLikeTheScreen(container);
+      try {
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 15));
+
+        expect(repository.calls, hasLength(2));
+        for (final call in repository.calls) {
+          expect(call.date, _today);
+          expect(call.toQueryParameters()['fecha'], '2026-10-26');
+        }
+      } finally {
+        container.dispose();
+      }
+    });
+
+    testWidgets('sin fecha, el refresco sigue pidiendo todos los días: no '
+        'agrega una fecha', (tester) async {
+      final repository = _CountingRepository();
+      final container = _container(repository);
+      _watchLikeTheScreen(container);
+      try {
+        await tester.pump();
+        container
+            .read(scheduleFiltersControllerProvider.notifier)
+            .setDate(null);
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(repository.calls, hasLength(2));
+        expect(repository.calls.last.date, isNull);
+
+        await tester.pump(const Duration(seconds: 15));
+
+        expect(repository.calls, hasLength(3));
+        expect(repository.calls.last.date, isNull);
+        expect(
+          repository.calls.last.toQueryParameters().containsKey('fecha'),
+          isFalse,
+        );
+      } finally {
+        container.dispose();
+      }
+    });
+
     testWidgets('con un pedido pendiente no hace otro; al completarlo, el '
         'siguiente tick sí', (tester) async {
       final repository = _CountingRepository()

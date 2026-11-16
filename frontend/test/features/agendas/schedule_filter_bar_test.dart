@@ -12,10 +12,12 @@ import 'package:agenda_medica/features/turnos/models/shift_page.dart';
 import 'package:agenda_medica/features/turnos/models/weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/repositories/shift_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_admin.dart';
 import 'schedule_test_support.dart';
 
@@ -55,11 +57,12 @@ class _Host extends ConsumerWidget {
 Future<RecordingScheduleRepository> _pump(
   WidgetTester tester, {
   ShiftRepositoryFactory? shiftRepository,
+  Size size = const Size(1300, 1800),
 }) async {
   final repository = RecordingScheduleRepository();
   await pumpAdminScreens(
     tester,
-    size: const Size(1300, 1800),
+    size: size,
     initialLocation: '/',
     routes: [GoRoute(path: '/', builder: (context, state) => const _Host())],
     overrides: scheduleTestOverrides(
@@ -188,6 +191,38 @@ void main() {
     });
   });
 
+  group('etiqueta del número de consulta', () {
+    // Con Roboto, para medir con el ancho real de la letra.
+    setUpAll(loadRoboto);
+
+    testWidgets('el campo dice "N.º de consulta" y no "Identificador"', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      expect(find.text('N.º de consulta'), findsOneWidget);
+      expect(find.text('Identificador'), findsNothing);
+    });
+
+    for (final (width, scale) in [(1300.0, 1.0), (320.0, 1.0), (320.0, 2.0)]) {
+      testWidgets('con $width px y texto x$scale la etiqueta no se corta', (
+        tester,
+      ) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _pump(tester, size: Size(width, 3000));
+
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text('N.º de consulta'),
+        );
+        expect(paragraph.didExceedMaxLines, isFalse);
+        expect(tester.takeException(), isNull);
+        final rect = tester.getRect(find.byKey(const Key('filter-id')));
+        expect(rect.right, lessThanOrEqualTo(width));
+      });
+    }
+  });
+
   group('identificador', () {
     testWidgets('escribir 15 y buscar manda consultaId=15', (tester) async {
       final repository = await _pump(tester);
@@ -227,7 +262,12 @@ void main() {
       expect(_lastQuery(repository)['fecha'], '2026-10-27');
     });
 
-    testWidgets('sin fecha pide la fecha y no busca', (tester) async {
+    // La fecha es opcional: sin fecha se ven las consultas de todos los días
+    // (el servidor no la exige, contrato fila 28). Antes pedía "Ingresá la
+    // fecha." y no buscaba.
+    testWidgets('sin fecha busca todos los días y no muestra ningún error', (
+      tester,
+    ) async {
       final repository = await _pump(tester);
       final before = repository.calls.length;
 
@@ -235,8 +275,92 @@ void main() {
       await _search(tester);
       await tester.pumpAndSettle();
 
-      expect(find.text('Ingresá la fecha.'), findsOneWidget);
-      expect(repository.calls, hasLength(before));
+      expect(find.text('Ingresá la fecha.'), findsNothing);
+      expect(repository.calls, hasLength(before + 1));
+      expect(repository.calls.last.date, isNull);
+      expect(_lastQuery(repository), {
+        'orden': 'fechaHora',
+        'sentido': 'asc',
+        'page': 0,
+        'size': 20,
+      });
+    });
+
+    testWidgets('la cruz del campo borra la fecha y al buscar no se manda', (
+      tester,
+    ) async {
+      final repository = await _pump(tester);
+      expect(_textOf(tester, 'filter-date'), '26/10/2026');
+
+      await tester.tap(find.byTooltip('Borrar la fecha'));
+      await tester.pump();
+      expect(_textOf(tester, 'filter-date'), '');
+      await _search(tester);
+      await tester.pumpAndSettle();
+
+      expect(repository.calls.last.date, isNull);
+      expect(_lastQuery(repository).containsKey('fecha'), isFalse);
+      expect(find.text('Ingresá la fecha.'), findsNothing);
+    });
+
+    testWidgets('con una CI y sin fecha pide todas las consultas del socio', (
+      tester,
+    ) async {
+      final repository = await _pump(tester);
+
+      await _type(tester, 'filter-ci', '90000046');
+      await _type(tester, 'filter-date', '');
+      await _search(tester);
+
+      expect(_lastQuery(repository), {
+        'ci': '90000046',
+        'orden': 'fechaHora',
+        'sentido': 'asc',
+        'page': 0,
+        'size': 20,
+      });
+    });
+
+    testWidgets('después de ver todos los días, escribir una fecha vuelve a '
+        'mandarla', (tester) async {
+      final repository = await _pump(tester);
+      await _type(tester, 'filter-date', '');
+      await _search(tester);
+      expect(repository.calls.last.date, isNull);
+
+      await _type(tester, 'filter-date', '27/10/2026');
+      await _search(tester);
+
+      expect(_lastQuery(repository)['fecha'], '2026-10-27');
+    });
+
+    testWidgets('con la fecha puesta explica cómo ver todos los días', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      expect(
+        find.text('Para ver todos los días, borrá la fecha con la cruz.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('con la fecha vacía avisa que se ven todos los días', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      await tester.tap(find.byTooltip('Borrar la fecha'));
+      await tester.pump();
+
+      expect(
+        find.text('Sin fecha se ven las consultas de todos los días.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Para ver todos los días, borrá la fecha con la cruz.'),
+        findsNothing,
+      );
     });
 
     testWidgets('una fecha que no existe muestra el error del campo y no '
@@ -524,6 +648,23 @@ void main() {
       expect(find.text('Sin aviso de llegada'), findsNothing);
       expect(find.text('Hora de llegada'), findsNothing);
       expect(find.text('Ascendente'), findsOneWidget);
+    });
+
+    testWidgets('después de ver todos los días, vuelve a hoy: el campo y el '
+        'pedido', (tester) async {
+      final repository = await _pump(tester);
+      await _type(tester, 'filter-date', '');
+      await _search(tester);
+      expect(repository.calls.last.date, isNull);
+      expect(_textOf(tester, 'filter-date'), '');
+
+      await tester.tap(find.text('Limpiar'));
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle();
+
+      expect(_textOf(tester, 'filter-date'), '26/10/2026');
+      expect(repository.calls.last, ScheduleFilters(date: scheduleTestToday));
+      expect(_lastQuery(repository)['fecha'], '2026-10-26');
     });
 
     testWidgets('también borra un error de la cédula', (tester) async {

@@ -18,9 +18,9 @@ public class AnuncioRepository {
 
     long crear(long administradorId, AnuncioDTO.Datos datos) {
         return jdbc.queryForObject("""
-                INSERT INTO public.anuncio (id_administrador, titulo, resumen, texto)
-                VALUES (?, ?, ?, ?) RETURNING id_anuncio
-                """, Long.class, administradorId, datos.titulo(), datos.resumen(), datos.texto());
+                INSERT INTO public.anuncio (id_administrador, titulo, resumen, texto, vigente_desde, vigente_hasta)
+                VALUES (?, ?, ?, ?, ?, ?) RETURNING id_anuncio
+                """, Long.class, administradorId, datos.titulo(), datos.resumen(), datos.texto(), datos.vigenteDesde(), datos.vigenteHasta());
     }
 
     void agregarImagen(long anuncioId, String referencia, int orden) {
@@ -34,20 +34,28 @@ public class AnuncioRepository {
         return jdbc.query("""
                 SELECT id_anuncio, titulo, resumen, texto, publicado_en
                 FROM public.anuncio
+                WHERE (vigente_desde IS NULL OR vigente_desde <= CURRENT_TIMESTAMP)
+                  AND (vigente_hasta IS NULL OR CURRENT_TIMESTAMP < vigente_hasta)
                 ORDER BY publicado_en DESC, id_anuncio DESC
                 LIMIT ? OFFSET ?
                 """, (rs, row) -> fila(rs), size, (long) page * size);
     }
 
     long total() {
-        return jdbc.queryForObject("SELECT count(*) FROM public.anuncio", Long.class);
+        return jdbc.queryForObject("SELECT count(*) FROM public.anuncio WHERE (vigente_desde IS NULL OR vigente_desde <= CURRENT_TIMESTAMP) AND (vigente_hasta IS NULL OR CURRENT_TIMESTAMP < vigente_hasta)", Long.class);
     }
 
     Fila buscar(long id) {
+        return buscarInterno(id, true);
+    }
+
+    Fila buscarCualquiera(long id) { return buscarInterno(id, false); }
+
+    private Fila buscarInterno(long id, boolean soloVigente) {
         return jdbc.query("""
                 SELECT id_anuncio, titulo, resumen, texto, publicado_en
                 FROM public.anuncio WHERE id_anuncio = ?
-                """, (rs, row) -> fila(rs), id).stream().findFirst().orElse(null);
+                """ + (soloVigente ? " AND (vigente_desde IS NULL OR vigente_desde <= CURRENT_TIMESTAMP) AND (vigente_hasta IS NULL OR CURRENT_TIMESTAMP < vigente_hasta)" : ""), (rs, row) -> fila(rs), id).stream().findFirst().orElse(null);
     }
 
     List<ImagenFila> imagenes(long anuncioId) {
