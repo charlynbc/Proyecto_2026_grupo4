@@ -470,3 +470,27 @@ CREATE INDEX ix_envio_notificacion_dispositivo ON public.envio_notificacion (id_
 CREATE INDEX ix_envio_notificacion_estado_intento ON public.envio_notificacion (estado, ultimo_intento_en);
 
 COMMIT;
+
+-- Vigencia: los anuncios anteriores pueden conservar fin NULL; el backend
+-- exige fin en las publicaciones nuevas y al modificar la vigencia.
+ALTER TABLE public.anuncio ADD COLUMN vigente_desde timestamptz;
+ALTER TABLE public.anuncio ADD COLUMN vigente_hasta timestamptz;
+ALTER TABLE public.anuncio ADD CONSTRAINT ck_anuncio_vigencia
+    CHECK (vigente_desde IS NULL OR vigente_hasta IS NULL OR vigente_desde < vigente_hasta);
+
+-- Orden manual del carrusel; las posiciones vacías no se rellenan automáticamente.
+ALTER TABLE public.anuncio ADD COLUMN posicion_carrusel smallint;
+ALTER TABLE public.anuncio ADD CONSTRAINT ck_anuncio_posicion_carrusel
+    CHECK (posicion_carrusel BETWEEN 1 AND 5);
+CREATE UNIQUE INDEX ux_anuncio_posicion_carrusel ON public.anuncio(posicion_carrusel)
+    WHERE posicion_carrusel IS NOT NULL;
+
+-- No depende del anuncio: conserva la referencia tras su eliminacion fisica.
+CREATE TABLE public.anuncio_archivo_pendiente_borrado (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    referencia_archivo text NOT NULL UNIQUE CHECK (btrim(referencia_archivo) <> ''),
+    creado_en timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    intentos integer NOT NULL DEFAULT 0 CHECK (intentos >= 0),
+    ultimo_intento timestamptz,
+    ultimo_error text
+);
