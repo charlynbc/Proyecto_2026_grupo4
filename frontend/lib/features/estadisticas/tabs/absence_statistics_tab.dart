@@ -7,6 +7,7 @@ import '../../../core/widgets/centered_content.dart';
 import '../absences/models/absence_statistics.dart';
 import '../absences/providers/absence_statistics_provider.dart';
 import '../absences/repositories/absence_statistics_repository.dart';
+import '../absences/widgets/absence_rate_chart.dart';
 import '../widgets/period_filter.dart';
 import '../widgets/period_label.dart';
 
@@ -183,7 +184,7 @@ class _AbsenceStatisticsTabState extends ConsumerState<AbsenceStatisticsTab> {
               onRetry: () => _fetch(_requestedFrom, _requestedTo),
             )
           else if (result != null)
-            _Results(result: result),
+            _Results(result: result, grouping: _grouping),
         ],
       ),
     );
@@ -236,9 +237,10 @@ class _ErrorNotice extends StatelessWidget {
 }
 
 class _Results extends StatelessWidget {
-  const _Results({required this.result});
+  const _Results({required this.result, required this.grouping});
 
   final AbsenceStatistics result;
+  final AbsenceGrouping grouping;
 
   @override
   Widget build(BuildContext context) {
@@ -254,8 +256,11 @@ class _Results extends StatelessWidget {
             key: Key('stats-empty'),
             textAlign: TextAlign.center,
           )
-        else
+        else ...[
+          AbsenceRateChart(items: items, grouping: grouping),
+          const SizedBox(height: 16),
           for (final item in items) _GroupCard(item: item),
+        ],
       ],
     );
   }

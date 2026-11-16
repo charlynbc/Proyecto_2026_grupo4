@@ -6,6 +6,7 @@ import 'package:agenda_medica/features/estadisticas/absences/repositories/absenc
 import 'package:agenda_medica/features/estadisticas/screens/statistics_screen.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/absence_statistics_tab.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -93,6 +94,7 @@ Future<void> _pump(
   WidgetTester tester,
   _Repository repository, {
   Size size = const Size(800, 2000),
+  double textScale = 1,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -104,10 +106,78 @@ Future<void> _pump(
           (ref) async => repository,
         ),
       ],
-      child: const MaterialApp(home: Scaffold(body: AbsenceStatisticsTab())),
+      child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+        home: const Scaffold(body: AbsenceStatisticsTab()),
+      ),
     ),
   );
 }
+
+/// El texto buscado dentro de las tarjetas: el gráfico repite los nombres y
+/// los porcentajes.
+Finder _inCards(String text) =>
+    find.descendant(of: find.byType(Card), matching: find.text(text));
+
+/// Cuántas filas dibuja el gráfico.
+int _tracks() => find
+    .byWidgetPredicate(
+      (w) =>
+          w.key is ValueKey<String> &&
+          (w.key! as ValueKey<String>).value.startsWith('absence-bar-track-'),
+    )
+    .evaluate()
+    .length;
+
+AbsenceGroup _percentGroup(
+  int id,
+  String name,
+  String? lastName,
+  int percentage,
+) => AbsenceGroup(
+  id: id,
+  name: name,
+  lastName: lastName,
+  attended: 100 - percentage,
+  noShow: percentage,
+  missed: 0,
+  notAttended: 0,
+  total: 100,
+  percentage: percentage.toDouble(),
+  percentageText: '$percentage %',
+);
+
+/// Seis especialidades, de mayor a menor porcentaje.
+AbsenceStatistics _specialties() => _bySpecialty(
+  items: [
+    _percentGroup(6, 'Traumatología', null, 40),
+    _percentGroup(5, 'Oftalmología', null, 25),
+    _percentGroup(3, 'Cardiología', null, 12),
+    _percentGroup(4, 'Dermatología', null, 8),
+    _percentGroup(1, 'Medicina General', null, 3),
+    _percentGroup(2, 'Pediatría', null, 0),
+  ],
+);
+
+/// [count] médicos, de mayor a menor porcentaje.
+AbsenceStatistics _doctors(int count) => AbsenceStatistics(
+  from: DateTime.utc(2026, 10, 1),
+  to: DateTime.utc(2026, 10, 31),
+  groupedBy: 'MEDICO',
+  items: [
+    for (var i = 0; i < count; i++)
+      _percentGroup(
+        i + 1,
+        'Médico ${i + 1}',
+        'Rodríguez Altamirano',
+        99 - i * 5,
+      ),
+  ],
+);
 
 Future<void> _consult(WidgetTester tester) async {
   await tester.tap(find.byKey(const Key('stats-consult')));
@@ -149,12 +219,12 @@ void main() {
     await _pump(tester, _Repository());
     await tester.pumpAndSettle();
 
-    expect(find.text('Cardiología'), findsOneWidget);
+    expect(_inCards('Cardiología'), findsOneWidget);
     expect(find.text('3 inasistencias de 25'), findsOneWidget);
-    expect(find.text('12 %'), findsOneWidget);
-    expect(find.text('Pediatría'), findsOneWidget);
+    expect(_inCards('12 %'), findsOneWidget);
+    expect(_inCards('Pediatría'), findsOneWidget);
     expect(find.text('0 inasistencias de 10'), findsOneWidget);
-    expect(find.text('0 %'), findsOneWidget);
+    expect(_inCards('0 %'), findsOneWidget);
     expect(find.text('Agrupar por'), findsOneWidget);
   });
 
@@ -170,7 +240,7 @@ void main() {
     );
     expect(
       tester.getBottomLeft(find.byKey(const Key('stats-period-label'))).dy,
-      lessThanOrEqualTo(tester.getTopLeft(find.text('Cardiología')).dy),
+      lessThanOrEqualTo(tester.getTopLeft(_inCards('Cardiología')).dy),
     );
   });
 
@@ -299,9 +369,9 @@ void main() {
       to: null,
       grouping: AbsenceGrouping.doctor,
     ));
-    expect(find.text('Carla Méndez'), findsOneWidget);
+    expect(_inCards('Carla Méndez'), findsOneWidget);
     expect(find.text('4 inasistencias de 10'), findsOneWidget);
-    expect(find.text('40 %'), findsOneWidget);
+    expect(_inCards('40 %'), findsOneWidget);
     expect(find.text('Cardiología'), findsNothing);
   });
 
@@ -348,10 +418,162 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('Cardiología'), findsOneWidget);
-      expect(find.text('12 %'), findsOneWidget);
+      expect(_inCards('Cardiología'), findsOneWidget);
+      expect(_inCards('12 %'), findsOneWidget);
       expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
       expect(find.text('Agrupar por'), findsOneWidget);
+    });
+
+    testWidgets('con el texto al doble y doce médicos no hay desbordes ni '
+        'cortes', (tester) async {
+      await _pump(
+        tester,
+        _Repository((_) async => _doctors(12)),
+        size: const Size(320, 6000),
+        textScale: 2,
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(_tracks(), 10);
+      for (final text in [
+        'Porcentaje de inasistencia por especialidad',
+        'Los 10 mayores de 12',
+      ]) {
+        final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+        expect(paragraph.didExceedMaxLines, isFalse, reason: text);
+        expect(tester.getRect(find.text(text)).right, lessThanOrEqualTo(320));
+      }
+    });
+  });
+
+  group('el gráfico junto a las tarjetas', () {
+    testWidgets('por especialidad hay 6 filas en el gráfico y 6 tarjetas', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository((_) async => _specialties()));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('absence-chart')), findsOneWidget);
+      expect(
+        find.text('Porcentaje de inasistencia por especialidad'),
+        findsOneWidget,
+      );
+      expect(_tracks(), 6);
+      expect(find.byType(Card), findsNWidgets(6));
+      expect(find.textContaining('Los 10 mayores'), findsNothing);
+    });
+
+    testWidgets('por médico hay 10 filas en el gráfico, el aviso y 12 '
+        'tarjetas', (tester) async {
+      final repository = _Repository((call) async {
+        if (call.grouping == AbsenceGrouping.doctor) return _doctors(12);
+        return _specialties();
+      });
+      await _pump(tester, repository);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Médico'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Porcentaje de inasistencia por médico'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Porcentaje de inasistencia por especialidad'),
+        findsNothing,
+      );
+      expect(_tracks(), 10);
+      expect(find.text('Los 10 mayores de 12'), findsOneWidget);
+      expect(find.byType(Card), findsNWidgets(12));
+    });
+
+    testWidgets('al volver a especialidad el gráfico vuelve a ser el de '
+        'especialidades', (tester) async {
+      final repository = _Repository((call) async {
+        if (call.grouping == AbsenceGrouping.doctor) return _doctors(12);
+        return _specialties();
+      });
+      await _pump(tester, repository);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Médico'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Especialidad'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Porcentaje de inasistencia por especialidad'),
+        findsOneWidget,
+      );
+      expect(_tracks(), 6);
+      expect(find.textContaining('Los 10 mayores'), findsNothing);
+    });
+
+    testWidgets('el gráfico va arriba y las tarjetas debajo, con el período '
+        'encima de todo', (tester) async {
+      await _pump(tester, _Repository((_) async => _specialties()));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('absence-chart')), findsOneWidget);
+      final period = tester.getBottomLeft(
+        find.byKey(const Key('stats-period-label')),
+      );
+      final chart = tester.getRect(find.byKey(const Key('absence-chart')));
+      final firstCard = tester.getRect(find.byType(Card).first);
+      expect(period.dy, lessThanOrEqualTo(chart.top));
+      expect(chart.bottom, lessThanOrEqualTo(firstCard.top));
+    });
+
+    testWidgets('sin grupos no hay gráfico y dice Sin datos', (tester) async {
+      await _pump(
+        tester,
+        _Repository((_) async => _bySpecialty(items: const [])),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('absence-chart')), findsNothing);
+      expect(find.text('Sin datos'), findsOneWidget);
+      expect(find.byType(Card), findsNothing);
+    });
+
+    testWidgets('con un error no hay gráfico', (tester) async {
+      await _pump(
+        tester,
+        _Repository(
+          (_) async => throw const AbsenceStatisticsException(
+            AbsenceStatisticsFailure.forbidden,
+            'Sin permiso',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('stats-error')), findsOneWidget);
+      expect(find.byKey(const Key('absence-chart')), findsNothing);
+    });
+
+    testWidgets('mientras carga de nuevo no queda el gráfico anterior', (
+      tester,
+    ) async {
+      final completer = Completer<AbsenceStatistics>();
+      var calls = 0;
+      final repository = _Repository((_) {
+        if (calls++ == 0) return Future.value(_specialties());
+        return completer.future;
+      });
+      await _pump(tester, repository);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('absence-chart')), findsOneWidget);
+
+      await tester.tap(find.text('Médico'));
+      await tester.pump();
+
+      expect(find.byKey(const Key('stats-loading')), findsOneWidget);
+      expect(find.byKey(const Key('absence-chart')), findsNothing);
+
+      completer.complete(_doctors(3));
+      await tester.pumpAndSettle();
     });
   });
 }
