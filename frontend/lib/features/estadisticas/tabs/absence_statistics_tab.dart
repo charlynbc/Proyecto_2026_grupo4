@@ -283,7 +283,10 @@ class _GroupCard extends StatelessWidget {
           children: [
             Text(title, style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
-            Text('$absences inasistencias de ${item.total}'),
+            Text(
+              '$absences ${absences == 1 ? 'inasistencia' : 'inasistencias'}'
+              ' de ${item.total}',
+            ),
             Text(item.percentageText, style: theme.textTheme.titleMedium),
           ],
         ),

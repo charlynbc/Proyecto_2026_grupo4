@@ -305,6 +305,27 @@ void main() {
     expect(find.text('Cardiología'), findsNothing);
   });
 
+  testWidgets('el conteo va en singular solo cuando es exactamente 1', (
+    tester,
+  ) async {
+    final repository = _Repository(
+      (_) async => _bySpecialty(
+        items: [
+          _specialty('Cardiología', 3, 0, 10, '0 %'),
+          _specialty('Pediatría', 2, 1, 1, '100 %'),
+          _specialty('Oftalmología', 5, 4, 10, '40 %'),
+        ],
+      ),
+    );
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('0 inasistencias de 10'), findsOneWidget);
+    expect(find.text('1 inasistencia de 1'), findsOneWidget);
+    expect(find.text('4 inasistencias de 10'), findsOneWidget);
+    expect(find.text('1 inasistencias de 1'), findsNothing);
+  });
+
   testWidgets('la pantalla de estadísticas incluye la pestaña', (tester) async {
     tester.view.physicalSize = const Size(900, 1200);
     tester.view.devicePixelRatio = 1;
