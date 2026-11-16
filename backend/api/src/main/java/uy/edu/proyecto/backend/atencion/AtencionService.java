@@ -17,6 +17,7 @@ import uy.edu.proyecto.backend.atencion.ResultadoConsultaRequest.PaseNuevoReques
 import uy.edu.proyecto.backend.atencion.ResultadoConsultaResponse.PaseDTO;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.notificacion.NotificacionEnvios;
 import uy.edu.proyecto.backend.parametro.ParametroService;
 
 @Service
@@ -28,12 +29,18 @@ public class AtencionService {
     private final AtencionRepository repository;
     private final Clock clock;
     private final ParametroService parametros;
+    private final NotificacionEnvios envios;
 
-    public AtencionService(AtencionRepository repository, Clock clock,
-            ParametroService parametros) {
+    public AtencionService(
+            AtencionRepository repository,
+            Clock clock,
+            ParametroService parametros,
+            NotificacionEnvios envios
+    ) {
         this.repository = repository;
         this.clock = clock;
         this.parametros = parametros;
+        this.envios = envios;
     }
 
     @Transactional
@@ -140,7 +147,10 @@ public class AtencionService {
         if (!repository.registrarAtendida(consultaId, medicoId, ahora)) {
             throw consultaNoAgendada();
         }
-        repository.crearNotificacionHistoriaActualizada(consultaId);
+        // Los envios se crean en esta transaccion y se entregan despues del commit:
+        // una falla del correo o del push no revierte el resultado (RNF-24).
+        Long notificacionId = repository.crearNotificacionHistoriaActualizada(consultaId);
+        envios.solicitar(notificacionId, socioId);
 
         return new ResultadoConsultaResponse(
                 consultaId,

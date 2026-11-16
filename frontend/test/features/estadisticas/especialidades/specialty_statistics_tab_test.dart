@@ -8,6 +8,7 @@ import 'package:agenda_medica/features/estadisticas/especialidades/repositories/
 import 'package:agenda_medica/features/estadisticas/tabs/specialty_statistics_tab.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -52,6 +53,7 @@ Future<void> _pump(
   WidgetTester tester,
   _Repository repository, {
   Size size = const Size(800, 2000),
+  double textScale = 1,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -63,7 +65,14 @@ Future<void> _pump(
           (ref) async => repository,
         ),
       ],
-      child: const MaterialApp(home: Scaffold(body: SpecialtyStatisticsTab())),
+      child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
+        home: const Scaffold(body: SpecialtyStatisticsTab()),
+      ),
     ),
   );
 }
@@ -152,7 +161,9 @@ void main() {
     expect(
       tester.getBottomLeft(find.byKey(const Key('stats-period-label'))).dy,
       lessThanOrEqualTo(
-        tester.getTopLeft(find.text('Total de consultas: 177')).dy,
+        tester
+            .getTopLeft(find.text('Consultas agendadas en el período: 177'))
+            .dy,
       ),
     );
   });
@@ -214,7 +225,7 @@ void main() {
       tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
       'Datos del 01/10/2026 al 31/10/2026',
     );
-    expect(find.text('Total de consultas: 177'), findsOneWidget);
+    expect(find.text('Consultas agendadas en el período: 177'), findsOneWidget);
   });
 
   testWidgets('Consultar con otro Desde cambia el texto a la respuesta', (
@@ -287,7 +298,7 @@ void main() {
     expect(_inRow(3, 'Pediatría'), findsOneWidget);
     expect(_inRow(3, '0'), findsOneWidget);
     expect(find.byKey(const Key('stats-row-4')), findsNothing);
-    expect(find.text('Total de consultas: 177'), findsOneWidget);
+    expect(find.text('Consultas agendadas en el período: 177'), findsOneWidget);
   });
 
   testWidgets('el gráfico tiene una barra por especialidad con su cantidad', (
@@ -392,7 +403,7 @@ void main() {
 
     expect(find.byKey(const Key('stats-empty')), findsOneWidget);
     expect(find.text('No hay consultas en el período.'), findsOneWidget);
-    expect(find.text('Total de consultas: 0'), findsOneWidget);
+    expect(find.text('Consultas agendadas en el período: 0'), findsOneWidget);
   });
 
   group('errores', () {
@@ -483,7 +494,10 @@ void main() {
         to: null,
       ));
       expect(find.byKey(const Key('stats-error')), findsNothing);
-      expect(find.text('Total de consultas: 177'), findsOneWidget);
+      expect(
+        find.text('Consultas agendadas en el período: 177'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('Reintentar tras un fallo inicial pide sin parámetros', (
@@ -503,7 +517,10 @@ void main() {
 
       expect(repository.calls, hasLength(2));
       expect(repository.calls.last, (from: null, to: null));
-      expect(find.text('Total de consultas: 177'), findsOneWidget);
+      expect(
+        find.text('Consultas agendadas en el período: 177'),
+        findsOneWidget,
+      );
     });
   });
 
@@ -512,7 +529,118 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Total de consultas: 177'), findsOneWidget);
+    expect(find.text('Consultas agendadas en el período: 177'), findsOneWidget);
     expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+  });
+
+  group('el total dice por que fecha cuenta', () {
+    const note =
+        'Cuenta las consultas por la fecha en que se agendaron, '
+        'incluidas las canceladas';
+
+    Future<void> showItems(WidgetTester tester, List<int> counts) async {
+      final items = [
+        for (var i = 0; i < counts.length; i++)
+          _item(i + 1, 'Especialidad ${i + 1}', false, counts[i]),
+      ];
+      await _pump(tester, _Repository((_) async => _demand(items: items)));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('con cero consultas', (tester) async {
+      await showItems(tester, [0]);
+
+      expect(find.text('Consultas agendadas en el período: 0'), findsOneWidget);
+    });
+
+    testWidgets('con una consulta', (tester) async {
+      await showItems(tester, [1, 0]);
+
+      expect(find.text('Consultas agendadas en el período: 1'), findsOneWidget);
+    });
+
+    testWidgets('con varias consultas suma las de todas las filas', (
+      tester,
+    ) async {
+      await showItems(tester, [3, 4]);
+
+      expect(find.text('Consultas agendadas en el período: 7'), findsOneWidget);
+    });
+
+    testWidgets('ya no dice Total de consultas en ninguna parte', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository());
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Total de consultas'), findsNothing);
+    });
+
+    testWidgets('la aclaración se ve debajo del total y arriba del gráfico', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository());
+      await tester.pumpAndSettle();
+
+      expect(find.text(note), findsOneWidget);
+      final total = tester.getBottomLeft(
+        find.text('Consultas agendadas en el período: 177'),
+      );
+      final aclaracion = tester.getTopLeft(find.text(note));
+      final chart = tester.getTopLeft(find.byType(BarChart));
+      expect(aclaracion.dy, greaterThanOrEqualTo(total.dy));
+      expect(aclaracion.dy, lessThan(chart.dy));
+    });
+
+    testWidgets('la aclaración también está con la lista vacía', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository((_) async => _demand(items: const [])));
+      await tester.pumpAndSettle();
+
+      expect(find.text(note), findsOneWidget);
+    });
+
+    testWidgets('con un error no se muestra la aclaración', (tester) async {
+      await _pump(tester, _Repository((_) async => throw const ApiException()));
+      await tester.pumpAndSettle();
+
+      expect(find.text(note), findsNothing);
+    });
+
+    testWidgets('el lector de pantalla anuncia el total y la aclaración', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _pump(tester, _Repository());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel('Consultas agendadas en el período: 177'),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel(note), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Total de consultas')), findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('a 320 px y con el texto al doble no se corta', (tester) async {
+      await _pump(
+        tester,
+        _Repository(),
+        size: const Size(320, 2400),
+        textScale: 2,
+      );
+      await tester.pumpAndSettle();
+
+      for (final text in ['Consultas agendadas en el período: 177', note]) {
+        final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+        expect(paragraph.didExceedMaxLines, isFalse, reason: text);
+        final rect = tester.getRect(find.text(text));
+        expect(rect.left, greaterThanOrEqualTo(0), reason: text);
+        expect(rect.right, lessThanOrEqualTo(320), reason: text);
+      }
+      expect(tester.takeException(), isNull);
+    });
   });
 }

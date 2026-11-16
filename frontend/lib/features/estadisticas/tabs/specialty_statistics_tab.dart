@@ -213,8 +213,16 @@ class _Results extends StatelessWidget {
         PeriodLabel(from: demand.from, to: demand.to),
         const SizedBox(height: 12),
         Text(
-          'Total de consultas: ${demand.total}',
+          'Consultas agendadas en el período: ${demand.total}',
           style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Cuenta las consultas por la fecha en que se agendaron, '
+          'incluidas las canceladas',
+          key: const Key('stats-total-note'),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 16),
         if (demand.items.isEmpty)

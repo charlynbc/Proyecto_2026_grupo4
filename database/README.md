@@ -62,6 +62,20 @@ psql -v ON_ERROR_STOP=1 -f database/pruebas/verificar_esquema.sql
 
 La prueba termina en `ROLLBACK`, así que no deja datos.
 
+## Carga manual de datos de prueba v3
+
+Los scripts para la base compartida `test` están en [`pruebas/datos-v3/test/`](pruebas/datos-v3/test/).
+Requieren que las migraciones `002` y `003` ya estén aplicadas.
+
+1. Hacer un respaldo de `test` y pausar los servicios que escriben en esa base.
+2. Ejecutar [`01_reconstruir_test_v3.sql`](pruebas/datos-v3/test/01_reconstruir_test_v3.sql).
+   Reemplaza los datos operativos de prueba, incluidas cuentas, turnos y consultas.
+   Conserva las novedades, las posiciones del carrusel y las referencias de sus imágenes.
+3. Ejecutar [`02_verificar_test_v3.sql`](pruebas/datos-v3/test/02_verificar_test_v3.sql)
+   inmediatamente después. La verificación es de solo lectura.
+
+Ambos scripts comprueban que la base se llame `test`. Esta carga se ejecuta manualmente.
+
 ## Qué controla la base y qué controla el servicio
 
 La base controla todo lo que se puede expresar sobre una sola fila o con un
