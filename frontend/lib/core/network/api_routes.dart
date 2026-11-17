@@ -146,8 +146,6 @@ class ApiRoutes {
   static String adminAnnouncement(int id) => '/api/admin/anuncios/$id';
   static const String adminCarousel = '/api/admin/carrusel';
 
-  static const String pocPushRegistration = '/api/notificaciones/registro';
-
   /// Todas las rutas, con un id de ejemplo (`1`) donde la ruta lo lleva.
   /// Sirve para los tests: si se agrega una ruta, se agrega acá también.
   static List<String> get all => [
@@ -221,6 +219,5 @@ class ApiRoutes {
     adminAnnouncementValidity(1),
     adminAnnouncement(1),
     adminCarousel,
-    pocPushRegistration,
   ];
 }

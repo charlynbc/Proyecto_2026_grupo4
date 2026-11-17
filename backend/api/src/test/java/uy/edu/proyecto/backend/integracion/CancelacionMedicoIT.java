@@ -150,7 +150,8 @@ class CancelacionMedicoIT extends BaseIntegracionIT {
                 String.class, consulta));
         assertNullEventoSuspension(consulta);
 
-        // Notificación con el motivo y su envío por correo quedan registrados.
+        // Notificación con el motivo y su envío por correo quedan registrados. Se cuenta solo
+        // el envío del aviso de cancelación: agendar (el preparado del test) ya creó el suyo.
         String contenido = jdbc.queryForObject(
                 "SELECT n.contenido FROM notificacion n WHERE n.id_consulta = ?"
                         + " AND n.tipo = 'CANCELACION'", String.class, consulta);
@@ -159,7 +160,8 @@ class CancelacionMedicoIT extends BaseIntegracionIT {
         assertEquals(1, jdbc.queryForObject(
                 "SELECT count(*) FROM envio_notificacion e JOIN notificacion n"
                         + " ON n.id_notificacion = e.id_notificacion"
-                        + " WHERE n.id_consulta = ? AND e.canal = 'CORREO'",
+                        + " WHERE n.id_consulta = ? AND n.tipo = 'CANCELACION'"
+                        + " AND e.canal = 'CORREO'",
                 Integer.class, consulta));
 
         // El número vuelve a estar disponible: otro socio puede agendarlo.
