@@ -37,6 +37,11 @@ class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
   _Cause _cause = _Cause.socio;
   bool _sending = false;
   bool _sendStarted = false;
+
+  /// El servidor dijo que faltan menos de dos horas. El plazo vale para las dos
+  /// causas y la hora solo avanza: desde acá no se puede volver a intentar
+  /// mientras el diálogo siga abierto.
+  bool _windowClosed = false;
   String? _fieldError;
   String? _error;
 
@@ -51,12 +56,13 @@ class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
     setState(() {
       _cause = cause;
       _fieldError = null;
-      _error = null;
+      // El aviso de plazo se queda: cambiar de causa no lo arregla.
+      if (!_windowClosed) _error = null;
     });
   }
 
   Future<void> _cancel() async {
-    if (_sendStarted) return;
+    if (_sendStarted || _windowClosed) return;
     // Sin motivo es a pedido del socio. Por otro motivo el campo es
     // obligatorio; el servidor vuelve a validarlo.
     String? reason;
@@ -116,7 +122,11 @@ class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
     } on StaffCancellationException catch (error) {
       if (!mounted) return;
       final String message;
+      var windowClosed = false;
       switch (error.failure) {
+        case StaffCancellationFailure.outsideWindow:
+          message = error.message;
+          windowClosed = true;
         case StaffCancellationFailure.unauthenticated:
           message = 'Tu sesión venció. Iniciá sesión nuevamente.';
         case StaffCancellationFailure.forbidden:
@@ -132,6 +142,7 @@ class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
         _sending = false;
         _sendStarted = false;
         _error = message;
+        if (windowClosed) _windowClosed = true;
       });
     } catch (error) {
       if (!mounted) return;
@@ -255,7 +266,13 @@ class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
           ),
           OutlinedButton(
             key: const Key('confirm-cancel-schedule'),
-            onPressed: _sending ? null : _cancel,
+            onPressed: _sending || _windowClosed ? null : _cancel,
+            // Deshabilitado, el texto se sigue leyendo (3:1, no el 38 % que trae
+            // Material, que sobre este fondo da 2,3:1).
+            style: OutlinedButton.styleFrom(
+              disabledForegroundColor: Theme.of(context).colorScheme.onSurface
+                  .withValues(alpha: 0.5),
+            ),
             child: _sending
                 ? const SizedBox(
                     height: 18,

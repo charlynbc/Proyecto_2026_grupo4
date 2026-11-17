@@ -229,7 +229,7 @@ void main() {
     );
 
     testWidgets('el texto no cambia y el diálogo sigue abierto con el botón '
-        'habilitado', (tester) async {
+        'deshabilitado', (tester) async {
       final cancellation = await _pump(tester);
       await _openDialog(tester);
       await _confirm(tester);
@@ -242,11 +242,15 @@ void main() {
               find.byKey(const Key('confirm-cancel-schedule')),
             )
             .onPressed,
-        isNotNull,
+        isNull,
       );
-      // Si se vuelve a apretar, vuelve a pedir lo mismo.
-      await _confirm(tester);
-      expect(cancellation.calls, 2);
+      // El plazo ya venció: apretar de nuevo no vuelve a pedir nada.
+      await tester.tap(
+        find.byKey(const Key('confirm-cancel-schedule')),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      expect(cancellation.calls, 1);
       expect(tester.widget<Text>(_errorText).data, _message);
     });
 
@@ -258,7 +262,7 @@ void main() {
       expect(_errorIcon, findsNothing);
     });
 
-    testWidgets('al cambiar la causa el error y su ícono desaparecen', (
+    testWidgets('al cambiar la causa el aviso de plazo y su ícono se quedan', (
       tester,
     ) async {
       await _pump(tester);
@@ -269,8 +273,10 @@ void main() {
       await tester.tap(find.byKey(const Key('cancel-cause-other')));
       await tester.pump();
 
-      expect(_errorText, findsNothing);
-      expect(_errorIcon, findsNothing);
+      // El plazo vale para las dos causas: el aviso no se va (el resto de los
+      // errores sí se van al cambiar la causa; ver la prueba del botón).
+      expect(_errorText, findsOneWidget);
+      expect(_errorIcon, findsOneWidget);
     });
 
     testWidgets('el texto informativo conserva su estilo, sin color de error', (
