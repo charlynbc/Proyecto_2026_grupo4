@@ -39,8 +39,11 @@ enum _Part {
 /// Se dibuja con widgets, como el gráfico de Inasistencias, para que crezca
 /// con el texto.
 ///
-/// Complementa a las tarjetas: no las reemplaza. Sin pases en ninguna
-/// especialidad no dibuja nada.
+/// Es la única vista de la pestaña: cada fila lleva, además de la barra, los
+/// cinco datos de la especialidad (emitidos, utilizados, disponibles,
+/// vencidos y utilización) en una línea que baja de renglón si no entra. Con
+/// pases en ninguna especialidad se muestran igual las filas, sin barra. Sin
+/// especialidades no dibuja nada.
 class ReferralUsageChart extends StatelessWidget {
   const ReferralUsageChart({super.key, required this.items});
 
@@ -50,13 +53,18 @@ class ReferralUsageChart extends StatelessWidget {
   static int _total(ReferralItem item) =>
       item.used + item.available + item.expired;
 
-  /// El texto que lee el lector de pantalla: los tres números, sin repetir el
-  /// porcentaje de las tarjetas.
+  static String _issuedText(int count) =>
+      '$count ${count == 1 ? 'emitido' : 'emitidos'}';
+
+  /// El texto que lee el lector de pantalla: todo lo de la línea de datos. La
+  /// utilización se lee con coma decimal ("71,43 %").
   static String semanticLabel(ReferralItem item) {
-    if (_total(item) == 0) return '${item.name}, sin pases';
-    return '${item.name}, ${_Part.used.countText(item.used)}, '
+    final noPasses = _total(item) == 0 ? 'sin pases, ' : '';
+    return '${item.name}, $noPasses${_issuedText(item.issued)}, '
+        '${_Part.used.countText(item.used)}, '
         '${_Part.available.countText(item.available)}, '
-        '${_Part.expired.countText(item.expired)}';
+        '${_Part.expired.countText(item.expired)}, '
+        'utilización ${item.utilization.replaceAll('.', ',')}';
   }
 
   @override
@@ -65,7 +73,7 @@ class ReferralUsageChart extends StatelessWidget {
       0,
       (max, item) => math.max(max, _total(item)),
     );
-    if (maxTotal == 0) return const SizedBox.shrink();
+    if (items.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     return Column(
       key: const Key('referral-chart'),
@@ -77,27 +85,30 @@ class ReferralUsageChart extends StatelessWidget {
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
-        Wrap(
-          key: const Key('referral-chart-legend'),
-          spacing: 16,
-          runSpacing: 4,
-          children: [
-            for (final part in _Part.values)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _Swatch(
-                    part: part,
-                    size: 16,
-                    key: Key('referral-legend-${part.key}'),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(part.legend, style: theme.textTheme.bodySmall),
-                ],
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
+        // Sin barras no hay nada que explicar con la leyenda.
+        if (maxTotal > 0) ...[
+          Wrap(
+            key: const Key('referral-chart-legend'),
+            spacing: 16,
+            runSpacing: 4,
+            children: [
+              for (final part in _Part.values)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _Swatch(
+                      part: part,
+                      size: 16,
+                      key: Key('referral-legend-${part.key}'),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(part.legend, style: theme.textTheme.bodySmall),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
         for (var i = 0; i < items.length; i++)
           // Un solo texto por fila para el lector de pantalla: lo que se ve
           // queda excluido para que no se lea dos veces.
@@ -126,11 +137,39 @@ class ReferralUsageChart extends StatelessWidget {
                       )
                     else
                       _StackedBar(index: i, item: items[i], maxTotal: maxTotal),
+                    const SizedBox(height: 4),
+                    _DataLine(index: i, item: items[i]),
                   ],
                 ),
               ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Los cinco datos de una especialidad, cada uno entero: si no entran en un
+/// renglón, el que sobra baja al siguiente.
+class _DataLine extends StatelessWidget {
+  const _DataLine({required this.index, required this.item});
+
+  final int index;
+  final ReferralItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall;
+    return Wrap(
+      key: Key('referral-data-$index'),
+      spacing: 12,
+      runSpacing: 2,
+      children: [
+        Text('Emitidos: ${item.issued}', style: style),
+        Text('Utilizados: ${item.used}', style: style),
+        Text('Disponibles: ${item.available}', style: style),
+        Text('Vencidos: ${item.expired}', style: style),
+        Text('Utilización: ${item.utilization}', style: style),
       ],
     );
   }

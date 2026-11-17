@@ -152,35 +152,9 @@ class _ReferralStatisticsTabState extends ConsumerState<ReferralStatisticsTab> {
             const SizedBox(height: 12),
             if (data.items.isEmpty)
               const Text('Sin datos', key: Key('stats-empty'))
-            else ...[
-              // El gráfico complementa: las tarjetas con los conteos exactos
-              // siguen debajo.
+            else
+              // Una sola vista: el gráfico lleva en cada fila los cinco datos.
               ReferralUsageChart(items: data.items),
-              if (data.items.any(
-                (item) => item.used + item.available + item.expired > 0,
-              ))
-                const SizedBox(height: 16),
-              for (final item in data.items)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        Text('Emitidos: ${item.issued}'),
-                        Text('Utilizados: ${item.used}'),
-                        Text('Disponibles: ${item.available}'),
-                        Text('Vencidos: ${item.expired}'),
-                        Text('Utilización: ${item.utilization}'),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
           ],
         ],
       ),

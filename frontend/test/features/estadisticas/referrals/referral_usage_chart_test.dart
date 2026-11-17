@@ -13,6 +13,7 @@ ReferralItem _item(
   int available,
   int expired, {
   int? issued,
+  String utilization = 'Sin datos',
 }) => ReferralItem(
   name: name,
   issued: issued ?? used + available + expired,
@@ -20,7 +21,7 @@ ReferralItem _item(
   available: available,
   expired: expired,
   percentage: null,
-  utilization: 'Sin datos',
+  utilization: utilization,
 );
 
 Future<void> _pump(
@@ -219,13 +220,35 @@ void main() {
       expect(find.byKey(const Key('referral-none-0')), findsNothing);
     });
 
-    testWidgets('con todo en cero no hay gráfico', (tester) async {
+    testWidgets('con todo en cero se muestran igual las filas, sin barra', (
+      tester,
+    ) async {
       await _pump(tester, [
         _item('Cardiología', 0, 0, 0),
         _item('Odontología', 0, 0, 0),
       ]);
-      expect(find.byKey(const Key('referral-chart')), findsNothing);
-      expect(find.text('sin pases'), findsNothing);
+      expect(find.byKey(const Key('referral-chart')), findsOneWidget);
+      expect(find.text('Cardiología'), findsOneWidget);
+      expect(find.text('Odontología'), findsOneWidget);
+      expect(find.text('sin pases'), findsNWidgets(2));
+      expect(_track(0), findsNothing);
+      expect(_track(1), findsNothing);
+      // Sin barras no hay nada que explicar con la leyenda.
+      expect(find.byKey(const Key('referral-chart-legend')), findsNothing);
+      for (final row in [0, 1]) {
+        final data = find.byKey(Key('referral-data-$row'));
+        expect(
+          find.descendant(of: data, matching: find.text('Emitidos: 0')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: data,
+            matching: find.text('Utilización: Sin datos'),
+          ),
+          findsOneWidget,
+        );
+      }
     });
 
     testWidgets('sin especialidades no hay gráfico', (tester) async {
@@ -301,54 +324,173 @@ void main() {
     testWidgets('el título del gráfico es fijo', (tester) async {
       await _pump(tester, [_item('Cardiología', 5, 3, 2)]);
       expect(
-        tester
-            .widget<Text>(find.byKey(const Key('referral-chart-title')))
-            .data,
+        tester.widget<Text>(find.byKey(const Key('referral-chart-title'))).data,
         'Pases por especialidad de destino',
       );
     });
   });
 
   group('lector de pantalla', () {
-    testWidgets('cada fila dice sus tres números en un solo texto', (
+    testWidgets('cada fila dice todo lo de su línea en un solo texto', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
       await _pump(tester, [
-        _item('Cardiología', 5, 3, 2),
-        _item('Pediatría', 2, 1, 1),
+        _item('Cardiología', 5, 3, 2, utilization: '71.43 %'),
+        _item('Pediatría', 1, 0, 0, utilization: '100 %'),
         _item('Odontología', 0, 0, 0),
       ]);
 
       expect(
         find.bySemanticsLabel(
-          'Cardiología, 5 utilizados, 3 disponibles, 2 vencidos',
+          'Cardiología, 10 emitidos, 5 utilizados, 3 disponibles, '
+          '2 vencidos, utilización 71,43 %',
         ),
         findsOneWidget,
       );
       // Con exactamente 1 va en singular.
       expect(
         find.bySemanticsLabel(
-          'Pediatría, 2 utilizados, 1 disponible, 1 vencido',
+          'Pediatría, 1 emitido, 1 utilizado, 0 disponibles, 0 vencidos, '
+          'utilización 100 %',
         ),
         findsOneWidget,
       );
-      expect(find.bySemanticsLabel('Odontología, sin pases'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(
+          'Odontología, sin pases, 0 emitidos, 0 utilizados, '
+          '0 disponibles, 0 vencidos, utilización Sin datos',
+        ),
+        findsOneWidget,
+      );
       handle.dispose();
     });
 
-    testWidgets('lo que se ve queda excluido y no se repite el porcentaje', (
+    testWidgets('lo que se ve queda excluido y no se lee dos veces', (
       tester,
     ) async {
       final handle = tester.ensureSemantics();
-      await _pump(tester, [_item('Cardiología', 5, 3, 2)]);
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2, utilization: '71.43 %'),
+      ]);
 
-      // Los números sueltos de los tramos no se leen aparte.
+      // Los números sueltos de los tramos y los textos de la línea de datos
+      // no se leen aparte: todo está en el texto de la fila.
       expect(find.bySemanticsLabel('5'), findsNothing);
       expect(find.bySemanticsLabel('3'), findsNothing);
       expect(find.bySemanticsLabel('2'), findsNothing);
-      expect(find.bySemanticsLabel(RegExp('%')), findsNothing);
+      expect(find.bySemanticsLabel('Emitidos: 10'), findsNothing);
+      expect(find.bySemanticsLabel('Utilizados: 5'), findsNothing);
+      expect(find.bySemanticsLabel('Utilización: 71.43 %'), findsNothing);
+      expect(find.bySemanticsLabel(RegExp('^Utilización')), findsNothing);
       handle.dispose();
+    });
+  });
+
+  group('la línea de datos de cada fila', () {
+    Finder data(int row) => find.byKey(Key('referral-data-$row'));
+    Finder inData(int row, String text) =>
+        find.descendant(of: data(row), matching: find.text(text));
+
+    testWidgets('trae los cinco datos con el formato de las tarjetas', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2, utilization: '71.43 %'),
+      ]);
+
+      for (final text in [
+        'Emitidos: 10',
+        'Utilizados: 5',
+        'Disponibles: 3',
+        'Vencidos: 2',
+        'Utilización: 71.43 %',
+      ]) {
+        expect(inData(0, text), findsOneWidget, reason: text);
+      }
+    });
+
+    testWidgets('van en orden y debajo de la barra', (tester) async {
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2, utilization: '71.43 %'),
+      ]);
+
+      final labels = [
+        'Emitidos: 10',
+        'Utilizados: 5',
+        'Disponibles: 3',
+        'Vencidos: 2',
+        'Utilización: 71.43 %',
+      ];
+      final positions = [
+        for (final label in labels) tester.getTopLeft(find.text(label)),
+      ];
+      for (var i = 1; i < positions.length; i++) {
+        final before = positions[i - 1];
+        final after = positions[i];
+        // O sigue en el mismo renglón, a la derecha, o baja de renglón.
+        expect(
+          after.dy > before.dy ||
+              (after.dy == before.dy && after.dx > before.dx),
+          isTrue,
+          reason: labels[i],
+        );
+      }
+      expect(
+        positions.first.dy,
+        greaterThanOrEqualTo(tester.getRect(_track(0)).bottom),
+      );
+    });
+
+    testWidgets('emitidos es el que manda el servidor, no la suma', (
+      tester,
+    ) async {
+      await _pump(tester, [_item('Cardiología', 5, 3, 2, issued: 100)]);
+      expect(inData(0, 'Emitidos: 100'), findsOneWidget);
+      expect(inData(0, 'Emitidos: 10'), findsNothing);
+    });
+
+    testWidgets('una utilización sin datos se escribe tal cual', (
+      tester,
+    ) async {
+      await _pump(tester, [_item('Cardiología', 0, 3, 0)]);
+      expect(inData(0, 'Utilización: Sin datos'), findsOneWidget);
+      expect(inData(0, 'Disponibles: 3'), findsOneWidget);
+    });
+
+    testWidgets('una fila sin pases tiene su línea con todo en cero', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2, utilization: '71.43 %'),
+        _item('Odontología', 0, 0, 0),
+      ]);
+
+      for (final text in [
+        'Emitidos: 0',
+        'Utilizados: 0',
+        'Disponibles: 0',
+        'Vencidos: 0',
+        'Utilización: Sin datos',
+      ]) {
+        expect(inData(1, text), findsOneWidget, reason: text);
+      }
+      expect(find.text('sin pases'), findsOneWidget);
+      // La línea de la fila sin pases va debajo de "sin pases".
+      expect(
+        tester.getTopLeft(find.text('Emitidos: 0')).dy,
+        greaterThan(tester.getTopLeft(find.text('sin pases')).dy),
+      );
+    });
+
+    testWidgets('con números afuera, la línea va debajo de ellos', (
+      tester,
+    ) async {
+      await _pump(tester, [_item('Cardiología', 1, 0, 99)]);
+      expect(
+        tester.getTopLeft(data(0)).dy,
+        greaterThanOrEqualTo(tester.getRect(_out(0, 'used')).bottom),
+      );
     });
   });
 
@@ -390,6 +532,60 @@ void main() {
       expect(chip.right, lessThanOrEqualTo(320));
       expect(chip.left, greaterThanOrEqualTo(0));
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('la línea de datos baja de renglón y no se corta', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        [
+          _item(
+            'Otorrinolaringología pediátrica y de cabeza y cuello',
+            12,
+            7,
+            3,
+            utilization: '80.00 %',
+          ),
+          _item('Odontología', 0, 0, 0),
+        ],
+        width: 320,
+        textScale: 2,
+      );
+      expect(tester.takeException(), isNull);
+
+      final expected = {
+        0: [
+          'Emitidos: 22',
+          'Utilizados: 12',
+          'Disponibles: 7',
+          'Vencidos: 3',
+          'Utilización: 80.00 %',
+        ],
+        1: [
+          'Emitidos: 0',
+          'Utilizados: 0',
+          'Disponibles: 0',
+          'Vencidos: 0',
+          'Utilización: Sin datos',
+        ],
+      };
+      for (final entry in expected.entries) {
+        final tops = <double>{};
+        for (final text in entry.value) {
+          final rect = tester.getRect(
+            find.descendant(
+              of: find.byKey(Key('referral-data-${entry.key}')),
+              matching: find.text(text),
+            ),
+          );
+          expect(rect.left, greaterThanOrEqualTo(0), reason: text);
+          expect(rect.right, lessThanOrEqualTo(320), reason: text);
+          tops.add(rect.top);
+        }
+        // Cinco datos no entran en un renglón de 288 px con el texto al doble.
+        expect(tops.length, greaterThan(2), reason: 'fila ${entry.key}');
+      }
     });
 
     testWidgets('la leyenda baja de renglón en vez de salirse', (tester) async {

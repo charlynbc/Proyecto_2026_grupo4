@@ -8,16 +8,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-ReferralItem _item(String name, int used, int available, int expired) =>
-    ReferralItem(
-      name: name,
-      issued: used + available + expired,
-      used: used,
-      available: available,
-      expired: expired,
-      percentage: null,
-      utilization: 'Sin datos',
-    );
+ReferralItem _item(
+  String name,
+  int used,
+  int available,
+  int expired, {
+  String utilization = 'Sin datos',
+}) => ReferralItem(
+  name: name,
+  issued: used + available + expired,
+  used: used,
+  available: available,
+  expired: expired,
+  percentage: null,
+  utilization: utilization,
+);
 
 /// Devuelve `all` sin filtro y `filtered` cuando se elige una especialidad de
 /// origen.
@@ -69,35 +74,51 @@ Future<void> _pump(WidgetTester tester, _Repo repo) async {
 
 Finder _chart() => find.byKey(const Key('referral-chart'));
 
+Finder _inData(int row, String text) => find.descendant(
+  of: find.byKey(Key('referral-data-$row')),
+  matching: find.text(text),
+);
+
 void main() {
-  testWidgets('el gráfico va arriba y las tarjetas con los conteos exactos '
-      'se conservan debajo', (tester) async {
+  testWidgets('cada fila del gráfico lleva los cinco datos y ya no hay '
+      'tarjetas', (tester) async {
     await _pump(
       tester,
-      _Repo(all: [_item('Cardiología', 5, 3, 2), _item('Pediatría', 2, 1, 1)]),
+      _Repo(
+        all: [
+          _item('Cardiología', 5, 3, 2, utilization: '71.43 %'),
+          _item('Pediatría', 2, 1, 1, utilization: '66.67 %'),
+        ],
+      ),
     );
 
     expect(_chart(), findsOneWidget);
-    expect(find.byType(Card), findsNWidgets(2));
-    for (final label in [
+    expect(find.byType(Card), findsNothing);
+    for (final text in [
       'Emitidos: 10',
       'Utilizados: 5',
       'Disponibles: 3',
       'Vencidos: 2',
+      'Utilización: 71.43 %',
+    ]) {
+      expect(_inData(0, text), findsOneWidget, reason: text);
+    }
+    for (final text in [
       'Emitidos: 4',
       'Utilizados: 2',
+      'Disponibles: 1',
+      'Vencidos: 1',
+      'Utilización: 66.67 %',
     ]) {
-      expect(find.text(label), findsOneWidget, reason: label);
+      expect(_inData(1, text), findsOneWidget, reason: text);
     }
-    // El gráfico está encima de la primera tarjeta.
-    expect(
-      tester.getBottomLeft(_chart()).dy,
-      lessThanOrEqualTo(tester.getTopLeft(find.byType(Card).first).dy),
-    );
+    // Cada dato aparece una sola vez: nada queda duplicado.
+    expect(find.text('Emitidos: 10'), findsOneWidget);
+    expect(find.text('Utilización: 71.43 %'), findsOneWidget);
   });
 
-  testWidgets('con el filtro de origen el gráfico se recalcula con lo que '
-      'llega', (tester) async {
+  testWidgets('con el filtro de origen el gráfico y su línea de datos se '
+      'recalculan con lo que llega', (tester) async {
     final repo = _Repo(
       all: [_item('Cardiología', 5, 3, 2), _item('Pediatría', 2, 1, 1)],
       filtered: [_item('Dermatología', 0, 0, 6)],
@@ -123,11 +144,16 @@ void main() {
       ),
     );
     expect(find.text('Cardiología'), findsNothing);
-    expect(find.text('Dermatología'), findsWidgets);
+    expect(find.text('Dermatología'), findsOneWidget);
+    expect(_inData(0, 'Emitidos: 6'), findsOneWidget);
+    expect(_inData(0, 'Utilizados: 0'), findsOneWidget);
+    expect(_inData(0, 'Vencidos: 6'), findsOneWidget);
+    expect(find.text('Emitidos: 10'), findsNothing);
   });
 
-  testWidgets('sin especialidades dice Sin datos y no hay gráfico ni '
-      'tarjetas', (tester) async {
+  testWidgets('sin especialidades dice Sin datos y no hay gráfico', (
+    tester,
+  ) async {
     await _pump(tester, _Repo(all: const []));
 
     expect(find.byKey(const Key('stats-empty')), findsOneWidget);
@@ -136,33 +162,41 @@ void main() {
     expect(find.byType(Card), findsNothing);
   });
 
-  testWidgets('con todo en cero no hay gráfico pero sí las tarjetas', (
-    tester,
-  ) async {
+  testWidgets('con todo en cero se muestran las filas sin barra y con su '
+      'línea de datos', (tester) async {
     await _pump(
       tester,
       _Repo(all: [_item('Cardiología', 0, 0, 0), _item('Pediatría', 0, 0, 0)]),
     );
 
-    expect(_chart(), findsNothing);
-    expect(find.byType(Card), findsNWidgets(2));
+    expect(_chart(), findsOneWidget);
+    expect(find.byType(Card), findsNothing);
+    expect(find.byKey(const Key('referral-track-0')), findsNothing);
+    expect(find.byKey(const Key('referral-track-1')), findsNothing);
+    expect(find.text('sin pases'), findsNWidgets(2));
+    expect(find.text('Cardiología'), findsOneWidget);
+    expect(find.text('Pediatría'), findsOneWidget);
     expect(find.text('Emitidos: 0'), findsNWidgets(2));
+    expect(find.text('Utilización: Sin datos'), findsNWidgets(2));
   });
 
-  testWidgets('una especialidad sin pases se ve sin barra entre las demás', (
-    tester,
-  ) async {
+  testWidgets('una especialidad sin pases se ve sin barra entre las demás, '
+      'con su línea de datos', (tester) async {
     await _pump(
       tester,
       _Repo(
-        all: [_item('Cardiología', 5, 3, 2), _item('Odontología', 0, 0, 0)],
+        all: [
+          _item('Cardiología', 5, 3, 2, utilization: '71.43 %'),
+          _item('Odontología', 0, 0, 0),
+        ],
       ),
     );
 
     expect(find.byKey(const Key('referral-track-0')), findsOneWidget);
     expect(find.byKey(const Key('referral-track-1')), findsNothing);
     expect(find.text('sin pases'), findsOneWidget);
-    // Las dos tienen su tarjeta.
-    expect(find.byType(Card), findsNWidgets(2));
+    expect(_inData(1, 'Emitidos: 0'), findsOneWidget);
+    expect(_inData(1, 'Utilización: Sin datos'), findsOneWidget);
+    expect(find.byType(Card), findsNothing);
   });
 }
