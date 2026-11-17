@@ -135,6 +135,22 @@ class ApiRoutes {
   /// administrador, vigentes y en orden de posición.
   static const String announcementsCarousel = '/api/anuncios/carrusel';
 
+  // --- Gestión de la cartelera (solo ADMINISTRADOR) ---
+  // `adminAnnouncements`: listado con estado y posición (GET).
+  // `adminAnnouncementValidity`: cambiar la vigencia (PUT, 204).
+  // `adminAnnouncement`: eliminar (DELETE, 202).
+  // `adminCarousel`: leer (GET) y reemplazar (PUT) la selección del carrusel.
+  static const String adminAnnouncements = '/api/admin/anuncios';
+  static String adminAnnouncementValidity(int id) =>
+      '/api/admin/anuncios/$id/vigencia';
+  static String adminAnnouncement(int id) => '/api/admin/anuncios/$id';
+
+  /// El detalle de cualquier novedad, vigente o no (GET). Es la misma ruta que
+  /// `adminAnnouncement`, que se usa con DELETE; por eso no se repite en
+  /// `all`.
+  static String adminAnnouncementDetail(int id) => '/api/admin/anuncios/$id';
+  static const String adminCarousel = '/api/admin/carrusel';
+
   /// Todas las rutas, con un id de ejemplo (`1`) donde la ruta lo lleva.
   /// Sirve para los tests: si se agrega una ruta, se agrega acá también.
   static List<String> get all => [
@@ -204,5 +220,9 @@ class ApiRoutes {
     announcements,
     announcement(1),
     announcementsCarousel,
+    adminAnnouncements,
+    adminAnnouncementValidity(1),
+    adminAnnouncement(1),
+    adminCarousel,
   ];
 }
