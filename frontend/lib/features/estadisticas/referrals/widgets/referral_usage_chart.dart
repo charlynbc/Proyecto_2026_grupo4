@@ -186,8 +186,8 @@ class _DataLine extends StatelessWidget {
     final style = Theme.of(context).textTheme.bodySmall;
     return Wrap(
       key: Key('referral-data-$index'),
-      spacing: 12,
-      runSpacing: 4,
+      spacing: 16,
+      runSpacing: 6,
       children: [
         Text('Emitidos: ${item.issued}', style: style),
         Text('Utilizados: ${item.used}', style: style),

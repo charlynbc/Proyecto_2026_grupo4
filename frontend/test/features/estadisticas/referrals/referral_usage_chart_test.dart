@@ -776,8 +776,7 @@ void main() {
     testWidgets('cada tramo lleva un borde fino de su color', (tester) async {
       await _pump(tester, items);
       for (final part in fills.keys) {
-        final border =
-            decorationIn(tester, _seg(0, part)).border! as Border;
+        final border = decorationIn(tester, _seg(0, part)).border! as Border;
         expect(border.top.color, borders[part], reason: part);
         expect(border.top.width, 1, reason: part);
       }
@@ -789,7 +788,10 @@ void main() {
       await _pump(tester, items);
       for (final part in fills.keys) {
         final text = tester.widget<Text>(
-          find.descendant(of: _seg(0, part), matching: find.text(counts[part]!)),
+          find.descendant(
+            of: _seg(0, part),
+            matching: find.text(counts[part]!),
+          ),
         );
         expect(text.style!.color, texts[part], reason: part);
       }
@@ -853,18 +855,12 @@ void main() {
       tester,
     ) async {
       await _pump(tester, [_item('Cardiología', 1, 0, 99)]);
-      expect(
-        decorationIn(tester, _out(0, 'used')).color,
-        fills['used'],
-      );
+      expect(decorationIn(tester, _out(0, 'used')).color, fills['used']);
     });
   });
 
   group('espaciado de las filas', () {
-    final items = [
-      _item('Cardiología', 5, 3, 2),
-      _item('Pediatría', 2, 1, 1),
-    ];
+    final items = [_item('Cardiología', 5, 3, 2), _item('Pediatría', 2, 1, 1)];
 
     testWidgets('hay al menos 8 px entre la barra y la línea de datos', (
       tester,
@@ -897,6 +893,68 @@ void main() {
         tester.getRect(find.byKey(const Key('referral-data-1'))).right,
         lessThanOrEqualTo(320),
       );
+    });
+  });
+
+  group('línea de datos con aire entre datos y entre renglones', () {
+    final items = [_item('Cardiología', 5, 3, 2, utilization: '71.43 %')];
+    const labels = [
+      'Emitidos: 10',
+      'Utilizados: 5',
+      'Disponibles: 3',
+      'Vencidos: 2',
+      'Utilización: 71.43 %',
+    ];
+
+    testWidgets('el Wrap separa 16 px en horizontal y 6 en vertical', (
+      tester,
+    ) async {
+      await _pump(tester, items);
+
+      final wrap = tester.widget<Wrap>(
+        find.byKey(const Key('referral-data-0')),
+      );
+      expect(wrap.spacing, 16);
+      expect(wrap.runSpacing, 6);
+    });
+
+    testWidgets('en un renglón hay al menos 16 px entre un dato y el '
+        'siguiente', (tester) async {
+      await _pump(tester, items, width: 900);
+
+      for (var i = 1; i < labels.length; i++) {
+        final before = tester.getRect(find.text(labels[i - 1]));
+        final after = tester.getRect(find.text(labels[i]));
+        expect(after.top, before.top, reason: labels[i]);
+        expect(after.left - before.right, greaterThanOrEqualTo(16));
+      }
+    });
+
+    testWidgets('al partirse en renglones hay al menos 6 px entre ellos', (
+      tester,
+    ) async {
+      await _pump(tester, items, width: 320, textScale: 2);
+
+      final rects = [for (final l in labels) tester.getRect(find.text(l))];
+      var rowBottom = rects.first.bottom;
+      var rowTop = rects.first.top;
+      var breaks = 0;
+      for (var i = 1; i < rects.length; i++) {
+        if (rects[i].top > rowTop) {
+          expect(
+            rects[i].top - rowBottom,
+            greaterThanOrEqualTo(6),
+            reason: labels[i],
+          );
+          rowTop = rects[i].top;
+          rowBottom = rects[i].bottom;
+          breaks++;
+        } else if (rects[i].bottom > rowBottom) {
+          rowBottom = rects[i].bottom;
+        }
+      }
+      expect(breaks, greaterThanOrEqualTo(2));
+      expect(tester.takeException(), isNull);
     });
   });
 }
