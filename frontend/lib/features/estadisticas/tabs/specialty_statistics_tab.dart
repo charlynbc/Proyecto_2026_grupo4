@@ -9,8 +9,7 @@ import '../especialidades/providers/specialty_statistics_provider.dart';
 import '../especialidades/repositories/specialty_statistics_repository.dart';
 import '../widgets/period_filter.dart';
 import '../widgets/period_label.dart';
-import '../especialidades/widgets/specialty_demand_chart.dart';
-import '../especialidades/widgets/specialty_demand_list.dart';
+import '../especialidades/widgets/specialty_demand_bars.dart';
 
 const String _sessionExpiredMessage =
     'Tu sesión venció. Iniciá sesión nuevamente.';
@@ -233,11 +232,10 @@ class _Results extends StatelessWidget {
             key: Key('stats-empty'),
             textAlign: TextAlign.center,
           )
-        else ...[
-          SpecialtyDemandChart(items: demand.items),
-          const SizedBox(height: 16),
-          SpecialtyDemandList(items: demand.items),
-        ],
+        else
+          // El gráfico lleva el nombre, la cantidad y "Requiere pase" de cada
+          // especialidad, así que no hay lista debajo.
+          SpecialtyDemandBars(items: demand.items),
       ],
     );
   }

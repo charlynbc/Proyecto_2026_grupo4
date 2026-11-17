@@ -7,7 +7,6 @@ import 'package:agenda_medica/features/estadisticas/consultas/repositories/appoi
 import 'package:agenda_medica/features/estadisticas/consultas/repositories/fake_appointment_statistics_repository.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/appointment_statistics_tab.dart';
 import 'package:agenda_medica/features/estadisticas/consultas/widgets/appointment_summary_cards.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -81,12 +80,14 @@ Finder _in(Finder container, String text) =>
 String _textOf(WidgetTester tester, String key) =>
     tester.widget<Text>(find.byKey(Key(key))).data!;
 
-List<double> _barHeights(WidgetTester tester) => tester
-    .widget<BarChart>(find.byType(BarChart))
-    .data
-    .barGroups
-    .map((g) => g.barRods.single.toY)
-    .toList();
+/// Cuánto de la pista ocupa la barra de cada estado (0 si no se dibuja).
+List<double> _fractions(WidgetTester tester) => [
+  for (var i = 0; i < 7; i++)
+    find.byKey(Key('stats-state-fill-$i')).evaluate().isEmpty
+        ? 0
+        : tester.getSize(find.byKey(Key('stats-state-fill-$i'))).width /
+              tester.getSize(find.byKey(Key('stats-state-track-$i'))).width,
+];
 
 void main() {
   setUpAll(loadRoboto);
@@ -329,8 +330,8 @@ void main() {
     });
   });
 
-  group('lista y gráfico', () {
-    testWidgets('la lista muestra los siete estados en el orden fijo', (
+  group('gráfico por estado', () {
+    testWidgets('muestra los siete estados con su cantidad en el orden fijo', (
       tester,
     ) async {
       await _pump(tester, _Repository());
@@ -346,16 +347,41 @@ void main() {
       expect(tops, [...tops]..sort());
     });
 
-    testWidgets('el gráfico tiene siete barras con las cantidades', (
+    testWidgets('las barras comparten la escala: 40, 110, 20, 8, 14, 5 y 3', (
       tester,
     ) async {
       await _pump(tester, _Repository());
       await tester.pumpAndSettle();
 
-      expect(_barHeights(tester), [40, 110, 20, 8, 14, 5, 3]);
+      // La mayor (110) ocupa toda la pista; las demás, su parte de 110.
+      const expected = [
+        40 / 110,
+        1.0,
+        20 / 110,
+        8 / 110,
+        14 / 110,
+        5 / 110,
+        3 / 110,
+      ];
+      final actual = _fractions(tester);
+      for (var i = 0; i < 7; i++) {
+        expect(actual[i], closeTo(expected[i], 0.005), reason: 'estado $i');
+      }
     });
 
-    testWidgets('con total cero muestra todo en cero y el gráfico sigue', (
+    testWidgets('ya no hay lista debajo: cada estado aparece una sola vez y '
+        'quedan solo las dos tarjetas de arriba', (tester) async {
+      await _pump(tester, _Repository());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Card), findsNWidgets(2));
+      for (final label in statusLabels) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+      expect(find.text('110'), findsOneWidget);
+    });
+
+    testWidgets('con total cero muestra todo en cero y sin barras', (
       tester,
     ) async {
       final repository = FakeAppointmentStatisticsRepository(
@@ -372,7 +398,7 @@ void main() {
       expect(_textOf(tester, 'stats-total-value'), '0');
       expect(_textOf(tester, 'stats-rate-value'), 'Sin datos');
       expect(_textOf(tester, 'stats-rate-subtitle'), '0 de 0 consultas');
-      expect(_barHeights(tester), [0, 0, 0, 0, 0, 0, 0]);
+      expect(_fractions(tester), [0, 0, 0, 0, 0, 0, 0]);
       expect(
         tester.widget<Text>(find.byKey(const Key('stats-period-label'))).data,
         'Datos del 05/10/2026 al 05/10/2026',
@@ -567,7 +593,56 @@ void main() {
 
     expect(tester.takeException(), isNull);
     expect(_textOf(tester, 'stats-total-value'), '200');
-    expect(find.byKey(const Key('stats-chart-scroll-hint')), findsOneWidget);
+    // Sin desplazamiento horizontal: el gráfico entra en el ancho.
+    expect(find.byKey(const Key('stats-chart-scroll-hint')), findsNothing);
     expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+  });
+
+  testWidgets('a 320 px y con el texto al doble no hay desbordes y se ve '
+      'todo', (tester) async {
+    tester.view.physicalSize = const Size(320, 4000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          appointmentStatisticsRepositoryProvider.overrideWith(
+            (ref) async => _Repository(),
+          ),
+        ],
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: const Scaffold(body: AppointmentStatisticsTab()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(_textOf(tester, 'stats-total-value'), '200');
+    for (var i = 0; i < 7; i++) {
+      expect(_row(i), findsOneWidget, reason: 'estado $i');
+      expect(tester.getRect(_row(i)).right, lessThanOrEqualTo(320));
+    }
+  });
+
+  testWidgets('la tasa del servidor no se recalcula en el cliente', (
+    tester,
+  ) async {
+    // 20 de 200 serían 10 %, pero el servidor manda "37.5 %": se muestra
+    // tal cual.
+    final repository = _Repository(
+      (_) async => statisticsOf(percentage: 37.5, percentageText: '37.5 %'),
+    );
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(_textOf(tester, 'stats-rate-value'), '37.5 %');
+    expect(find.text('10 %'), findsNothing);
+    expect(_textOf(tester, 'stats-rate-subtitle'), '20 de 200 consultas');
   });
 }
