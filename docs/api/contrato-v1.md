@@ -1930,7 +1930,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 #### #44 · `POST /api/funcionario/consultas/{id}/cancelar`
 
 - **Roles:** FUNCIONARIO exclusivamente.
-- **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración. El cuerpo con `aPedidoDelSocio` y `motivo` es una ampliación propuesta (rama `feat/rf19-cancelacion-con-motivo`), todavía sin implementar en el backend de integración.
+- **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración. El cuerpo con `aPedidoDelSocio` y `motivo` está implementado en la rama `feat/rf19-cancelacion-con-motivo`, sobre el despacho genérico de avisos.
 - **Ruta:** `id`, identificador entero positivo de consulta.
 - **Cuerpo** (`CancelacionFuncionarioRequest`, entrada), **opcional**: sin cuerpo se conserva el comportamiento anterior (`aPedidoDelSocio` verdadero).
 
@@ -1943,7 +1943,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 { "aPedidoDelSocio": false, "motivo": "Se rompió el equipo del consultorio" }
 ```
 
-- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio; la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`: con el motivo si la cancelación es por otro motivo. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
+- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio; la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`, que se entrega por el despacho genérico (correo y push, RNF-24) con la fecha de la consulta en formato `dd/mm/aaaa` (RNF-20) en los dos casos: a pedido del socio, `Tu consulta del 20/10/2026 fue cancelada a tu solicitud.`; por otro motivo, `Tu consulta del 20/10/2026 fue cancelada por la institución. Motivo: {motivo}`, sin nombrar al funcionario. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
 
 **Respuesta 200** (`estado` es el estado que quedó guardado: `CANCELADA_SOCIO` o `CANCELADA_INSTITUCION`)
 
