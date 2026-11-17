@@ -287,8 +287,8 @@ void main() {
       },
     );
 
-    test('la cancelación usa el mismo reloj: 9001 no, 9004 sí', () async {
-      final container = containerAt(_at(2026, 11, 17, 19, 30));
+    test('la cancelación usa el mismo reloj: 9001 no, 9004 sí (un reloj lejos de la hora real)', () async {
+      final container = containerAt(_at(2030, 6, 15, 8, 0));
       final cancellation = await container.read(
         staffCancellationRepositoryProvider.future,
       );
