@@ -26,7 +26,7 @@ class _Session extends SessionNotifier {
 
 class _OneCover implements AnnouncementsRepository {
   @override
-  Future<List<Announcement>> latest() async => const [];
+  Future<List<Announcement>> carousel() async => const [];
 
   @override
   Future<AnnouncementPage> list({int page = 0}) async => AnnouncementPage(

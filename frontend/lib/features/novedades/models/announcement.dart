@@ -1,3 +1,5 @@
+import 'announcement_detail.dart';
+
 /// Tarjeta de GET /api/anuncios (contrato #66), sin cargar el detalle.
 class Announcement {
   const Announcement({
@@ -24,6 +26,23 @@ class Announcement {
       publishedAt: DateTime.parse(json['publicadoEn'] as String),
       coverUrl: url,
       coverImageId: cover?['id'] as int?,
+    );
+  }
+
+  /// La tarjeta de un detalle (el carrusel trae detalles, no tarjetas). La
+  /// portada es la primera imagen por `orden`; sin imágenes, no hay portada.
+  factory Announcement.fromDetail(AnnouncementDetail detail) {
+    AnnouncementImage? cover;
+    for (final image in detail.images) {
+      if (cover == null || image.order < cover.order) cover = image;
+    }
+    return Announcement(
+      id: detail.id,
+      title: detail.title,
+      summary: detail.summary,
+      publishedAt: detail.publishedAt,
+      coverUrl: cover?.url,
+      coverImageId: cover?.id,
     );
   }
 
