@@ -127,11 +127,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final card = find.ancestor(
-      of: find.text('Cardiología'),
-      matching: find.byType(Card),
-    );
-    expect(card, findsOneWidget);
+    // Ya no hay tarjetas: la fila del gráfico lleva los cinco datos.
+    expect(find.byType(Card), findsNothing);
+    final row = find.byKey(const Key('referral-data-0'));
+    expect(row, findsOneWidget);
     for (final label in [
       'Emitidos: 10',
       'Utilizados: 5',
@@ -140,7 +139,7 @@ void main() {
       'Utilización: 71.43 %',
     ]) {
       expect(
-        find.descendant(of: card, matching: find.text(label)),
+        find.descendant(of: row, matching: find.text(label)),
         findsOneWidget,
       );
     }

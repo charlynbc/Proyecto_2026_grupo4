@@ -124,6 +124,8 @@ class _ShiftStatisticsTabState extends ConsumerState<ShiftStatisticsTab> {
     final result = _result;
     return CenteredContent(
       maxWidth: 1000,
+      // Arriba: el formulario no se mueve cuando cambian los resultados.
+      alignment: Alignment.topCenter,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -9,11 +9,17 @@ class ReferralItem {
     required this.expired,
     required this.percentage,
     required this.utilization,
+    this.requiresReferral = true,
   });
   final String name;
   final int issued, used, available, expired;
   final double? percentage;
   final String utilization;
+
+  /// Si la especialidad de destino exige pase para agendar
+  /// (`especialidadDestino.requierePase`). Si el campo falta o no es un
+  /// booleano se asume que sí, para no ocultar datos por un campo ausente.
+  final bool requiresReferral;
 
   factory ReferralItem.fromJson(Map<String, dynamic> json) => ReferralItem(
     name:
@@ -25,7 +31,13 @@ class ReferralItem {
     expired: json['vencidos'] as int,
     percentage: (json['porcentajeUtilizados'] as num?)?.toDouble(),
     utilization: json['utilizacion'] as String,
+    requiresReferral: _requiresReferral(json['especialidadDestino']),
   );
+
+  static bool _requiresReferral(Object? destination) {
+    final value = destination is Map ? destination['requierePase'] : null;
+    return value is bool ? value : true;
+  }
 }
 
 class ReferralStatistics {

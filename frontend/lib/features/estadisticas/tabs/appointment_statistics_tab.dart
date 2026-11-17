@@ -128,6 +128,8 @@ class _AppointmentStatisticsTabState
     final result = _result;
     return CenteredContent(
       maxWidth: 900,
+      // Arriba: el formulario no se mueve cuando cambian los resultados.
+      alignment: Alignment.topCenter,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

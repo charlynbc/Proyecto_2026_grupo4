@@ -126,6 +126,8 @@ class _SpecialtyStatisticsTabState
     final demand = _demand;
     return CenteredContent(
       maxWidth: 720,
+      // Arriba: el formulario no se mueve cuando cambian los resultados.
+      alignment: Alignment.topCenter,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
