@@ -19,7 +19,7 @@ Lo que no se pudo verificar se marca como **no verificado**.
 
 > **Nota del 30/10/2026:** el sondeo de RF-21 pasó de 3 s a 15 s en el PR #43. Los valores de 3 s de este documento corresponden al corte del 27/10 (HEAD 25405b4), y la latencia medida de ~1,8 s se obtuvo con 3 s.
 
-> **Nota del 14/11/2026 (rama `feat/dispositivos-push`, sin integrar):** el registro y la baja de dispositivos push están implementados: `POST /api/dispositivos` (201 al crear, 200 si ya existía) y `POST /api/dispositivos/baja` (204 siempre), ambos solo para SOCIO y con escritura en `dispositivo_push`. El registro de prueba en memoria (`POST /api/notificaciones/registro` y `FirebaseRegistrationStore`) todavía existe y se elimina en la etapa de frontend, junto con el cliente web que lo usa. En el contrato ambos endpoints siguen en PROPUESTA hasta cerrar la tarjeta. Las pruebas unitarias y de controlador pasan; las IT de PostgreSQL (`DispositivoPushIT`) no se corrieron localmente por falta de base. Las menciones de más abajo al registro «en memoria» y a `POST /api/dispositivos` «no implementado» describen el estado anterior.
+> **Nota del 14/11/2026 (dispositivos push, PR 161, ya integrado):** el registro y la baja de dispositivos push están implementados: `POST /api/dispositivos` (201 al crear, 200 si ya existía) y `POST /api/dispositivos/baja` (204 siempre), ambos solo para SOCIO y con escritura en `dispositivo_push`. El registro de prueba en memoria (`POST /api/notificaciones/registro` y `FirebaseRegistrationStore`) todavía existe y se elimina en la etapa de frontend, junto con el cliente web que lo usa. En el contrato ambos endpoints siguen en PROPUESTA hasta cerrar la tarjeta. Las pruebas unitarias y de controlador pasan; las IT de PostgreSQL (`DispositivoPushIT`) no se corrieron localmente por falta de base. Las menciones de más abajo al registro «en memoria» y a `POST /api/dispositivos` «no implementado» describen el estado anterior.
 
 - Backend REST en Java 25 / Spring Boot 4.1.1 con JDBC (`JdbcTemplate`) y PostgreSQL 17.
 - De los 22 RF críticos, con el criterio de la leyenda de la sección 5:
@@ -76,7 +76,7 @@ Raíz `uy.edu.proyecto.backend` (+ `ApiApplication`):
 | `estadistica` | RF-39 (integrado), RF-40 (solo en rama RF-40); `PeriodoEstadistico` compartido |
 | `exception` | manejo de errores |
 | `medico` | listado de médicos por especialidad |
-| `notificacion` | registro de dispositivo, envío de suspensiones (listener + poller) |
+| `notificacion` | registro de dispositivo, envío de avisos (listener + poller) |
 | `pase` | pases disponibles del socio |
 | `security` | servicios de token/sesión |
 | `turno` | turnos semanales, turnos, suspensión/rehabilitación, turnos del médico |
@@ -164,7 +164,7 @@ Rutas y reglas tomadas de controllers/services/repositories. Paquetes bajo `uy.e
 ### 5.4 Contradicciones entre documentos y código
 
 1. `docs/api/endpoints-usados.md` marca #34, #35 (integradas) y #36 (RF-41, solo en su rama) como CONFIRMADAS.
-2. `endpoints-usados.md` lista `POST /api/consultas/{id}/cancelar` (#20) y `GET /api/notificaciones` (#32) como propuestos; **no existen**. `POST /api/dispositivos` (#33) y `POST /api/dispositivos/baja` (#73) se implementaron el 14/11/2026 en la rama `feat/dispositivos-push` (sin integrar); hasta entonces la ruta real del registro de dispositivo era `POST /api/notificaciones/registro`, que se elimina en la etapa de frontend.
+2. `endpoints-usados.md` lista `POST /api/consultas/{id}/cancelar` (#20) y `GET /api/notificaciones` (#32) como propuestos; **no existen**. `POST /api/dispositivos` (#33) y `POST /api/dispositivos/baja` (#73) se implementaron el 14/11/2026 (PR 161, ya integrado); hasta entonces la ruta real del registro de dispositivo era `POST /api/notificaciones/registro`, que se elimina en la etapa de frontend.
 3. contrato-v1: `q` vs `texto` real en `GET /api/usuarios`; historia clínica paginada vs lista real.
 4. `docs/informes/auditoria-backend-criticos.md` está desfasado: describe RF-02 como parcial y cita `docs/especificaciones/backend_criticos_2026.md`, que no existe; es anterior al PR #23.
 5. `docs/pruebas-integracion.md` no menciona las IT de estadísticas (`EstadisticaEspecialidadIT`, `EstadisticaTurnoIT`).
@@ -191,8 +191,8 @@ Fuente: `@*Mapping` de los controllers y `SecurityConfig`. **No existe ningún P
 | GET | `/api/especialidades` | |
 | GET | `/api/consultorios` | |
 | POST | `/api/notificaciones/registro` | body `{fid}`; registro de prueba en memoria, se elimina en la etapa de frontend |
-| POST | `/api/dispositivos` | body `{token}`; 201 al crear, 200 si ya existía (rama `feat/dispositivos-push`) |
-| POST | `/api/dispositivos/baja` | body `{token}`; 204 siempre (rama `feat/dispositivos-push`) |
+| POST | `/api/dispositivos` | body `{token}`; 201 al crear, 200 si ya existía |
+| POST | `/api/dispositivos/baja` | body `{token}`; 204 siempre |
 
 ### ADMINISTRADOR
 | Método | Ruta | Notas |
@@ -246,11 +246,12 @@ Fuente: `@*Mapping` de los controllers y `SecurityConfig`. **No existe ningún P
 Verificadas en código:
 - Refresh y logout con rotación de sesión (RF-01 las incluye).
 - `POST /api/notificaciones/registro` (registro de prueba): guarda el registro Firebase en un `ConcurrentHashMap` en memoria (`FirebaseRegistrationStore`); se pierde al reiniciar y no escribe en `dispositivo_push`. Se elimina en la etapa de frontend, junto con el cliente web que lo usa.
-- `POST /api/dispositivos` y `POST /api/dispositivos/baja` (rama `feat/dispositivos-push`, sin integrar): escriben en `dispositivo_push`, de modo que el canal push de suspensiones, que lee esa tabla, tiene datos cuando un socio registra su dispositivo Android. Probados con pruebas unitarias y de controlador; el SQL contra PostgreSQL (`DispositivoPushIT`) y el envío real con Firebase siguen sin verificar en ejecución.
-- Envío de suspensiones: listener AFTER_COMMIT + `EnvioSuspensionPoller` (`@Scheduled` 30 s, ≤100 por ciclo, `FOR UPDATE SKIP LOCKED`).
+- `POST /api/dispositivos` y `POST /api/dispositivos/baja`: escriben en `dispositivo_push`, de modo que el canal push de suspensiones, que lee esa tabla, tiene datos cuando un socio registra su dispositivo Android. Probados con pruebas unitarias y de controlador; el SQL contra PostgreSQL (`DispositivoPushIT`) y el envío real con Firebase siguen sin verificar en ejecución.
+- Envío de avisos: listener AFTER_COMMIT (`EnvioNotificacionListener`) + `EnvioNotificacionPoller` (`@Scheduled` 30 s, ≤100 por ciclo, `FOR UPDATE SKIP LOCKED`). Desde la rama `feat/back-notificaciones-envio-generico` despachan los envíos de **todos** los tipos (AGENDA, CANCELACION, SUSPENSION, HISTORIA_ACTUALIZADA y RECORDATORIO), con título según el tipo; antes solo salían los de SUSPENSION y los de CANCELACION quedaban PENDIENTE. AGENDA e HISTORIA_ACTUALIZADA ahora crean sus envíos (correo y un push por dispositivo habilitado). RECORDATORIO sigue sin crearlo nadie (RNF-25 pendiente). Una falla del proveedor queda anotada en el envío (`FALLIDO`, `intentos`, `ultimo_intento_en`) y no frena la cola ni revierte la operación (RNF-24). Antes de desplegar conviene correr `database/pruebas/contar_envios_pendientes.sql`: los CANCELACION viejos pendientes se enviarían de golpe.
 - Previsualización de CSV de consultorios (solo previsualiza; **no hay endpoint que confirme/persiste la importación**).
 - `GET /api/especialidades`, `GET /api/consultorios`, `GET /api/medicos`.
-- Notificaciones AGENDA y HISTORIA_ACTUALIZADA: solo se inserta la fila; no se envían.
+- Notificaciones AGENDA y HISTORIA_ACTUALIZADA: además de insertar la fila, ahora crean sus envíos (correo y un push por dispositivo habilitado), que despachan el listener y el poller (ver "Envío de avisos").
+- Variable `NOTIFICACIONES_PROCESOS_PROGRAMADOS_HABILITADOS` (por defecto `true`): con `false` no se crea el poller programado de envíos ni se creará el futuro job de recordatorios; el envío que se hace al crear la notificación no cambia. Los servicios `backend` y `backend-dev` comparten la base de pruebas y el poller de dev marca como `FALLIDO` los envíos que agarra del otro, así que `backend-dev` debe tener `false`. Documentada en `.env.example` y `docs/api/railway-correo.md`.
 - Tablas `anuncio` / `imagen_anuncio`: sin controller.
 
 ## 8. Base de datos y relaciones
@@ -329,7 +330,7 @@ Restricciones relevantes: `ck_consulta_estado` (AGENDADA, ATENDIDA, CANCELADA_SO
 3. RF-12: alinear contrato (paginación) y agregar IT de propiedad con PostgreSQL.
 4. RF-24: IT de pases disponibles; RF-10 (cancelación por el socio) para devolver pases.
 5. RF-35: IT funcional de filtros; decidir gestión de estado de cuentas.
-6. Registro de dispositivo en `dispositivo_push`: implementado en la rama `feat/dispositivos-push` (14/11/2026); falta integrarla y eliminar el registro de prueba en memoria en la etapa de frontend.
+6. Registro de dispositivo en `dispositivo_push`: implementado e integrado (PR 161, 14/11/2026); falta eliminar el registro de prueba en memoria en la etapa de frontend.
 7. Enviar notificaciones AGENDA/HISTORIA_ACTUALIZADA; RF-21 en tiempo real si se exige.
 8. Confirmación de la importación CSV de consultorios.
 9. Filtrar médico habilitado en la disponibilidad (RF-08).
@@ -344,5 +345,5 @@ Restricciones relevantes: `ck_consulta_estado` (AGENDADA, ATENDIDA, CANCELADA_SO
 4. **RF-12**: paginación/contrato + IT de propiedad.
 5. **RF-24 y RF-10**: cancelación por el socio, devolución del pase e IT.
 6. **RF-35**: IT funcional y definición del estado de cuentas.
-7. Envíos de notificaciones y confirmación de CSV (no críticos); la persistencia de dispositivos ya está implementada en `feat/dispositivos-push`.
+7. Envíos de notificaciones y confirmación de CSV (no críticos); la persistencia de dispositivos ya está implementada e integrada (PR 161).
 8. Verificación en Railway y actualización documental final.

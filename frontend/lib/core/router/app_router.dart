@@ -58,6 +58,7 @@ import '../../features/usuarios/screens/new_user_screen.dart';
 import '../../features/usuarios/screens/user_import_screen.dart';
 import '../../features/usuarios/screens/user_routes.dart';
 import '../../features/usuarios/screens/users_screen.dart';
+import '../widgets/bottom_system_inset.dart';
 import '../widgets/coming_soon_screen.dart';
 import 'app_sections.dart';
 import 'app_shell.dart';
@@ -162,43 +163,45 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       // porque no es el prefijo de ningún rol, y sin sesión manda al login.
       GoRoute(
         path: kAccountPath,
-        builder: (context, state) => const AccountScreen(),
+        builder: (context, state) =>
+            const BottomSystemInset(child: AccountScreen()),
       ),
       GoRoute(
         path: kAccountEditPath,
-        builder: (context, state) => const EditAccountScreen(),
+        builder: (context, state) =>
+            const BottomSystemInset(child: EditAccountScreen()),
       ),
       GoRoute(
         path: kAccountPasswordPath,
-        builder: (context, state) => const ChangePasswordScreen(),
+        builder: (context, state) =>
+            const BottomSystemInset(child: ChangePasswordScreen()),
       ),
       GoRoute(
         path: kRecoveryPath,
         builder: (context, state) => PasswordRecoveryCompleteScreen(
           token: state.uri.queryParameters['token'] ?? '',
         ),
-        routes: [
-          GoRoute(
-            path: 'solicitar',
-            builder: (context, state) => PasswordRecoveryRequestScreen(
-              access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
-            ),
-          ),
-        ],
+      ),
+      // Hermana y no hija de la anterior: una subruta apila la del enlace del
+      // correo (con el token vacío) debajo, y el atrás de Android la mostraría.
+      GoRoute(
+        path: kRecoveryRequestPath,
+        builder: (context, state) => PasswordRecoveryRequestScreen(
+          access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
+        ),
       ),
       GoRoute(
         path: kFirstLoginPath,
         builder: (context, state) => FirstLoginActivationScreen(
           token: state.uri.queryParameters['token'] ?? '',
         ),
-        routes: [
-          GoRoute(
-            path: 'solicitar',
-            builder: (context, state) => FirstLoginRequestScreen(
-              access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
-            ),
-          ),
-        ],
+      ),
+      // Hermana por el mismo motivo que la de recuperación.
+      GoRoute(
+        path: kFirstLoginRequestPath,
+        builder: (context, state) => FirstLoginRequestScreen(
+          access: AccessType.fromQuery(state.uri.queryParameters['acceso']),
+        ),
       ),
       // El guard de `redirectFor` deja entrar solo al médico: el prefijo
       // `/medico` es de ese rol.
@@ -207,30 +210,36 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         // Un id que no es un número vuelve a "Mis turnos".
         redirect: (context, state) =>
             _appointmentId(state) == null ? kDoctorShiftsPath : null,
-        builder: (context, state) => DoctorAppointmentResultScreen(
-          appointmentId: _appointmentId(state)!,
-          patientName: state.uri.queryParameters['paciente'],
+        builder: (context, state) => BottomSystemInset(
+          child: DoctorAppointmentResultScreen(
+            appointmentId: _appointmentId(state)!,
+            patientName: state.uri.queryParameters['paciente'],
+          ),
         ),
       ),
       GoRoute(
         path: kDoctorPatientHistoryPath,
         redirect: (context, state) =>
             _socioId(state) == null ? kDoctorShiftsPath : null,
-        builder: (context, state) => DoctorPatientHistoryScreen(
-          socioId: _socioId(state)!,
-          patientName: state.uri.queryParameters['paciente'],
+        builder: (context, state) => BottomSystemInset(
+          child: DoctorPatientHistoryScreen(
+            socioId: _socioId(state)!,
+            patientName: state.uri.queryParameters['paciente'],
+          ),
         ),
       ),
       GoRoute(
         path: kDoctorAttentionPath,
         redirect: (context, state) =>
             _appointmentId(state) == null ? kDoctorAttentionsPath : null,
-        builder: (context, state) =>
-            DoctorAttentionDetailScreen(id: _appointmentId(state)!),
+        builder: (context, state) => BottomSystemInset(
+          child: DoctorAttentionDetailScreen(id: _appointmentId(state)!),
+        ),
       ),
       GoRoute(
         path: '${UserRole.administrador.announcementsPath}/nueva',
-        builder: (context, state) => const NewAnnouncementScreen(),
+        builder: (context, state) =>
+            const BottomSystemInset(child: NewAnnouncementScreen()),
       ),
       for (final role in UserRole.values) _roleShell(role),
     ],

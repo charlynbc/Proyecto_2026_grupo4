@@ -7,6 +7,7 @@ import '../models/access_type.dart';
 import '../providers/password_recovery_controllers.dart';
 import '../repositories/password_recovery_repository.dart';
 import '../widgets/auth_scaffold.dart';
+import '../widgets/back_to_login_scope.dart';
 import '../widgets/credential_fields.dart';
 
 /// Pedir el enlace para elegir una contraseña nueva (RF-05). Muestra siempre
@@ -61,91 +62,99 @@ class _PasswordRecoveryRequestScreenState
     final loginPath = '/login?acceso=${access.queryValue}';
 
     if (state.status == PasswordRecoveryStatus.done) {
-      return AuthScaffold(
-        subtitle: 'Recuperar contraseña',
-        children: [
-          const AuthNotice(
-            title: 'Revisá tu correo',
-            messages: [kPasswordRecoveryRequestedMessage],
-          ),
-          const SizedBox(height: 16),
-          FilledButton(
-            onPressed: () => context.go(loginPath),
-            child: const Text('Volver al ingreso'),
-          ),
-        ],
+      return BackToLoginScope(
+        loginPath: loginPath,
+        child: AuthScaffold(
+          subtitle: 'Recuperar contraseña',
+          children: [
+            const AuthNotice(
+              title: 'Revisá tu correo',
+              messages: [kPasswordRecoveryRequestedMessage],
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => context.go(loginPath),
+              child: const Text('Volver al ingreso'),
+            ),
+          ],
+        ),
       );
     }
 
-    return AuthScaffold(
-      subtitle: 'Recuperar contraseña',
-      children: [
-        Text(
-          'Ingresá tu cédula y, si tenés una cuenta, te enviamos por correo un '
-          'enlace para elegir una contraseña nueva. El enlace sirve una sola '
-          'vez y vale 24 horas.',
-          style: Theme.of(context).textTheme.bodyMedium,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (employeeAvailable) ...[
-                SegmentedButton<AccessType>(
-                  segments: const [
-                    ButtonSegment(
-                      value: AccessType.socio,
-                      label: Text('Socio'),
-                    ),
-                    ButtonSegment(
-                      value: AccessType.empleado,
-                      label: Text('Empleado'),
-                    ),
-                  ],
-                  selected: {access},
-                  onSelectionChanged: state.isLoading
-                      ? null
-                      : (selection) =>
-                            setState(() => _access = selection.first),
-                ),
-                const SizedBox(height: 16),
-              ],
-              CiFormField(
-                controller: _ciController,
-                enabled: !state.isLoading,
-                autovalidateMode: _autovalidate,
-              ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: state.isLoading ? null : () => _submit(access),
-                child: state.isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Continuar'),
-              ),
-              if (state.status == PasswordRecoveryStatus.error) ...[
-                const SizedBox(height: 12),
-                AuthNotice(
-                  title: 'No pudimos enviar tu pedido',
-                  messages: [state.errorMessage ?? ''],
-                  isError: true,
-                ),
-              ],
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: state.isLoading ? null : () => context.go(loginPath),
-                child: const Text('Volver al ingreso'),
-              ),
-            ],
+    return BackToLoginScope(
+      loginPath: loginPath,
+      child: AuthScaffold(
+        subtitle: 'Recuperar contraseña',
+        children: [
+          Text(
+            'Ingresá tu cédula y, si tenés una cuenta, te enviamos por correo un '
+            'enlace para elegir una contraseña nueva. El enlace sirve una sola '
+            'vez y vale 24 horas.',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center,
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (employeeAvailable) ...[
+                  SegmentedButton<AccessType>(
+                    segments: const [
+                      ButtonSegment(
+                        value: AccessType.socio,
+                        label: Text('Socio'),
+                      ),
+                      ButtonSegment(
+                        value: AccessType.empleado,
+                        label: Text('Empleado'),
+                      ),
+                    ],
+                    selected: {access},
+                    onSelectionChanged: state.isLoading
+                        ? null
+                        : (selection) =>
+                              setState(() => _access = selection.first),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                CiFormField(
+                  controller: _ciController,
+                  enabled: !state.isLoading,
+                  autovalidateMode: _autovalidate,
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: state.isLoading ? null : () => _submit(access),
+                  child: state.isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Continuar'),
+                ),
+                if (state.status == PasswordRecoveryStatus.error) ...[
+                  const SizedBox(height: 12),
+                  AuthNotice(
+                    title: 'No pudimos enviar tu pedido',
+                    messages: [state.errorMessage ?? ''],
+                    isError: true,
+                  ),
+                ],
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: state.isLoading
+                      ? null
+                      : () => context.go(loginPath),
+                  child: const Text('Volver al ingreso'),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

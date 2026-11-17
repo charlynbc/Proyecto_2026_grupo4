@@ -9,6 +9,7 @@ import '../providers/password_recovery_link_check_provider.dart';
 import '../repositories/first_login_repository.dart';
 import '../repositories/password_recovery_repository.dart';
 import '../widgets/auth_scaffold.dart';
+import '../widgets/back_to_login_scope.dart';
 import '../widgets/credential_fields.dart';
 
 /// Elegir la contraseña nueva, a la que lleva el enlace del correo
@@ -88,8 +89,13 @@ class _PasswordRecoveryCompleteScreenState
     );
   }
 
+  /// El enlace del correo no dice con qué acceso se pidió, así que el atrás
+  /// vuelve al ingreso de socios, que es el que se abre por defecto.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      BackToLoginScope(loginPath: '/login', child: _buildContent(context));
+
+  Widget _buildContent(BuildContext context) {
     ref.listen(passwordRecoveryCompleteControllerProvider, (_, state) {
       if (state.status == PasswordRecoveryStatus.done) {
         context.go('/login?recuperada=1');

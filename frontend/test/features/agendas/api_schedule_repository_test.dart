@@ -113,6 +113,21 @@ void main() {
       });
     });
 
+    test('sin fecha manda los mismos parámetros menos fecha', () async {
+      final (repository, adapter) = _ok(_page([]));
+
+      await repository.search(ScheduleFilters(date: null, ci: '9.000.004-6'));
+
+      expect(adapter.last!.queryParameters, {
+        'ci': '90000046',
+        'orden': 'fechaHora',
+        'sentido': 'asc',
+        'page': 0,
+        'size': 20,
+      });
+      expect(adapter.last!.queryParameters.containsKey('fecha'), isFalse);
+    });
+
     test('con filtros manda los parámetros exactos', () async {
       final (repository, adapter) = _ok(_page([]));
 

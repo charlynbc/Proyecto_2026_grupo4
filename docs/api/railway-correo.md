@@ -115,6 +115,12 @@ Se pega el resultado como valor de `FIREBASE_SERVICE_ACCOUNT_JSON` y se pone
 `APP_FIREBASE_ENABLED=true`. Si el valor no es un JSON ni un base64 válido, el servicio no arranca y el
 mensaje lo dice sin mostrar el valor cargado.
 
+Procesos programados de avisos. Tiene valor por defecto: solo hace falta cargarla para apagarlos.
+
+| Variable | Obligatoria | Por defecto | Descripción |
+|---|---|---|---|
+| `NOTIFICACIONES_PROCESOS_PROGRAMADOS_HABILITADOS` | no | `true` | Con `false` no corre el poller programado de envíos (ni lo hará el futuro job de recordatorios). El envío que se hace al crear la notificación no cambia. **El servicio `backend-dev` debe tener `false`**: `backend` y `backend-dev` comparten la base de pruebas, y el poller de dev marca como `FALLIDO` los envíos que agarra del otro. |
+
 Parámetros de negocio (RNF-26). **Todos tienen valor por defecto** (el definido en la sección 3.1.3
 de Requerimientos): solo hace falta cargarlos en Railway para usar un valor distinto. Los lee un único
 componente al arrancar; un valor inválido (no entero, cero o negativo, un mínimo mayor que su máximo, un
