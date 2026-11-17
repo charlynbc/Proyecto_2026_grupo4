@@ -18,6 +18,10 @@ public final class AnuncioDTO {
     public record Vigencia(OffsetDateTime vigenteDesde, OffsetDateTime vigenteHasta) { }
     public record Administracion(long id, String titulo, OffsetDateTime publicadoEn, OffsetDateTime vigenteDesde,
                                   OffsetDateTime vigenteHasta, String estado, Integer posicion) { }
+    public record DetalleAdministracion(long id, String titulo, String resumen, String texto,
+                                        OffsetDateTime publicadoEn, OffsetDateTime vigenteDesde,
+                                        OffsetDateTime vigenteHasta, String estado, Integer posicion,
+                                        List<Imagen> imagenes) { }
     public record Posicion(int posicion, long anuncioId) { }
     public record Carrusel(List<Posicion> posiciones) { }
 

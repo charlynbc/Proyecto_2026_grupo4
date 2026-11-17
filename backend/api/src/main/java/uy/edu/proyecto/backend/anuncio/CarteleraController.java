@@ -12,6 +12,8 @@ public class CarteleraController {
     public List<AnuncioDTO.Detalle> visibles() { return service.visibles(); }
     @GetMapping("/api/admin/anuncios")
     public List<AnuncioDTO.Administracion> listar() { return service.listar(); }
+    @GetMapping("/api/admin/anuncios/{id}")
+    public AnuncioDTO.DetalleAdministracion detalle(@PathVariable long id) { return service.detalle(id); }
     @GetMapping("/api/admin/carrusel")
     public AnuncioDTO.Carrusel configuracion() { return service.configuracion(); }
     @PutMapping("/api/admin/carrusel")
