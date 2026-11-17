@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +12,7 @@ import '../time_slots/providers/time_slot_statistics_provider.dart';
 import '../time_slots/repositories/time_slot_statistics_repository.dart';
 import '../widgets/period_filter.dart';
 import '../widgets/period_label.dart';
+import '../widgets/stats_palette.dart';
 
 class TimeSlotStatisticsTab extends ConsumerStatefulWidget {
   const TimeSlotStatisticsTab({super.key});
@@ -196,8 +199,22 @@ class _Heatmap extends StatelessWidget {
   const _Heatmap({required this.cells});
   final List<TimeSlotCell> cells;
   static const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  static const _dayWidth = 58.0;
+  static const _cellWidth = 56.0;
+  static const _labelGap = 8.0;
+
+  /// El rango de la escala (0 a 4) de una cantidad mayor que cero: se parte
+  /// el máximo en cinco partes iguales y la cantidad cae en la primera cuyo
+  /// tope la alcanza. Con enteros para que el borde no dependa de decimales.
+  static int rangeOf(int count, int maxCount) =>
+      (((count * 5 + maxCount - 1) ~/ maxCount) - 1).clamp(0, 4);
+
+  static String _hourLabel(int hour) =>
+      '${hour.toString().padLeft(2, '0')}:00–${(hour + 1).toString().padLeft(2, '0')}:00';
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final counts = <(int, int), int>{};
     for (final cell in cells) {
       counts[(cell.day, cell.hour)] = cell.count;
@@ -206,7 +223,6 @@ class _Heatmap extends StatelessWidget {
       0,
       (max, c) => c.count > max ? c.count : max,
     );
-    final color = Theme.of(context).colorScheme.primary;
     // Solo se muestran las horas desde la primera hasta la última con
     // actividad (sumando los siete días); las vacías del medio se conservan.
     final active = [
@@ -216,68 +232,180 @@ class _Heatmap extends StatelessWidget {
     final firstHour = active.first;
     final lastHour = active.last;
     final hidesHours = firstHour > 0 || lastHour < 23;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Cantidad por día y hora (hora de Uruguay)'),
-        if (hidesHours)
-          Text(
-            'Se ocultan las horas sin actividad al principio y al final',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        const Text('Color más intenso: mayor cantidad'),
-        const Text('Deslizá horizontalmente para ver todos los días'),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Column(
-            children: [
-              Row(
+
+    // La etiqueta de hora y la celda se miden con el tamaño de texto del
+    // usuario: la etiqueta entra siempre en una línea y la celda alcanza para
+    // su número.
+    final textStyle = DefaultTextStyle.of(context).style;
+    final scaler = MediaQuery.textScalerOf(context);
+    double measure(String text, {required bool height}) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: textStyle),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+      )..layout();
+      final size = height ? painter.height : painter.width;
+      painter.dispose();
+      return size;
+    }
+
+    var labelWidth = 0.0;
+    for (var hour = firstHour; hour <= lastHour; hour++) {
+      final width = measure(_hourLabel(hour), height: false);
+      if (width > labelWidth) labelWidth = width;
+    }
+    labelWidth += _labelGap;
+    final cellHeight = math.max(32.0, measure('0', height: true) + 8);
+    final gridWidth = labelWidth + days.length * _dayWidth;
+
+    final helpStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // El aviso va solo si la grilla no entra en el ancho disponible.
+        final overflows = gridWidth > constraints.maxWidth;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cantidad por día y hora (hora de Uruguay)',
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: 10),
+            Column(
+              key: const Key('timeslot-help'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hidesHours) ...[
+                  Text(
+                    'Se ocultan las horas sin actividad al principio y al final',
+                    style: helpStyle,
+                  ),
+                  const SizedBox(height: 4),
+                ],
+                _Legend(style: helpStyle),
+                if (overflows) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Deslizá horizontalmente para ver todos los días',
+                    style: helpStyle,
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(
                 children: [
-                  const SizedBox(width: 80),
-                  for (final day in days)
-                    SizedBox(width: 58, child: Center(child: Text(day))),
+                  Row(
+                    children: [
+                      SizedBox(width: labelWidth),
+                      for (final day in days)
+                        SizedBox(
+                          width: _dayWidth,
+                          child: Center(child: Text(day)),
+                        ),
+                    ],
+                  ),
+                  for (var hour = firstHour; hour <= lastHour; hour++)
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: labelWidth,
+                          child: Text(
+                            _hourLabel(hour),
+                            maxLines: 1,
+                            softWrap: false,
+                          ),
+                        ),
+                        for (var day = 1; day <= 7; day++)
+                          _cell(
+                            counts[(day, hour)],
+                            day,
+                            hour,
+                            maxCount,
+                            cellHeight,
+                          ),
+                      ],
+                    ),
                 ],
               ),
-              for (var hour = firstHour; hour <= lastHour; hour++)
-                Row(
-                  children: [
-                    SizedBox(
-                      width: 80,
-                      child: Text(
-                        '${hour.toString().padLeft(2, '0')}:00–${(hour + 1).toString().padLeft(2, '0')}:00',
-                      ),
-                    ),
-                    for (var day = 1; day <= 7; day++)
-                      Builder(
-                        builder: (context) {
-                          final count = counts[(day, hour)];
-                          final intensity = count == null || maxCount == 0
-                              ? 0.0
-                              : count / maxCount;
-                          return Semantics(
-                            label:
-                                '${days[day - 1]} $hour:00, ${count?.toString() ?? "sin datos"}',
-                            child: Container(
-                              width: 56,
-                              height: 32,
-                              margin: const EdgeInsets.all(1),
-                              color: Color.alphaBlend(
-                                color.withValues(alpha: intensity * 0.4),
-                                Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                              ),
-                              child: Center(
-                                child: Text(count?.toString() ?? '–'),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                  ],
-                ),
-            ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _cell(int? count, int day, int hour, int maxCount, double height) {
+    final shade = count == null || count == 0 || maxCount == 0
+        ? timeSlotZeroShade
+        : timeSlotScale[rangeOf(count, maxCount)];
+    return Semantics(
+      label: '${days[day - 1]} $hour:00, ${count?.toString() ?? "sin datos"}',
+      child: Container(
+        width: _cellWidth,
+        height: height,
+        margin: const EdgeInsets.all(1),
+        color: shade.fill,
+        child: Center(
+          child: Text(
+            count?.toString() ?? '–',
+            style: TextStyle(color: shade.text),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// La escala de color de menor a mayor cantidad, con el gris de las celdas en
+/// cero aparte.
+class _Legend extends StatelessWidget {
+  const _Legend({required this.style});
+
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final border = Theme.of(context).colorScheme.outlineVariant;
+    Widget swatch(Key key, Color color) => SizedBox.square(
+      key: key,
+      dimension: 16,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: color,
+          border: Border.all(color: border),
+        ),
+      ),
+    );
+    return Wrap(
+      key: const Key('timeslot-legend'),
+      spacing: 16,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            swatch(const Key('timeslot-legend-zero'), timeSlotZeroShade.fill),
+            const SizedBox(width: 4),
+            Text('Cero', style: style),
+          ],
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Menos', style: style),
+            const SizedBox(width: 4),
+            for (var i = 0; i < timeSlotScale.length; i++)
+              swatch(Key('timeslot-legend-$i'), timeSlotScale[i].fill),
+            const SizedBox(width: 4),
+            Text('Más', style: style),
+          ],
         ),
       ],
     );

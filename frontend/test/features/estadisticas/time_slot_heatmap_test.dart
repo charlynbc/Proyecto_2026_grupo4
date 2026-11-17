@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/contrast.dart';
 import '../../helpers/load_roboto.dart';
 
 /// El mapa de calor de Franjas muestra solo las horas con actividad: desde la
@@ -413,6 +414,447 @@ void main() {
       );
       expect(paragraph.didExceedMaxLines, isFalse);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('escala de color secuencial', () {
+    // Con máximo 10 el rango sale de la cantidad: 1 y 2 primer rango, 3 y 4
+    // segundo, 5 y 6 tercero, 7 y 8 cuarto, 9 y 10 quinto. Contraste del
+    // número con su fondo, calculado a mano ((L1 + 0,05) / (L2 + 0,05)):
+    // cero 13,14; rango 1 14,34; rango 2 11,17; rango 3 7,55; rango 4 5,01
+    // (blanco); rango 5 9,29 (blanco).
+    const zero = (Color(0xFFE8E8E8), Color(0xFF212121), 13.14);
+    const r1 = (Color(0xFFFFF3B0), Color(0xFF212121), 14.34);
+    const r2 = (Color(0xFFFFD166), Color(0xFF212121), 11.17);
+    const r3 = (Color(0xFFF79D3C), Color(0xFF212121), 7.55);
+    const r4 = (Color(0xFFCC3A21), Color(0xFFFFFFFF), 5.01);
+    const r5 = (Color(0xFF8B1A1A), Color(0xFFFFFFFF), 9.29);
+
+    final counts = {
+      (1, 9): 1,
+      (2, 9): 2,
+      (3, 9): 3,
+      (4, 9): 4,
+      (5, 9): 5,
+      (6, 9): 6,
+      (7, 9): 7,
+      (1, 10): 8,
+      (2, 10): 9,
+      (3, 10): 10,
+    };
+
+    Color fillOf(WidgetTester tester, Finder text) => tester
+        .widget<Container>(
+          find.ancestor(of: text, matching: find.byType(Container)).first,
+        )
+        .color!;
+
+    Color textColorOf(WidgetTester tester, Finder text) =>
+        tester.widget<Text>(text).style!.color!;
+
+    void expectShade(
+      WidgetTester tester,
+      Finder text,
+      (Color, Color, double) shade,
+      String reason,
+    ) {
+      final fill = fillOf(tester, text);
+      final ink = textColorOf(tester, text);
+      expect(fill, shade.$1, reason: '$reason: fondo');
+      expect(ink, shade.$2, reason: '$reason: texto');
+      final ratio = contrastRatio(ink, fill);
+      expect(ratio, closeTo(shade.$3, 0.01), reason: '$reason: contraste');
+      expect(ratio, greaterThanOrEqualTo(4.5), reason: '$reason: minimo');
+    }
+
+    testWidgets('cada rango tiene su color y su color de texto', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository(consultations: counts));
+
+      final expected = {
+        '1': r1,
+        '2': r1,
+        '3': r2,
+        '4': r2,
+        '5': r3,
+        '6': r3,
+        '7': r4,
+        '8': r4,
+        '9': r5,
+        '10': r5,
+      };
+      for (final entry in expected.entries) {
+        expectShade(tester, find.text(entry.key), entry.value, entry.key);
+      }
+    });
+
+    testWidgets('las celdas en cero van en gris neutro', (tester) async {
+      await _pump(tester, _Repository(consultations: counts));
+
+      final zeros = find.text('0');
+      expect(zeros, findsWidgets);
+      for (var i = 0; i < zeros.evaluate().length; i++) {
+        expectShade(tester, zeros.at(i), zero, 'cero $i');
+      }
+      final fill = fillOf(tester, zeros.first);
+      // Gris: los tres canales iguales.
+      expect(fill.r, fill.g);
+      expect(fill.g, fill.b);
+    });
+
+    testWidgets('una celda sin dato también va en gris neutro', (tester) async {
+      await _pump(
+        tester,
+        _Repository(
+          sparse: const [
+            TimeSlotCell(day: 2, hour: 9, count: 2),
+            TimeSlotCell(day: 2, hour: 10, count: 0),
+          ],
+        ),
+      );
+
+      expectShade(tester, find.text('–').first, zero, 'sin dato');
+      expectShade(tester, find.text('2'), r5, 'el unico dato es el maximo');
+    });
+
+    testWidgets('el rango sale de cantidad sobre máximo, no de valores '
+        'fijos', (tester) async {
+      // Máximo 3: 1 de 3 es el segundo rango, 2 de 3 el cuarto, 3 el quinto.
+      await _pump(
+        tester,
+        _Repository(consultations: {(1, 9): 1, (2, 9): 2, (3, 9): 3}),
+      );
+
+      expectShade(tester, find.text('1'), r2, '1 de 3');
+      expectShade(tester, find.text('2'), r4, '2 de 3');
+      expectShade(tester, find.text('3'), r5, '3 de 3');
+    });
+
+    testWidgets('el recorrido es de claro a oscuro, sin perder luminancia '
+        'entre rangos', (tester) async {
+      await _pump(tester, _Repository(consultations: counts));
+
+      final lums = [
+        for (final t in ['1', '3', '5', '7', '9'])
+          relativeLuminance(fillOf(tester, find.text(t))),
+      ];
+      // Luminancias a mano: 0,8850 / 0,6782 / 0,4421 / 0,1597 / 0,0630.
+      expect(lums[0], closeTo(0.8850, 0.001));
+      expect(lums[1], closeTo(0.6782, 0.001));
+      expect(lums[2], closeTo(0.4421, 0.001));
+      expect(lums[3], closeTo(0.1597, 0.001));
+      expect(lums[4], closeTo(0.0630, 0.001));
+      for (var i = 1; i < lums.length; i++) {
+        expect(lums[i], lessThan(lums[i - 1]));
+      }
+    });
+
+    testWidgets('la leyenda va de menor a mayor con los mismos colores', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository(consultations: counts));
+
+      Color swatchColor(Finder swatch) =>
+          (tester
+                      .widget<DecoratedBox>(
+                        find
+                            .descendant(
+                              of: swatch,
+                              matching: find.byType(DecoratedBox),
+                            )
+                            .first,
+                      )
+                      .decoration
+                  as BoxDecoration)
+              .color!;
+
+      expect(find.byKey(const Key('timeslot-legend')), findsOneWidget);
+      final shades = [r1, r2, r3, r4, r5];
+      final xs = <double>[];
+      for (var i = 0; i < 5; i++) {
+        final swatch = find.byKey(Key('timeslot-legend-$i'));
+        expect(swatch, findsOneWidget);
+        expect(swatchColor(swatch), shades[i].$1, reason: 'rango ${i + 1}');
+        xs.add(tester.getTopLeft(swatch).dx);
+      }
+      for (var i = 1; i < xs.length; i++) {
+        expect(xs[i], greaterThan(xs[i - 1]));
+      }
+      expect(tester.getTopLeft(find.text('Menos')).dx, lessThan(xs.first));
+      expect(tester.getTopLeft(find.text('Más')).dx, greaterThan(xs.last));
+      final zeroSwatch = find.byKey(const Key('timeslot-legend-zero'));
+      expect(zeroSwatch, findsOneWidget);
+      expect(swatchColor(zeroSwatch), zero.$1);
+    });
+
+    testWidgets('sin actividad no hay leyenda', (tester) async {
+      await _pump(tester, _Repository());
+      expect(find.byKey(const Key('timeslot-legend')), findsNothing);
+    });
+  });
+
+  group('los datos no cambian', () {
+    testWidgets('cada celda conserva su cantidad y su texto alternativo', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await _pump(
+        tester,
+        _Repository(consultations: {(2, 9): 3, (3, 10): 7, (5, 11): 10}),
+      );
+
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('7'), findsOneWidget);
+      expect(find.text('10'), findsOneWidget);
+      // 3 horas por 7 días son 21 celdas: 18 en cero.
+      expect(find.text('0'), findsNWidgets(18));
+      expect(
+        find.bySemanticsLabel(RegExp(r'^Mar 9:00, 3(\n|$)')),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(r'^Mié 10:00, 7(\n|$)')),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(r'^Vie 11:00, 10(\n|$)')),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(RegExp(r'^Lun 9:00, 0(\n|$)')),
+        findsOneWidget,
+      );
+      handle.dispose();
+    });
+
+    testWidgets('en Llegadas también', (tester) async {
+      await _pump(tester, _Repository(arrivals: {(4, 8): 6}));
+      await tester.tap(find.text('Llegadas'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('6'), findsOneWidget);
+      expect(find.text('0'), findsNWidgets(6));
+      expect(_hourLabels(tester), [_label(8)]);
+    });
+  });
+
+  group('el aviso de desplazamiento', () {
+    const notice = 'Deslizá horizontalmente para ver todos los días';
+
+    ScrollableState horizontal(WidgetTester tester) => tester.state(
+      find
+          .descendant(
+            of: find.byWidgetPredicate(
+              (w) =>
+                  w is SingleChildScrollView &&
+                  w.scrollDirection == Axis.horizontal,
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+
+    testWidgets('en pantalla ancha, donde la grilla entra, no aparece', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository(consultations: {(2, 9): 3}));
+
+      expect(find.text(notice), findsNothing);
+      expect(horizontal(tester).position.maxScrollExtent, 0);
+    });
+
+    testWidgets('a 320 px aparece', (tester) async {
+      await _pump(
+        tester,
+        _Repository(consultations: {(2, 9): 3}),
+        size: const Size(320, 3200),
+      );
+
+      expect(find.text(notice), findsOneWidget);
+      expect(horizontal(tester).position.maxScrollExtent, greaterThan(0));
+    });
+
+    testWidgets('aparece si y solo si la grilla desborda, con cualquier '
+        'ancho y tamaño de texto', (tester) async {
+      for (final width in [320.0, 400.0, 500.0, 560.0, 600.0, 700.0, 900.0]) {
+        for (final scale in [1.0, 1.5, 2.0]) {
+          await _pump(
+            tester,
+            _Repository(consultations: {(2, 9): 3}),
+            size: Size(width, 3200),
+            textScale: scale,
+          );
+          final overflows = horizontal(tester).position.maxScrollExtent > 0;
+          expect(
+            find.text(notice),
+            overflows ? findsOneWidget : findsNothing,
+            reason: 'ancho $width, texto x$scale',
+          );
+        }
+      }
+    });
+
+    group('con Roboto, a 560 px (528 de contenido)', () {
+      setUpAll(loadRoboto);
+
+      // Medido: la grilla mide 495,6 px con el texto normal (entra) y 574,5
+      // con el texto al doble (no entra).
+      testWidgets('con el texto normal la grilla entra y no hay aviso', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          _Repository(consultations: {(2, 9): 3}),
+          size: const Size(560, 3200),
+        );
+
+        expect(horizontal(tester).position.maxScrollExtent, 0);
+        expect(find.text(notice), findsNothing);
+      });
+
+      testWidgets('con el texto al doble la grilla no entra y aparece', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          _Repository(consultations: {(2, 9): 3}),
+          size: const Size(560, 3200),
+          textScale: 2,
+        );
+
+        expect(horizontal(tester).position.maxScrollExtent, greaterThan(40));
+        expect(find.text(notice), findsOneWidget);
+      });
+    });
+  });
+
+  group('encabezado y etiquetas', () {
+    const title = 'Cantidad por día y hora (hora de Uruguay)';
+
+    testWidgets('el título es más grande y lo auxiliar más tenue', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository(consultations: {(2, 9): 3}));
+
+      final titleText = tester.widget<Text>(find.text(title));
+      final hours = tester.widget<Text>(find.text(_notice));
+      expect(titleText.style!.fontSize, 16);
+      expect(hours.style!.fontSize, 12);
+      final theme = Theme.of(tester.element(find.text(title)));
+      expect(hours.style!.color, theme.colorScheme.onSurfaceVariant);
+    });
+
+    testWidgets('los textos auxiliares forman un solo bloque compacto', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository(consultations: {(2, 9): 3}));
+
+      final help = find.byKey(const Key('timeslot-help'));
+      expect(help, findsOneWidget);
+      expect(
+        find.descendant(of: help, matching: find.text(_notice)),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: help,
+          matching: find.byKey(const Key('timeslot-legend')),
+        ),
+        findsOneWidget,
+      );
+      final noticeBottom = tester.getRect(find.text(_notice)).bottom;
+      final legendTop = tester
+          .getRect(find.byKey(const Key('timeslot-legend')))
+          .top;
+      expect(legendTop - noticeBottom, inInclusiveRange(2, 8));
+    });
+
+    testWidgets('hay aire entre el título, el bloque y la grilla', (
+      tester,
+    ) async {
+      await _pump(tester, _Repository(consultations: {(2, 9): 3}));
+
+      final titleBottom = tester.getRect(find.text(title)).bottom;
+      final helpRect = tester.getRect(find.byKey(const Key('timeslot-help')));
+      expect(helpRect.top - titleBottom, greaterThanOrEqualTo(8));
+      final dayTop = tester.getTopLeft(find.text('Lun')).dy;
+      expect(dayTop - helpRect.bottom, greaterThanOrEqualTo(12));
+    });
+
+    testWidgets('las etiquetas de hora van en una sola línea', (tester) async {
+      await _pump(
+        tester,
+        _Repository(consultations: {(2, 9): 3, (3, 11): 1}),
+        size: const Size(320, 3200),
+      );
+
+      for (final hour in [9, 10, 11]) {
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text(_label(hour)),
+        );
+        // Una línea: tan alta como el nombre de un día, que no se parte.
+        expect(
+          paragraph.size.height,
+          lessThanOrEqualTo(tester.getSize(find.text('Lun')).height * 1.1),
+          reason: '$hour',
+        );
+      }
+    });
+
+    testWidgets('con el texto al doble siguen en una línea y la celda '
+        'alcanza para su número', (tester) async {
+      await _pump(
+        tester,
+        _Repository(consultations: {(2, 9): 3, (3, 11): 12}),
+        size: const Size(320, 3200),
+        textScale: 2,
+      );
+
+      for (final hour in [9, 10, 11]) {
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.text(_label(hour)),
+        );
+        // Una línea: tan alta como el nombre de un día, que no se parte.
+        expect(
+          paragraph.size.height,
+          lessThanOrEqualTo(tester.getSize(find.text('Lun')).height * 1.1),
+          reason: '$hour',
+        );
+      }
+      final number = tester.getSize(find.text('12'));
+      final cell = tester.getSize(
+        find
+            .ancestor(of: find.text('12'), matching: find.byType(Container))
+            .first,
+      );
+      expect(cell.height, greaterThanOrEqualTo(number.height));
+      expect(cell.width, greaterThanOrEqualTo(number.width));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('a 320 px con Roboto y el texto al doble, la grilla', () {
+    setUpAll(loadRoboto);
+
+    testWidgets('no desborda, se desliza y la leyenda no se corta', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _Repository(consultations: {(2, 9): 3, (3, 11): 12}),
+        size: const Size(320, 3200),
+        textScale: 2,
+      );
+
+      expect(tester.takeException(), isNull);
+      final legend = tester.getRect(find.byKey(const Key('timeslot-legend')));
+      expect(legend.left, greaterThanOrEqualTo(0));
+      expect(legend.right, lessThanOrEqualTo(320));
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text('Deslizá horizontalmente para ver todos los días'),
+      );
+      expect(paragraph.didExceedMaxLines, isFalse);
     });
   });
 }
