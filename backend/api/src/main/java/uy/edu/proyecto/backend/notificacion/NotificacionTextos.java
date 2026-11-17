@@ -59,6 +59,12 @@ public final class NotificacionTextos {
         return "Tu consulta del " + fecha(fecha) + " fue cancelada a tu solicitud.";
     }
 
+    /** Cancelacion que hace un funcionario por otro motivo, administrativo u otro (RF-19). */
+    public static String cuerpoCancelacionPorOtroMotivo(LocalDate fecha, String motivo) {
+        return "Tu consulta del " + fecha(fecha)
+                + " fue cancelada por la institución. Motivo: " + motivo;
+    }
+
     /** Cancelacion de una consulta por el medico (RF-27). */
     public static String cuerpoCancelacionPorMedico(LocalDate fecha, String motivo) {
         return "Tu consulta del " + fecha(fecha)

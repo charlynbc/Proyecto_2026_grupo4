@@ -457,9 +457,9 @@ class CancelacionConsultaIT extends BaseIntegracionIT {
         String aviso = jdbc.queryForObject(
                 "SELECT contenido FROM notificacion WHERE id_consulta = ? AND tipo = 'CANCELACION'",
                 String.class, consulta);
-        assertTrue(aviso.endsWith("fue cancelada por la institución. Motivo: Se rompio el equipo"),
-                aviso);
-        assertTrue(aviso.matches("Tu consulta del \\d{2}/\\d{2}/\\d{4} .*"), aviso);
+        var dia = hoy().plusDays(7);
+        assertEquals(String.format("Tu consulta del %02d/%02d/%04d fue cancelada por la institución. "
+                + "Motivo: Se rompio el equipo", dia.getDayOfMonth(), dia.getMonthValue(), dia.getYear()), aviso);
 
         // El numero vuelve a ofrecerse a otro socio.
         reservarOk(tokenSocio(ciSocio2), numero, null);
