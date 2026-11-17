@@ -45,7 +45,8 @@ const timeSlotScale = <StatsShade>[
   StatsShade(fill: Color(0xFF8B1A1A), text: Color(0xFFFFFFFF)),
 ];
 
-/// Franjas: la barra de desplazamiento horizontal. El pulgar contrasta 6,59:1
-/// con el fondo crema (#F4EEE2) y 4,96:1 con su pista.
+/// Franjas: la barra de desplazamiento horizontal. Contrastes contra el fondo
+/// crema (#F4EEE2): el pulgar 6,59:1 y la pista 3,21:1; el pulgar contra la
+/// pista 2,05:1.
 const timeSlotScrollbarThumb = Color(0xFF4A5560);
-const timeSlotScrollbarTrack = Color(0xFFD8D0BF);
+const timeSlotScrollbarTrack = Color(0xFF8C8472);

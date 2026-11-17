@@ -1016,11 +1016,11 @@ void main() {
       final thumb = theme.thumbColor!.resolve(<WidgetState>{})!;
       final track = theme.trackColor!.resolve(<WidgetState>{})!;
       expect(thumb, const Color(0xFF4A5560));
-      expect(track, const Color(0xFFD8D0BF));
+      expect(track, const Color(0xFF8C8472));
       expect(contrastRatio(thumb, cream), closeTo(6.59, 0.01));
-      expect(contrastRatio(track, cream), closeTo(1.33, 0.01));
-      expect(contrastRatio(thumb, track), closeTo(4.96, 0.01));
-      expect(contrastRatio(track, cream), lessThan(3));
+      expect(contrastRatio(track, cream), closeTo(3.21, 0.01));
+      expect(contrastRatio(thumb, track), closeTo(2.05, 0.01));
+      expect(contrastRatio(track, cream), greaterThanOrEqualTo(3));
       expect(contrastRatio(thumb, track), greaterThanOrEqualTo(1.5));
     });
 
