@@ -121,6 +121,24 @@ void main() {
       await unmountApp(tester);
     });
 
+    testWidgets('con 40 y 1 px los íconos se achican en proporción al ancho', (
+      tester,
+    ) async {
+      await openHome(tester);
+
+      // 96 px de íconos en 40 px de ancho es escala 40 / 96, o sea 20 px por
+      // ícono; en 1 px, 1 / 96 de 48 px son 0,5 px.
+      final account = find.byKey(const Key('open-account'));
+      await _resize(tester, 40);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(account).width, closeTo(20, 0.01));
+      expect(tester.getRect(account).height, closeTo(20, 0.01));
+      await _resize(tester, 1);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(account).width, closeTo(0.5, 0.01));
+      await unmountApp(tester);
+    });
+
     testWidgets('los dos íconos siguen con su texto de ayuda', (tester) async {
       await openHome(tester);
 
