@@ -150,7 +150,9 @@ class _ReferralStatisticsTabState extends ConsumerState<ReferralStatisticsTab> {
           else if (result case final data?) ...[
             PeriodLabel(from: data.from, to: data.to),
             const SizedBox(height: 12),
-            if (data.items.isEmpty)
+            // Sin filas visibles (ver `ReferralUsageChart.visible`) se dice lo
+            // mismo que cuando no hay especialidades.
+            if (ReferralUsageChart.visible(data.items).isEmpty)
               const Text('Sin datos', key: Key('stats-empty'))
             else
               // Una sola vista: el gráfico lleva en cada fila los cinco datos.

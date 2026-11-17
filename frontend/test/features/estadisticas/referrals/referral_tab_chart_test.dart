@@ -14,8 +14,10 @@ ReferralItem _item(
   int available,
   int expired, {
   String utilization = 'Sin datos',
+  bool requiresReferral = true,
 }) => ReferralItem(
   name: name,
+  requiresReferral: requiresReferral,
   issued: used + available + expired,
   used: used,
   available: available,
@@ -178,6 +180,45 @@ void main() {
     expect(find.text('Pediatría'), findsOneWidget);
     expect(find.text('Emitidos: 0'), findsNWidgets(2));
     expect(find.text('Utilización: Sin datos'), findsNWidgets(2));
+  });
+
+  testWidgets('si ninguna fila es visible la pestaña dice Sin datos', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      _Repo(
+        all: [
+          _item('Medicina General', 0, 0, 0, requiresReferral: false),
+          _item('Pediatría', 0, 0, 0, requiresReferral: false),
+        ],
+      ),
+    );
+
+    expect(find.byKey(const Key('stats-empty')), findsOneWidget);
+    expect(find.text('Sin datos'), findsOneWidget);
+    expect(_chart(), findsNothing);
+  });
+
+  testWidgets('las de pase libre sin pases se ocultan y las demás se '
+      'muestran', (tester) async {
+    await _pump(
+      tester,
+      _Repo(
+        all: [
+          _item('Cardiología', 5, 3, 2, utilization: '71.43 %'),
+          _item('Dermatología', 0, 0, 0),
+          _item('Medicina General', 0, 0, 0, requiresReferral: false),
+          _item('Pediatría', 1, 0, 0, requiresReferral: false),
+        ],
+      ),
+    );
+
+    expect(find.byKey(const Key('referral-row-2')), findsOneWidget);
+    expect(find.byKey(const Key('referral-row-3')), findsNothing);
+    expect(find.text('Medicina General'), findsNothing);
+    expect(find.text('Pediatría'), findsOneWidget);
+    expect(find.text('Dermatología'), findsOneWidget);
   });
 
   testWidgets('una especialidad sin pases se ve sin barra entre las demás, '

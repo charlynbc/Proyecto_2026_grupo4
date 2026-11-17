@@ -47,11 +47,23 @@ enum _Part {
 class ReferralUsageChart extends StatelessWidget {
   const ReferralUsageChart({super.key, required this.items});
 
-  /// Todas las especialidades de la respuesta, en el orden en que llegan.
+  /// Todas las especialidades de la respuesta, en el orden en que llegan. Se
+  /// muestran las que indica [visible].
   final List<ReferralItem> items;
 
   static int _total(ReferralItem item) =>
       item.used + item.available + item.expired;
+
+  /// Las filas que se muestran. Decisión de producto: una especialidad de pase
+  /// libre (que no exige pase) solo se ve si tiene pases emitidos, para que no
+  /// llenen la pantalla las que no tienen nada para mostrar; si tiene alguno,
+  /// se ve para no ocultar datos reales. Las que exigen pase se ven siempre,
+  /// aunque estén en cero. Las filas, los totales y la escala común se calculan
+  /// solo con las visibles.
+  static List<ReferralItem> visible(List<ReferralItem> items) => [
+    for (final item in items)
+      if (item.requiresReferral || item.issued > 0) item,
+  ];
 
   static String _issuedText(int count) =>
       '$count ${count == 1 ? 'emitido' : 'emitidos'}';
@@ -69,11 +81,12 @@ class ReferralUsageChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxTotal = items.fold<int>(
+    final rows = visible(items);
+    final maxTotal = rows.fold<int>(
       0,
       (max, item) => math.max(max, _total(item)),
     );
-    if (items.isEmpty) return const SizedBox.shrink();
+    if (rows.isEmpty) return const SizedBox.shrink();
     final theme = Theme.of(context);
     return Column(
       key: const Key('referral-chart'),
@@ -109,22 +122,22 @@ class ReferralUsageChart extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
-        for (var i = 0; i < items.length; i++)
+        for (var i = 0; i < rows.length; i++)
           // Un solo texto por fila para el lector de pantalla: lo que se ve
           // queda excluido para que no se lea dos veces.
           Semantics(
             key: Key('referral-row-$i'),
             container: true,
-            label: semanticLabel(items[i]),
+            label: semanticLabel(rows[i]),
             child: ExcludeSemantics(
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(items[i].name, style: theme.textTheme.bodyMedium),
+                    Text(rows[i].name, style: theme.textTheme.bodyMedium),
                     const SizedBox(height: 4),
-                    if (_total(items[i]) == 0)
+                    if (_total(rows[i]) == 0)
                       Align(
                         key: Key('referral-none-$i'),
                         alignment: Alignment.centerLeft,
@@ -136,9 +149,9 @@ class ReferralUsageChart extends StatelessWidget {
                         ),
                       )
                     else
-                      _StackedBar(index: i, item: items[i], maxTotal: maxTotal),
+                      _StackedBar(index: i, item: rows[i], maxTotal: maxTotal),
                     const SizedBox(height: 4),
-                    _DataLine(index: i, item: items[i]),
+                    _DataLine(index: i, item: rows[i]),
                   ],
                 ),
               ),

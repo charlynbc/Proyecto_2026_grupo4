@@ -14,8 +14,10 @@ ReferralItem _item(
   int expired, {
   int? issued,
   String utilization = 'Sin datos',
+  bool requiresReferral = true,
 }) => ReferralItem(
   name: name,
+  requiresReferral: requiresReferral,
   issued: issued ?? used + available + expired,
   used: used,
   available: available,
@@ -384,6 +386,126 @@ void main() {
       expect(find.bySemanticsLabel('Utilización: 71.43 %'), findsNothing);
       expect(find.bySemanticsLabel(RegExp('^Utilización')), findsNothing);
       handle.dispose();
+    });
+  });
+
+  group('especialidades de pase libre', () {
+    // Decisión de producto: una especialidad que no exige pase solo se ve si
+    // tiene pases emitidos.
+    testWidgets('una de pase libre sin pases no se ve', (tester) async {
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2),
+        _item('Medicina General', 0, 0, 0, requiresReferral: false),
+      ]);
+
+      expect(find.text('Cardiología'), findsOneWidget);
+      expect(find.text('Medicina General'), findsNothing);
+      expect(find.byKey(const Key('referral-row-0')), findsOneWidget);
+      expect(find.byKey(const Key('referral-row-1')), findsNothing);
+      expect(find.text('sin pases'), findsNothing);
+    });
+
+    testWidgets('una de pase libre con pases sí se ve, con su barra', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2),
+        _item('Medicina General', 2, 1, 1, requiresReferral: false),
+      ]);
+
+      expect(find.text('Medicina General'), findsOneWidget);
+      expect(_track(1), findsOneWidget);
+      expect(find.text('Emitidos: 4'), findsOneWidget);
+      // Escala común: 4 de 10.
+      final w = _trackWidth(tester, 1);
+      expect(tester.getSize(_seg(1, 'used')).width, closeTo(0.2 * w, 0.5));
+    });
+
+    testWidgets('una que exige pase con cero pases se ve como sin pases', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2),
+        _item('Dermatología', 0, 0, 0),
+      ]);
+
+      expect(find.text('Dermatología'), findsOneWidget);
+      expect(find.byKey(const Key('referral-none-1')), findsOneWidget);
+      expect(_track(1), findsNothing);
+    });
+
+    testWidgets('sin el dato requierePase se trata como que sí exige pase', (
+      tester,
+    ) async {
+      // `_item` no lo indica: por defecto exige pase, como pasa con un campo
+      // ausente en la respuesta.
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2),
+        _item('Neurología', 0, 0, 0),
+      ]);
+      expect(find.text('Neurología'), findsOneWidget);
+      expect(find.text('sin pases'), findsOneWidget);
+    });
+
+    testWidgets('la escala común no cuenta las filas ocultas', (tester) async {
+      // La fila oculta tiene emitidos 0 pero tramos que suman 100 (un dato
+      // inconsistente a propósito): si entrara en la escala, la barra de
+      // Cardiología (10) mediría un 10 % del ancho.
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2),
+        _item(
+          'Medicina General',
+          100,
+          0,
+          0,
+          issued: 0,
+          requiresReferral: false,
+        ),
+      ]);
+
+      expect(find.text('Medicina General'), findsNothing);
+      final w = _trackWidth(tester, 0);
+      expect(tester.getSize(_seg(0, 'used')).width, closeTo(0.5 * w, 0.5));
+      expect(
+        tester.getRect(_seg(0, 'expired')).right,
+        closeTo(tester.getRect(_track(0)).right, 0.5),
+      );
+    });
+
+    testWidgets('las filas visibles conservan su orden y sus claves', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _item('Cardiología', 5, 3, 2),
+        _item('Medicina General', 0, 0, 0, requiresReferral: false),
+        _item('Dermatología', 0, 0, 0),
+      ]);
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('referral-row-0')),
+          matching: find.text('Cardiología'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('referral-row-1')),
+          matching: find.text('Dermatología'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('referral-row-2')), findsNothing);
+    });
+
+    testWidgets('si no queda ninguna fila visible no hay gráfico', (
+      tester,
+    ) async {
+      await _pump(tester, [
+        _item('Medicina General', 0, 0, 0, requiresReferral: false),
+        _item('Pediatría', 0, 0, 0, requiresReferral: false),
+      ]);
+      expect(find.byKey(const Key('referral-chart')), findsNothing);
     });
   });
 
