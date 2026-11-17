@@ -44,6 +44,32 @@ public class CarteleraRepository {
     void actualizarTexto(long id, String titulo, String resumen, String texto) {
         jdbc.update("UPDATE public.anuncio SET titulo=?, resumen=?, texto=? WHERE id_anuncio=?",titulo,resumen,texto,id);
     }
+    record ImagenPropia(long id, String referencia) { }
+    List<ImagenPropia> imagenes(long anuncioId) {
+        return jdbc.query("SELECT id_imagen,referencia_archivo FROM public.imagen_anuncio WHERE id_anuncio=? ORDER BY orden,id_imagen",
+                (rs,n) -> new ImagenPropia(rs.getLong(1),rs.getString(2)),anuncioId);
+    }
+    void agregarImagen(long anuncioId, String referencia, int orden) {
+        jdbc.update("INSERT INTO public.imagen_anuncio(id_anuncio,referencia_archivo,orden) VALUES (?,?,?)",anuncioId,referencia,orden);
+    }
+    void actualizarOrden(long idImagen, int orden) {
+        jdbc.update("UPDATE public.imagen_anuncio SET orden=? WHERE id_imagen=?",orden,idImagen);
+    }
+    /** Como {@link #encolarReferencias(long)}, solo para las imagenes indicadas de esa novedad. */
+    void encolarReferencias(long anuncioId, List<Long> idsImagen) {
+        if (idsImagen.isEmpty()) return;
+        jdbc.update("INSERT INTO public.anuncio_archivo_pendiente_borrado(referencia_archivo) SELECT referencia_archivo FROM public.imagen_anuncio WHERE id_anuncio=? AND id_imagen IN ("+marcas(idsImagen.size())+") ON CONFLICT (referencia_archivo) DO NOTHING",argumentos(anuncioId,idsImagen));
+    }
+    void quitarImagenes(long anuncioId, List<Long> idsImagen) {
+        if (idsImagen.isEmpty()) return;
+        jdbc.update("DELETE FROM public.imagen_anuncio WHERE id_anuncio=? AND id_imagen IN ("+marcas(idsImagen.size())+")",argumentos(anuncioId,idsImagen));
+    }
+    private static String marcas(int cantidad) { return String.join(",",java.util.Collections.nCopies(cantidad,"?")); }
+    private static Object[] argumentos(long anuncioId, List<Long> ids) {
+        var argumentos=new java.util.ArrayList<Object>();
+        argumentos.add(anuncioId); argumentos.addAll(ids);
+        return argumentos.toArray();
+    }
     int cantidadImagenes(long id) {
         return jdbc.queryForObject("SELECT count(*) FROM public.imagen_anuncio WHERE id_anuncio=?",Integer.class,id);
     }
