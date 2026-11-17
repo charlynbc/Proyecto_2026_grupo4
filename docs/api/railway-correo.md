@@ -104,11 +104,18 @@ Variables (los valores secretos se cargan en el panel de Railway, nunca en Git):
 
 Clave de Firebase para los avisos push. Se descarga de la consola de Firebase (configuración del
 proyecto, cuentas de servicio, generar clave privada). Es secreta: nunca va al repositorio ni a una
-captura, y si se expone hay que revocarla y generar otra. Para cargarla en Railway como base64, en
-PowerShell:
+captura, y si se expone hay que revocarla y generar otra. Para cargarla en Railway como base64:
 
 ```powershell
+# Windows (PowerShell)
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\ruta\al\archivo.json"))
+```
+
+```bash
+# macOS (copia el resultado al portapapeles)
+base64 -i clave.json | pbcopy
+# Linux (una sola línea)
+base64 -w0 clave.json
 ```
 
 Se pega el resultado como valor de `FIREBASE_SERVICE_ACCOUNT_JSON` y se pone
