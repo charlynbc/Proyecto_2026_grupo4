@@ -65,10 +65,14 @@ public class CarteleraRepository {
     boolean eliminar(long id) {
         var ids = jdbc.queryForList("SELECT id_anuncio FROM public.anuncio WHERE id_anuncio=? FOR UPDATE",Long.class,id);
         if (ids.isEmpty()) return false;
-        jdbc.update("INSERT INTO public.anuncio_archivo_pendiente_borrado(referencia_archivo) SELECT referencia_archivo FROM public.imagen_anuncio WHERE id_anuncio=? ON CONFLICT (referencia_archivo) DO NOTHING",id);
+        encolarReferencias(id);
         jdbc.update("DELETE FROM public.imagen_anuncio WHERE id_anuncio=?",id);
         jdbc.update("DELETE FROM public.anuncio WHERE id_anuncio=?",id);
         return true;
+    }
+    /** Deja en la cola de borrado de Storage las referencias de todas las imagenes de la novedad. */
+    void encolarReferencias(long anuncioId) {
+        jdbc.update("INSERT INTO public.anuncio_archivo_pendiente_borrado(referencia_archivo) SELECT referencia_archivo FROM public.imagen_anuncio WHERE id_anuncio=? ON CONFLICT (referencia_archivo) DO NOTHING",anuncioId);
     }
     record Pendiente(long id, String referencia) { }
     Pendiente tomarPendiente() {
