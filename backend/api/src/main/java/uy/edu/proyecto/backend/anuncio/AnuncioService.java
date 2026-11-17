@@ -96,6 +96,12 @@ public class AnuncioService {
         return detalleInterno(id, true);
     }
 
+    /** El detalle de cualquier anuncio, vigente o no. Solo para la administracion. */
+    @Transactional(readOnly = true)
+    public AnuncioDTO.Detalle detalleCualquiera(long id) {
+        return detalleInterno(id, false);
+    }
+
     private AnuncioDTO.Detalle detalleInterno(long id, boolean vigente) {
         if (id <= 0) throw noEncontrado();
         var fila = vigente ? repository.buscar(id) : repository.buscarCualquiera(id);

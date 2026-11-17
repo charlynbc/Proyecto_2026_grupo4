@@ -21,16 +21,25 @@ public class CarteleraRepository {
         jdbc.update("UPDATE public.anuncio SET posicion_carrusel=NULL WHERE posicion_carrusel IS NOT NULL");
         for (var p : posiciones) jdbc.update("UPDATE public.anuncio SET posicion_carrusel=? WHERE id_anuncio=?", p.posicion(), p.anuncioId());
     }
-    List<AnuncioDTO.Administracion> listar() {
-        return jdbc.query("""
-                SELECT a.id_anuncio,a.titulo,a.publicado_en,a.vigente_desde,a.vigente_hasta,a.posicion_carrusel,
-                  CASE WHEN a.vigente_desde > CURRENT_TIMESTAMP THEN 'PROGRAMADO'
-                       WHEN a.vigente_hasta <= CURRENT_TIMESTAMP THEN 'VENCIDO' ELSE 'VIGENTE' END estado
-                FROM public.anuncio a
-                ORDER BY a.publicado_en DESC,a.id_anuncio DESC
-                """, (rs,n) -> new AnuncioDTO.Administracion(rs.getLong(1),rs.getString(2),
+    private static final String ADMINISTRACION = """
+            SELECT a.id_anuncio,a.titulo,a.publicado_en,a.vigente_desde,a.vigente_hasta,a.posicion_carrusel,
+              CASE WHEN a.vigente_desde > CURRENT_TIMESTAMP THEN 'PROGRAMADO'
+                   WHEN a.vigente_hasta <= CURRENT_TIMESTAMP THEN 'VENCIDO' ELSE 'VIGENTE' END estado
+            FROM public.anuncio a
+            """;
+    private static AnuncioDTO.Administracion administracion(java.sql.ResultSet rs, int n) throws java.sql.SQLException {
+        return new AnuncioDTO.Administracion(rs.getLong(1),rs.getString(2),
                 rs.getObject(3,OffsetDateTime.class),rs.getObject(4,OffsetDateTime.class),
-                rs.getObject(5,OffsetDateTime.class),rs.getString("estado"),rs.getObject(6, Integer.class)));
+                rs.getObject(5,OffsetDateTime.class),rs.getString("estado"),rs.getObject(6, Integer.class));
+    }
+    List<AnuncioDTO.Administracion> listar() {
+        return jdbc.query(ADMINISTRACION + "ORDER BY a.publicado_en DESC,a.id_anuncio DESC",
+                CarteleraRepository::administracion);
+    }
+    /** Una fila de administracion (con estado y posicion), o null si no existe. */
+    AnuncioDTO.Administracion administracion(long id) {
+        return jdbc.query(ADMINISTRACION + "WHERE a.id_anuncio=?", CarteleraRepository::administracion, id)
+                .stream().findFirst().orElse(null);
     }
     int vigencia(long id, AnuncioDTO.Vigencia v) {
         return jdbc.update("UPDATE public.anuncio SET vigente_desde=?, vigente_hasta=? WHERE id_anuncio=?",v.vigenteDesde(),v.vigenteHasta(),id);
