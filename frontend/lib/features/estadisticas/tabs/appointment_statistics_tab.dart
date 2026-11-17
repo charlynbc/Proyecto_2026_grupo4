@@ -9,8 +9,7 @@ import '../consultas/providers/appointment_statistics_provider.dart';
 import '../consultas/repositories/appointment_statistics_repository.dart';
 import '../widgets/period_filter.dart';
 import '../widgets/period_label.dart';
-import '../consultas/widgets/appointment_status_chart.dart';
-import '../consultas/widgets/appointment_status_list.dart';
+import '../consultas/widgets/appointment_status_bars.dart';
 import '../consultas/widgets/appointment_summary_cards.dart';
 
 const String _sessionExpiredMessage =
@@ -218,10 +217,10 @@ class _Results extends StatelessWidget {
         const SizedBox(height: 12),
         AppointmentSummaryCards(statistics: result),
         const SizedBox(height: 24),
-        // Con total cero no hay estado vacío aparte: las siete barras siguen.
-        AppointmentStatusChart(statistics: result),
-        const SizedBox(height: 16),
-        AppointmentStatusList(statistics: result),
+        // Con total cero no hay estado vacío aparte: las siete filas siguen,
+        // sin barras. El gráfico lleva el nombre y la cantidad de cada estado,
+        // así que no hay lista debajo.
+        AppointmentStatusBars(statistics: result),
       ],
     );
   }
