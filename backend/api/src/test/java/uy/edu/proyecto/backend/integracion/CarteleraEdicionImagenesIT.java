@@ -38,13 +38,22 @@ class CarteleraEdicionImagenesIT extends BaseIntegracionIT {
 
     record Archivo(String tipo, byte[] bytes) { }
 
+    /** Una novedad sin posicion en el carrusel: la posicion es unica, asi que dos novedades no pueden compartirla. */
     private long novedad(String texto, String... referencias) {
+        return novedad(null, texto, referencias);
+    }
+
+    private long novedadEnCarrusel(int posicion, String texto, String... referencias) {
+        return novedad(posicion, texto, referencias);
+    }
+
+    private long novedad(Integer posicion, String texto, String... referencias) {
         long id = jdbc.queryForObject("""
                 INSERT INTO anuncio (id_administrador, titulo, resumen, texto, vigente_desde, vigente_hasta,
                                      posicion_carrusel)
                 VALUES (?, 'Titulo viejo', 'Resumen viejo', ?, '2026-01-01T00:00:00Z'::timestamptz,
-                        '2099-01-01T00:00:00Z'::timestamptz, 3) RETURNING id_anuncio
-                """, Long.class, idAdmin, texto);
+                        '2099-01-01T00:00:00Z'::timestamptz, ?) RETURNING id_anuncio
+                """, Long.class, idAdmin, texto, posicion);
         for (int i = 0; i < referencias.length; i++) {
             jdbc.update("INSERT INTO imagen_anuncio (id_anuncio, referencia_archivo, orden) VALUES (?, ?, ?)",
                     id, referencias[i], i);
@@ -267,6 +276,7 @@ class CarteleraEdicionImagenesIT extends BaseIntegracionIT {
 
         assertEquals(400, r.estado(), r.cuerpo());
         assertEquals("IMAGEN_INVALIDA", r.codigo());
+        assertEquals("Cada imagen admite hasta 5 MB", r.json().path("message").asString());
         sinCambios(id, List.of("a.png"));
         verifyNoInteractions(almacen);
     }
@@ -335,7 +345,7 @@ class CarteleraEdicionImagenesIT extends BaseIntegracionIT {
 
     @Test
     void laEdicionDeImagenesNoCambiaVigenciaNiPosicion() throws Exception {
-        long id = novedad("Texto", "a.png");
+        long id = novedadEnCarrusel(3, "Texto", "a.png");
         var antes = jdbc.queryForMap("SELECT vigente_desde, vigente_hasta, posicion_carrusel, publicado_en "
                 + "FROM anuncio WHERE id_anuncio = ?", id);
 
