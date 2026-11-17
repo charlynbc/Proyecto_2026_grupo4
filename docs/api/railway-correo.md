@@ -92,13 +92,35 @@ Variables (los valores secretos se cargan en el panel de Railway, nunca en Git):
 | `CORS_ALLOWED_ORIGIN` | sí | Origen exacto del frontend (`https://...`, sin barra final). Aunque web y API compartan dominio, debe estar. |
 | `COOKIE_SECURE` | sí | `true` (HTTPS). |
 | `COOKIE_SAME_SITE` | sí | `Lax` (la web se sirve desde el mismo dominio que la API). Solo `None` si algún día el frontend queda en otro sitio. |
-| `APP_FIREBASE_ENABLED` | sí | `false` salvo que haya credenciales de Firebase. |
+| `APP_FIREBASE_ENABLED` | sí | `true` para activar los avisos push; `false` si no hay credenciales de Firebase. Con `true` y sin credenciales el servicio no arranca. |
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | solo con push | Clave de la cuenta de servicio de Firebase: el contenido del JSON o ese mismo JSON en base64 (recomendado en Railway, que no monta archivos). Es secreta: se carga solo en el panel de Railway, nunca en Git. Si está vacía se usa `GOOGLE_APPLICATION_CREDENTIALS`. |
+| `GOOGLE_APPLICATION_CREDENTIALS` | alternativa | Ruta a un archivo JSON con la clave de la cuenta de servicio. Sirve en una máquina propia; en Railway no, porque no hay dónde dejar el archivo. Solo se mira si `FIREBASE_SERVICE_ACCOUNT_JSON` está ausente o vacía. |
 | `MAIL_PROVIDER` | sí | `resend`. |
 | `RESEND_API_KEY` | sí | Clave de la cuenta de Resend. |
 | `MAIL_FROM` | sí | Remitente verificado en Resend (por ejemplo `Clínica <no-reply@dominio>`). |
 | `FIRST_LOGIN_URL` | sí | `https://<dominio-de-railway>/#/primer-ingreso` (sin `?token=`). |
 | `RECOVERY_URL` | sí | `https://<dominio-de-railway>/#/recuperacion` (sin `?token=`). |
 | `CHANGE_EMAIL_URL` | sí | `https://<dominio-de-railway>/#/cambio-correo` (sin `?token=`). |
+
+Clave de Firebase para los avisos push. Se descarga de la consola de Firebase (configuración del
+proyecto, cuentas de servicio, generar clave privada). Es secreta: nunca va al repositorio ni a una
+captura, y si se expone hay que revocarla y generar otra. Para cargarla en Railway como base64:
+
+```powershell
+# Windows (PowerShell)
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\ruta\al\archivo.json"))
+```
+
+```bash
+# macOS (copia el resultado al portapapeles)
+base64 -i clave.json | pbcopy
+# Linux (una sola línea)
+base64 -w0 clave.json
+```
+
+Se pega el resultado como valor de `FIREBASE_SERVICE_ACCOUNT_JSON` y se pone
+`APP_FIREBASE_ENABLED=true`. Si el valor no es un JSON ni un base64 válido, el servicio no arranca y el
+mensaje lo dice sin mostrar el valor cargado.
 
 Procesos programados de avisos. Tiene valor por defecto: solo hace falta cargarla para apagarlos.
 
