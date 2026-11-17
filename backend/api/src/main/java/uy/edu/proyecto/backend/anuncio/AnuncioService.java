@@ -29,13 +29,7 @@ public class AnuncioService {
     @Transactional
     public AnuncioDTO.Detalle publicar(long administradorId, AnuncioDTO.Datos datos,
                                       List<MultipartFile> imagenes) {
-        if (datos == null || datos.titulo() == null || datos.titulo().isBlank()
-                || datos.titulo().trim().length() > 160) {
-            throw validacion("El título es obligatorio y admite hasta 160 caracteres");
-        }
-        if (datos.resumen() != null && datos.resumen().length() > 300) {
-            throw validacion("El resumen admite hasta 300 caracteres");
-        }
+        validarTituloYResumen(datos == null ? null : datos.titulo(), datos == null ? null : datos.resumen());
         if (datos.vigenteHasta() == null || !datos.vigenteHasta().isAfter(
                 datos.vigenteDesde() == null ? java.time.OffsetDateTime.now() : datos.vigenteDesde())) {
             throw validacion("La fecha de fin es obligatoria y debe ser posterior al inicio");
@@ -75,6 +69,28 @@ public class AnuncioService {
             if (!limpiezaRegistrada) limpiar(cargadas);
             throw error;
         }
+    }
+
+    /**
+     * Valida y normaliza el texto de una novedad con las mismas reglas de titulo y resumen que al publicar:
+     * recorta los espacios y un resumen o texto en blanco queda nulo.
+     */
+    public static AnuncioDTO.Edicion normalizarTexto(AnuncioDTO.Edicion datos) {
+        validarTituloYResumen(datos == null ? null : datos.titulo(), datos == null ? null : datos.resumen());
+        return new AnuncioDTO.Edicion(datos.titulo().trim(), blancoANulo(datos.resumen()), blancoANulo(datos.texto()));
+    }
+
+    private static void validarTituloYResumen(String titulo, String resumen) {
+        if (titulo == null || titulo.isBlank() || titulo.trim().length() > 160) {
+            throw validacion("El título es obligatorio y admite hasta 160 caracteres");
+        }
+        if (resumen != null && resumen.length() > 300) {
+            throw validacion("El resumen admite hasta 300 caracteres");
+        }
+    }
+
+    private static String blancoANulo(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
     @Transactional(readOnly = true)
