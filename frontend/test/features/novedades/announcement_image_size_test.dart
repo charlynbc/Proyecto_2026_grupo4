@@ -8,7 +8,7 @@ import 'package:agenda_medica/features/novedades/models/announcement_detail.dart
 import 'package:agenda_medica/features/novedades/models/announcement_draft.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_page.dart';
 import 'package:agenda_medica/features/novedades/providers/announcements_provider.dart';
-import 'package:agenda_medica/features/novedades/repositories/announcements_repository.dart';
+import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
 import 'package:agenda_medica/features/novedades/screens/announcements_screen.dart';
 import 'package:agenda_medica/features/novedades/widgets/announcement_gallery.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +24,7 @@ class _Session extends SessionNotifier {
   );
 }
 
-class _OneCover implements AnnouncementsRepository {
+class _OneCover extends FakeAnnouncementsRepository {
   @override
   Future<List<Announcement>> carousel() async => const [];
 

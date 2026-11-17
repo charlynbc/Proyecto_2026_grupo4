@@ -192,7 +192,13 @@ void main() {
       expect(find.byType(NavigationRail), findsOneWidget);
     }
     expect(find.text('Próximamente'), findsNothing);
-    expect(find.text('Novedades'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Cartelera'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets(

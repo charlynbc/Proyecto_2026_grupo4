@@ -6,27 +6,17 @@ import 'package:go_router/go_router.dart';
 import '../../../core/forms/trimmed_length_limiting_formatter.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/router/app_sections.dart';
-import '../../../core/utils/ui_date.dart';
-import '../../../core/utils/ui_time.dart';
-import '../../../core/utils/uruguay_time.dart';
-import '../../../core/widgets/ui_date_field.dart';
-import '../../../core/widgets/ui_time_field.dart';
 import '../../auth/models/user_role.dart';
 import '../../auth/providers/session_provider.dart';
 import '../models/announcement_draft.dart';
 import '../providers/announcements_provider.dart';
 import '../widgets/announcement_markdown_editor.dart';
+import '../widgets/announcement_visibility_fields.dart';
 
 final announcementImagePickerProvider =
     Provider<Future<List<AnnouncementImageUpload>> Function(int)>(
       (ref) => _pickImages,
     );
-
-/// El reloj con que el formulario valida el fin de la visibilidad; se
-/// reemplaza en pruebas.
-final announcementClockProvider = Provider<DateTime Function()>(
-  (ref) => DateTime.now,
-);
 
 Future<List<AnnouncementImageUpload>> _pickImages(int attachedCount) async {
   final files = await FilePicker.pickFiles(
@@ -74,16 +64,10 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
   final _title = TextEditingController();
   final _summary = TextEditingController();
   final _text = TextEditingController();
-  final _fromDate = TextEditingController();
-  final _fromTime = TextEditingController();
-  final _untilDate = TextEditingController();
-  final _untilTime = TextEditingController();
+  final _visibility = AnnouncementVisibilityController();
   final _images = <AnnouncementImageUpload>[];
   bool _picking = false;
   bool _submitting = false;
-  // Mientras se valida el envío, los campos de fecha y hora informan también
-  // los textos a medias.
-  bool _validating = false;
   String? _imageError;
   String? _visibilityError;
   String? _publishError;
@@ -93,103 +77,12 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
     _title.dispose();
     _summary.dispose();
     _text.dispose();
-    _fromDate.dispose();
-    _fromTime.dispose();
-    _untilDate.dispose();
-    _untilTime.dispose();
+    _visibility.dispose();
     super.dispose();
-  }
-
-  /// El instante en que empieza o termina la visibilidad, en hora de Uruguay,
-  /// o `null` si la fecha o la hora no están completas y válidas.
-  DateTime? _instant(TextEditingController date, TextEditingController time) {
-    final day = parseUiDate(date.text.trim());
-    final hour = parseUiTime(time.text.trim());
-    if (day == null || hour == null) return null;
-    return UruguayTime.fromUruguay(day, hour.hour, hour.minute);
-  }
-
-  /// Al elegir una fecha sin hora, propone la hora del borde del día.
-  void _onDateChanged(
-    DateTime? day,
-    TextEditingController time,
-    String defaultTime,
-  ) {
-    setState(() {
-      _visibilityError = null;
-      if (day != null && time.text.trim().isEmpty) time.text = defaultTime;
-    });
   }
 
   void _clearVisibilityError() {
     if (_visibilityError != null) setState(() => _visibilityError = null);
-  }
-
-  String? _requireDate(String? value, TextEditingController time) =>
-      (value ?? '').trim().isEmpty && time.text.trim().isNotEmpty
-      ? 'Elegí la fecha.'
-      : null;
-
-  String? _requireTime(String? value, TextEditingController date) =>
-      (value ?? '').trim().isEmpty && date.text.trim().isNotEmpty
-      ? 'Elegí la hora.'
-      : null;
-
-  /// Fecha y hora lado a lado si hay lugar, y una abajo de la otra si no.
-  Widget _dateTimePair({
-    required String name,
-    required TextEditingController date,
-    required TextEditingController time,
-    required String defaultTime,
-    DateTime? Function()? suggestedDay,
-  }) {
-    final now = ref.read(announcementClockProvider)();
-    final today = UruguayTime.today(now: now);
-    final dateField = UiDateField(
-      controller: date,
-      label: '$name: fecha',
-      pickerHelpText: 'Elegí la fecha ($name)',
-      pickerTooltip: 'Elegir la fecha ($name)',
-      firstDate: today,
-      lastDate: DateTime.utc(today.year + 5, today.month, today.day),
-      initialPickerDate: suggestedDay,
-      today: () => today,
-      enabled: !_submitting,
-      showErrorsNow: () => _validating,
-      validator: (value) => _requireDate(value, time),
-      onChanged: (day) => _onDateChanged(day, time, defaultTime),
-    );
-    final parts = defaultTime.split(':');
-    final timeField = UiTimeField(
-      controller: time,
-      label: '$name: hora',
-      pickerHelpText: 'Elegí la hora ($name)',
-      pickerTooltip: 'Elegir la hora ($name)',
-      initialPickerTime: () =>
-          (hour: int.parse(parts[0]), minute: int.parse(parts[1])),
-      enabled: !_submitting,
-      showErrorsNow: () => _validating,
-      validator: (value) => _requireTime(value, date),
-      onChanged: (_) => _clearVisibilityError(),
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 480) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [dateField, const SizedBox(height: 12), timeField],
-          );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(flex: 3, child: dateField),
-            const SizedBox(width: 12),
-            Expanded(flex: 2, child: timeField),
-          ],
-        );
-      },
-    );
   }
 
   void _close({bool published = false}) {
@@ -229,9 +122,9 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
 
   Future<void> _publish() async {
     if (_submitting || _picking) return;
-    _validating = true;
+    _visibility.validating = true;
     final valid = _form.currentState!.validate();
-    _validating = false;
+    _visibility.validating = false;
     if (!valid) return;
     final text = _text.text.trim();
     final summary = _summary.text.trim();
@@ -240,8 +133,8 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
       summary: summary.isEmpty ? null : summary,
       text: text.isEmpty ? null : text,
       images: List.unmodifiable(_images),
-      visibleFrom: _instant(_fromDate, _fromTime),
-      visibleUntil: _instant(_untilDate, _untilTime),
+      visibleFrom: _visibility.from,
+      visibleUntil: _visibility.until,
     );
     final contentError = draft.validateContent();
     if (contentError != null) {
@@ -358,30 +251,10 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
                       enabled: !_submitting,
                     ),
                     const SizedBox(height: 24),
-                    Text(
-                      'Cuándo se ve',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const Text(
-                      'La novedad se deja de ver en el minuto exacto del fin: '
-                      'si termina a las 18:30, a las 18:30 ya no aparece. '
-                      'El inicio es opcional; sin inicio se ve desde que se '
-                      'publica.',
-                    ),
-                    const SizedBox(height: 12),
-                    _dateTimePair(
-                      name: 'Visible desde',
-                      date: _fromDate,
-                      time: _fromTime,
-                      defaultTime: '00:00',
-                    ),
-                    const SizedBox(height: 12),
-                    _dateTimePair(
-                      name: 'Visible hasta',
-                      date: _untilDate,
-                      time: _untilTime,
-                      defaultTime: '23:59',
-                      suggestedDay: () => parseUiDate(_fromDate.text.trim()),
+                    AnnouncementVisibilityFields(
+                      controller: _visibility,
+                      enabled: !_submitting,
+                      onEdited: _clearVisibilityError,
                     ),
                     if (_visibilityError != null)
                       Padding(

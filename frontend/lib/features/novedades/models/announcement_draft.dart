@@ -29,11 +29,17 @@ class AnnouncementDraft {
 
   /// Lo mismo que valida el servidor: el fin es obligatorio y tiene que ser
   /// posterior al inicio o, si no hay inicio, a [now].
-  String? validateVisibility(DateTime now) {
-    final until = visibleUntil;
-    if (until == null || !until.isAfter(visibleFrom ?? now)) {
-      return endRequiredMessage;
-    }
+  String? validateVisibility(DateTime now) =>
+      validateVisibilityRange(visibleFrom, visibleUntil, now);
+
+  /// La misma regla para quien publica y para quien cambia la vigencia de una
+  /// novedad ya publicada.
+  static String? validateVisibilityRange(
+    DateTime? from,
+    DateTime? until,
+    DateTime now,
+  ) {
+    if (until == null || !until.isAfter(from ?? now)) return endRequiredMessage;
     return null;
   }
 
