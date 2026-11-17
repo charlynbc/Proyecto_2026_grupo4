@@ -3,10 +3,12 @@ package uy.edu.proyecto.backend.anuncio;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import uy.edu.proyecto.backend.exception.ApiException;
 
 @Service
@@ -44,6 +46,23 @@ public class CarteleraService {
         }
         repo.reemplazar(datos.posiciones());
         return new AnuncioDTO.Carrusel(repo.posiciones());
+    }
+    /**
+     * Edita titulo, resumen y texto de una novedad. No toca la vigencia ni la posicion en el carrusel, ni las
+     * imagenes. El candado es el mismo de eliminar, asi que una edicion y un borrado no se pisan; si dos
+     * ediciones coinciden, gana la ultima en guardar.
+     */
+    @Transactional
+    public void editar(long id, AnuncioDTO.Edicion datos, Map<String, MultipartFile> archivos) {
+        var texto = AnuncioService.normalizarTexto(datos);
+        if (archivos != null && !archivos.isEmpty())
+            throw error(HttpStatus.BAD_REQUEST,"VALIDACION","Se enviaron archivos pero datos no indica imágenes");
+        if (id <= 0) throw error(HttpStatus.NOT_FOUND,"NO_ENCONTRADO","Anuncio no encontrado");
+        repo.bloquearCambios();
+        if (!repo.existe(id)) throw error(HttpStatus.NOT_FOUND,"NO_ENCONTRADO","Anuncio no encontrado");
+        if (texto.texto() == null && repo.cantidadImagenes(id) == 0)
+            throw error(HttpStatus.BAD_REQUEST,"VALIDACION","La novedad debe tener texto o al menos una imagen");
+        repo.actualizarTexto(id, texto.titulo(), texto.resumen(), texto.texto());
     }
     @Transactional
     public void vigencia(long id, AnuncioDTO.Vigencia v) {

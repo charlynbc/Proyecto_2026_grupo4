@@ -15,6 +15,7 @@ public final class AnuncioDTO {
     public record Datos(String titulo, String resumen, String texto, OffsetDateTime vigenteDesde, OffsetDateTime vigenteHasta) {
         public Datos(String titulo, String resumen, String texto) { this(titulo, resumen, texto, null, null); }
     }
+    public record Edicion(String titulo, String resumen, String texto) { }
     public record Vigencia(OffsetDateTime vigenteDesde, OffsetDateTime vigenteHasta) { }
     public record Administracion(long id, String titulo, OffsetDateTime publicadoEn, OffsetDateTime vigenteDesde,
                                   OffsetDateTime vigenteHasta, String estado, Integer posicion) { }

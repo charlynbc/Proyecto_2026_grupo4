@@ -41,6 +41,12 @@ public class CarteleraRepository {
         return jdbc.query(ADMINISTRACION + "WHERE a.id_anuncio=?", CarteleraRepository::administracion, id)
                 .stream().findFirst().orElse(null);
     }
+    void actualizarTexto(long id, String titulo, String resumen, String texto) {
+        jdbc.update("UPDATE public.anuncio SET titulo=?, resumen=?, texto=? WHERE id_anuncio=?",titulo,resumen,texto,id);
+    }
+    int cantidadImagenes(long id) {
+        return jdbc.queryForObject("SELECT count(*) FROM public.imagen_anuncio WHERE id_anuncio=?",Integer.class,id);
+    }
     int vigencia(long id, AnuncioDTO.Vigencia v) {
         return jdbc.update("UPDATE public.anuncio SET vigente_desde=?, vigente_hasta=? WHERE id_anuncio=?",v.vigenteDesde(),v.vigenteHasta(),id);
     }
