@@ -202,6 +202,9 @@ class _Heatmap extends StatelessWidget {
   static const _dayWidth = 58.0;
   static const _cellWidth = 56.0;
   static const _labelGap = 8.0;
+  static const _blockGap = 14.0;
+  static const _helpFontSize = 13.0;
+  static const _helpLineHeight = 1.4;
 
   /// El rango de la escala (0 a 4) de una cantidad mayor que cero: se parte
   /// el máximo en cinco partes iguales y la cantidad cae en la primera cuyo
@@ -260,80 +263,85 @@ class _Heatmap extends StatelessWidget {
 
     final helpStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
+      fontSize: _helpFontSize,
+      height: _helpLineHeight,
+    );
+
+    final grid = Column(
+      children: [
+        Row(
+          children: [
+            SizedBox(width: labelWidth),
+            for (final day in days)
+              SizedBox(
+                width: _dayWidth,
+                child: Center(child: Text(day)),
+              ),
+          ],
+        ),
+        for (var hour = firstHour; hour <= lastHour; hour++)
+          Row(
+            children: [
+              SizedBox(
+                width: labelWidth,
+                child: Text(_hourLabel(hour), maxLines: 1, softWrap: false),
+              ),
+              for (var day = 1; day <= 7; day++)
+                _cell(counts[(day, hour)], day, hour, maxCount, cellHeight),
+            ],
+          ),
+      ],
     );
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // El aviso va solo si la grilla no entra en el ancho disponible.
+        // El aviso y la barra van solo si la grilla no entra en el ancho
+        // disponible; si entra, no hay desplazamiento ni controlador.
         final overflows = gridWidth > constraints.maxWidth;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Cantidad por día y hora (hora de Uruguay)',
+              key: const Key('timeslot-title'),
               style: theme.textTheme.titleMedium,
             ),
-            const SizedBox(height: 10),
-            Column(
-              key: const Key('timeslot-help'),
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (hidesHours) ...[
-                  Text(
-                    'Se ocultan las horas sin actividad al principio y al final',
-                    style: helpStyle,
-                  ),
-                  const SizedBox(height: 4),
-                ],
-                _Legend(style: helpStyle),
-                if (overflows) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Deslizá horizontalmente para ver todos los días',
-                    style: helpStyle,
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 16),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Column(
+            const SizedBox(height: _blockGap),
+            if (hidesHours) ...[
+              Text(
+                'Se ocultan las horas sin actividad al principio y al final',
+                key: const Key('timeslot-hours-note'),
+                style: helpStyle,
+              ),
+              const SizedBox(height: _blockGap),
+            ],
+            _Legend(style: helpStyle),
+            if (overflows) ...[
+              const SizedBox(height: _blockGap),
+              Row(
+                key: const Key('timeslot-scroll-hint'),
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      SizedBox(width: labelWidth),
-                      for (final day in days)
-                        SizedBox(
-                          width: _dayWidth,
-                          child: Center(child: Text(day)),
-                        ),
-                    ],
-                  ),
-                  for (var hour = firstHour; hour <= lastHour; hour++)
-                    Row(
-                      children: [
-                        SizedBox(
-                          width: labelWidth,
-                          child: Text(
-                            _hourLabel(hour),
-                            maxLines: 1,
-                            softWrap: false,
-                          ),
-                        ),
-                        for (var day = 1; day <= 7; day++)
-                          _cell(
-                            counts[(day, hour)],
-                            day,
-                            hour,
-                            maxCount,
-                            cellHeight,
-                          ),
-                      ],
+                  Padding(
+                    padding: const EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.swap_horiz,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Deslizá horizontalmente para ver todos los días',
+                      style: helpStyle,
+                    ),
+                  ),
                 ],
               ),
-            ),
+            ],
+            const SizedBox(height: 16),
+            if (overflows) _ScrollableGrid(child: grid) else grid,
           ],
         );
       },
@@ -384,15 +392,15 @@ class _Legend extends StatelessWidget {
     );
     return Wrap(
       key: const Key('timeslot-legend'),
-      spacing: 16,
-      runSpacing: 4,
+      spacing: 20,
+      runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             swatch(const Key('timeslot-legend-zero'), timeSlotZeroShade.fill),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             Text('Cero', style: style),
           ],
         ),
@@ -400,14 +408,58 @@ class _Legend extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text('Menos', style: style),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             for (var i = 0; i < timeSlotScale.length; i++)
               swatch(Key('timeslot-legend-$i'), timeSlotScale[i].fill),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             Text('Más', style: style),
           ],
         ),
       ],
     );
   }
+}
+
+/// La grilla con una barra horizontal siempre visible. Solo se crea cuando la
+/// grilla desborda, así que el controlador existe solo si se usa.
+class _ScrollableGrid extends StatefulWidget {
+  const _ScrollableGrid({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_ScrollableGrid> createState() => _ScrollableGridState();
+}
+
+class _ScrollableGridState extends State<_ScrollableGrid> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ScrollbarTheme(
+    data: ScrollbarThemeData(
+      thumbColor: const WidgetStatePropertyAll(timeSlotScrollbarThumb),
+      trackColor: const WidgetStatePropertyAll(timeSlotScrollbarTrack),
+      thickness: const WidgetStatePropertyAll(8),
+      radius: const Radius.circular(4),
+    ),
+    child: Scrollbar(
+      controller: _controller,
+      thumbVisibility: true,
+      trackVisibility: true,
+      thickness: 8,
+      child: SingleChildScrollView(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        // Deja lugar abajo para que la barra no tape la última fila.
+        padding: const EdgeInsets.only(bottom: 14),
+        child: widget.child,
+      ),
+    ),
+  );
 }

@@ -655,13 +655,17 @@ void main() {
           .first,
     );
 
-    testWidgets('en pantalla ancha, donde la grilla entra, no aparece', (
-      tester,
-    ) async {
+    final horizontalView = find.byWidgetPredicate(
+      (w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal,
+    );
+
+    testWidgets('en pantalla ancha, donde la grilla entra, no aparece y no '
+        'hay barra ni desplazamiento', (tester) async {
       await _pump(tester, _Repository(consultations: {(2, 9): 3}));
 
       expect(find.text(notice), findsNothing);
-      expect(horizontal(tester).position.maxScrollExtent, 0);
+      expect(horizontalView, findsNothing);
+      expect(find.byType(Scrollbar), findsNothing);
     });
 
     testWidgets('a 320 px aparece', (tester) async {
@@ -685,12 +689,25 @@ void main() {
             size: Size(width, 3200),
             textScale: scale,
           );
-          final overflows = horizontal(tester).position.maxScrollExtent > 0;
-          expect(
-            find.text(notice),
-            overflows ? findsOneWidget : findsNothing,
-            reason: 'ancho $width, texto x$scale',
-          );
+          final reason = 'ancho $width, texto x$scale';
+          if (find.text(notice).evaluate().isNotEmpty) {
+            // Con aviso: hay barra y la grilla de verdad se pasa del ancho.
+            expect(find.byType(Scrollbar), findsOneWidget, reason: reason);
+            expect(
+              horizontal(tester).position.maxScrollExtent,
+              greaterThan(0),
+              reason: reason,
+            );
+          } else {
+            // Sin aviso: no hay barra ni desplazamiento y la grilla entra.
+            expect(find.byType(Scrollbar), findsNothing, reason: reason);
+            expect(horizontalView, findsNothing, reason: reason);
+            expect(
+              tester.getRect(find.text('Dom')).right,
+              lessThanOrEqualTo(width - 16),
+              reason: reason,
+            );
+          }
         }
       }
     });
@@ -709,7 +726,8 @@ void main() {
           size: const Size(560, 3200),
         );
 
-        expect(horizontal(tester).position.maxScrollExtent, 0);
+        expect(horizontalView, findsNothing);
+        expect(find.byType(Scrollbar), findsNothing);
         expect(find.text(notice), findsNothing);
       });
 
@@ -740,46 +758,149 @@ void main() {
       final titleText = tester.widget<Text>(find.text(title));
       final hours = tester.widget<Text>(find.text(_notice));
       expect(titleText.style!.fontSize, 16);
-      expect(hours.style!.fontSize, 12);
+      expect(hours.style!.fontSize, 13);
+      expect(hours.style!.height, 1.4);
       final theme = Theme.of(tester.element(find.text(title)));
       expect(hours.style!.color, theme.colorScheme.onSurfaceVariant);
     });
 
-    testWidgets('los textos auxiliares forman un solo bloque compacto', (
-      tester,
-    ) async {
-      await _pump(tester, _Repository(consultations: {(2, 9): 3}));
+    testWidgets('la leyenda y el aviso de desplazamiento también van en 13 '
+        'px con interlineado 1,4', (tester) async {
+      await _pump(
+        tester,
+        _Repository(consultations: {(2, 9): 3}),
+        size: const Size(320, 3200),
+      );
 
-      final help = find.byKey(const Key('timeslot-help'));
-      expect(help, findsOneWidget);
-      expect(
-        find.descendant(of: help, matching: find.text(_notice)),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: help,
-          matching: find.byKey(const Key('timeslot-legend')),
-        ),
-        findsOneWidget,
-      );
-      final noticeBottom = tester.getRect(find.text(_notice)).bottom;
-      final legendTop = tester
-          .getRect(find.byKey(const Key('timeslot-legend')))
-          .top;
-      expect(legendTop - noticeBottom, inInclusiveRange(2, 8));
+      for (final text in [
+        'Cero',
+        'Menos',
+        'Más',
+        'Deslizá horizontalmente para ver todos los días',
+      ]) {
+        final style = tester.widget<Text>(find.text(text)).style!;
+        expect(style.fontSize, 13, reason: text);
+        expect(style.height, 1.4, reason: text);
+      }
     });
 
-    testWidgets('hay aire entre el título, el bloque y la grilla', (
+    testWidgets('título, ayuda, leyenda y aviso son bloques separados por '
+        '12 a 16 px', (tester) async {
+      await _pump(
+        tester,
+        _Repository(consultations: {(2, 9): 3}),
+        size: const Size(320, 3200),
+      );
+
+      Rect rect(String key) => tester.getRect(find.byKey(Key(key)));
+      final blocks = [
+        rect('timeslot-title'),
+        rect('timeslot-hours-note'),
+        rect('timeslot-legend'),
+        rect('timeslot-scroll-hint'),
+      ];
+      for (var i = 1; i < blocks.length; i++) {
+        final gap = blocks[i].top - blocks[i - 1].bottom;
+        expect(gap, inInclusiveRange(12, 16), reason: 'entre bloque $i');
+      }
+    });
+
+    testWidgets('sin horas ocultas ni desborde quedan título y leyenda, '
+        'separados igual', (tester) async {
+      await _pump(tester, _Repository(consultations: {(1, 0): 1, (7, 23): 4}));
+
+      expect(find.byKey(const Key('timeslot-hours-note')), findsNothing);
+      expect(find.byKey(const Key('timeslot-scroll-hint')), findsNothing);
+      final gap =
+          tester.getRect(find.byKey(const Key('timeslot-legend'))).top -
+          tester.getRect(find.byKey(const Key('timeslot-title'))).bottom;
+      expect(gap, inInclusiveRange(12, 16));
+    });
+
+    testWidgets('hay aire entre el último bloque y la grilla', (tester) async {
+      await _pump(tester, _Repository(consultations: {(2, 9): 3}));
+
+      final legendBottom = tester
+          .getRect(find.byKey(const Key('timeslot-legend')))
+          .bottom;
+      final dayTop = tester.getTopLeft(find.text('Lun')).dy;
+      expect(dayTop - legendBottom, greaterThanOrEqualTo(16));
+    });
+
+    testWidgets('la leyenda tiene espacio propio entre sus elementos', (
       tester,
     ) async {
       await _pump(tester, _Repository(consultations: {(2, 9): 3}));
 
-      final titleBottom = tester.getRect(find.text(title)).bottom;
-      final helpRect = tester.getRect(find.byKey(const Key('timeslot-help')));
-      expect(helpRect.top - titleBottom, greaterThanOrEqualTo(8));
-      final dayTop = tester.getTopLeft(find.text('Lun')).dy;
-      expect(dayTop - helpRect.bottom, greaterThanOrEqualTo(12));
+      // Con el texto normal en pantalla ancha todo va en un renglón.
+      final cero = tester.getRect(find.text('Cero'));
+      final menos = tester.getRect(find.text('Menos'));
+      final first = tester.getRect(find.byKey(const Key('timeslot-legend-0')));
+      final last = tester.getRect(find.byKey(const Key('timeslot-legend-4')));
+      final mas = tester.getRect(find.text('Más'));
+      expect(menos.left - cero.right, greaterThanOrEqualTo(20));
+      expect(first.left - menos.right, greaterThanOrEqualTo(8));
+      expect(mas.left - last.right, greaterThanOrEqualTo(8));
+    });
+
+    testWidgets('si la leyenda baja de renglón hay 8 px entre renglones', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        _Repository(consultations: {(2, 9): 3}),
+        size: const Size(320, 3200),
+        textScale: 2,
+      );
+
+      final cero = tester.getRect(find.text('Cero'));
+      final menos = tester.getRect(find.text('Menos'));
+      expect(menos.top, greaterThan(cero.top));
+      final swatchZero = tester.getRect(
+        find.byKey(const Key('timeslot-legend-zero')),
+      );
+      final swatchScale = tester.getRect(
+        find.byKey(const Key('timeslot-legend-0')),
+      );
+      final firstRowBottom = cero.bottom > swatchZero.bottom
+          ? cero.bottom
+          : swatchZero.bottom;
+      final secondRowTop = menos.top < swatchScale.top
+          ? menos.top
+          : swatchScale.top;
+      expect(secondRowTop - firstRowBottom, greaterThanOrEqualTo(8));
+    });
+
+    testWidgets('el aviso de desplazamiento lleva un icono de flechas '
+        'horizontales al inicio', (tester) async {
+      await _pump(
+        tester,
+        _Repository(consultations: {(2, 9): 3}),
+        size: const Size(320, 3200),
+      );
+
+      final hint = find.byKey(const Key('timeslot-scroll-hint'));
+      final icon = find.descendant(of: hint, matching: find.byType(Icon));
+      expect(icon, findsOneWidget);
+      expect(tester.widget<Icon>(icon).icon, Icons.swap_horiz);
+      expect(tester.widget<Icon>(icon).size, 16);
+      expect(
+        tester.getRect(icon).right,
+        lessThanOrEqualTo(
+          tester
+              .getRect(
+                find.text('Deslizá horizontalmente para ver todos los días'),
+              )
+              .left,
+        ),
+      );
+    });
+
+    testWidgets('sin desborde no hay icono de aviso', (tester) async {
+      await _pump(tester, _Repository(consultations: {(2, 9): 3}));
+
+      expect(find.byKey(const Key('timeslot-scroll-hint')), findsNothing);
+      expect(find.byIcon(Icons.swap_horiz), findsNothing);
     });
 
     testWidgets('las etiquetas de hora van en una sola línea', (tester) async {
@@ -831,6 +952,121 @@ void main() {
       expect(cell.height, greaterThanOrEqualTo(number.height));
       expect(cell.width, greaterThanOrEqualTo(number.width));
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('barra de desplazamiento horizontal', () {
+    final horizontalView = find.byWidgetPredicate(
+      (w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal,
+    );
+
+    Future<void> narrow(WidgetTester tester, {double textScale = 1}) => _pump(
+      tester,
+      _Repository(consultations: {(2, 9): 3}),
+      size: const Size(320, 3200),
+      textScale: textScale,
+    );
+
+    testWidgets('a 320 px hay una barra siempre visible con su pista', (
+      tester,
+    ) async {
+      await narrow(tester);
+
+      final bar = tester.widget<Scrollbar>(find.byType(Scrollbar));
+      expect(bar.thumbVisibility, isTrue);
+      expect(bar.trackVisibility, isTrue);
+      expect(bar.thickness, 8);
+      expect(bar.controller, isNotNull);
+      expect(
+        tester.widget<SingleChildScrollView>(horizontalView).controller,
+        same(bar.controller),
+      );
+      expect(
+        find.descendant(of: find.byType(Scrollbar), matching: horizontalView),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('también con el texto al doble', (tester) async {
+      await narrow(tester, textScale: 2);
+
+      expect(find.byType(Scrollbar), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('sin desborde no hay barra', (tester) async {
+      await _pump(tester, _Repository(consultations: {(2, 9): 3}));
+
+      expect(find.byType(Scrollbar), findsNothing);
+    });
+
+    testWidgets('el color de la barra contrasta con el fondo crema', (
+      tester,
+    ) async {
+      await narrow(tester);
+
+      // Contrastes a mano: palo #4A5560 sobre crema #F4EEE2 = 6,59; sobre
+      // su pista #D8D0BF = 4,96. Luminancias 0,0880 y 0,8587 (crema).
+      final theme = ScrollbarTheme.of(tester.element(horizontalView));
+      final thumb = theme.thumbColor!.resolve(<WidgetState>{})!;
+      final track = theme.trackColor!.resolve(<WidgetState>{})!;
+      expect(thumb, const Color(0xFF4A5560));
+      expect(track, const Color(0xFFD8D0BF));
+      expect(
+        contrastRatio(thumb, const Color(0xFFF4EEE2)),
+        closeTo(6.59, 0.01),
+      );
+      expect(contrastRatio(thumb, track), closeTo(4.96, 0.01));
+      expect(
+        contrastRatio(thumb, const Color(0xFFF4EEE2)),
+        greaterThanOrEqualTo(3),
+      );
+    });
+
+    testWidgets('se puede deslizar sin errores y la grilla se mueve', (
+      tester,
+    ) async {
+      await narrow(tester);
+
+      final before = tester.getTopLeft(find.text('Dom')).dx;
+      await tester.drag(horizontalView, const Offset(-100, 0));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.text('Dom')).dx, lessThan(before));
+      final bar = tester.widget<Scrollbar>(find.byType(Scrollbar));
+      bar.controller!.jumpTo(bar.controller!.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('al salir de la pantalla el controlador se libera sin '
+        'errores', (tester) async {
+      await narrow(tester);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('si el ancho crece y la grilla entra, la barra se va', (
+      tester,
+    ) async {
+      await narrow(tester);
+      expect(find.byType(Scrollbar), findsOneWidget);
+
+      tester.view.physicalSize = const Size(900, 3200);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Scrollbar), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('el desplazamiento no cambia las cantidades', (tester) async {
+      await narrow(tester);
+      await tester.drag(horizontalView, const Offset(-200, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('0'), findsNWidgets(6));
     });
   });
 
