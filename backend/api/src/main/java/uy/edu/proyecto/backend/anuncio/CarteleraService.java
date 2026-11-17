@@ -20,6 +20,14 @@ public class CarteleraService {
     @Transactional(readOnly=true)
     public List<AnuncioDTO.Administracion> listar() { return repo.listar(); }
     @Transactional(readOnly=true)
+    public AnuncioDTO.DetalleAdministracion detalle(long id) {
+        var fila=repo.administracion(id);
+        if (fila==null) throw error(HttpStatus.NOT_FOUND,"NO_ENCONTRADO","Anuncio no encontrado");
+        var d=anuncios.detalleCualquiera(id);
+        return new AnuncioDTO.DetalleAdministracion(d.id(),d.titulo(),d.resumen(),d.texto(),d.publicadoEn(),
+                fila.vigenteDesde(),fila.vigenteHasta(),fila.estado(),fila.posicion(),d.imagenes());
+    }
+    @Transactional(readOnly=true)
     public AnuncioDTO.Carrusel configuracion() { return new AnuncioDTO.Carrusel(repo.posiciones()); }
     @Transactional(readOnly=true)
     public List<AnuncioDTO.Detalle> visibles() { return repo.visibles().stream().map(anuncios::detalle).toList(); }
