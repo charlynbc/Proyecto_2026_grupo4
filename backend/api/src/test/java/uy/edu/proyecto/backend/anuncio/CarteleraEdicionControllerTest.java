@@ -95,6 +95,34 @@ class CarteleraEdicionControllerTest {
     }
 
     @Test
+    void laListaDeImagenesLlegaTalCualComoIdsYArchivos() throws Exception {
+        var nueva = new MockMultipartFile("nueva1", "a.png", "image/png", new byte[] {1});
+        String json = "{\"titulo\":\"Titulo\",\"texto\":\"Texto\","
+                + "\"imagenes\":[{\"id\":12},{\"archivo\":\"nueva1\"},{\"id\":14}]}";
+
+        mvc.perform(put(RUTA).file(datos(json)).file(nueva).with(rol("ADMINISTRADOR")))
+                .andExpect(status().isNoContent());
+
+        verify(service).editar(eq(42L), eq(new AnuncioDTO.Edicion("Titulo", null, "Texto", List.of(
+                new AnuncioDTO.ImagenEdicion(12L, null), new AnuncioDTO.ImagenEdicion(null, "nueva1"),
+                new AnuncioDTO.ImagenEdicion(14L, null)))), any());
+    }
+
+    @Test
+    void imagenesVaciasAusentesONulasSeDistinguen() throws Exception {
+        mvc.perform(put(RUTA).file(datos("{\"titulo\":\"T\",\"texto\":\"X\",\"imagenes\":[]}")).with(rol("ADMINISTRADOR")))
+                .andExpect(status().isNoContent());
+        mvc.perform(put(RUTA).file(datos("{\"titulo\":\"T\",\"texto\":\"X\",\"imagenes\":null}")).with(rol("ADMINISTRADOR")))
+                .andExpect(status().isNoContent());
+        mvc.perform(put(RUTA).file(datos("{\"titulo\":\"T\",\"texto\":\"X\"}")).with(rol("ADMINISTRADOR")))
+                .andExpect(status().isNoContent());
+
+        verify(service).editar(eq(42L), eq(new AnuncioDTO.Edicion("T", null, "X", List.of())), any());
+        verify(service, org.mockito.Mockito.times(2))
+                .editar(eq(42L), eq(new AnuncioDTO.Edicion("T", null, "X", null)), any());
+    }
+
+    @Test
     void dosArchivosConElMismoNombreSonUnaValidacion() throws Exception {
         var una = new MockMultipartFile("nueva1", "a.png", "image/png", new byte[] {1});
         var otra = new MockMultipartFile("nueva1", "b.png", "image/png", new byte[] {2});
