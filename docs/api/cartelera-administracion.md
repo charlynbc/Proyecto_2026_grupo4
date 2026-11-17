@@ -50,6 +50,49 @@ una hora, como en el detalle público. Si el anuncio no existe responde
 `404 NO_ENCONTRADO` con el formato de error habitual (`{"code","message"}`);
 sin sesión responde 401 y con otro rol 403.
 
+`PUT /api/admin/anuncios/{id}` edita el texto de una novedad ya publicada: hoy una
+novedad con un error solo puede eliminarse y volver a publicarse. Solo
+`ADMINISTRADOR`. Estado: IMPLEMENTADA EN BACKEND (tramo de texto; las imágenes se
+editan en una versión posterior de este mismo endpoint). El pedido es
+`multipart/form-data` con una parte `datos` de tipo `application/json`, igual que
+`POST /api/anuncios`:
+
+```json
+{ "titulo": "Campaña de vacunación", "resumen": "Comienza el lunes", "texto": "**Comienza** el lunes (Markdown)" }
+```
+
+`titulo` es obligatorio (1 a 160 caracteres sin contar espacios exteriores);
+`resumen` es opcional (hasta 300 caracteres) y `texto` es opcional; un `texto` o un
+`resumen` solo de espacios se guarda como `null`. Son las mismas reglas que al
+publicar. Una novedad no puede quedar sin texto y sin imágenes: si `texto` falta o
+está en blanco y la novedad no tiene imágenes, responde 400. El pedido no incluye
+`vigenteDesde` ni `vigenteHasta`: la edición **no cambia la vigencia, la posición en
+el carrusel, el autor ni la fecha de publicación**, y tampoco las imágenes. Si el
+pedido trae partes de archivo (cualquier parte distinta de `datos`) responde 400,
+porque `datos` no indica imágenes.
+
+Responde `204 No Content` sin cuerpo. Errores, con el formato habitual
+(`{"code","message"}`):
+
+- `400 VALIDACION` con `message` exacto: `El título es obligatorio y admite hasta 160
+  caracteres`; `El resumen admite hasta 300 caracteres`; `La novedad debe tener texto
+  o al menos una imagen`; `Se enviaron archivos pero datos no indica imágenes`;
+  `Hay dos archivos con el mismo nombre: {nombre}`; y `Faltan datos o la solicitud
+  tiene un formato inválido` si falta la parte `datos` o su JSON no se puede leer.
+- `404 NO_ENCONTRADO` (`Anuncio no encontrado`) si la novedad no existe.
+- `401` sin sesión y `403` con cualquier otro rol.
+
+Si dos administradores guardan a la vez, el último guardado prevalece. La edición
+toma el mismo candado que el borrado, de modo que una edición y un borrado no se
+pisan.
+
+Efecto lateral de esta versión: `PUT /api/admin/anuncios/{id}/vigencia` y
+`PUT /api/admin/carrusel` responden ahora `400 VALIDACION` con el cuerpo JSON
+habitual (`Faltan datos o la solicitud tiene un formato inválido`) cuando el cuerpo
+del pedido no se puede leer, en lugar del 400 por defecto sin cuerpo que devolvían
+antes. Los clientes que ya tratan cualquier 400 como error de validación no
+necesitan cambios.
+
 `GET /api/admin/carrusel` devuelve `{"posiciones":[]}`. Para guardar,
 `PUT` a la misma ruta recibe la selección completa, por ejemplo
 `{"posiciones":[{"posicion":1,"anuncioId":42},{"posicion":3,"anuncioId":56}]}`.
