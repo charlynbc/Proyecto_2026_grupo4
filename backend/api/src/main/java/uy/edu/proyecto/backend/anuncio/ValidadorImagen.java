@@ -23,7 +23,7 @@ final class ValidadorImagen {
             throw validacion("Cada imagen debe tener contenido");
         }
         if (archivo.getSize() > MAX_BYTES) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "IMAGEN_INVALIDA", "Cada imagen admite hasta 5 MB");
+            throw new ApiException(HttpStatus.BAD_REQUEST, ErroresImagen.CODIGO, ErroresImagen.TAMANO);
         }
         String tipo = archivo.getContentType();
         if (!"image/jpeg".equals(tipo) && !"image/png".equals(tipo)) {
