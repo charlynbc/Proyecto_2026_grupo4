@@ -38,7 +38,11 @@ import '../../features/medico/screens/doctor_result_routes.dart';
 import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/novedades/screens/admin_announcement_detail_screen.dart';
 import '../../features/novedades/screens/announcement_detail_screen.dart';
+import '../../features/novedades/screens/admin_announcements_screen.dart';
+import '../../features/novedades/screens/announcement_validity_screen.dart';
+import '../../features/novedades/screens/carousel_selection_screen.dart';
 import '../../features/novedades/screens/announcements_screen.dart';
 import '../../features/novedades/screens/new_announcement_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
@@ -241,6 +245,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) =>
             const BottomSystemInset(child: NewAnnouncementScreen()),
       ),
+      GoRoute(
+        path: '${UserRole.administrador.announcementsPath}/carrusel',
+        builder: (context, state) => const CarouselSelectionScreen(),
+      ),
+      GoRoute(
+        path: '${UserRole.administrador.announcementsPath}/:id/vigencia',
+        redirect: (context, state) => _appointmentId(state) == null
+            ? UserRole.administrador.announcementsPath
+            : null,
+        builder: (context, state) =>
+            AnnouncementValidityScreen(id: _appointmentId(state)!),
+      ),
       for (final role in UserRole.values) _roleShell(role),
     ],
   );
@@ -277,17 +293,23 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
   if (path == role.announcementsPath) {
     return GoRoute(
       path: path,
-      builder: (context, state) => AnnouncementsScreen(role: role),
+      builder: (context, state) => role == UserRole.administrador
+          ? const AdminAnnouncementsScreen()
+          : AnnouncementsScreen(role: role),
       routes: [
         GoRoute(
           path: ':id',
-          builder: (context, state) => AnnouncementDetailScreen(
-            id: _appointmentId(state),
-            role: role,
-            backToList:
-                role != UserRole.socio ||
-                state.uri.queryParameters['desde'] == 'cartelera',
-          ),
+          // El administrador ve cualquier novedad, también las programadas y
+          // las vencidas: no usa el detalle público.
+          builder: (context, state) => role == UserRole.administrador
+              ? AdminAnnouncementDetailScreen(id: _appointmentId(state))
+              : AnnouncementDetailScreen(
+                  id: _appointmentId(state),
+                  role: role,
+                  backToList:
+                      role != UserRole.socio ||
+                      state.uri.queryParameters['desde'] == 'cartelera',
+                ),
         ),
       ],
     );
