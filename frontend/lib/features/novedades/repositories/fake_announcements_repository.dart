@@ -1,5 +1,6 @@
 import '../../../core/network/api_exception.dart';
 import '../models/admin_announcement.dart';
+import '../models/admin_announcement_detail.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_draft.dart';
@@ -80,6 +81,42 @@ class FakeAnnouncementsRepository implements AnnouncementsRepository {
         publishedAt: DateTime.utc(2026, 11, 1),
       ),
       position: 1,
+    ),
+    // Una programada y una vencida, para ver la gestión con datos de prueba.
+    FakeAnnouncementEntry(
+      detail: AnnouncementDetail(
+        id: 2,
+        title: 'Horarios de la primavera',
+        summary: 'Novedad programada de ejemplo.',
+        text: '**Programada**: todavía no se ve para los socios.',
+        publishedAt: DateTime.utc(2026, 11, 2),
+        images: const [
+          AnnouncementImage(
+            id: 2,
+            order: 0,
+            url: 'https://example.invalid/novedad-programada',
+          ),
+        ],
+      ),
+      visibleFrom: DateTime.utc(2099, 1, 1, 3),
+      visibleUntil: DateTime.utc(2099, 2, 1, 3),
+    ),
+    FakeAnnouncementEntry(
+      detail: AnnouncementDetail(
+        id: 3,
+        title: 'Campaña de invierno',
+        summary: 'Novedad vencida de ejemplo.',
+        text: '**Vencida**: ya no se ve para los socios.',
+        publishedAt: DateTime.utc(2026, 6, 1),
+        images: const [
+          AnnouncementImage(
+            id: 3,
+            order: 0,
+            url: 'https://example.invalid/novedad-vencida',
+          ),
+        ],
+      ),
+      visibleUntil: DateTime.utc(2026, 7, 1, 3),
     ),
   ];
 
@@ -164,6 +201,26 @@ class FakeAnnouncementsRepository implements AnnouncementsRepository {
         if (entry.position != null) entry,
     ]..sort((a, b) => a.position!.compareTo(b.position!));
     return [for (final entry in chosen) Announcement.fromDetail(entry.detail)];
+  }
+
+  @override
+  Future<AdminAnnouncementDetail> adminDetail(int id) async {
+    // A diferencia de `detail`, no mira la vigencia: el administrador ve todo.
+    final index = _indexOf(id);
+    if (index < 0) throw const AnnouncementNotFoundException();
+    final entry = _entries[index];
+    return AdminAnnouncementDetail(
+      id: entry.detail.id,
+      title: entry.detail.title,
+      summary: entry.detail.summary,
+      text: entry.detail.text,
+      publishedAt: entry.detail.publishedAt,
+      visibleFrom: entry.visibleFrom,
+      visibleUntil: entry.visibleUntil,
+      status: entry.statusAt(_now()),
+      position: entry.position,
+      images: entry.detail.images,
+    );
   }
 
   @override

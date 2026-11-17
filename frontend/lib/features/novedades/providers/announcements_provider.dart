@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../../auth/models/user_role.dart';
 import '../../auth/providers/session_provider.dart';
 import '../models/admin_announcement.dart';
+import '../models/admin_announcement_detail.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_page.dart';
@@ -87,6 +88,27 @@ final adminAnnouncementsProvider =
         announcementsRepositoryProvider.future,
       );
       return repository.adminList();
+    }, retry: (_, _) => null);
+
+/// El detalle de una novedad para el administrador, en cualquier estado. No
+/// usa el endpoint público, que responde 404 fuera de vigencia. Cada apertura
+/// obtiene enlaces de imágenes nuevos.
+final adminAnnouncementDetailProvider = FutureProvider.autoDispose
+    .family<AdminAnnouncementDetail, int>((ref, id) async {
+      final (status, role, _) = ref.watch(
+        sessionProvider.select((s) => (s.status, s.role, s.accessToken)),
+      );
+      if (status != SessionStatus.authenticated) {
+        throw const ApiException('Iniciá sesión para consultar la novedad.');
+      }
+      if (role != UserRole.administrador) {
+        throw const ApiException(
+          'Solo el administrador puede gestionar la cartelera.',
+        );
+      }
+      if (id <= 0) throw const AnnouncementNotFoundException();
+      return (await ref.watch(announcementsRepositoryProvider.future))
+          .adminDetail(id);
     }, retry: (_, _) => null);
 
 /// La selección guardada del carrusel. Solo el administrador.

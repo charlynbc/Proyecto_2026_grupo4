@@ -281,15 +281,13 @@ class _AdminAnnouncementCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 4,
               children: [
-                // El detalle solo existe para las vigentes: el servidor
-                // responde 404 para las programadas y las vencidas.
-                if (item.status == AnnouncementStatus.active)
-                  TextButton.icon(
-                    key: ValueKey('admin-view-${item.id}'),
-                    onPressed: busy ? null : onView,
-                    icon: const Icon(Icons.visibility_outlined),
-                    label: const Text('Ver'),
-                  ),
+                // El administrador ve cualquier novedad, en cualquier estado.
+                TextButton.icon(
+                  key: ValueKey('admin-view-${item.id}'),
+                  onPressed: busy ? null : onView,
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: const Text('Ver'),
+                ),
                 TextButton.icon(
                   key: ValueKey('admin-validity-${item.id}'),
                   onPressed: busy ? null : onChangeValidity,

@@ -6,6 +6,7 @@ import '../../../core/network/api_exception.dart';
 import '../../../core/network/api_routes.dart';
 import '../../../core/utils/uruguay_time.dart';
 import '../models/admin_announcement.dart';
+import '../models/admin_announcement_detail.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_draft.dart';
@@ -148,6 +149,33 @@ class ApiAnnouncementsRepository implements AnnouncementsRepository {
           AdminAnnouncement.fromJson(item as Map<String, dynamic>),
       ];
     } on DioException catch (error) {
+      throw ApiException.fromDio(error);
+    } on FormatException {
+      throw const ApiException();
+    } on TypeError {
+      throw const ApiException();
+    }
+  }
+
+  @override
+  Future<AdminAnnouncementDetail> adminDetail(int id) async {
+    if (id <= 0) throw const AnnouncementNotFoundException();
+    try {
+      final response = await _dio.get<Object?>(
+        ApiRoutes.adminAnnouncementDetail(id),
+      );
+      final result = AdminAnnouncementDetail.fromJson(
+        response.data as Map<String, dynamic>,
+      );
+      if (result.id != id) {
+        throw const FormatException('Identificador inesperado');
+      }
+      return result;
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 404 &&
+          apiCodeOf(error) == 'NO_ENCONTRADO') {
+        throw const AnnouncementNotFoundException();
+      }
       throw ApiException.fromDio(error);
     } on FormatException {
       throw const ApiException();

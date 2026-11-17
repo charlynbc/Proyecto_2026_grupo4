@@ -233,17 +233,20 @@ void main() {
   group('Ver el detalle', () {
     Finder view(int id) => find.byKey(ValueKey('admin-view-$id'));
 
-    testWidgets('el botón Ver aparece solo en las vigentes', (tester) async {
+    testWidgets('el botón Ver aparece en vigentes, programadas y vencidas', (
+      tester,
+    ) async {
       await _pump(tester, _Repo());
 
-      expect(
-        find.descendant(of: _card(30), matching: find.text('Ver')),
-        findsOneWidget,
-      );
-      expect(view(30), findsOneWidget);
-      expect(view(20), findsNothing);
-      expect(view(10), findsNothing);
-      expect(find.text('Ver'), findsOneWidget);
+      for (final id in [30, 20, 10]) {
+        expect(
+          find.descendant(of: _card(id), matching: find.text('Ver')),
+          findsOneWidget,
+          reason: 'novedad $id',
+        );
+        expect(view(id), findsOneWidget, reason: 'novedad $id');
+      }
+      expect(find.text('Ver'), findsNWidgets(3));
     });
 
     testWidgets('Ver abre el detalle de esa novedad', (tester) async {
@@ -255,9 +258,38 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(locationOf(container), '/admin/cartelera/30?desde=cartelera');
-      expect(repo.detailIds, [30]);
+      expect(repo.adminDetailIds, [30]);
+      expect(repo.detailIds, isEmpty);
       expect(find.text('Jornada de vacunación'), findsOneWidget);
       expect(find.text('Texto 30'), findsOneWidget);
+    });
+
+    testWidgets('Ver abre el detalle de una vencida y de una programada sin '
+        'usar el endpoint público', (tester) async {
+      final repo = _Repo();
+      final container = await _pump(tester, repo);
+
+      await tester.ensureVisible(view(10));
+      await tester.tap(view(10));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/admin/cartelera/10?desde=cartelera');
+      expect(find.text('Campaña anterior'), findsOneWidget);
+      expect(find.text('Texto 10'), findsOneWidget);
+      expect(find.text('Vencido'), findsOneWidget);
+
+      await tester.tap(find.text('Volver a novedades').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(view(20));
+      await tester.tap(view(20));
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/admin/cartelera/20?desde=cartelera');
+      expect(find.text('Horarios de verano'), findsOneWidget);
+      expect(find.text('Texto 20'), findsOneWidget);
+      expect(find.text('Programado'), findsOneWidget);
+      expect(repo.adminDetailIds, [10, 20]);
+      expect(repo.detailIds, isEmpty);
     });
 
     testWidgets('volver desde el detalle regresa a la Cartelera', (

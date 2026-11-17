@@ -38,6 +38,7 @@ import '../../features/medico/screens/doctor_result_routes.dart';
 import '../../features/historia_clinica/screens/medical_history_screen.dart';
 import '../../features/historia_clinica/screens/medical_history_detail_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/novedades/screens/admin_announcement_detail_screen.dart';
 import '../../features/novedades/screens/announcement_detail_screen.dart';
 import '../../features/novedades/screens/admin_announcements_screen.dart';
 import '../../features/novedades/screens/announcement_validity_screen.dart';
@@ -298,13 +299,17 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
       routes: [
         GoRoute(
           path: ':id',
-          builder: (context, state) => AnnouncementDetailScreen(
-            id: _appointmentId(state),
-            role: role,
-            backToList:
-                role != UserRole.socio ||
-                state.uri.queryParameters['desde'] == 'cartelera',
-          ),
+          // El administrador ve cualquier novedad, también las programadas y
+          // las vencidas: no usa el detalle público.
+          builder: (context, state) => role == UserRole.administrador
+              ? AdminAnnouncementDetailScreen(id: _appointmentId(state))
+              : AnnouncementDetailScreen(
+                  id: _appointmentId(state),
+                  role: role,
+                  backToList:
+                      role != UserRole.socio ||
+                      state.uri.queryParameters['desde'] == 'cartelera',
+                ),
         ),
       ],
     );

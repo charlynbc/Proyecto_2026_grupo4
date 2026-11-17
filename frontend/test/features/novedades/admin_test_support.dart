@@ -9,6 +9,7 @@ import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/cuenta/providers/account_repository_provider.dart';
 import 'package:agenda_medica/features/novedades/models/admin_announcement.dart';
+import 'package:agenda_medica/features/novedades/models/admin_announcement_detail.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_detail.dart';
 import 'package:agenda_medica/features/novedades/providers/announcements_provider.dart';
 import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
@@ -42,12 +43,16 @@ FakeAnnouncementEntry adminTestEntry(
   DateTime? from,
   DateTime? until,
   int? position,
+  String? summary,
+  List<AnnouncementImage> images = const [],
 }) => FakeAnnouncementEntry(
   detail: AnnouncementDetail(
     id: id,
     title: title,
+    summary: summary,
     text: 'Texto $id',
     publishedAt: published,
+    images: images,
   ),
   visibleFrom: from,
   visibleUntil: until,
@@ -150,6 +155,19 @@ class AdminTestRepo extends FakeAnnouncementsRepository {
 
   final detailIds = <int>[];
 
+  /// Los ids que pidió el detalle de administración.
+  final adminDetailIds = <int>[];
+  Object? adminDetailError;
+  Completer<void>? adminDetailPending;
+
+  @override
+  Future<AdminAnnouncementDetail> adminDetail(int id) async {
+    adminDetailIds.add(id);
+    if (adminDetailError != null) throw adminDetailError!;
+    if (adminDetailPending != null) await adminDetailPending!.future;
+    return super.adminDetail(id);
+  }
+
   @override
   Future<AnnouncementDetail> detail(int id) {
     detailIds.add(id);
@@ -205,7 +223,9 @@ Future<ProviderContainer> pumpAdminScreen(
     ),
   );
   final pendingLoad =
-      repo.listPending != null || repo.carouselReadPending != null;
+      repo.listPending != null ||
+      repo.carouselReadPending != null ||
+      repo.adminDetailPending != null;
   if (!pendingLoad) {
     await tester.pumpAndSettle();
   } else {

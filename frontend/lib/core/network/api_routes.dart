@@ -144,6 +144,11 @@ class ApiRoutes {
   static String adminAnnouncementValidity(int id) =>
       '/api/admin/anuncios/$id/vigencia';
   static String adminAnnouncement(int id) => '/api/admin/anuncios/$id';
+
+  /// El detalle de cualquier novedad, vigente o no (GET). Es la misma ruta que
+  /// `adminAnnouncement`, que se usa con DELETE; por eso no se repite en
+  /// `all`.
+  static String adminAnnouncementDetail(int id) => '/api/admin/anuncios/$id';
   static const String adminCarousel = '/api/admin/carrusel';
 
   /// Todas las rutas, con un id de ejemplo (`1`) donde la ruta lo lleva.

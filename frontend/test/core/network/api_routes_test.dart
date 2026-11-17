@@ -47,6 +47,7 @@ void main() {
         '/api/admin/anuncios/42/vigencia',
       );
       expect(ApiRoutes.adminAnnouncement(42), '/api/admin/anuncios/42');
+      expect(ApiRoutes.adminAnnouncementDetail(42), '/api/admin/anuncios/42');
       expect(ApiRoutes.adminCarousel, '/api/admin/carrusel');
       expect(
         ApiRoutes.all,
