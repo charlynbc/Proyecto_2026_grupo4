@@ -185,6 +185,21 @@ class CancelacionFuncionarioMotivoTest {
     }
 
     @Test
+    void otroMotivoSobreUnaConsultaYaCanceladaDa409SinTocarNada() {
+        when(repository.bloquearConsulta(12L, 7L)).thenReturn(Optional.of(
+                new DatosConsulta(7L, "12345678", "socio@example.com", "CANCELADA_SOCIO",
+                        FECHA, LocalTime.NOON, LocalDate.of(2026, 12, 15))));
+
+        ApiException error = rechazo(new CancelacionFuncionarioRequest(false, "Guardia"));
+
+        assertEquals(409, error.getStatus().value());
+        assertEquals("CONSULTA_NO_AGENDADA", error.getCode());
+        assertEquals("Solo se puede cancelar una consulta agendada", error.getMessage());
+        verify(repository, never()).cancelarPorInstitucion(any(), any(), any());
+        verify(repository, never()).crearNotificacionPorInstitucion(any(), any(), any());
+    }
+
+    @Test
     void otroMotivoRespetaElPlazoDeDosHoras() {
         when(repository.bloquearConsulta(12L, 7L)).thenReturn(Optional.of(
                 new DatosConsulta(7L, "12345678", "socio@example.com", "AGENDADA",
