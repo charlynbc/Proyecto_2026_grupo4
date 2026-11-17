@@ -176,7 +176,17 @@ void main() {
       expect(find.text('Utilización: Sin datos'), findsOneWidget);
       expect(
         tester.getTopLeft(find.byKey(const Key('stats-period-label'))).dy,
-        lessThan(tester.getTopLeft(find.text('Cardiología')).dy),
+        // El nombre también está en el gráfico: se compara con el de la tarjeta.
+        lessThan(
+          tester
+              .getTopLeft(
+                find.descendant(
+                  of: find.byType(Card),
+                  matching: find.text('Cardiología'),
+                ),
+              )
+              .dy,
+        ),
       );
       await tester.tap(find.text('Todas'));
       await tester.pumpAndSettle();

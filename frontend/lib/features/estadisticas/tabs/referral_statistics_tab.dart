@@ -7,6 +7,7 @@ import '../../../core/widgets/centered_content.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../referrals/models/referral_statistics.dart';
 import '../referrals/providers/referral_statistics_provider.dart';
+import '../referrals/widgets/referral_usage_chart.dart';
 import '../widgets/period_filter.dart';
 import '../widgets/period_label.dart';
 
@@ -151,7 +152,14 @@ class _ReferralStatisticsTabState extends ConsumerState<ReferralStatisticsTab> {
             const SizedBox(height: 12),
             if (data.items.isEmpty)
               const Text('Sin datos', key: Key('stats-empty'))
-            else
+            else ...[
+              // El gráfico complementa: las tarjetas con los conteos exactos
+              // siguen debajo.
+              ReferralUsageChart(items: data.items),
+              if (data.items.any(
+                (item) => item.used + item.available + item.expired > 0,
+              ))
+                const SizedBox(height: 16),
               for (final item in data.items)
                 Card(
                   child: Padding(
@@ -172,6 +180,7 @@ class _ReferralStatisticsTabState extends ConsumerState<ReferralStatisticsTab> {
                     ),
                   ),
                 ),
+            ],
           ],
         ],
       ),
