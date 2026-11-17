@@ -6,7 +6,6 @@ import 'package:agenda_medica/features/estadisticas/especialidades/models/specia
 import 'package:agenda_medica/features/estadisticas/especialidades/providers/specialty_statistics_provider.dart';
 import 'package:agenda_medica/features/estadisticas/especialidades/repositories/specialty_statistics_repository.dart';
 import 'package:agenda_medica/features/estadisticas/tabs/specialty_statistics_tab.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -301,19 +300,68 @@ void main() {
     expect(find.text('Consultas agendadas en el período: 177'), findsOneWidget);
   });
 
-  testWidgets('el gráfico tiene una barra por especialidad con su cantidad', (
-    tester,
-  ) async {
+  testWidgets('las barras comparten la escala: 128, 42, 7 y 0', (tester) async {
     await _pump(tester, _Repository());
     await tester.pumpAndSettle();
 
-    final groups = tester
-        .widget<BarChart>(find.byType(BarChart))
-        .data
-        .barGroups;
+    final track = tester.getSize(find.byKey(const Key('stats-demand-track-0')));
+    // La mayor (128) ocupa toda la pista; las demás, su parte de 128; la de 0
+    // no dibuja barra.
+    expect(
+      tester.getSize(find.byKey(const Key('stats-demand-fill-0'))).width,
+      closeTo(track.width, 0.5),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('stats-demand-fill-1'))).width,
+      closeTo(track.width * 42 / 128, 0.5),
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('stats-demand-fill-2'))).width,
+      closeTo(track.width * 7 / 128, 0.5),
+    );
+    expect(find.byKey(const Key('stats-demand-fill-3')), findsNothing);
+    expect(find.byKey(const Key('stats-demand-track-3')), findsOneWidget);
+  });
 
-    expect(groups, hasLength(4));
-    expect(groups.map((g) => g.barRods.single.toY), [128, 42, 7, 0]);
+  testWidgets('ya no hay lista debajo: cada especialidad aparece una sola '
+      'vez y no hay tarjetas', (tester) async {
+    await _pump(tester, _Repository());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Card), findsNothing);
+    for (final name in [
+      'Medicina General',
+      'Cardiología',
+      'Dermatología',
+      'Pediatría',
+    ]) {
+      expect(find.text(name), findsOneWidget, reason: name);
+    }
+    expect(find.text('128'), findsOneWidget);
+    expect(find.text('Requiere pase'), findsNWidgets(2));
+  });
+
+  testWidgets('con todas en cero se muestran las filas sin barras', (
+    tester,
+  ) async {
+    final repository = _Repository(
+      (_) async => _demand(
+        items: [
+          _item(3, 'Cardiología', true, 0),
+          _item(2, 'Pediatría', false, 0),
+        ],
+      ),
+    );
+    await _pump(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('stats-empty')), findsNothing);
+    expect(_inRow(0, 'Cardiología'), findsOneWidget);
+    expect(_inRow(0, '0'), findsOneWidget);
+    expect(_inRow(1, 'Pediatría'), findsOneWidget);
+    expect(find.byKey(const Key('stats-demand-fill-0')), findsNothing);
+    expect(find.byKey(const Key('stats-demand-fill-1')), findsNothing);
+    expect(find.text('Consultas agendadas en el período: 0'), findsOneWidget);
   });
 
   testWidgets('Requiere pase aparece solo en Cardiología y Dermatología', (
@@ -531,6 +579,26 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Consultas agendadas en el período: 177'), findsOneWidget);
     expect(find.byKey(const Key('stats-period-label')), findsOneWidget);
+    // Sin desplazamiento horizontal: el gráfico entra en el ancho.
+    expect(find.byKey(const Key('stats-chart-scroll-hint')), findsNothing);
+  });
+
+  testWidgets('el total sigue siendo la suma de las filas y no depende del '
+      'gráfico', (tester) async {
+    await _pump(
+      tester,
+      _Repository(
+        (_) async => _demand(
+          items: [
+            _item(1, 'Cardiología', true, 5),
+            _item(2, 'Pediatría', false, 3),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Consultas agendadas en el período: 8'), findsOneWidget);
   });
 
   group('el total dice por que fecha cuenta', () {
@@ -587,7 +655,9 @@ void main() {
         find.text('Consultas agendadas en el período: 177'),
       );
       final aclaracion = tester.getTopLeft(find.text(note));
-      final chart = tester.getTopLeft(find.byType(BarChart));
+      final chart = tester.getTopLeft(
+        find.byKey(const Key('stats-demand-chart')),
+      );
       expect(aclaracion.dy, greaterThanOrEqualTo(total.dy));
       expect(aclaracion.dy, lessThan(chart.dy));
     });
