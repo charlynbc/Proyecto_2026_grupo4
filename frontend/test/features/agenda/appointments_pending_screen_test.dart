@@ -1229,14 +1229,15 @@ void main() {
         find.descendant(of: direction, matching: find.text('Descendente')),
         findsOneWidget,
       );
-      // Vuelve a mostrar Descendente sin repetir el pedido: la consulta
-      // descendente ya estaba guardada.
+      // Vuelve a mostrar Descendente pidiéndolo de nuevo: el resultado ya no
+      // se guarda mientras nadie lo mira, para no mostrar un estado viejo.
+      // Pedidos: al entrar (desc), al tocar (asc) y al volver a tocar (desc).
       expect(
         [
           for (final q in repository.listRequests)
             q.toQueryParameters()['sentido'],
         ],
-        ['desc', 'asc'],
+        ['desc', 'asc', 'desc'],
       );
     });
   });

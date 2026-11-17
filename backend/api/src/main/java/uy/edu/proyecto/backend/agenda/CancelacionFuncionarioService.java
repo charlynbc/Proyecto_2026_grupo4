@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import uy.edu.proyecto.backend.exception.ApiException;
 import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
-import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosSuspensionSolicitados;
+import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolicitados;
 
 @Service
 public class CancelacionFuncionarioService {
@@ -83,7 +83,7 @@ public class CancelacionFuncionarioService {
         List<Long> envios = notificaciones.registrarEnviosNotificacion(
                 notificacionId, consulta.socioId(), consulta.correo());
         if (!envios.isEmpty()) {
-            events.publishEvent(new EnviosSuspensionSolicitados(List.copyOf(envios)));
+            events.publishEvent(new EnviosNotificacionSolicitados(List.copyOf(envios)));
         }
         boolean paseDevuelto = consulta.venceElPase() != null
                 && !consulta.venceElPase().isBefore(ahora.toLocalDate());

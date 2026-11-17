@@ -65,7 +65,8 @@ class FakeScheduleRepository implements ScheduleRepository {
     final appointmentId = query['consultaId'];
 
     final matching = _entries.where((entry) {
-      if (entry.date != filters.date) return false;
+      // Sin fecha se ven las consultas de todos los días, como en el servidor.
+      if (filters.date != null && entry.date != filters.date) return false;
       if (ci != null && entry.member.ci != ci) return false;
       if (appointmentId != null && entry.appointmentId != appointmentId) {
         return false;
@@ -95,19 +96,22 @@ class FakeScheduleRepository implements ScheduleRepository {
     );
   }
 
-  /// Por fecha y hora de inicio, o por hora de llegada. En los dos, el
-  /// identificador desempata. Con la llegada, los que no llegaron quedan al
-  /// final en cualquier sentido.
+  /// El mismo orden que el servidor (contrato, fila 28): por fecha y hora de
+  /// inicio, o por hora de llegada con los que no llegaron al final en
+  /// cualquier sentido y, entre iguales, por fecha y hora. En los dos, el
+  /// identificador ascendente desempata, también con el sentido descendente.
   Comparator<ScheduleEntry> _comparator(ScheduleFilters filters) {
     final sign = filters.ascending ? 1 : -1;
+    int byDateTime(ScheduleEntry a, ScheduleEntry b) {
+      final byDate = a.date.compareTo(b.date);
+      if (byDate != 0) return sign * byDate;
+      final byStart = a.startMinutes.compareTo(b.startMinutes);
+      if (byStart != 0) return sign * byStart;
+      return a.appointmentId.compareTo(b.appointmentId);
+    }
+
     return switch (filters.order) {
-      ScheduleOrder.dateTime => (a, b) {
-        final byDate = a.date.compareTo(b.date);
-        if (byDate != 0) return sign * byDate;
-        final byStart = a.startMinutes.compareTo(b.startMinutes);
-        if (byStart != 0) return sign * byStart;
-        return sign * a.appointmentId.compareTo(b.appointmentId);
-      },
+      ScheduleOrder.dateTime => byDateTime,
       ScheduleOrder.arrivalTime => (a, b) {
         final arrivedA = a.arrivedAt;
         final arrivedB = b.arrivedAt;
@@ -119,7 +123,7 @@ class FakeScheduleRepository implements ScheduleRepository {
         } else if (arrivedB != null) {
           return 1;
         }
-        return a.appointmentId.compareTo(b.appointmentId);
+        return byDateTime(a, b);
       },
     };
   }

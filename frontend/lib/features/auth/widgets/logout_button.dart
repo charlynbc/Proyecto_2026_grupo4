@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../cuenta/screens/account_routes.dart';
+import '../../notificaciones/providers/push_registration_provider.dart';
 import '../providers/auth_repository_provider.dart';
 import '../repositories/auth_repository.dart';
 
@@ -44,6 +45,9 @@ class _LogoutButtonState extends ConsumerState<LogoutButton> {
 
     setState(() => _loggingOut = true);
     try {
+      // La baja del token push va antes: después del logout ya no hay sesión
+      // para llamar a la API. Nunca falla ni espera más que su timeout corto.
+      await ref.read(pushRegistrationControllerProvider).deactivate();
       final repository = await ref.read(authRepositoryProvider.future);
       await repository.logout();
     } on AuthException {

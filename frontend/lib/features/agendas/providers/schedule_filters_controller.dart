@@ -19,7 +19,9 @@ class ScheduleFiltersController extends Notifier<ScheduleFilters> {
   void setDoctorId(int? id) =>
       state = state.withFilterChange(doctorId: () => id);
 
-  void setDate(DateTime date) => state = state.withFilterChange(date: date);
+  /// El día de las consultas, o `null` para ver las de todos los días.
+  void setDate(DateTime? date) =>
+      state = state.withFilterChange(date: () => date);
 
   void setStatus(String? status) =>
       state = state.withFilterChange(status: () => status);

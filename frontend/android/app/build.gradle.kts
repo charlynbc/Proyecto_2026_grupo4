@@ -4,6 +4,13 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase (push, RNF-23): google-services.json lleva las claves del proyecto y
+// no se versiona (.gitignore). Sin ese archivo el plugin no se aplica y la app
+// compila igual; en ese caso Firebase no se inicializa y no hay avisos push.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "uy.edu.fing.tecnoinf.mvd.a2026_sem2_grupo4.agenda_medica"
     compileSdk = flutter.compileSdkVersion
@@ -19,7 +26,8 @@ android {
         applicationId = "uy.edu.fing.tecnoinf.mvd.a2026_sem2_grupo4.agenda_medica"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // RNF-04: Android 8.0 (API 26) o superior. Flutter fija 24, que es menos.
+        minSdk = maxOf(26, flutter.minSdkVersion)
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)

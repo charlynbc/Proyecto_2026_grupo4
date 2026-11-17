@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import uy.edu.proyecto.backend.especialidad.Especialidad;
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
 
 @Repository
 public class AtencionRepository {
@@ -264,14 +265,16 @@ public class AtencionRepository {
         ) == 1;
     }
 
-    public void crearNotificacionHistoriaActualizada(Long consultaId) {
-        jdbcTemplate.update(
+    public Long crearNotificacionHistoriaActualizada(Long consultaId) {
+        return jdbcTemplate.queryForObject(
                 """
                 INSERT INTO public.notificacion (id_consulta, tipo, contenido)
                 VALUES (?, 'HISTORIA_ACTUALIZADA', ?)
+                RETURNING id_notificacion
                 """,
+                Long.class,
                 consultaId,
-                "Se actualizó la historia clínica de su consulta."
+                NotificacionTextos.CUERPO_HISTORIA_ACTUALIZADA
         );
     }
 
