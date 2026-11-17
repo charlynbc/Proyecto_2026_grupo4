@@ -117,6 +117,9 @@ public class SecurityConfig {
                                                 "ADMINISTRADOR"
                                         )
 
+                                        .requestMatchers("/api/admin/anuncios/**", "/api/admin/anuncios", "/api/admin/carrusel")
+                                        .hasRole("ADMINISTRADOR")
+
                                         .requestMatchers(HttpMethod.POST, "/api/anuncios")
                                         .hasRole("ADMINISTRADOR")
 
@@ -487,6 +490,7 @@ public class SecurityConfig {
                 List.of(
                         "GET",
                         "POST",
+                        "PUT",
                         "PATCH",
                         "DELETE",
                         "OPTIONS"

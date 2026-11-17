@@ -131,7 +131,9 @@ class ApiRoutes {
   static const String announcements = '/api/anuncios';
   static String announcement(int id) => '/api/anuncios/$id';
 
-  static const String pocPushRegistration = '/api/notificaciones/registro';
+  /// El carrusel del Inicio (GET): detalles de las novedades elegidas por el
+  /// administrador, vigentes y en orden de posición.
+  static const String announcementsCarousel = '/api/anuncios/carrusel';
 
   /// Todas las rutas, con un id de ejemplo (`1`) donde la ruta lo lleva.
   /// Sirve para los tests: si se agrega una ruta, se agrega acá también.
@@ -201,6 +203,6 @@ class ApiRoutes {
     userReactivate(1),
     announcements,
     announcement(1),
-    pocPushRegistration,
+    announcementsCarousel,
   ];
 }

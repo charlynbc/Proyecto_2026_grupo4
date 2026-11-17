@@ -9,7 +9,9 @@ class AnnouncementNotFoundException extends ApiException {
 }
 
 abstract interface class AnnouncementsRepository {
-  Future<List<Announcement>> latest();
+  /// Las novedades del carrusel del Inicio, en el orden que eligió el
+  /// administrador. Vacía si no eligió ninguna.
+  Future<List<Announcement>> carousel();
   Future<AnnouncementPage> list({int page = 0});
   Future<AnnouncementDetail> detail(int id);
   Future<void> publish(AnnouncementDraft draft);

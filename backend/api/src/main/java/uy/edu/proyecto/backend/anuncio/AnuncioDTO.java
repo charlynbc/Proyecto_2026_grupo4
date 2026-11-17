@@ -12,5 +12,17 @@ public final class AnuncioDTO {
     public record Detalle(long id, String titulo, String resumen, String texto,
                           OffsetDateTime publicadoEn, List<Imagen> imagenes) { }
     public record Pagina(List<Tarjeta> items, int page, int size, long total) { }
-    public record Datos(String titulo, String resumen, String texto) { }
+    public record Datos(String titulo, String resumen, String texto, OffsetDateTime vigenteDesde, OffsetDateTime vigenteHasta) {
+        public Datos(String titulo, String resumen, String texto) { this(titulo, resumen, texto, null, null); }
+    }
+    public record Vigencia(OffsetDateTime vigenteDesde, OffsetDateTime vigenteHasta) { }
+    public record Administracion(long id, String titulo, OffsetDateTime publicadoEn, OffsetDateTime vigenteDesde,
+                                  OffsetDateTime vigenteHasta, String estado, Integer posicion) { }
+    public record DetalleAdministracion(long id, String titulo, String resumen, String texto,
+                                        OffsetDateTime publicadoEn, OffsetDateTime vigenteDesde,
+                                        OffsetDateTime vigenteHasta, String estado, Integer posicion,
+                                        List<Imagen> imagenes) { }
+    public record Posicion(int posicion, long anuncioId) { }
+    public record Carrusel(List<Posicion> posiciones) { }
+
 }

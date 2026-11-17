@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/api_routes.dart';
+import '../../../core/utils/uruguay_time.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_draft.dart';
@@ -27,6 +28,10 @@ class ApiAnnouncementsRepository implements AnnouncementsRepository {
               if (draft.summary?.trim().isNotEmpty ?? false)
                 'resumen': draft.summary,
               if (draft.text?.trim().isNotEmpty ?? false) 'texto': draft.text,
+              if (draft.visibleFrom != null)
+                'vigenteDesde': UruguayTime.toIso(draft.visibleFrom!),
+              if (draft.visibleUntil != null)
+                'vigenteHasta': UruguayTime.toIso(draft.visibleUntil!),
             }),
             contentType: DioMediaType('application', 'json'),
           ),
@@ -110,19 +115,17 @@ class ApiAnnouncementsRepository implements AnnouncementsRepository {
   }
 
   @override
-  Future<List<Announcement>> latest() async {
+  Future<List<Announcement>> carousel() async {
     try {
-      final response = await _dio.get<Object?>(
-        ApiRoutes.announcements,
-        queryParameters: {'page': 0, 'size': 5},
-      );
+      final response = await _dio.get<Object?>(ApiRoutes.announcementsCarousel);
       final data = response.data;
-      if (data is! Map<String, dynamic> || data['items'] is! List) {
-        throw const ApiException();
-      }
+      if (data is! List) throw const ApiException();
+      // El servidor ya manda las posiciones en orden: no se reordena.
       return [
-        for (final item in data['items'] as List)
-          Announcement.fromJson(item as Map<String, dynamic>),
+        for (final item in data)
+          Announcement.fromDetail(
+            AnnouncementDetail.fromJson(item as Map<String, dynamic>),
+          ),
       ];
     } on DioException catch (error) {
       throw ApiException.fromDio(error);

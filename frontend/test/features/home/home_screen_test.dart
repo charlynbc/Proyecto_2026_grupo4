@@ -58,7 +58,7 @@ class _News extends FakeAnnouncementsRepository {
   int calls = 0;
 
   @override
-  Future<List<Announcement>> latest() async {
+  Future<List<Announcement>> carousel() async {
     calls++;
     if (error != null) throw error!;
     return pending == null ? items : pending!.future;
@@ -294,6 +294,68 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Novedad 1'), findsOneWidget);
     expect(repo.calls, 2);
+  });
+
+  testWidgets('el 503 de almacenamiento es un error de carga con reintento', (
+    tester,
+  ) async {
+    final repo = _News()
+      ..error = const ApiException('Almacenamiento no disponible');
+    await _pumpHome(tester, repo);
+
+    expect(find.text('No pudimos cargar las novedades.'), findsOneWidget);
+    expect(find.text('Almacenamiento no disponible'), findsOneWidget);
+    expect(find.text('Reintentar'), findsOneWidget);
+    expect(find.byType(AnnouncementsCarousel), findsNothing);
+    expect(
+      find.byKey(const Key('home-shortcut-disponibilidad')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('con huecos en las posiciones muestra primero la posición 1', (
+    tester,
+  ) async {
+    final fake = FakeAnnouncementsRepository(
+      now: () => DateTime.utc(2026, 11, 14, 15),
+      seed: [
+        FakeAnnouncementEntry(
+          detail: AnnouncementDetail(
+            id: 31,
+            title: 'Tercera elegida',
+            publishedAt: DateTime.utc(2026, 11, 13),
+          ),
+          position: 3,
+        ),
+        FakeAnnouncementEntry(
+          detail: AnnouncementDetail(
+            id: 11,
+            title: 'Primera elegida',
+            publishedAt: DateTime.utc(2026, 10, 1),
+          ),
+          position: 1,
+        ),
+        FakeAnnouncementEntry(
+          detail: AnnouncementDetail(
+            id: 21,
+            title: 'Sin elegir',
+            publishedAt: DateTime.utc(2026, 11, 14),
+          ),
+        ),
+      ],
+    );
+    final repo = _News()..items = await fake.carousel();
+    await _pumpHome(tester, repo);
+
+    expect(find.text('Primera elegida'), findsOneWidget);
+    expect(find.text('Sin elegir'), findsNothing);
+    expect(
+      tester
+          .widget<AnnouncementsCarousel>(find.byType(AnnouncementsCarousel))
+          .announcements
+          .map((a) => a.id),
+      [11, 31],
+    );
   });
 
   testWidgets('falla de la cuenta conserva el saludo y las novedades', (

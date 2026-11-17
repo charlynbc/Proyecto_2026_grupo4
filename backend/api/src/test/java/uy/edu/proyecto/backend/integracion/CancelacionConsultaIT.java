@@ -367,6 +367,7 @@ class CancelacionConsultaIT extends BaseIntegracionIT {
         String socio2 = tokenSocio(ciSocio2);
 
         for (int ronda = 0; ronda < RONDAS; ronda++) {
+            jdbc.update("DELETE FROM envio_notificacion");
             jdbc.update("DELETE FROM notificacion");
             jdbc.update("DELETE FROM consulta");
             long consulta = reservarOk(socio1, numero, null);

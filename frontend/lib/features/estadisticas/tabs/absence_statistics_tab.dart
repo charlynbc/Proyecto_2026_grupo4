@@ -7,6 +7,7 @@ import '../../../core/widgets/centered_content.dart';
 import '../absences/models/absence_statistics.dart';
 import '../absences/providers/absence_statistics_provider.dart';
 import '../absences/repositories/absence_statistics_repository.dart';
+import '../absences/widgets/absence_rate_chart.dart';
 import '../widgets/period_filter.dart';
 import '../widgets/period_label.dart';
 
@@ -131,6 +132,8 @@ class _AbsenceStatisticsTabState extends ConsumerState<AbsenceStatisticsTab> {
     final result = _result;
     return CenteredContent(
       maxWidth: 720,
+      // Arriba: el formulario no se mueve cuando cambian los resultados.
+      alignment: Alignment.topCenter,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -183,7 +186,7 @@ class _AbsenceStatisticsTabState extends ConsumerState<AbsenceStatisticsTab> {
               onRetry: () => _fetch(_requestedFrom, _requestedTo),
             )
           else if (result != null)
-            _Results(result: result),
+            _Results(result: result, grouping: _grouping),
         ],
       ),
     );
@@ -236,9 +239,10 @@ class _ErrorNotice extends StatelessWidget {
 }
 
 class _Results extends StatelessWidget {
-  const _Results({required this.result});
+  const _Results({required this.result, required this.grouping});
 
   final AbsenceStatistics result;
+  final AbsenceGrouping grouping;
 
   @override
   Widget build(BuildContext context) {
@@ -255,39 +259,8 @@ class _Results extends StatelessWidget {
             textAlign: TextAlign.center,
           )
         else
-          for (final item in items) _GroupCard(item: item),
+          AbsenceRateChart(items: items, grouping: grouping),
       ],
-    );
-  }
-}
-
-class _GroupCard extends StatelessWidget {
-  const _GroupCard({required this.item});
-
-  final AbsenceGroup item;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final lastName = item.lastName;
-    final title = lastName == null || lastName.isEmpty
-        ? item.name
-        : '${item.name} $lastName';
-    final absences = item.noShow + item.missed;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: theme.textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text('$absences inasistencias de ${item.total}'),
-            Text(item.percentageText, style: theme.textTheme.titleMedium),
-          ],
-        ),
-      ),
     );
   }
 }

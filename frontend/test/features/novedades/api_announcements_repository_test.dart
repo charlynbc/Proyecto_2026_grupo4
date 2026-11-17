@@ -359,98 +359,122 @@ void main() {
     });
   }
 
-  test(
-    'pide solo las cinco últimas tarjetas y lee la portada firmada',
-    () async {
-      final (repo, adapter) = repository({
-        'items': [
-          card(
-            summary: 'Comienza el lunes',
-            cover: {
-              'id': 101,
-              'orden': 0,
-              'url': 'https://example.org/portada?token=temporal',
-            },
-          ),
-        ],
-        'page': 0,
-        'size': 5,
-        'total': 12,
-      });
-      final items = await repo.latest();
-      expect(adapter.request!.path, '/api/anuncios');
+  group('carrusel del Inicio (GET /api/anuncios/carrusel)', () {
+    Map<String, Object?> slide(
+      int id, {
+      String published = '2026-11-03T12:00:00Z',
+      List<Map<String, Object?>> images = const [],
+    }) => {
+      'id': id,
+      'titulo': 'Novedad $id',
+      'resumen': 'Resumen $id',
+      'texto': 'Texto $id',
+      'publicadoEn': published,
+      'imagenes': images,
+    };
+
+    test('pide la ruta del carrusel sin paginar y lee los detalles', () async {
+      final (repo, adapter) = repository([
+        slide(
+          7,
+          images: [
+            {'id': 70, 'orden': 0, 'url': 'https://example.org/siete.png'},
+          ],
+        ),
+      ]);
+
+      final items = await repo.carousel();
+
+      expect(adapter.request!.path, '/api/anuncios/carrusel');
       expect(adapter.request!.method, 'GET');
-      expect(adapter.request!.queryParameters, {'page': 0, 'size': 5});
-      expect(items.single.id, 42);
-      expect(items.single.displayTitle, 'Vacunación');
-      expect(items.single.summary, 'Comienza el lunes');
+      expect(adapter.request!.queryParameters, isEmpty);
+      expect(items.single.id, 7);
+      expect(items.single.displayTitle, 'Novedad 7');
+      expect(items.single.summary, 'Resumen 7');
       expect(items.single.publishedAt, DateTime.utc(2026, 11, 3, 12));
-      expect(
-        items.single.coverUrl,
-        'https://example.org/portada?token=temporal',
-      );
-      // El id de la imagen (no el de la novedad, 42) es la clave de la caché.
-      expect(items.single.coverImageId, 101);
-    },
-  );
-
-  test('sin portada no hay id de imagen', () async {
-    final (repo, _) = repository({
-      'items': [card()],
     });
-    final item = (await repo.latest()).single;
-    expect(item.coverUrl, isNull);
-    expect(item.coverImageId, isNull);
-  });
 
-  test('admite título antiguo, resumen y portada nulos', () async {
-    final (repo, _) = repository({
-      'items': [card(title: null)],
+    test('conserva el orden que manda el servidor, no el de la fecha', () async {
+      final (repo, _) = repository([
+        slide(5, published: '2026-10-01T12:00:00Z'),
+        slide(9, published: '2026-11-09T12:00:00Z'),
+        slide(2, published: '2026-11-05T12:00:00Z'),
+      ]);
+
+      final items = await repo.carousel();
+
+      expect(items.map((item) => item.id), [5, 9, 2]);
     });
-    final item = (await repo.latest()).single;
-    expect(item.displayTitle, 'Novedad de la mutualista');
-    expect(item.summary, isNull);
-    expect(item.coverUrl, isNull);
-  });
 
-  test('una página vacía produce la lista vacía', () async {
-    final (repo, _) = repository({'items': []});
-    expect(await repo.latest(), isEmpty);
-  });
+    test('la portada es la primera imagen por orden, no por posición', () async {
+      final (repo, _) = repository([
+        slide(
+          7,
+          images: [
+            {'id': 72, 'orden': 2, 'url': 'https://example.org/c.png'},
+            {'id': 70, 'orden': 0, 'url': 'https://example.org/a.png'},
+            {'id': 71, 'orden': 1, 'url': 'https://example.org/b.png'},
+          ],
+        ),
+      ]);
 
-  for (final body in [
-    null,
-    [],
-    <String, Object?>{},
-    {'items': null},
-    {
-      'items': [card()..['publicadoEn'] = 'inválida'],
-    },
-    {
-      'items': [card()..['id'] = 0],
-    },
-    {
-      'items': [card(cover: <String, Object?>{})],
-    },
-  ]) {
-    test(
-      'convierte una respuesta incompleta o inválida en error de API: $body',
-      () async {
+      final item = (await repo.carousel()).single;
+
+      expect(item.coverUrl, 'https://example.org/a.png');
+      // El id de la imagen (no el de la novedad) es la clave de la caché.
+      expect(item.coverImageId, 70);
+    });
+
+    test('sin imágenes no hay portada ni id de imagen', () async {
+      final (repo, _) = repository([slide(7)]);
+
+      final item = (await repo.carousel()).single;
+
+      expect(item.coverUrl, isNull);
+      expect(item.coverImageId, isNull);
+    });
+
+    test('sin selección del administrador la lista es vacía', () async {
+      final (repo, _) = repository([]);
+
+      expect(await repo.carousel(), isEmpty);
+    });
+
+    for (final body in [
+      null,
+      <String, Object?>{},
+      {'items': []},
+      [
+        {...slide(7), 'id': 0},
+      ],
+      [
+        {...slide(7), 'publicadoEn': 'inválida'},
+      ],
+      [
+        slide(
+          7,
+          images: [
+            {'id': 1, 'orden': 0, 'url': 'ftp://ejemplo.org/a.png'},
+          ],
+        ),
+      ],
+    ]) {
+      test('una respuesta inválida es un error de API: $body', () async {
         final (repo, _) = repository(body);
-        await expectLater(repo.latest(), throwsA(isA<ApiException>()));
-      },
-    );
-  }
 
-  test(
-    'conserva el error del backend y permite un reintento posterior',
-    () async {
+        await expectLater(repo.carousel(), throwsA(isA<ApiException>()));
+      });
+    }
+
+    test('el 503 de almacenamiento es un error con el mensaje del '
+        'servidor', () async {
       final (repo, _) = repository({
         'code': 'ALMACENAMIENTO_NO_DISPONIBLE',
         'message': 'Almacenamiento no disponible',
       }, status: 503);
+
       await expectLater(
-        repo.latest(),
+        repo.carousel(),
         throwsA(
           isA<ApiException>().having(
             (error) => error.message,
@@ -459,6 +483,6 @@ void main() {
           ),
         ),
       );
-    },
-  );
+    });
+  });
 }

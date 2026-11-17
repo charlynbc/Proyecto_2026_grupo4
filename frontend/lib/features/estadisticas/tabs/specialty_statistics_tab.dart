@@ -9,8 +9,7 @@ import '../especialidades/providers/specialty_statistics_provider.dart';
 import '../especialidades/repositories/specialty_statistics_repository.dart';
 import '../widgets/period_filter.dart';
 import '../widgets/period_label.dart';
-import '../especialidades/widgets/specialty_demand_chart.dart';
-import '../especialidades/widgets/specialty_demand_list.dart';
+import '../especialidades/widgets/specialty_demand_bars.dart';
 
 const String _sessionExpiredMessage =
     'Tu sesión venció. Iniciá sesión nuevamente.';
@@ -126,6 +125,8 @@ class _SpecialtyStatisticsTabState
     final demand = _demand;
     return CenteredContent(
       maxWidth: 720,
+      // Arriba: el formulario no se mueve cuando cambian los resultados.
+      alignment: Alignment.topCenter,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -213,8 +214,16 @@ class _Results extends StatelessWidget {
         PeriodLabel(from: demand.from, to: demand.to),
         const SizedBox(height: 12),
         Text(
-          'Total de consultas: ${demand.total}',
+          'Consultas agendadas en el período: ${demand.total}',
           style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Cuenta las consultas por la fecha en que se agendaron, '
+          'incluidas las canceladas',
+          key: const Key('stats-total-note'),
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 16),
         if (demand.items.isEmpty)
@@ -223,11 +232,10 @@ class _Results extends StatelessWidget {
             key: Key('stats-empty'),
             textAlign: TextAlign.center,
           )
-        else ...[
-          SpecialtyDemandChart(items: demand.items),
-          const SizedBox(height: 16),
-          SpecialtyDemandList(items: demand.items),
-        ],
+        else
+          // El gráfico lleva el nombre, la cantidad y "Requiere pase" de cada
+          // especialidad, así que no hay lista debajo.
+          SpecialtyDemandBars(items: demand.items),
       ],
     );
   }

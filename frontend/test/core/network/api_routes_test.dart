@@ -40,6 +40,11 @@ void main() {
       },
     );
 
+    test('carrusel del Inicio, valor escrito a mano', () {
+      expect(ApiRoutes.announcementsCarousel, '/api/anuncios/carrusel');
+      expect(ApiRoutes.all, contains('/api/anuncios/carrusel'));
+    });
+
     test('estadísticas de inasistencias, pases y franjas (filas 69 a 71), valores escritos a mano', () {
       expect(ApiRoutes.statsAbsences, '/api/estadisticas/inasistencias');
       expect(ApiRoutes.statsReferrals, '/api/estadisticas/pases');

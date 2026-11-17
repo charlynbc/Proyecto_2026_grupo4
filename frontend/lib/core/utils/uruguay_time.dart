@@ -33,6 +33,28 @@ class UruguayTime {
     return '$year-$month-${dayOfMonth}T00:00:00-03:00';
   }
 
+  /// El instante que corresponde a [hour]:[minute] de Uruguay en el día [day]
+  /// (una clave de día: se ignora su hora). Es el inverso de [toUruguay].
+  static DateTime fromUruguay(DateTime day, int hour, int minute) {
+    return DateTime.utc(
+      day.year,
+      day.month,
+      day.day,
+      hour,
+      minute,
+    ).subtract(_offset);
+  }
+
+  /// Un instante como ISO 8601 con el desfase de Uruguay (`-03:00`), para
+  /// mandar al backend: `2027-01-01T00:00:00-03:00`.
+  static String toIso(DateTime instant) {
+    final t = toUruguay(instant);
+    String two(int value) => value.toString().padLeft(2, '0');
+    final year = t.year.toString().padLeft(4, '0');
+    return '$year-${two(t.month)}-${two(t.day)}'
+        'T${two(t.hour)}:${two(t.minute)}:${two(t.second)}-03:00';
+  }
+
   /// Reexpresa un instante (por ejemplo, parseado de una respuesta del
   /// backend) en los campos de hora de Uruguay, para mostrar con `intl`.
   static DateTime toUruguay(DateTime dateTime) {

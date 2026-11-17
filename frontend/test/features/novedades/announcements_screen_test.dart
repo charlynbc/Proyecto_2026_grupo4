@@ -78,7 +78,7 @@ class _News extends FakeAnnouncementsRepository {
   }
 
   @override
-  Future<List<Announcement>> latest() async => items.take(5).toList();
+  Future<List<Announcement>> carousel() async => items.take(5).toList();
 
   @override
   Future<AnnouncementDetail> detail(int id) async {
@@ -128,7 +128,7 @@ Future<ProviderContainer> _pumpList(
       // Mantiene la caché en la sesión de administrador durante la prueba de
       // invalidación. Cambiar a socio también refrescaría el provider.
       if (observeLatestAsAdmin)
-        latestAnnouncementsProvider.overrideWith((ref) => repo.latest()),
+        latestAnnouncementsProvider.overrideWith((ref) => repo.carousel()),
     ],
   );
   addTearDown(() async {
@@ -158,6 +158,16 @@ Future<ProviderContainer> _pumpList(
     }
   }
   return container;
+}
+
+/// Completa "Visible hasta" con una fecha lejana para que el formulario sea
+/// publicable; la hora se propone sola (23:59).
+Future<void> _fillUntil(WidgetTester tester) async {
+  await tester.enterText(
+    find.widgetWithText(TextFormField, 'Visible hasta: fecha'),
+    '31/12/2099',
+  );
+  await tester.pump();
 }
 
 Finder _rows() => find.byWidgetPredicate(
@@ -260,6 +270,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(SelectableText), findsOneWidget);
 
+      await _fillUntil(tester);
       final publish = find.widgetWithText(FilledButton, 'Publicar');
       await tester.ensureVisible(publish);
       await tester.tap(publish);
@@ -300,6 +311,7 @@ void main() {
       find.widgetWithText(TextFormField, 'Texto de la novedad'),
       'Contenido',
     );
+    await _fillUntil(tester);
     final publish = find.widgetWithText(FilledButton, 'Publicar');
     await tester.ensureVisible(publish);
     await tester.tap(publish);
@@ -344,6 +356,7 @@ void main() {
       find.widgetWithText(TextFormField, 'Texto de la novedad'),
       'Contenido',
     );
+    await _fillUntil(tester);
     final publish = find.widgetWithText(FilledButton, 'Publicar');
     await tester.ensureVisible(publish);
     await tester.tap(publish);
@@ -361,6 +374,7 @@ void main() {
     await tester.tap(find.text('Crear nueva novedad'));
     await tester.pumpAndSettle();
     final title = find.widgetWithText(TextFormField, 'Título');
+    await _fillUntil(tester);
     final publish = find.widgetWithText(FilledButton, 'Publicar');
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Texto de la novedad'),
@@ -401,6 +415,7 @@ void main() {
     String titleText(WidgetTester tester) =>
         tester.widget<TextFormField>(title).controller!.text;
     Future<void> publish(WidgetTester tester) async {
+      await _fillUntil(tester);
       final button = find.widgetWithText(FilledButton, 'Publicar');
       await tester.ensureVisible(button);
       await tester.tap(button);
@@ -494,6 +509,7 @@ void main() {
         find.widgetWithText(TextFormField, 'Título'),
         'Cartel de la jornada',
       );
+      await _fillUntil(tester);
       final publish = find.widgetWithText(FilledButton, 'Publicar');
       await tester.ensureVisible(publish);
       await tester.tap(publish);

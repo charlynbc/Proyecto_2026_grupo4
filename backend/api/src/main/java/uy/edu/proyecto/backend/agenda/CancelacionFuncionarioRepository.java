@@ -9,6 +9,8 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
+
 @Repository
 public class CancelacionFuncionarioRepository {
     private static final DateTimeFormatter FECHA_AVISO = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -83,7 +85,7 @@ public class CancelacionFuncionarioRepository {
                 VALUES (?, 'CANCELACION', ?)
                 RETURNING id_notificacion
                 """, Long.class, consultaId,
-                "Tu consulta del " + fecha + " fue cancelada a tu solicitud.");
+                NotificacionTextos.cuerpoCancelacionASolicitudDelSocio(fecha));
     }
 
     /** Aviso de la cancelación por otro motivo (RF-19): lleva el motivo y no al funcionario. */

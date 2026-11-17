@@ -55,12 +55,12 @@ PostgreSQL.
 | 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | feat/front-rehabilitar-turnos 29/10/2026 | [contrato #25](contrato-v1.md#e25) |
 | 26 | `GET /api/avisos-llegada/consultas-hoy?ci=` | FUNCIONARIO | 16 | Buscar socio | CONFIRMADA | feat/front-llegada 29/10/2026 | [contrato #26](contrato-v1.md#e26) |
 | 27 | `POST /api/avisos-llegada` | FUNCIONARIO | 16 | Registrar llegada | CONFIRMADA | feat/front-llegada 29/10/2026 | [contrato #27](contrato-v1.md#e27) |
-| 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas (pantalla Flutter `/funcionario/agendas`, `SchedulesScreen`; `ApiScheduleRepository` manda siempre `fecha`, `orden`, `sentido`, `page` y `size`, y `ci`, `consultaId`, `medicoId`, `estado` y `llegada` solo si se completaron) | CONFIRMADA | feat/front-agendas 29/10/2026 | [contrato #28](contrato-v1.md#e28) |
+| 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas (pantalla Flutter `/funcionario/agendas`, `SchedulesScreen`; `ApiScheduleRepository` manda siempre `orden`, `sentido`, `page` y `size`, y `fecha` (con hoy precargada), `ci`, `consultaId`, `medicoId`, `estado` y `llegada` solo si se completaron: con la fecha borrada se ven las consultas de todos los días) | CONFIRMADA | feat/front-agendas 29/10/2026; feat/front-agendas-fecha-opcional 15/11/2026 | [contrato #28](contrato-v1.md#e28) |
 | 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos (pantalla Flutter `/medico/turnos`, sondeo cada 15 s, PR #39); `fecha` viaja como `aaaa-mm-dd`, la pantalla la muestra como dd/mm/aaaa y el día de hoy es el de Uruguay | CONFIRMADA | feat/cierre-rf21-tiempo-real 27/10/2026; feat/front-turnos-del-dia-fecha-uruguay 13/11/2026 | [contrato #29](contrato-v1.md#e29) |
 | 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21, 22 | Pacientes del turno (`consulta.paciente.id` para abrir historia #40; con `llegada`, `orden`, `sentido`; sondeo cada 15 s) | CONFIRMADA | feat/cierre-rf21-tiempo-real 27/10/2026 | [contrato #30](contrato-v1.md#e30) |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases (pantalla Flutter `/medico/consultas/:id/resultado`) | CONFIRMADA | PR #40 | [contrato #31](contrato-v1.md#e31) |
 | 32 | `GET /api/notificaciones` | SOCIO | RNF-23 | Lista de notificaciones | PROPUESTA | - | [contrato #32](contrato-v1.md#e32) |
-| 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push solo Android (201 si lo crea; 200 si ya existía, lo reasigna al socio o lo vuelve a habilitar; `token` recortado, no vacío y máximo 4096 caracteres después de recortar; si no, 400) | CONFIRMADA | - | [contrato #33](contrato-v1.md#e33) |
+| 33 | `POST /api/dispositivos` | SOCIO | RNF-23 | Registro de token push solo Android (201 si lo crea; 200 si ya existía, lo reasigna al socio o lo vuelve a habilitar; `token` recortado, no vacío y máximo 4096 caracteres después de recortar; si no, 400) | CONFIRMADA | feat/front-dispositivos-push 14/11/2026 | [contrato #33](contrato-v1.md#e33) |
 | 34 | `GET /api/estadisticas/especialidades` | ADMINISTRADOR | 39 | Estadísticas | CONFIRMADA (integrada en avances, PR #24) | - | [contrato #34](contrato-v1.md#e34) |
 | 35 | `GET /api/estadisticas/turnos` | ADMINISTRADOR | 40 | Estadísticas | CONFIRMADA (integrada en avances, PR #25; agrega `fechasActivas` y `utilizacion`; interpretación histórica desde `turno_evento` en el PR #38, JSON sin cambios) | - | [contrato #35](contrato-v1.md#e35) |
 | 36 | `GET /api/estadisticas/consultas` | ADMINISTRADOR | 41 | Estadísticas | CONFIRMADA (integrada en avances; usa `estados`, `totalConsultas`, `canceladasPorSocio`, `porcentajeCancelacion` y `porcentajeCancelacionTexto`) | - | [contrato #36](contrato-v1.md#e36) |
@@ -100,7 +100,7 @@ PostgreSQL.
 | 70 | `GET /api/estadisticas/pases` | ADMINISTRADOR | 43 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | feat/front-rf43-rf44-estadisticas 11/11/2026 | [contrato #70](contrato-v1.md#e70) |
 | 71 | `GET /api/estadisticas/franjas` | ADMINISTRADOR | 44 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | feat/front-rf43-rf44-estadisticas 11/11/2026 | [contrato #71](contrato-v1.md#e71) |
 | 72 | `POST /api/turnos-semanales/{id}/consultorio/vista-previa` | FUNCIONARIO | 20 | Vista previa de fechas, consultas y cruces del consultorio destino (solo lectura) | EN DESARROLLO (rama feat/front-rf20-consultorio-parcial) | feat/front-rf20-consultorio-parcial 12/11/2026 | [contrato #72](contrato-v1.md#e72) |
-| 73 | `POST /api/dispositivos/baja` | SOCIO | RNF-23 | Baja del token push antes de cerrar sesión (204 siempre; no borra la fila, solo deshabilita; mismo `token` recortado, no vacío y máximo 4096 caracteres después de recortar; si no, 400) | CONFIRMADA | - | [contrato #73](contrato-v1.md#e73) |
+| 73 | `POST /api/dispositivos/baja` | SOCIO | RNF-23 | Baja del token push antes de cerrar sesión (204 siempre; no borra la fila, solo deshabilita; mismo `token` recortado, no vacío y máximo 4096 caracteres después de recortar; si no, 400) | CONFIRMADA | feat/front-dispositivos-push 14/11/2026 | [contrato #73](contrato-v1.md#e73) |
 
 ## Rutas de la prueba de concepto
 
@@ -120,15 +120,6 @@ migran: se usa solo el modelo del Proyecto 2026.
 | POST /api/reservas | #17 `POST /api/consultas` | migrado en Flutter (reserva por `numeroId`) |
 | GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | migrado en backend y Flutter; usa filtros y paginación del contrato |
 | PATCH /api/reservas/{id}/cancelacion | #20 `POST /api/consultas/{id}/cancelar` | Implementado en backend; el frontend debe habilitar la acción |
-| `POST /api/notificaciones/registro` | #33 | se elimina en la tarjeta de registro push (RNF-23); la reemplaza `POST /api/dispositivos` (#33). Se borra de esta tabla cuando se elimine el código |
-
-La ruta de registro de notificaciones que existe hoy en el backend es
-`POST /api/notificaciones/registro` (cuerpo `{fid}`, guarda en memoria). Se
-elimina en la tarjeta "RNF-23 Push Android: registro real del dispositivo":
-la reemplaza la ruta contractual `POST /api/dispositivos` (#33, cuerpo
-`{token}`, guarda en `dispositivo_push`), con la baja `POST /api/dispositivos/baja`
-(#73). Mientras exista el código, esta fila y la constante del cliente se
-mantienen.
 
 ## Endpoint adicional verificado
 
@@ -149,6 +140,7 @@ arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
 
+- 14/11/2026, filas 65 y 66 (rama feat/front-cartelera-compatibilidad): en `POST /api/anuncios` el JSON `datos` agrega `vigenteHasta` (obligatorio, ISO 8601 con desfase `-03:00`, exclusivo y posterior al inicio o, sin inicio, a ese momento) y `vigenteDesde` (opcional; sin él empieza de inmediato). El frontend valida lo mismo antes de enviar y, si el servidor responde 400, muestra su mensaje. Además el Inicio deja de pedir `GET /api/anuncios?page=0&size=5` y usa `GET /api/anuncios/carrusel`: lista de detalles `{id, titulo, resumen, texto, publicadoEn, imagenes:[{id, orden, url}]}`, solo con posición y vigentes, en orden de posición y sin rellenar huecos; el frontend toma la portada de la primera imagen por `orden` (no hay `imagenPortada`), conserva el orden recibido y trata el 503 `ALMACENAMIENTO_NO_DISPONIBLE` como error de carga con reintento. Sin selección del administrador espera una lista vacía. La ruta nueva no tiene fila propia en la tabla.
 - 15/11/2026, fila 44 (cancelación del funcionario, RF-19; rama feat/rf19-cancelacion-con-motivo): el POST admite un cuerpo opcional `{"aPedidoDelSocio": false, "motivo": "..."}`. Sin cuerpo, o con `aPedidoDelSocio` verdadero o ausente, todo sigue igual (`CANCELADA_SOCIO`, sin motivo); el motivo se ignora si viene. Con `aPedidoDelSocio` en `false` el motivo es obligatorio (se recorta, hasta 1000 caracteres, si no `400 VALIDACION`), la consulta queda `CANCELADA_INSTITUCION` con `motivo_cancelacion` guardado y el aviso al socio lleva el motivo; el socio lo ve también en `motivoCancelacion` de las filas 18 y 19. La respuesta trae el `estado` que quedó guardado. El frontend manda el cuerpo solo cuando el funcionario elige "Otro motivo", recorta y valida el motivo antes de enviarlo, y acepta `CANCELADA_SOCIO` y `CANCELADA_INSTITUCION`. Si pide "Otro motivo" y el servidor responde `CANCELADA_SOCIO` (todavía no guarda el motivo), avisa al funcionario que la consulta se canceló pero el motivo no se guardó.
 
 - 13/11/2026, fila 12 (rama feat/back-usuarios-puede-inactivar): cada fila de `GET /api/usuarios` agrega `puedeInactivar` (booleano). Es `true` solo si la cuenta está activa, no es de un socio, no es la del administrador que consulta y, si es de un médico, no tiene fechas de turnos activas ni consultas agendadas cuyo día no terminó; sale de la misma regla que la fila 61. El frontend todavía no lo lee: hoy decide con `id` y rol de la sesión y muestra el 409 si el servidor rechaza.
