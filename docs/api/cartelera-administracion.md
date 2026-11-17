@@ -50,10 +50,9 @@ una hora, como en el detalle público. Si el anuncio no existe responde
 `404 NO_ENCONTRADO` con el formato de error habitual (`{"code","message"}`);
 sin sesión responde 401 y con otro rol 403.
 
-`PUT /api/admin/anuncios/{id}` edita el texto de una novedad ya publicada: hoy una
-novedad con un error solo puede eliminarse y volver a publicarse. Solo
-`ADMINISTRADOR`. Estado: IMPLEMENTADA EN BACKEND (tramo de texto; las imágenes se
-editan en una versión posterior de este mismo endpoint). El pedido es
+`PUT /api/admin/anuncios/{id}` edita el texto y las imágenes de una novedad ya
+publicada: antes una novedad con un error solo podía eliminarse y volver a
+publicarse. Solo `ADMINISTRADOR`. Estado: IMPLEMENTADA EN BACKEND. El pedido es
 `multipart/form-data` con una parte `datos` de tipo `application/json`, igual que
 `POST /api/anuncios`:
 
@@ -67,9 +66,35 @@ editan en una versión posterior de este mismo endpoint). El pedido es
 publicar. Una novedad no puede quedar sin texto y sin imágenes: si `texto` falta o
 está en blanco y la novedad no tiene imágenes, responde 400. El pedido no incluye
 `vigenteDesde` ni `vigenteHasta`: la edición **no cambia la vigencia, la posición en
-el carrusel, el autor ni la fecha de publicación**, y tampoco las imágenes. Si el
-pedido trae partes de archivo (cualquier parte distinta de `datos`) responde 400,
-porque `datos` no indica imágenes.
+el carrusel, el autor ni la fecha de publicación**.
+
+Imágenes. Si `datos` no trae `imagenes` (ausente o `null`), las imágenes no se
+tocan; en ese caso, si el pedido trae partes de archivo (cualquier parte distinta de
+`datos`) responde 400. Si trae `imagenes`, esa es la **lista final, en orden**, y la
+primera es la portada:
+
+```json
+{ "titulo": "Campaña", "texto": "Texto", "imagenes": [ { "id": 12 }, { "archivo": "nueva1" }, { "id": 14 } ] }
+```
+
+Cada entrada es `{"id": n}` (una imagen que ya tiene la novedad) o
+`{"archivo": "nombre"}` (una imagen nueva, que llega como parte de archivo del mismo
+multipart con ese nombre). El servidor guarda `orden` 0, 1, 2 según la posición en
+la lista, aunque cambie el orden de las imágenes que ya existían. Las existentes que
+no figuran se eliminan: se borran de la base y sus archivos se limpian después con
+la misma cola que usa `DELETE` (`app.anuncios.limpieza-intervalo-ms`). Con
+`"imagenes": []` se eliminan todas, y solo se acepta si queda texto. Reglas, las
+mismas que al publicar: hasta 5 imágenes en total entre existentes y nuevas; cada
+archivo nuevo JPEG o PNG real, de hasta 5 MB y hasta 6000 × 6000 píxeles; los `id`
+deben pertenecer a esta novedad.
+
+Orden de la operación: primero se valida todo, antes de tocar Storage; luego se suben
+las imágenes nuevas, sin bloquear otras operaciones de cartelera; y por último, en una
+sola transacción con el candado del borrado, se vuelve a comprobar que la novedad
+existe y se aplican texto, imágenes nuevas, orden y borrado. Es todo o nada: si falla
+la subida de una imagen nueva responde `503 ALMACENAMIENTO_NO_DISPONIBLE`, se borran
+las ya subidas y no cambia nada, ni el texto ni las imágenes. Si la novedad se elimina
+mientras se suben las imágenes, responde 404 y se borran las ya subidas.
 
 Responde `204 No Content` sin cuerpo. Errores, con el formato habitual
 (`{"code","message"}`):
@@ -79,7 +104,18 @@ Responde `204 No Content` sin cuerpo. Errores, con el formato habitual
   o al menos una imagen`; `Se enviaron archivos pero datos no indica imágenes`;
   `Hay dos archivos con el mismo nombre: {nombre}`; y `Faltan datos o la solicitud
   tiene un formato inválido` si falta la parte `datos` o su JSON no se puede leer.
+  Con imágenes: `La novedad admite hasta 5 imágenes`; `Cada imagen debe indicar solo
+  un id o solo un archivo`; `La imagen {id} figura más de una vez`; `El archivo
+  {nombre} figura más de una vez`; `El archivo {nombre} no llegó en el pedido`; `El
+  archivo {nombre} se envió pero no figura en imagenes`; `La imagen {id} no pertenece
+  a esta novedad`; y los de cada archivo nuevo (`Solo se admiten imágenes JPEG o PNG`,
+  `El contenido de la imagen no coincide con su formato`, `La imagen supera las
+  dimensiones permitidas`, `La imagen no es válida`, `Cada imagen debe tener
+  contenido`).
+- `400 IMAGEN_INVALIDA` (`Cada imagen admite hasta 5 MB`) si un archivo supera 5 MB o
+  se excede el límite multipart.
 - `404 NO_ENCONTRADO` (`Anuncio no encontrado`) si la novedad no existe.
+- `503 ALMACENAMIENTO_NO_DISPONIBLE` si Storage falla al subir una imagen nueva.
 - `401` sin sesión y `403` con cualquier otro rol.
 
 Si dos administradores guardan a la vez, el último guardado prevalece. La edición

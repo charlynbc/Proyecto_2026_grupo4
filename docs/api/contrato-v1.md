@@ -2676,11 +2676,13 @@ versión exige `vigenteHasta`; el ejemplo histórico de #65 debe actualizarse ju
 con el cliente Flutter antes de utilizarla.
 
 Edición de una novedad ya publicada: `PUT /api/admin/anuncios/{id}`, solo
-ADMINISTRADOR, multipart con la parte `datos` (`titulo`, `resumen`, `texto`) y las
-mismas reglas de #65. Estado: IMPLEMENTADA EN BACKEND (tramo de texto). Responde
-`204`; `400 VALIDACION`, `401`, `403` y `404 NO_ENCONTRADO`. No cambia vigencia,
-posición en el carrusel, autor ni fecha de publicación. El pedido y los mensajes
-exactos están en [Gestión de cartelera](cartelera-administracion.md). Desde esta
+ADMINISTRADOR, multipart con la parte `datos` (`titulo`, `resumen`, `texto` y,
+opcional, `imagenes`: la lista final en orden de `{"id": n}` existentes y
+`{"archivo": "nombre"}` nuevas, que llegan como partes de archivo con ese nombre) y
+las mismas reglas de #65. Estado: IMPLEMENTADA EN BACKEND. Responde `204`;
+`400 VALIDACION` o `400 IMAGEN_INVALIDA`, `401`, `403`, `404 NO_ENCONTRADO` y
+`503 ALMACENAMIENTO_NO_DISPONIBLE`. Es todo o nada. No cambia vigencia, posición en
+el carrusel, autor ni fecha de publicación. El pedido y los mensajes exactos están en [Gestión de cartelera](cartelera-administracion.md). Desde esta
 versión `PUT /api/admin/anuncios/{id}/vigencia` y `PUT /api/admin/carrusel`
 responden `400 VALIDACION` con cuerpo JSON ante un cuerpo ilegible, en lugar del 400
 por defecto sin cuerpo.
