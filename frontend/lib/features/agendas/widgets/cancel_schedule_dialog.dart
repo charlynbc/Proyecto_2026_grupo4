@@ -218,7 +218,30 @@ class _CancelScheduleDialogState extends ConsumerState<_CancelScheduleDialog> {
                   ),
                 if (_error != null) ...[
                   const SizedBox(height: 12),
-                  Text(_error!, key: const Key('cancel-schedule-error')),
+                  // Se anuncia sola al aparecer; el ícono no dice nada aparte.
+                  Semantics(
+                    liveRegion: true,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 20,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            key: const Key('cancel-schedule-error'),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ],
             ),
