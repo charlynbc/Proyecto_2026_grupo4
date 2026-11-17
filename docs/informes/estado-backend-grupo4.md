@@ -47,7 +47,7 @@ Fuente: `backend/api/pom.xml`, `application.properties`.
 | Contraseñas | BCrypt, costo 12 |
 | Tokens | JWT HS256 (acceso 900 s), refresh opaco 604 800 s |
 | Puerto | `server.port=${PORT:8080}` |
-| CORS | `app.cors.allowed-origin` (por defecto `http://localhost:5173`); permite PATCH/DELETE aunque ningún controller los usa |
+| CORS | `app.cors.allowed-origin` (por defecto `http://localhost:5173`); métodos permitidos: GET, POST, PUT, PATCH, DELETE y OPTIONS; encabezados: Authorization y Content-Type |
 | Correo | `MAIL_PROVIDER` none (por defecto) / smtp / resend |
 | Push | Firebase, condicionado por `APP_FIREBASE_ENABLED` |
 | Imagen | `Dockerfile` en la raíz: Flutter web + backend en una imagen |
