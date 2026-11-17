@@ -70,6 +70,16 @@ Todas las rutas están en `lib/core/network/api_routes.dart`; ningún repository
 escribe una ruta literal. El registro de lo que se usa y su estado está en
 `docs/api/endpoints-usados.md`.
 
+## Pantallas nuevas y la barra de botones de Android
+
+Desde Android 15 la app se dibuja de borde a borde y un `Scaffold` sin
+`bottomNavigationBar` no deja margen abajo: el contenido queda detrás de la
+barra de botones del sistema. Una pantalla nueva que se muestre **sin barra
+inferior propia** (una ruta de nivel superior en `lib/core/router/app_router.dart`)
+tiene que envolverse en `BottomSystemInset` (`lib/core/widgets/bottom_system_inset.dart`).
+Las secciones que muestran la barra `AdaptiveNavBar` no lo necesitan: la barra ya
+reserva ese espacio, y usarlo también lo duplicaría.
+
 ## Verificación
 
 ```bash

@@ -8,6 +8,8 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
+
 @Repository
 public class CancelacionFuncionarioRepository {
     private final JdbcTemplate jdbcTemplate;
@@ -67,7 +69,7 @@ public class CancelacionFuncionarioRepository {
                 VALUES (?, 'CANCELACION', ?)
                 RETURNING id_notificacion
                 """, Long.class, consultaId,
-                "Tu consulta del " + fecha + " fue cancelada a tu solicitud.");
+                NotificacionTextos.cuerpoCancelacionASolicitudDelSocio(fecha));
     }
 
     public record DatosConsulta(

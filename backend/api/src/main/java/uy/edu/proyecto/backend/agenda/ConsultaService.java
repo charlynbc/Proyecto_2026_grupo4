@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.agenda.ConsultaRepository.NumeroParaAgendar;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.notificacion.NotificacionEnvios;
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
 import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.parametro.VentanaAgendar;
 
@@ -19,12 +21,14 @@ public class ConsultaService {
     private final ConsultaRepository repository;
     private final ParametroService parametros;
     private final Clock clock;
+    private final NotificacionEnvios envios;
 
     public ConsultaService(ConsultaRepository repository, ParametroService parametros,
-            Clock clock) {
+            Clock clock, NotificacionEnvios envios) {
         this.repository = repository;
         this.parametros = parametros;
         this.clock = clock;
+        this.envios = envios;
     }
 
     @Transactional
@@ -108,7 +112,18 @@ public class ConsultaService {
                     "El número ya no está disponible para agendar"
             );
         }
-        repository.crearNotificacionAgenda(consulta.id());
+        // Los envios se crean en esta transaccion y se entregan despues del commit:
+        // una falla del correo o del push no revierte el agendado (RNF-24).
+        Long notificacionId = repository.crearNotificacionAgenda(
+                consulta.id(),
+                NotificacionTextos.cuerpoAgenda(
+                        consulta.especialidad().nombre(),
+                        consulta.medico().nombre() + " " + consulta.medico().apellido(),
+                        consulta.fecha(),
+                        numero.horaInicio()
+                )
+        );
+        envios.solicitar(notificacionId, socioId);
         return consulta;
     }
 
