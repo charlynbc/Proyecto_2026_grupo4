@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Avisos push (RNF-23): desde Android 13 el permiso se pide en tiempo de ejecucion. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="Médica Oriental"
         android:name="${applicationName}"

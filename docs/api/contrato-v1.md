@@ -1677,7 +1677,7 @@ El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni
 #### #33 · `POST /api/dispositivos`
 
 - **Roles:** SOCIO.
-- **RF:** RNF-23 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA (pasa a CONFIRMADA cuando se integre el backend; implementada en la rama `feat/dispositivos-push`. Reemplaza a `POST /api/notificaciones/registro`, el registro de prueba en memoria, que se elimina en la etapa de frontend).
+- **RF:** RNF-23 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** CONFIRMADA (backend en la rama `feat/dispositivos-push`, PR 161; cliente Android en `feat/front-dispositivos-push`). Reemplazó a `POST /api/notificaciones/registro`, el registro de prueba en memoria, que se eliminó junto con el cliente web que lo usaba.
 
 Registra el token de Firebase del dispositivo Android del socio autenticado. El socio dueño sale del JWT; el cuerpo no lleva identificador de socio. El backend no distingue la plataforma: el registro es solo para Android (RNF-23) y el cliente web no llama a este endpoint. El cliente lo llama al iniciar sesión un socio en Android, cuando ya otorgó el permiso de notificaciones.
 
@@ -1713,7 +1713,7 @@ Registra el token de Firebase del dispositivo Android del socio autenticado. El 
 #### #73 · `POST /api/dispositivos/baja`
 
 - **Roles:** SOCIO.
-- **RF:** RNF-23 (push en Android). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA (pasa a CONFIRMADA cuando se integre el backend).
+- **RF:** RNF-23 (push en Android). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** CONFIRMADA (backend en la rama `feat/dispositivos-push`, PR 161; cliente Android en `feat/front-dispositivos-push`).
 
 Da de baja el token push del dispositivo Android del socio autenticado: pone `habilitado` en `false`, de modo que deja de recibir avisos. **Nunca borra el registro**, porque `envio_notificacion` lo referencia con `ON DELETE RESTRICT`. Se vuelve a habilitar registrándolo otra vez con #33.
 
