@@ -453,6 +453,8 @@ class _ScrollableGridState extends State<_ScrollableGrid> {
       thumbVisibility: true,
       trackVisibility: true,
       thickness: 8,
+      // En Android el Scrollbar de Material no es interactivo por defecto.
+      interactive: true,
       child: SingleChildScrollView(
         controller: _controller,
         scrollDirection: Axis.horizontal,

@@ -4,6 +4,8 @@ import 'package:agenda_medica/features/estadisticas/tabs/time_slot_statistics_ta
 import 'package:agenda_medica/features/estadisticas/time_slots/models/time_slot_statistics.dart';
 import 'package:agenda_medica/features/estadisticas/time_slots/providers/time_slot_statistics_provider.dart';
 import 'package:agenda_medica/features/estadisticas/time_slots/repositories/time_slot_statistics_repository.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1005,23 +1007,59 @@ void main() {
     ) async {
       await narrow(tester);
 
-      // Contrastes a mano: palo #4A5560 sobre crema #F4EEE2 = 6,59; sobre
-      // su pista #D8D0BF = 4,96. Luminancias 0,0880 y 0,8587 (crema).
+      // Contrastes a mano. Luminancias: crema #F4EEE2 0,8587; pulgar #4A5560
+      // 0,0880; pista #8C8472 0,2329. Pulgar sobre crema 6,59; pista sobre
+      // crema (0,8587 + 0,05) / (0,2329 + 0,05) = 3,21; pulgar sobre pista
+      // (0,2329 + 0,05) / (0,0880 + 0,05) = 2,05.
+      const cream = Color(0xFFF4EEE2);
       final theme = ScrollbarTheme.of(tester.element(horizontalView));
       final thumb = theme.thumbColor!.resolve(<WidgetState>{})!;
       final track = theme.trackColor!.resolve(<WidgetState>{})!;
       expect(thumb, const Color(0xFF4A5560));
       expect(track, const Color(0xFFD8D0BF));
-      expect(
-        contrastRatio(thumb, const Color(0xFFF4EEE2)),
-        closeTo(6.59, 0.01),
-      );
+      expect(contrastRatio(thumb, cream), closeTo(6.59, 0.01));
+      expect(contrastRatio(track, cream), closeTo(1.33, 0.01));
       expect(contrastRatio(thumb, track), closeTo(4.96, 0.01));
+      expect(contrastRatio(track, cream), lessThan(3));
+      expect(contrastRatio(thumb, track), greaterThanOrEqualTo(1.5));
+    });
+
+    testWidgets('el Scrollbar es interactivo', (tester) async {
+      await narrow(tester);
+
       expect(
-        contrastRatio(thumb, const Color(0xFFF4EEE2)),
-        greaterThanOrEqualTo(3),
+        tester.widget<Scrollbar>(find.byType(Scrollbar)).interactive,
+        true,
       );
     });
+
+    // El pulgar se arrastra en cualquier plataforma y con cualquier puntero.
+    for (final (platform, kind, name) in [
+      (TargetPlatform.android, PointerDeviceKind.touch, 'Android con el dedo'),
+      (TargetPlatform.windows, PointerDeviceKind.mouse, 'Windows con el mouse'),
+      (TargetPlatform.windows, PointerDeviceKind.touch, 'Windows con el dedo'),
+    ]) {
+      testWidgets('arrastrar el pulgar desplaza la grilla: $name', (
+        tester,
+      ) async {
+        debugDefaultTargetPlatformOverride = platform;
+        await narrow(tester);
+        await tester.pumpAndSettle();
+
+        final view = tester.getRect(horizontalView);
+        final start = Offset(view.left + 30, view.bottom - 5);
+        final before = tester.getTopLeft(find.text('Dom')).dx;
+        final gesture = await tester.startGesture(start, kind: kind);
+        await gesture.moveBy(const Offset(40, 0));
+        await gesture.moveBy(const Offset(40, 0));
+        await gesture.up();
+        await tester.pumpAndSettle();
+        debugDefaultTargetPlatformOverride = null;
+
+        expect(tester.getTopLeft(find.text('Dom')).dx, lessThan(before));
+        expect(tester.takeException(), isNull);
+      });
+    }
 
     testWidgets('se puede deslizar sin errores y la grilla se mueve', (
       tester,
