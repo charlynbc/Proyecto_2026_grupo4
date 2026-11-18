@@ -261,20 +261,127 @@ void main() {
     expect(find.text(_rangeMessage), findsNothing);
   });
 
+  testWidgets(
+    'selector de orden completo a 320 px con texto x2 y en escritorio conserva filtros',
+    (tester) async {
+      await loadRoboto();
+      final repository = await _pump(
+        tester,
+        size: const Size(320, 2400),
+        textScale: 2,
+      );
+      expect(tester.takeException(), isNull);
+      await _type(tester, _fromKey, '05/11/2026');
+      await _type(tester, _toKey, '10/11/2026');
+      final patient = find.byKey(const Key('attentions-patient-field'));
+      await tester.ensureVisible(patient);
+      await tester.enterText(patient, '4.567.891-1');
+      await _tap(tester, 'attentions-search');
+      final selector = find.byKey(const Key('attentions-order'));
+
+      void expectCriteria(String order) {
+        expect(_last(repository)['orden'], order);
+        expect(_last(repository)['sentido'], 'desc');
+        expect(_last(repository)['paciente'], '45678911');
+        expect(_last(repository)['fechaDesde'], '2026-11-05');
+        expect(_last(repository)['fechaHasta'], '2026-11-10');
+        expect(_text(tester, _fromKey), '05/11/2026');
+        expect(_text(tester, _toKey), '10/11/2026');
+        expect(
+          tester.widget<TextField>(patient).controller!.text,
+          '4.567.891-1',
+        );
+      }
+
+      void expectCompleteText(Finder text, double width) {
+        expect(text, findsOneWidget);
+        final paragraph = tester.renderObject<RenderParagraph>(text);
+        expect(paragraph.didExceedMaxLines, isFalse);
+        // Además de no truncar líneas, el texto debe caber en su opción
+        // y en la pantalla: no basta con encontrar el Text en el árbol.
+        final item = find.ancestor(
+          of: text,
+          matching: find.byType(DropdownMenuItem<DoctorAttentionOrder>),
+        );
+        expect(item, findsOneWidget);
+        final textRect = tester.getRect(text);
+        final itemRect = tester.getRect(item);
+        expect(textRect.left, greaterThanOrEqualTo(itemRect.left - 1));
+        expect(textRect.right, lessThanOrEqualTo(itemRect.right + 1));
+        expect(textRect.top, greaterThanOrEqualTo(itemRect.top - 1));
+        expect(textRect.bottom, lessThanOrEqualTo(itemRect.bottom + 1));
+        expect(textRect.left, greaterThanOrEqualTo(0));
+        expect(textRect.right, lessThanOrEqualTo(width));
+        expect(textRect.top, greaterThanOrEqualTo(0));
+        expect(textRect.bottom, lessThanOrEqualTo(2400));
+      }
+
+      expectCriteria('fecha');
+      // Se redimensiona la misma pantalla, sin reconstruir la sesión ni
+      // reiniciar los filtros. También se conserva texto x2 en escritorio.
+      for (final width in [320.0, 1200.0]) {
+        tester.view.physicalSize = Size(width, 2400);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(selector);
+        await tester.pumpAndSettle();
+        expect(selector.hitTestable(), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        final selectorRect = tester.getRect(selector);
+        expect(selectorRect.left, greaterThanOrEqualTo(0));
+        expect(selectorRect.right, lessThanOrEqualTo(width));
+        if (width == 1200) {
+          final directionRect = tester.getRect(
+            find.byKey(const Key('attentions-direction')),
+          );
+          expect(selectorRect.right, lessThanOrEqualTo(directionRect.left));
+          expect(selectorRect.center.dy, closeTo(directionRect.center.dy, 1));
+        }
+
+        for (final (label, value, parameter) in [
+          (
+            'Apellido del paciente',
+            DoctorAttentionOrder.patientLastName,
+            'apellido',
+          ),
+          ('Fecha', DoctorAttentionOrder.date, 'fecha'),
+        ]) {
+          final before = repository.queries.length;
+          await _tap(tester, 'attentions-order');
+          expect(tester.takeException(), isNull);
+          // hitTestable excluye los textos del botón que queda bajo la
+          // barrera modal: se inspeccionan las opciones del menú abierto.
+          expectCompleteText(find.text('Fecha').hitTestable(), width);
+          expectCompleteText(
+            find.text('Apellido del paciente').hitTestable(),
+            width,
+          );
+          await tester.tap(find.text(label).hitTestable());
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          expect(
+            tester.widget<DropdownButton<DoctorAttentionOrder>>(selector).value,
+            value,
+          );
+          expect(repository.queries.length, before + 1);
+          expectCriteria(parameter);
+          expectCompleteText(
+            find
+                .descendant(of: selector, matching: find.text(label))
+                .hitTestable(),
+            width,
+          );
+        }
+      }
+    },
+  );
+
   for (final scale in [1.0, 2.0]) {
     testWidgets('a 320 px con texto x$scale no desborda y las etiquetas '
         'Desde y Hasta no se cortan', (tester) async {
       await loadRoboto();
       await _pump(tester, size: const Size(320, 2400), textScale: scale);
 
-      if (scale == 1.0) {
-        expect(tester.takeException(), isNull);
-      } else {
-        // Con texto al doble la pantalla ya tenía 4 desbordes en otros
-        // controles (medido antes de este cambio, con los botones de fecha).
-        // Acá solo se comprueba lo de las fechas.
-        tester.takeException();
-      }
+      expect(tester.takeException(), isNull);
       for (final (key, label) in [(_fromKey, 'Desde'), (_toKey, 'Hasta')]) {
         final text = find.descendant(
           of: find.byKey(key),
