@@ -50,7 +50,8 @@ class UserAccount {
   final DateTime createdAt;
 
   /// `puedeInactivar`: si inactivar esa cuenta se aceptaría ahora.
-  /// No dice nada de reactivar.
+  /// No dice nada de reactivar. Si el campo no viene, se lee como verdadero
+  /// y el 409 sigue protegiendo.
   final bool canDeactivate;
 
   factory UserAccount.fromJson(Map<String, dynamic> json) {
@@ -68,7 +69,7 @@ class UserAccount {
       status: AccountStatus.fromApi(json['estado'] as String),
       activated: json['activada'] as bool,
       createdAt: DateTime.parse(json['fechaAlta'] as String),
-      canDeactivate: json['puedeInactivar'] as bool,
+      canDeactivate: json['puedeInactivar'] as bool? ?? true,
     );
   }
 }

@@ -45,4 +45,20 @@ void main() {
     expect(medico.status, AccountStatus.active);
     expect(medico.canDeactivate, isTrue);
   });
+
+  test('si falta puedeInactivar se lee como verdadero', () {
+    final row = UserAccount.fromJson({
+      'id': 42,
+      'ci': '45678911',
+      'nombre': 'Lucía',
+      'apellido': 'Fernández',
+      'rol': 'SOCIO',
+      'correo': 'lucia.fernandez@example.org',
+      'estado': 'ACTIVA',
+      'activada': true,
+      'fechaAlta': '2026-09-01T09:00:00-03:00',
+    });
+
+    expect(row.canDeactivate, isTrue);
+  });
 }
