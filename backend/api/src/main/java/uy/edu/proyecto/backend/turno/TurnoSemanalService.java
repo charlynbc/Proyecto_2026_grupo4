@@ -199,6 +199,12 @@ public class TurnoSemanalService {
                 || request.consultorioId() <= 0) {
             throw validacion("Faltan datos obligatorios o no son válidos");
         }
+        if (request.consultasAgendadasVistas() != null
+                && request.consultasAgendadasVistas() < 0) {
+            throw validacion(
+                    "consultasAgendadasVistas no puede ser negativo"
+            );
+        }
     }
 
     /**
@@ -299,6 +305,29 @@ public class TurnoSemanalService {
                             + fechasConConsultas + ". Confirmá el cambio"
                             + " para continuar."
             );
+        }
+        // La confirmación vale solo para las consultas que el funcionario vio
+        // en la vista previa. El conteo corre en esta misma transacción, con
+        // las fechas ya bloqueadas, así que no entra una consulta más entre
+        // la comprobación y la escritura.
+        Integer vistas = request.consultasAgendadasVistas();
+        if (Boolean.TRUE.equals(request.confirmarConConsultas())
+                && vistas != null) {
+            int reales = seleccionadas.stream()
+                    .mapToInt(fecha -> agendadas.getOrDefault(
+                            fecha.turnoId(), 0
+                    ))
+                    .sum();
+            if (reales != vistas) {
+                throw new ApiException(
+                        HttpStatus.CONFLICT,
+                        "TURNO_NO_MODIFICABLE",
+                        "Las consultas agendadas en las fechas elegidas"
+                                + " cambiaron desde la vista previa. Revisá"
+                                + " la vista previa y confirmá el cambio de"
+                                + " nuevo."
+                );
+            }
         }
 
         repository.actualizarConsultorioDeFechas(
