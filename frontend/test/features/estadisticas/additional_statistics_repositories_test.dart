@@ -109,10 +109,13 @@ void main() {
     );
     final all = await fake.statistics();
     final filtered = await fake.statistics(specialtyId: 2);
+    // El catálogo del fake tiene tres especialidades y el fake las devuelve
+    // todas; la pantalla es la que oculta las de pase libre sin pases.
+    expect(all.items, hasLength(3));
     expect(all.items.first.issued, 10);
     expect(all.items.last.utilization, 'Sin datos');
     expect(all.items.last.percentage, isNull);
-    expect(filtered.items, hasLength(2));
+    expect(filtered.items, hasLength(3));
     expect(filtered.items.first.issued, 0);
   });
 }

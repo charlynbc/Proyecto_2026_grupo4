@@ -23,6 +23,33 @@ VENCIDO) y `posicion` opcional. `PUT /api/admin/anuncios/{id}/vigencia` recibe
 `{"vigenteDesde":null,"vigenteHasta":"2027-01-01T00:00:00-03:00"}` y
 responde 204; exige fin y valida su relación con inicio.
 
+`GET /api/admin/anuncios/{id}` devuelve el detalle de cualquier anuncio, esté
+vigente, programado o vencido (el detalle público `GET /api/anuncios/{id}` sigue
+respondiendo 404 fuera de vigencia y no cambia). Solo `ADMINISTRADOR`. Responde
+200 con el contenido del detalle público más los datos de gestión:
+
+```json
+{
+  "id": 42,
+  "titulo": "Campaña de vacunación",
+  "resumen": "Resumen corto",
+  "texto": "**Comienza** el lunes (Markdown)",
+  "publicadoEn": "2026-11-01T10:00:00-03:00",
+  "vigenteDesde": null,
+  "vigenteHasta": "2026-11-10T00:00:00-03:00",
+  "estado": "VENCIDO",
+  "posicion": null,
+  "imagenes": [{ "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." }]
+}
+```
+
+`estado` y `posicion` se calculan igual que en el listado
+(`GET /api/admin/anuncios`); `resumen`, `texto` y `vigenteDesde` pueden ser
+`null`. Las `url` de las imágenes son enlaces temporales de Storage válidos por
+una hora, como en el detalle público. Si el anuncio no existe responde
+`404 NO_ENCONTRADO` con el formato de error habitual (`{"code","message"}`);
+sin sesión responde 401 y con otro rol 403.
+
 `GET /api/admin/carrusel` devuelve `{"posiciones":[]}`. Para guardar,
 `PUT` a la misma ruta recibe la selección completa, por ejemplo
 `{"posiciones":[{"posicion":1,"anuncioId":42},{"posicion":3,"anuncioId":56}]}`.
