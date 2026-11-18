@@ -665,6 +665,143 @@ void main() {
     });
   });
 
+  group('el mensaje de error se limpia al cambiar el formulario', () {
+    const noContent = 'Agregá texto o al menos una imagen.';
+    const serverMessage =
+        'El título es obligatorio y admite hasta 160 caracteres';
+
+    // La novedad 40 sin texto y sin imágenes: guardar muestra noContent.
+    Future<_Repo> openWithoutContent(
+      WidgetTester tester, {
+      double width = 1280,
+      double scale = 1,
+    }) async {
+      final repo = _Repo();
+      await _open(
+        tester,
+        repo,
+        width: width,
+        scale: scale,
+        picker: (_) async => [_png('nueva.png')],
+      );
+      for (final n in [1, 2, 3]) {
+        await _tap(tester, _remove('Imagen $n'));
+      }
+      await _enter(tester, _textField, '');
+      await _tap(tester, _save);
+      expect(find.text(noContent), findsOneWidget);
+      return repo;
+    }
+
+    // La novedad 40 con un error del servidor visible y sus imágenes.
+    Future<_Repo> openWithServerError(WidgetTester tester) async {
+      final repo = _Repo()..updateError = const ApiException(serverMessage);
+      await _open(tester, repo);
+      await _enter(tester, _titleField, 'Título nuevo');
+      await _tap(tester, _save);
+      expect(find.text(serverMessage), findsOneWidget);
+      return repo;
+    }
+
+    testWidgets('aparece al guardar sin texto ni imágenes y desaparece al '
+        'agregar una imagen', (tester) async {
+      await openWithoutContent(tester);
+
+      await _tap(tester, find.byKey(const Key('edit-add-images')));
+
+      expect(find.text(noContent), findsNothing);
+      expect(find.text('nueva.png'), findsOneWidget);
+    });
+
+    testWidgets('desaparece al escribir texto', (tester) async {
+      await openWithoutContent(tester);
+
+      await _enter(tester, _textField, 'Texto nuevo');
+
+      expect(find.text(noContent), findsNothing);
+    });
+
+    testWidgets('desaparece al quitar una imagen', (tester) async {
+      await openWithServerError(tester);
+
+      await _tap(tester, _remove('Imagen 1'));
+
+      expect(find.text(serverMessage), findsNothing);
+    });
+
+    testWidgets('desaparece al reordenar una imagen', (tester) async {
+      await openWithServerError(tester);
+
+      await _tap(tester, _down('Imagen 1'));
+
+      expect(find.text(serverMessage), findsNothing);
+    });
+
+    testWidgets('un error del servidor desaparece al editar el título', (
+      tester,
+    ) async {
+      await openWithServerError(tester);
+
+      await _enter(tester, _titleField, 'Título nuevo 2');
+
+      expect(find.text(serverMessage), findsNothing);
+    });
+
+    testWidgets('un error del servidor desaparece al editar el resumen', (
+      tester,
+    ) async {
+      await openWithServerError(tester);
+
+      await _enter(tester, find.byKey(const Key('edit-summary')), 'Otro');
+
+      expect(find.text(serverMessage), findsNothing);
+    });
+
+    testWidgets('un error del servidor desaparece al editar el texto', (
+      tester,
+    ) async {
+      await openWithServerError(tester);
+
+      await _enter(tester, _textField, 'Otro texto');
+
+      expect(find.text(serverMessage), findsNothing);
+    });
+
+    testWidgets('si sigue habiendo un problema, al guardar de nuevo vuelve a '
+        'aparecer', (tester) async {
+      await openWithoutContent(tester);
+      await _enter(tester, _textField, 'Texto nuevo');
+      expect(find.text(noContent), findsNothing);
+
+      await _enter(tester, _textField, '');
+      await _tap(tester, _save);
+
+      expect(find.text(noContent), findsOneWidget);
+    });
+
+    testWidgets('tocar un campo sin cambiar nada no limpia el mensaje', (
+      tester,
+    ) async {
+      await openWithoutContent(tester);
+
+      await tester.ensureVisible(_titleField);
+      await tester.tap(_titleField);
+      await tester.pump();
+
+      expect(find.text(noContent), findsOneWidget);
+    });
+
+    testWidgets('a 320 px con texto al doble no hay desborde con el mensaje '
+        'visible', (tester) async {
+      await openWithoutContent(tester, width: 320, scale: 2);
+
+      final rect = tester.getRect(_error);
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(320));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   group('320 px y texto al doble', () {
     testWidgets('el formulario con imágenes no se corta ni se desborda', (
       tester,

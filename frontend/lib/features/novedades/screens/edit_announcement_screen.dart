@@ -68,6 +68,7 @@ class _EditAnnouncementScreenState
   String _originalSummary = '';
   String _originalText = '';
   List<int> _originalImageIds = const [];
+  (String, String, String) _lastText = ('', '', '');
 
   bool _picking = false;
   bool _submitting = false;
@@ -101,13 +102,32 @@ class _EditAnnouncementScreenState
           label: 'Imagen ${index + 1}',
         ),
     ]);
+    _lastText = (_title.text, _summary.text, _text.text);
     // Después de cargar los valores: así no cuentan como cambios.
     for (final controller in [_title, _summary, _text]) {
       controller.addListener(_onEdited);
     }
   }
 
-  void _onEdited() => setState(() => _saveError = null);
+  /// Los mensajes de error se limpian apenas la persona cambia algo del
+  /// formulario: es el único lugar donde se limpian (salvo al empezar a
+  /// guardar). Si al guardar de nuevo sigue habiendo un problema, vuelven.
+  void _clearErrors() {
+    _saveError = null;
+    _imageError = null;
+  }
+
+  /// Los controladores también avisan al mover el cursor o al enfocar: eso no
+  /// es un cambio y no limpia el mensaje. Igual se redibuja, porque el botón
+  /// Guardar depende del texto.
+  void _onEdited() {
+    final current = (_title.text, _summary.text, _text.text);
+    final changed = current != _lastText;
+    _lastText = current;
+    setState(() {
+      if (changed) _clearErrors();
+    });
+  }
 
   bool get _textChanged =>
       _title.text.trim() != _originalTitle ||
@@ -147,7 +167,10 @@ class _EditAnnouncementScreenState
         _entries.length,
       );
       if (mounted) {
-        setState(() => _entries.addAll(images.map(_ImageEntry.added)));
+        setState(() {
+          _entries.addAll(images.map(_ImageEntry.added));
+          _clearErrors();
+        });
       }
     } catch (error) {
       if (mounted) {
@@ -163,13 +186,16 @@ class _EditAnnouncementScreenState
   }
 
   void _move(int from, int to) {
-    setState(() => _entries.insert(to, _entries.removeAt(from)));
+    setState(() {
+      _entries.insert(to, _entries.removeAt(from));
+      _clearErrors();
+    });
   }
 
   void _remove(int index) {
     setState(() {
       _entries.removeAt(index);
-      _imageError = null;
+      _clearErrors();
     });
   }
 
