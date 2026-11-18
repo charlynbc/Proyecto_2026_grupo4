@@ -1,6 +1,9 @@
+import '../../features/agenda/models/appointment.dart';
 import '../../features/notificaciones/models/app_notification.dart';
 import '../utils/ui_date.dart';
 import '../utils/uruguay_time.dart';
+import 'fake_admin_database.dart';
+import 'fake_appointment_seed.dart';
 
 /// La socia de los datos de prueba (`TestData.people`).
 const String kFakeMemberCi = '12345672';
@@ -72,62 +75,130 @@ const List<Duration> _ago = [
   Duration(hours: 5),
 ];
 
-String _content(String type, DateTime createdAt) {
-  final date = formatUiDate(
-    UruguayTime.toUruguay(createdAt.add(const Duration(days: 14))),
-  );
+/// La consulta de la semilla a la que se refiere un aviso de ese [type], o
+/// `null` si no cuelga de ninguna.
+///
+/// `SUSPENSION` va sin consulta: sería una cancelada por la institución y el
+/// Fake de consultas todavía no tiene ninguna. Cuando la tenga, se la puede
+/// enlazar acá (el contrato permite `consultaId` nulo).
+Appointment? _appointmentFor(String type, List<Appointment> appointments) {
+  Appointment withStatus(String status) =>
+      appointments.firstWhere((a) => a.status == status);
   return switch (type) {
-    'AGENDA' =>
-      'Tu consulta de Medicina General con Carla Méndez quedó agendada para '
-          'el $date a las 14:00.',
-    'RECORDATORIO' => 'Mañana tenés consulta de Medicina General a las 14:00.',
-    'HISTORIA_ACTUALIZADA' => 'Tu historia clínica fue actualizada.',
-    'CANCELACION' => 'Tu consulta del $date fue cancelada a tu solicitud.',
-    _ =>
-      'Tu consulta del $date fue cancelada por la institución. Horario: '
-          '14:00 a 14:30 (número 3). Motivo: el médico no atiende ese día.',
+    'AGENDA' || 'RECORDATORIO' => withStatus('AGENDADA'),
+    'CANCELACION' => withStatus('CANCELADA_SOCIO'),
+    'HISTORIA_ACTUALIZADA' => withStatus('ATENDIDA'),
+    _ => null,
   };
 }
 
-AppNotification _n(int id, String type, int consultaId, DateTime createdAt) =>
-    AppNotification(
-      id: id,
-      type: type,
-      title: _titles[type]!,
-      consultaId: consultaId,
-      content: _content(type, createdAt),
-      createdAt: createdAt,
-    );
+/// El texto sale de los datos de la consulta: no afirma nada que ella no diga
+/// (por eso el recordatorio no dice "mañana").
+String _content(String type, Appointment? appointment) {
+  if (appointment == null) {
+    return type == 'SUSPENSION'
+        ? 'Una de tus consultas fue cancelada por la institución. Motivo: el '
+              'médico no atiende ese día.'
+        : 'Se agendó una consulta a tu nombre.';
+  }
+  final specialty = appointment.specialty.name;
+  final date = formatUiDate(appointment.date);
+  final detail =
+      'Horario: ${appointment.timeRange} (número ${appointment.number}).';
+  return switch (type) {
+    'AGENDA' =>
+      'Tu consulta de $specialty quedó agendada para el $date. $detail',
+    'RECORDATORIO' => 'Tenés consulta de $specialty el $date. $detail',
+    'CANCELACION' =>
+      'Tu consulta de $specialty del $date fue cancelada a tu solicitud. '
+          '$detail',
+    _ =>
+      'Tu historia clínica fue actualizada tras tu consulta de $specialty '
+          'del $date. $detail',
+  };
+}
+
+AppNotification _n(
+  int id,
+  String type,
+  List<Appointment> appointments,
+  DateTime createdAt, {
+  bool linked = true,
+}) {
+  final appointment = linked ? _appointmentFor(type, appointments) : null;
+  return AppNotification(
+    id: id,
+    type: type,
+    title: _titles[type]!,
+    consultaId: appointment?.id,
+    content: _content(type, appointment),
+    createdAt: createdAt,
+  );
+}
 
 /// Los avisos con que arranca el Fake, relativos a [now] para que la lista
 /// siempre tenga fechas verosímiles.
 ///
-/// La socia de prueba tiene 26 avisos visibles (varias páginas de 10 y de 20),
-/// colgados de las tres consultas de `seedMemberAppointments` (ids 1, 2 y 3).
-/// Además hay avisos que el servidor no le mostraría, para ejercitar sus
-/// reglas: dos recordatorios que le tocan aparecer en el futuro y tres avisos
-/// de otro socio.
-List<FakeStoredNotification> fakeNotificationSeed(DateTime now) => [
-  for (var id = 1; id <= _ago.length; id++)
+/// La socia de prueba tiene 26 avisos visibles (varias páginas de 10 y de 20).
+/// Los que se refieren a una consulta cuelgan de las tres de
+/// `seedMemberAppointments` (ids 1, 2 y 3) y repiten sus datos reales; los de
+/// suspensión van sin consulta. Además hay avisos que el servidor no le
+/// mostraría, para ejercitar sus reglas: dos recordatorios que le tocan
+/// aparecer en el futuro y tres avisos de otro socio (sin consulta, porque las
+/// del Fake son de la socia de prueba).
+///
+/// Las consultas se arman con la misma semilla que usa el Fake de agenda, con
+/// el día de Uruguay de [now]; [appointments] permite pasarlas ya armadas.
+List<FakeStoredNotification> fakeNotificationSeed(
+  DateTime now, {
+  List<Appointment>? appointments,
+}) {
+  var nextId = 1;
+  final consultas =
+      appointments ??
+      seedMemberAppointments(
+        today: UruguayTime.today(now: now),
+        admin: FakeAdminDatabase(),
+        newId: () => nextId++,
+      );
+  return [
+    for (var id = 1; id <= _ago.length; id++)
+      FakeStoredNotification(
+        _n(
+          id,
+          _typeCycle[(id - 1) % _typeCycle.length],
+          consultas,
+          now.subtract(_ago[id - 1]),
+        ),
+      ),
     FakeStoredNotification(
       _n(
-        id,
-        _typeCycle[(id - 1) % _typeCycle.length],
-        (id % 3) + 1,
-        now.subtract(_ago[id - 1]),
+        101,
+        'RECORDATORIO',
+        consultas,
+        now.subtract(const Duration(hours: 2)),
       ),
+      scheduledFor: now.add(const Duration(days: 1)),
     ),
-  FakeStoredNotification(
-    _n(101, 'RECORDATORIO', 1, now.subtract(const Duration(hours: 2))),
-    scheduledFor: now.add(const Duration(days: 1)),
-  ),
-  FakeStoredNotification(
-    _n(102, 'RECORDATORIO', 2, now.subtract(const Duration(hours: 1))),
-    scheduledFor: now.add(const Duration(days: 3)),
-  ),
-  for (var id = 201; id <= 203; id++)
     FakeStoredNotification(
-      _n(id, 'AGENDA', 1, now.subtract(const Duration(hours: 3))),
-      ownerCi: kFakeOtherMemberCi,
+      _n(
+        102,
+        'RECORDATORIO',
+        consultas,
+        now.subtract(const Duration(hours: 1)),
+      ),
+      scheduledFor: now.add(const Duration(days: 3)),
     ),
-];
+    for (var id = 201; id <= 203; id++)
+      FakeStoredNotification(
+        _n(
+          id,
+          'AGENDA',
+          consultas,
+          now.subtract(const Duration(hours: 3)),
+          linked: false,
+        ),
+        ownerCi: kFakeOtherMemberCi,
+      ),
+  ];
+}

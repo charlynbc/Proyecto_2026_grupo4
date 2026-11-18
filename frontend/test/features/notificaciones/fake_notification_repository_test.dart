@@ -432,7 +432,13 @@ void main() {
       for (final n in all) {
         expect(n.title, isNotEmpty, reason: 'aviso ${n.id}');
         expect(n.content, isNotEmpty, reason: 'aviso ${n.id}');
-        expect({1, 2, 3}, contains(n.consultaId), reason: 'aviso ${n.id}');
+        // Los de suspensión van sin consulta: el Fake no tiene una cancelada
+        // por la institución a la que enlazarlos.
+        if (n.type == 'SUSPENSION') {
+          expect(n.consultaId, isNull, reason: 'aviso ${n.id}');
+        } else {
+          expect({1, 2, 3}, contains(n.consultaId), reason: 'aviso ${n.id}');
+        }
       }
     });
 
