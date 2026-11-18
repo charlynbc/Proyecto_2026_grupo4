@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/forms/submit_state.dart';
 import '../../../core/network/api_exception.dart';
 import '../models/weekly_shift.dart';
+import 'clinic_date_breakdown_provider.dart';
 import 'shifts_page_provider.dart';
 import 'weekly_shift_clinic_repository_provider.dart';
 import 'weekly_shift_provider.dart';
@@ -36,6 +37,7 @@ class ChangeWeeklyShiftClinicController extends Notifier<SubmitState> {
         confirmarConConsultas: confirmarConConsultas,
       );
       ref.invalidate(weeklyShiftProvider(weeklyShiftId));
+      ref.invalidate(clinicDateBreakdownProvider(weeklyShiftId));
       ref.invalidate(shiftsPageProvider);
       state = const SubmitState(status: SubmitStatus.done);
       return updated;

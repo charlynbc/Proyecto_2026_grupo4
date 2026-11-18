@@ -10,9 +10,12 @@ import 'package:agenda_medica/features/consultorios/repositories/clinic_reposito
 import 'package:agenda_medica/features/consultorios/repositories/fake_clinic_repository.dart';
 import 'package:agenda_medica/features/turnos/models/clinic_change_preview.dart';
 import 'package:agenda_medica/features/turnos/models/new_weekly_shift.dart';
+import 'package:agenda_medica/features/turnos/models/shift_filters.dart';
 import 'package:agenda_medica/features/turnos/models/shift_number.dart';
+import 'package:agenda_medica/features/turnos/models/shift_page.dart';
 import 'package:agenda_medica/features/turnos/models/weekly_shift.dart';
 import 'package:agenda_medica/features/turnos/providers/shift_repository_provider.dart';
+import 'package:agenda_medica/features/turnos/providers/suspension_clock_provider.dart';
 import 'package:agenda_medica/features/turnos/providers/weekly_shift_clinic_repository_provider.dart';
 import 'package:agenda_medica/features/turnos/repositories/fake_shift_repository.dart';
 import 'package:agenda_medica/features/turnos/repositories/fake_weekly_shift_clinic_repository.dart';
@@ -39,6 +42,23 @@ class _FlakyShiftRepository extends FakeShiftRepository {
     calls++;
     if (calls == 1) throw const ApiException();
     return super.getWeeklyShift(id);
+  }
+}
+
+/// Cuenta los pedidos del listado de turnos y, con [failFirst], falla el
+/// primero, como un corte de red.
+class _CountingListRepository extends FakeShiftRepository {
+  _CountingListRepository(super.db, {this.failFirst = false})
+    : super(latency: Duration.zero);
+
+  final bool failFirst;
+  int listCalls = 0;
+
+  @override
+  Future<ShiftPage> listShifts(ShiftFilters filters) async {
+    listCalls++;
+    if (failFirst && listCalls == 1) throw const ApiException();
+    return super.listShifts(filters);
   }
 }
 
@@ -124,14 +144,15 @@ Future<_Harness> _pump(
   int? id,
   Size size = const Size(900, 1800),
   bool flaky = false,
+  bool listFailsOnce = false,
   bool clinicsFail = false,
   WeeklyShiftClinicRepository Function(FakeShiftDatabase db)? clinicChange,
 }) async {
   final admin = FakeAdminDatabase(clock: () => DateTime.utc(2026, 10, 20, 15));
   final shiftDb = buildListingDb(admin);
-  final repository = flaky
+  final FakeShiftRepository repository = flaky
       ? _FlakyShiftRepository(shiftDb)
-      : FakeShiftRepository(shiftDb, latency: Duration.zero);
+      : _CountingListRepository(shiftDb, failFirst: listFailsOnce);
   final weeklyShiftId = id ?? shiftDb.weeklyShifts[index].id;
   final clinicRepository =
       clinicChange?.call(shiftDb) ??
@@ -153,6 +174,10 @@ Future<_Harness> _pump(
     ],
     overrides: [
       shiftRepositoryProvider.overrideWith((ref) async => repository),
+      // Hoy es el 20/10/2026, como el reloj de la base falsa.
+      suspensionClockProvider.overrideWithValue(
+        () => DateTime.utc(2026, 10, 20),
+      ),
       clinicRepositoryProvider.overrideWith(
         (ref) async => clinicsFail
             ? _BrokenClinics()
@@ -187,8 +212,10 @@ Future<(_Harness, List<FakeShift>)> _pumpFiveDates(
   WidgetTester tester, {
   void Function(FakeShiftDatabase db, int weeklyShiftId, List<FakeShift> dates)?
   prepare,
+  Size size = const Size(900, 1800),
+  bool listFailsOnce = false,
 }) async {
-  final harness = await _pump(tester);
+  final harness = await _pump(tester, size: size, listFailsOnce: listFailsOnce);
   final acosta = harness.admin.accounts.firstWhere(
     (account) =>
         account.role == UserRole.medico && account.lastName == 'Acosta',
@@ -317,9 +344,8 @@ void main() {
 
   group('cuando el consultorio varía según la fecha', () {
     const warning =
-        'El consultorio varía según la fecha. Consultá el listado de Turnos '
-        'para ver el de cada una y revisá cada turno antes de informar al '
-        'socio.';
+        'El consultorio varía según la fecha. Revisá cada turno antes de '
+        'informar al socio.';
 
     testWidgets('no muestra un consultorio único y avisa', (tester) async {
       // Dos de las 5 fechas pasan al Consultorio 7; el patrón sigue en el 3.
@@ -353,6 +379,120 @@ void main() {
       expect(find.text('Consultorio 3 (Planta baja)'), findsOneWidget);
       expect(find.text('Varía según la fecha'), findsNothing);
       expect(find.textContaining('El consultorio varía'), findsNothing);
+    });
+  });
+
+  group('desglose del consultorio de cada fecha', () {
+    const title = 'Consultorio de cada fecha (de hoy en adelante)';
+    const note =
+        'Fechas generadas incluye las que ya pasaron y las suspendidas. El '
+        'aviso de consultorio variable solo mira las fechas de hoy en '
+        'adelante.';
+    const loadError = 'No pudimos cargar el desglose de consultorios.';
+
+    // Las 5 fechas del 21/10 al 18/11 están en el Consultorio 3 y la primera
+    // (21/10) está suspendida. Dos pasan al Consultorio 7: quedan 3 y 2.
+    void splitTwoToRoom7(FakeShiftDatabase db, int id, List<FakeShift> dates) {
+      final room7 = db.admin.clinics.firstWhere(
+        (clinic) => clinic.name == 'Consultorio 7',
+      );
+      db.changeClinic(id, room7.id, turnoIds: [dates[1].id, dates[2].id]);
+    }
+
+    testWidgets('con el consultorio variable muestra las fechas de cada uno, '
+        'las pasadas y la aclaración', (tester) async {
+      await _pumpFiveDates(tester, prepare: splitTwoToRoom7);
+
+      expect(find.text(title), findsOneWidget);
+      expect(
+        find.text('Consultorio 3 (Planta baja): 3 fechas, 1 suspendida'),
+        findsOneWidget,
+      );
+      expect(find.text('Consultorio 7 (Piso 1): 2 fechas'), findsOneWidget);
+      expect(
+        find.text('Fechas pasadas: 0, no cuentan para el aviso'),
+        findsOneWidget,
+      );
+      expect(find.text(note), findsOneWidget);
+      expect(find.text(loadError), findsNothing);
+    });
+
+    testWidgets('sin variación no hay desglose ni se pide el listado', (
+      tester,
+    ) async {
+      final harness = await _pump(tester);
+
+      expect(find.text('Consultorio 3 (Planta baja)'), findsOneWidget);
+      expect(find.text(title), findsNothing);
+      expect(find.textContaining('Fechas pasadas'), findsNothing);
+      expect(find.text(note), findsNothing);
+      expect((harness.repository as _CountingListRepository).listCalls, 0);
+    });
+
+    testWidgets('si el listado falla avisa, el detalle sigue y Reintentar lo '
+        'vuelve a pedir', (tester) async {
+      final (harness, _) = await _pumpFiveDates(
+        tester,
+        prepare: splitTwoToRoom7,
+        listFailsOnce: true,
+      );
+
+      expect(find.text(loadError), findsOneWidget);
+      expect(find.text('Reintentar'), findsOneWidget);
+      expect(
+        find.text('Consultorio 3 (Planta baja): 3 fechas, 1 suspendida'),
+        findsNothing,
+      );
+      // El resto del detalle sigue a la vista.
+      expect(find.textContaining('Acosta'), findsOneWidget);
+      expect(find.text('Varía según la fecha'), findsOneWidget);
+      expect(find.text('5 fechas'), findsOneWidget);
+      expect(
+        find.byKey(const Key('weekly-shift-change-clinic')),
+        findsOneWidget,
+      );
+      final repository = harness.repository as _CountingListRepository;
+      expect(repository.listCalls, 1);
+
+      await tester.tap(find.text('Reintentar'));
+      await tester.pumpAndSettle();
+
+      expect(repository.listCalls, 2);
+      expect(find.text(loadError), findsNothing);
+      expect(
+        find.text('Consultorio 3 (Planta baja): 3 fechas, 1 suspendida'),
+        findsOneWidget,
+      );
+      expect(find.text('Consultorio 7 (Piso 1): 2 fechas'), findsOneWidget);
+    });
+
+    testWidgets('después de cambiar el consultorio de algunas fechas se '
+        'actualiza solo', (tester) async {
+      final (_, dates) = await _pumpFiveDates(tester, prepare: splitTwoToRoom7);
+      expect(
+        find.text('Consultorio 3 (Planta baja): 3 fechas, 1 suspendida'),
+        findsOneWidget,
+      );
+      expect(find.text('Consultorio 7 (Piso 1): 2 fechas'), findsOneWidget);
+
+      // Al Consultorio 7 pasa también la fecha del 11/11 (dates[3]).
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+      await _uncheck(tester, dates[0]);
+      await _uncheck(tester, dates[4]);
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(
+        find.text('Consultorio 3 (Planta baja): 2 fechas, 1 suspendida'),
+        findsOneWidget,
+      );
+      expect(find.text('Consultorio 7 (Piso 1): 3 fechas'), findsOneWidget);
+      expect(
+        find.text('Consultorio 3 (Planta baja): 3 fechas, 1 suspendida'),
+        findsNothing,
+      );
     });
   });
 
@@ -955,5 +1095,34 @@ void main() {
       expect(find.text(_currentClinic), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('el detalle con el desglose no desborda, con el texto del '
+          'sistema x$scale', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _pumpFiveDates(
+          tester,
+          size: const Size(320, 640),
+          prepare: (db, id, dates) {
+            final room7 = db.admin.clinics.firstWhere(
+              (clinic) => clinic.name == 'Consultorio 7',
+            );
+            db.changeClinic(id, room7.id, turnoIds: [dates[1].id, dates[2].id]);
+          },
+        );
+
+        expect(
+          find.text('Consultorio 3 (Planta baja): 3 fechas, 1 suspendida'),
+          findsOneWidget,
+        );
+        expect(find.text('Consultorio 7 (Piso 1): 2 fechas'), findsOneWidget);
+        expect(
+          find.text('Fechas pasadas: 0, no cuentan para el aviso'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 }
