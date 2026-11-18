@@ -21,10 +21,15 @@ class FakeUserRepository implements UserRepository {
   FakeUserRepository(
     this._db, {
     this.latency = const Duration(milliseconds: 300),
+    this.viewerId = kFakeAdminAccountId,
   });
 
   final FakeAdminDatabase _db;
   final Duration latency;
+
+  /// El administrador que pide el listado. `puedeInactivar` es falso en su
+  /// propia fila.
+  final int viewerId;
 
   @override
   Future<void> createUser(NewUser user) async {
@@ -133,7 +138,7 @@ class FakeUserRepository implements UserRepository {
     return UserPage(
       items: [
         for (final a in matches.sublist(start, end))
-          a.toAccount(_db.doctorsWithActiveShifts),
+          a.toAccount(_db.doctorsWithActiveShifts, viewerId: viewerId),
       ],
       page: page,
       size: size,

@@ -50,15 +50,18 @@ class FakeAccount {
   final String? phone2;
   final String? address;
 
-  /// La misma regla que el servidor, vista por el administrador de la sesión
-  /// falsa. Las consultas agendadas no se modelan: solo los turnos activos.
-  UserAccount toAccount(Set<int> doctorsWithActiveShifts) {
+  /// La misma regla que el servidor, vista por [viewerId]. Las consultas
+  /// agendadas no se modelan: solo los turnos activos.
+  UserAccount toAccount(
+    Set<int> doctorsWithActiveShifts, {
+    int viewerId = kFakeAdminAccountId,
+  }) {
     final blockedDoctor =
         role == UserRole.medico && doctorsWithActiveShifts.contains(id);
     final canDeactivate =
         role != UserRole.socio &&
         status == AccountStatus.active &&
-        id != kFakeAdminAccountId &&
+        id != viewerId &&
         !blockedDoctor;
     return UserAccount(
       id: id,
