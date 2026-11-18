@@ -131,7 +131,10 @@ class FakeUserRepository implements UserRepository {
     final start = math.min(page * size, matches.length);
     final end = math.min(start + size, matches.length);
     return UserPage(
-      items: [for (final a in matches.sublist(start, end)) a.toAccount()],
+      items: [
+        for (final a in matches.sublist(start, end))
+          a.toAccount(_db.doctorsWithActiveShifts),
+      ],
       page: page,
       size: size,
       total: matches.length,
