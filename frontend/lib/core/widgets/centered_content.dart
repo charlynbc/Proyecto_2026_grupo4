@@ -8,7 +8,13 @@ import 'package:flutter/material.dart';
 /// formularios cortos. Las pantallas con filtros y resultados que cambian de
 /// alto piden [Alignment.topCenter]: así el contenido empieza arriba y los
 /// controles no se mueven cuando los resultados crecen o se achican.
-class CenteredContent extends StatelessWidget {
+///
+/// Tiene su propio [ScrollController]: la barra de desplazamiento siempre
+/// visible (`AppScrollBehavior`) exige un controlador con una sola posición, y
+/// con el compartido de la ruta (`PrimaryScrollController`) fallaba cuando dos
+/// pantallas con scroll estaban montadas a la vez, como las pestañas de
+/// Estadísticas en medio de la animación.
+class CenteredContent extends StatefulWidget {
   const CenteredContent({
     super.key,
     required this.child,
@@ -26,14 +32,28 @@ class CenteredContent extends StatelessWidget {
   final Alignment alignment;
 
   @override
+  State<CenteredContent> createState() => _CenteredContentState();
+}
+
+class _CenteredContentState extends State<CenteredContent> {
+  final _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: alignment,
+      alignment: widget.alignment,
       child: SingleChildScrollView(
-        padding: padding,
+        controller: _controller,
+        padding: widget.padding,
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: maxWidth),
-          child: child,
+          constraints: BoxConstraints(maxWidth: widget.maxWidth),
+          child: widget.child,
         ),
       ),
     );

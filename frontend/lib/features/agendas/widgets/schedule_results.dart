@@ -107,76 +107,81 @@ class _ScheduleTableState extends State<_ScheduleTable> {
   @override
   Widget build(BuildContext context) {
     // La barra se ve siempre (si la tabla no entra) para que se note que se
-    // puede desplazar.
-    return Scrollbar(
-      controller: _scrollController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
+    // puede desplazar. Es la barra de siempre de Flutter: el tema de la app
+    // (barra vertical gruesa y con pista) no se aplica al desplazamiento
+    // horizontal de las tablas.
+    return ScrollbarTheme(
+      data: const ScrollbarThemeData(),
+      child: Scrollbar(
         controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columnSpacing: 24,
-          horizontalMargin: 16,
-          dataRowMinHeight: 56,
-          dataRowMaxHeight: 64,
-          columns: const [
-            DataColumn(label: Text('Consulta')),
-            DataColumn(label: Text('Socio')),
-            DataColumn(label: Text('Médico')),
-            DataColumn(label: Text('Fecha')),
-            DataColumn(label: Text('Hora')),
-            DataColumn(label: Text('Consultorio')),
-            DataColumn(label: Text('Estado')),
-            DataColumn(label: Text('Llegada')),
-          ],
-          rows: [
-            for (final entry in widget.items)
-              DataRow(
-                cells: [
-                  DataCell(Text('${entry.appointmentId}')),
-                  DataCell(
-                    _twoLines(
-                      context,
-                      entry.member.fullName,
-                      'CI ${entry.member.ci}',
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columnSpacing: 24,
+            horizontalMargin: 16,
+            dataRowMinHeight: 56,
+            dataRowMaxHeight: 64,
+            columns: const [
+              DataColumn(label: Text('Consulta')),
+              DataColumn(label: Text('Socio')),
+              DataColumn(label: Text('Médico')),
+              DataColumn(label: Text('Fecha')),
+              DataColumn(label: Text('Hora')),
+              DataColumn(label: Text('Consultorio')),
+              DataColumn(label: Text('Estado')),
+              DataColumn(label: Text('Llegada')),
+            ],
+            rows: [
+              for (final entry in widget.items)
+                DataRow(
+                  cells: [
+                    DataCell(Text('${entry.appointmentId}')),
+                    DataCell(
+                      _twoLines(
+                        context,
+                        entry.member.fullName,
+                        'CI ${entry.member.ci}',
+                      ),
                     ),
-                  ),
-                  DataCell(
-                    _twoLines(
-                      context,
-                      entry.doctor.fullName,
-                      entry.specialty.name,
+                    DataCell(
+                      _twoLines(
+                        context,
+                        entry.doctor.fullName,
+                        entry.specialty.name,
+                      ),
                     ),
-                  ),
-                  DataCell(Text(formatUiDate(entry.date))),
-                  DataCell(Text(_time(entry))),
-                  DataCell(Text(entry.clinic.name)),
-                  DataCell(
-                    entry.status == 'AGENDADA'
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(scheduleStatusLabel(entry.status)),
-                              const SizedBox(width: 8),
-                              TextButton(
-                                key: Key(
-                                  'cancel-schedule-${entry.appointmentId}',
+                    DataCell(Text(formatUiDate(entry.date))),
+                    DataCell(Text(_time(entry))),
+                    DataCell(Text(entry.clinic.name)),
+                    DataCell(
+                      entry.status == 'AGENDADA'
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(scheduleStatusLabel(entry.status)),
+                                const SizedBox(width: 8),
+                                TextButton(
+                                  key: Key(
+                                    'cancel-schedule-${entry.appointmentId}',
+                                  ),
+                                  onPressed: () => showCancelScheduleDialog(
+                                    context: context,
+                                    ref: widget.ref,
+                                    entry: entry,
+                                  ),
+                                  child: const Text('Cancelar'),
                                 ),
-                                onPressed: () => showCancelScheduleDialog(
-                                  context: context,
-                                  ref: widget.ref,
-                                  entry: entry,
-                                ),
-                                child: const Text('Cancelar'),
-                              ),
-                            ],
-                          )
-                        : Text(scheduleStatusLabel(entry.status)),
-                  ),
-                  DataCell(Text(_arrival(entry))),
-                ],
-              ),
-          ],
+                              ],
+                            )
+                          : Text(scheduleStatusLabel(entry.status)),
+                    ),
+                    DataCell(Text(_arrival(entry))),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
