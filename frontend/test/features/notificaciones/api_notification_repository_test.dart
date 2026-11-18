@@ -233,6 +233,7 @@ void main() {
   for (final (status, code, failure) in [
     (400, 'VALIDACION', NotificationFailure.validation),
     (401, 'NO_AUTENTICADO', NotificationFailure.unauthenticated),
+    (401, 'TOKEN_INVALIDO', NotificationFailure.unauthenticated),
     (403, 'ACCESO_DENEGADO', NotificationFailure.forbidden),
   ]) {
     test('mapea $status/$code', () async {

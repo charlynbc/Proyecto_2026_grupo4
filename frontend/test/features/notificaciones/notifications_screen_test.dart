@@ -185,6 +185,25 @@ void main() {
     expect(find.byKey(const Key('notifications-error')), findsNothing);
   });
 
+  testWidgets('los avisos se ven en el orden en que los manda el servidor', (
+    tester,
+  ) async {
+    // El servidor manda el más nuevo primero: el cliente no reordena.
+    final items = [
+      _notification(30, 'AGENDA', 'c', 1, 'c', DateTime.utc(2026, 10, 3)),
+      _notification(20, 'AGENDA', 'b', 1, 'c', DateTime.utc(2026, 10, 2)),
+      _notification(10, 'AGENDA', 'a', 1, 'c', DateTime.utc(2026, 10, 1)),
+    ];
+    await _pump(tester, _one(items));
+
+    final tops = [
+      for (final id in [30, 20, 10])
+        tester.getTopLeft(find.byKey(Key('notification-$id'))).dy,
+    ];
+    expect(tops[0], lessThan(tops[1]));
+    expect(tops[1], lessThan(tops[2]));
+  });
+
   testWidgets('el total va en plural', (tester) async {
     await _pump(tester, _one([_agenda, _cancelacion, _suspension]));
 
