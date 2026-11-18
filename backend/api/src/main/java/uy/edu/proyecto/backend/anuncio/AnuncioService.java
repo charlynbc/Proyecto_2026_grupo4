@@ -36,14 +36,19 @@ public class AnuncioService {
         if (datos.resumen() != null && datos.resumen().length() > 300) {
             throw validacion("El resumen admite hasta 300 caracteres");
         }
+        if (datos.vigenteHasta() == null || !datos.vigenteHasta().isAfter(
+                datos.vigenteDesde() == null ? java.time.OffsetDateTime.now() : datos.vigenteDesde())) {
+            throw validacion("La fecha de fin es obligatoria y debe ser posterior al inicio");
+        }
         var normalizados = new AnuncioDTO.Datos(datos.titulo().trim(),
                 datos.resumen() == null || datos.resumen().isBlank() ? null : datos.resumen().trim(),
-                datos.texto() == null || datos.texto().isBlank() ? null : datos.texto().trim());
+                datos.texto() == null || datos.texto().isBlank() ? null : datos.texto().trim(),
+                datos.vigenteDesde(), datos.vigenteHasta());
         if (imagenes == null || imagenes.isEmpty()) {
             if (normalizados.texto() == null) {
                 throw validacion("El anuncio debe incluir texto o al menos una imagen");
             }
-            return detalle(repository.crear(administradorId, normalizados));
+            return detalleInterno(repository.crear(administradorId, normalizados), false);
         }
         if (imagenes.size() > 5) {
             throw validacion("El anuncio admite hasta 5 imágenes");
@@ -65,7 +70,7 @@ public class AnuncioService {
             limpiezaRegistrada = true;
             long id = repository.crear(administradorId, normalizados);
             for (int i = 0; i < cargadas.size(); i++) repository.agregarImagen(id, cargadas.get(i), i);
-            return detalle(id);
+            return detalleInterno(id, false);
         } catch (RuntimeException error) {
             if (!limpiezaRegistrada) limpiar(cargadas);
             throw error;
@@ -88,8 +93,18 @@ public class AnuncioService {
 
     @Transactional(readOnly = true)
     public AnuncioDTO.Detalle detalle(long id) {
+        return detalleInterno(id, true);
+    }
+
+    /** El detalle de cualquier anuncio, vigente o no. Solo para la administracion. */
+    @Transactional(readOnly = true)
+    public AnuncioDTO.Detalle detalleCualquiera(long id) {
+        return detalleInterno(id, false);
+    }
+
+    private AnuncioDTO.Detalle detalleInterno(long id, boolean vigente) {
         if (id <= 0) throw noEncontrado();
-        var fila = repository.buscar(id);
+        var fila = vigente ? repository.buscar(id) : repository.buscarCualquiera(id);
         if (fila == null) throw noEncontrado();
         return new AnuncioDTO.Detalle(fila.id(), fila.titulo(), fila.resumen(),
                 fila.texto(), fila.publicadoEn(), repository.imagenes(id).stream()

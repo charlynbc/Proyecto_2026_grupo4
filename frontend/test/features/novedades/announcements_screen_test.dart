@@ -11,6 +11,7 @@ import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/cuenta/providers/account_repository_provider.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
+import 'package:agenda_medica/features/novedades/models/admin_announcement.dart';
 import 'package:agenda_medica/features/novedades/models/announcement.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_detail.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_draft.dart';
@@ -78,7 +79,20 @@ class _News extends FakeAnnouncementsRepository {
   }
 
   @override
-  Future<List<Announcement>> latest() async => items.take(5).toList();
+  Future<List<Announcement>> carousel() async => items.take(5).toList();
+
+  /// La Cartelera del administrador lee el listado de administración: acá son
+  /// las mismas novedades, todas vigentes.
+  @override
+  Future<List<AdminAnnouncement>> adminList() async => [
+    for (final item in items)
+      AdminAnnouncement(
+        id: item.id,
+        title: item.title,
+        publishedAt: item.publishedAt,
+        status: AnnouncementStatus.active,
+      ),
+  ];
 
   @override
   Future<AnnouncementDetail> detail(int id) async {
@@ -128,7 +142,7 @@ Future<ProviderContainer> _pumpList(
       // Mantiene la caché en la sesión de administrador durante la prueba de
       // invalidación. Cambiar a socio también refrescaría el provider.
       if (observeLatestAsAdmin)
-        latestAnnouncementsProvider.overrideWith((ref) => repo.latest()),
+        latestAnnouncementsProvider.overrideWith((ref) => repo.carousel()),
     ],
   );
   addTearDown(() async {
@@ -158,6 +172,16 @@ Future<ProviderContainer> _pumpList(
     }
   }
   return container;
+}
+
+/// Completa "Visible hasta" con una fecha lejana para que el formulario sea
+/// publicable; la hora se propone sola (23:59).
+Future<void> _fillUntil(WidgetTester tester) async {
+  await tester.enterText(
+    find.widgetWithText(TextFormField, 'Visible hasta: fecha'),
+    '31/12/2099',
+  );
+  await tester.pump();
 }
 
 Finder _rows() => find.byWidgetPredicate(
@@ -208,13 +232,17 @@ void main() {
         find.text('Crear nueva novedad'),
         role == UserRole.administrador ? findsOneWidget : findsNothing,
       );
-      await tester.tap(find.text('Novedad 23'));
-      await tester.pumpAndSettle();
-      expect(find.text('Detalle 23'), findsOneWidget);
-      expect(repo.details, [23]);
-      await tester.tap(find.byTooltip('Volver a novedades'));
-      await tester.pumpAndSettle();
-      expect(locationOf(container), role.announcementsPath);
+      // El administrador gestiona desde su propia pantalla (con estados y
+      // acciones); el detalle de la novedad lo abren los demás roles.
+      if (role != UserRole.administrador) {
+        await tester.tap(find.text('Novedad 23'));
+        await tester.pumpAndSettle();
+        expect(find.text('Detalle 23'), findsOneWidget);
+        expect(repo.details, [23]);
+        await tester.tap(find.byTooltip('Volver a novedades'));
+        await tester.pumpAndSettle();
+        expect(locationOf(container), role.announcementsPath);
+      }
       if (role != UserRole.administrador) {
         await goTo(tester, container, '/admin/cartelera/nueva');
         expect(locationOf(container), role.homePath);
@@ -237,11 +265,6 @@ void main() {
         repo,
         role: UserRole.administrador,
       );
-      final next = find.widgetWithText(OutlinedButton, 'Siguiente');
-      await tester.ensureVisible(next);
-      await tester.tap(next);
-      await tester.pumpAndSettle();
-      expect(find.text('Página 2'), findsOneWidget);
       await tester.tap(find.text('Crear nueva novedad'));
       await tester.pumpAndSettle();
       final title = find.widgetWithText(TextFormField, 'Título');
@@ -260,6 +283,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(SelectableText), findsOneWidget);
 
+      await _fillUntil(tester);
       final publish = find.widgetWithText(FilledButton, 'Publicar');
       await tester.ensureVisible(publish);
       await tester.tap(publish);
@@ -275,11 +299,28 @@ void main() {
       await tester.tap(publish);
       await tester.pumpAndSettle();
       expect(locationOf(container), '/admin/cartelera');
-      expect(find.text('Página 1'), findsOneWidget);
       expect(find.text('Jornada informativa'), findsOneWidget);
       expect(find.text('Novedad publicada'), findsOneWidget);
     },
   );
+
+  for (final role in [UserRole.socio, UserRole.administrador]) {
+    testWidgets('el título del listado es Cartelera para ${role.name}', (
+      tester,
+    ) async {
+      await _pumpList(tester, _News(), role: role);
+
+      final appBar = find.byType(AppBar);
+      expect(
+        find.descendant(of: appBar, matching: find.text('Cartelera')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: appBar, matching: find.text('Novedades')),
+        findsNothing,
+      );
+    });
+  }
 
   testWidgets('deshabilita Publicar mientras el envío está pendiente', (
     tester,
@@ -300,6 +341,7 @@ void main() {
       find.widgetWithText(TextFormField, 'Texto de la novedad'),
       'Contenido',
     );
+    await _fillUntil(tester);
     final publish = find.widgetWithText(FilledButton, 'Publicar');
     await tester.ensureVisible(publish);
     await tester.tap(publish);
@@ -344,6 +386,7 @@ void main() {
       find.widgetWithText(TextFormField, 'Texto de la novedad'),
       'Contenido',
     );
+    await _fillUntil(tester);
     final publish = find.widgetWithText(FilledButton, 'Publicar');
     await tester.ensureVisible(publish);
     await tester.tap(publish);
@@ -361,6 +404,7 @@ void main() {
     await tester.tap(find.text('Crear nueva novedad'));
     await tester.pumpAndSettle();
     final title = find.widgetWithText(TextFormField, 'Título');
+    await _fillUntil(tester);
     final publish = find.widgetWithText(FilledButton, 'Publicar');
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Texto de la novedad'),
@@ -401,6 +445,7 @@ void main() {
     String titleText(WidgetTester tester) =>
         tester.widget<TextFormField>(title).controller!.text;
     Future<void> publish(WidgetTester tester) async {
+      await _fillUntil(tester);
       final button = find.widgetWithText(FilledButton, 'Publicar');
       await tester.ensureVisible(button);
       await tester.tap(button);
@@ -494,6 +539,7 @@ void main() {
         find.widgetWithText(TextFormField, 'Título'),
         'Cartel de la jornada',
       );
+      await _fillUntil(tester);
       final publish = find.widgetWithText(FilledButton, 'Publicar');
       await tester.ensureVisible(publish);
       await tester.tap(publish);

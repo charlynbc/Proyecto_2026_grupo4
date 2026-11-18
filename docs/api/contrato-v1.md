@@ -1396,7 +1396,7 @@ Detalle operativo, **sin datos clínicos**. Filtrando por hoy y por llegada se o
 |---|---|---|
 | `ci` | texto | CI del socio. |
 | `consultaId` | entero | Identificador de la consulta. |
-| `fecha` | fecha | **Una sola fecha**, no un rango: el Diseño aclara que no se inventa un rango para RF-18 (S12). |
+| `fecha` | fecha | **Una sola fecha**, no un rango: el Diseño aclara que no se inventa un rango para RF-18 (S12). Es opcional: sin `fecha` se listan las consultas de todos los días, con el mismo orden y la misma paginación. |
 | `medicoId` | entero | |
 | `estado` | `EstadoConsulta` | |
 | `llegada` | booleano | `true` solo con aviso de llegada, `false` solo sin él. |
@@ -1677,7 +1677,7 @@ El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni
 #### #33 · `POST /api/dispositivos`
 
 - **Roles:** SOCIO.
-- **RF:** RNF-23 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA (pasa a CONFIRMADA cuando se integre el backend; implementada en la rama `feat/dispositivos-push`. Reemplaza a `POST /api/notificaciones/registro`, el registro de prueba en memoria, que se elimina en la etapa de frontend).
+- **RF:** RNF-23 (push en Android si el socio instaló la app y otorgó permiso). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** CONFIRMADA (backend en la rama `feat/dispositivos-push`, PR 161; cliente Android en `feat/front-dispositivos-push`). Reemplazó a `POST /api/notificaciones/registro`, el registro de prueba en memoria, que se eliminó junto con el cliente web que lo usaba.
 
 Registra el token de Firebase del dispositivo Android del socio autenticado. El socio dueño sale del JWT; el cuerpo no lleva identificador de socio. El backend no distingue la plataforma: el registro es solo para Android (RNF-23) y el cliente web no llama a este endpoint. El cliente lo llama al iniciar sesión un socio en Android, cuando ya otorgó el permiso de notificaciones.
 
@@ -1713,7 +1713,7 @@ Registra el token de Firebase del dispositivo Android del socio autenticado. El 
 #### #73 · `POST /api/dispositivos/baja`
 
 - **Roles:** SOCIO.
-- **RF:** RNF-23 (push en Android). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** PROPUESTA (pasa a CONFIRMADA cuando se integre el backend).
+- **RF:** RNF-23 (push en Android). **Diseño:** sin operación en 2.1 a 2.7; el modelo de datos tiene la tabla DispositivoPush. **Estado:** CONFIRMADA (backend en la rama `feat/dispositivos-push`, PR 161; cliente Android en `feat/front-dispositivos-push`).
 
 Da de baja el token push del dispositivo Android del socio autenticado: pone `habilitado` en `false`, de modo que deja de recibir avisos. **Nunca borra el registro**, porque `envio_notificacion` lo referencia con `ON DELETE RESTRICT`. Se vuelve a habilitar registrándolo otra vez con #33.
 
@@ -2669,6 +2669,12 @@ Al reactivar, `estado` pasa a `ACTIVA` y se completan `ultimaReactivacionEn` y `
 
 ### 3.17 Cartelera de novedades (RF-28 y RF-07)
 
+**Cambio en implementación:** el contrato de vigencia, eliminación y selección
+manual del carrusel, incluidos los efectos sobre clientes anteriores, se describe
+en [Gestión de cartelera](cartelera-administracion.md). La publicación de esta
+versión exige `vigenteHasta`; el ejemplo histórico de #65 debe actualizarse junto
+con el cliente Flutter antes de utilizarla.
+
 Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
 
 <a id="e65"></a>
@@ -2959,7 +2965,8 @@ Los datos de ejemplo de los mockups (13/10/2026, "Dra. Apellido", "12 · Piso 2"
 - **Se ve:** filtros "CI del socio", "Identificador", "Fecha" (precargada con hoy), "Médico", "Estado" y "Aviso de llegada" (elegido "Con aviso"), botón "Buscar". Leyenda: "Filtrando por la fecha de hoy y por avisos de llegada se obtiene la lista de socios presentes, en tiempo real · Orden: fecha y hora ▾". Tabla: ID (`000123`), Socio ("Apellido, Nombre" y CI debajo), Médico, Especialidad, Fecha y hora, Consultorio, Estado, Llegada (hora en negrita si llegó, "Sin aviso" si no). Las filas con aviso se resaltan.
 - **Endpoints:** "Buscar" → #28 (`ci`, `consultaId`, `fecha`, `medicoId`, `estado`, `llegada`; orden `fechaHora` o `horaLlegada`). Lista de médicos → #10. Refresco cada 15 s (arquitectura 8.5). `llegadaEn: null` es "Sin aviso".
 - **Coincide con el contrato:** una sola fecha, no un rango (S12). El filtro "Aviso de llegada" tiene tres opciones (Todos, Con aviso, Sin aviso) y se corresponde con `llegada` ausente, `true` y `false`.
-- **No usa:** paginación (la pantalla no dibuja paginador, P-32).
+- **Diferencias del cliente con el mockup:** el campo "Identificador" se llama "N.º de consulta" (es el `consultaId`) y la "Fecha" es opcional: empieza con la de hoy y la cruz del campo la borra; sin `fecha`, #28 devuelve las consultas de todos los días y no es un error.
+- **Paginación:** el mockup no dibuja paginador (P-32), pero #28 es paginado y la pantalla del cliente sí lo dibuja.
 
 #### 6.1.6 Turnos y pacientes de una fecha (imagen 4) · RF-21
 

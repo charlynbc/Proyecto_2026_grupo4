@@ -2,8 +2,10 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/network/api_exception.dart';
 import '../../../../core/network/api_routes.dart';
+import '../../../../core/fakes/fake_admin_database.dart';
 import '../../../../core/utils/uruguay_time.dart';
 import '../../../agenda/models/agenda_time.dart';
+import '../../../especialidades/models/specialty.dart';
 import '../models/referral_statistics.dart';
 
 abstract class ReferralStatisticsRepository {
@@ -50,10 +52,32 @@ class ApiReferralStatisticsRepository implements ReferralStatisticsRepository {
   }
 }
 
+/// Solo para USE_FAKES y pruebas. Devuelve el contrato completo: una fila por
+/// especialidad del catálogo, con cero si no tiene pases y con su
+/// `requierePase`. Ocultar las de pase libre sin pases es cosa de la pantalla.
+///
+/// Los 10 pases de ejemplo los emitió Medicina General y van a Cardiología
+/// (5 utilizados, 3 disponibles y 2 vencidos). Con Todas o con Medicina
+/// General como origen se ven; con cualquier otro origen todo queda en cero.
 class FakeReferralStatisticsRepository implements ReferralStatisticsRepository {
-  FakeReferralStatisticsRepository({DateTime Function()? clock})
-    : clock = clock ?? DateTime.now;
+  FakeReferralStatisticsRepository({
+    DateTime Function()? clock,
+    List<Specialty> Function()? catalog,
+  }) : clock = clock ?? DateTime.now,
+       catalog = catalog ?? _defaultCatalog;
+
   final DateTime Function() clock;
+
+  /// El catálogo de especialidades que ve el selector de origen.
+  final List<Specialty> Function() catalog;
+
+  static List<Specialty> _defaultCatalog() => FakeAdminDatabase().specialties;
+
+  static const _originName = 'medicina general';
+  static const _destinationName = 'cardiología';
+
+  static String _key(String name) => FakeAdminDatabase.normalize(name);
+
   @override
   Future<ReferralStatistics> statistics({
     DateTime? from,
@@ -63,37 +87,40 @@ class FakeReferralStatisticsRepository implements ReferralStatisticsRepository {
     final now = UruguayTime.toUruguay(clock());
     final start = from ?? DateTime.utc(now.year, now.month);
     final end = to ?? DateTime.utc(now.year, now.month + 1, 0);
-    final rows = <ReferralItem>[
-      if (specialtyId == null || specialtyId == 1)
-        const ReferralItem(
-          name: 'Cardiología',
-          issued: 10,
-          used: 5,
-          available: 3,
-          expired: 2,
-          percentage: 71.43,
-          utilization: '71.43 %',
-        ),
-      if (specialtyId != null && specialtyId != 1)
-        const ReferralItem(
-          name: 'Cardiología',
-          issued: 0,
-          used: 0,
-          available: 0,
-          expired: 0,
-          percentage: null,
-          utilization: 'Sin datos',
-        ),
-      const ReferralItem(
-        name: 'Pediatría',
-        issued: 0,
-        used: 0,
-        available: 0,
-        expired: 0,
-        percentage: null,
-        utilization: 'Sin datos',
-      ),
-    ];
+    final specialties = catalog();
+    final origin = specialties
+        .where((s) => _key(s.name) == _originName)
+        .map((s) => s.id)
+        .firstOrNull;
+    final seeded = specialtyId == null || specialtyId == origin;
+    final rows =
+        [
+          for (final specialty in specialties)
+            seeded && _key(specialty.name) == _destinationName
+                ? ReferralItem(
+                    name: specialty.name,
+                    requiresReferral: specialty.requiresReferral,
+                    issued: 10,
+                    used: 5,
+                    available: 3,
+                    expired: 2,
+                    percentage: 71.43,
+                    utilization: '71.43 %',
+                  )
+                : ReferralItem(
+                    name: specialty.name,
+                    requiresReferral: specialty.requiresReferral,
+                    issued: 0,
+                    used: 0,
+                    available: 0,
+                    expired: 0,
+                    percentage: null,
+                    utilization: 'Sin datos',
+                  ),
+        ]..sort((a, b) {
+          final byIssued = b.issued.compareTo(a.issued);
+          return byIssued != 0 ? byIssued : a.name.compareTo(b.name);
+        });
     return ReferralStatistics(from: start, to: end, items: rows);
   }
 }

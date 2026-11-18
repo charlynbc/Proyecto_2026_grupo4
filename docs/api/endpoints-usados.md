@@ -55,7 +55,7 @@ PostgreSQL.
 | 25 | `POST /api/turnos/rehabilitaciones` | FUNCIONARIO | 15 | Rehabilitar fechas | CONFIRMADA | feat/front-rehabilitar-turnos 29/10/2026 | [contrato #25](contrato-v1.md#e25) |
 | 26 | `GET /api/avisos-llegada/consultas-hoy?ci=` | FUNCIONARIO | 16 | Buscar socio | CONFIRMADA | feat/front-llegada 29/10/2026 | [contrato #26](contrato-v1.md#e26) |
 | 27 | `POST /api/avisos-llegada` | FUNCIONARIO | 16 | Registrar llegada | CONFIRMADA | feat/front-llegada 29/10/2026 | [contrato #27](contrato-v1.md#e27) |
-| 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas (pantalla Flutter `/funcionario/agendas`, `SchedulesScreen`; `ApiScheduleRepository` manda siempre `fecha`, `orden`, `sentido`, `page` y `size`, y `ci`, `consultaId`, `medicoId`, `estado` y `llegada` solo si se completaron) | CONFIRMADA | feat/front-agendas 29/10/2026 | [contrato #28](contrato-v1.md#e28) |
+| 28 | `GET /api/agendas` | FUNCIONARIO | 18 | Consulta de agendas (pantalla Flutter `/funcionario/agendas`, `SchedulesScreen`; `ApiScheduleRepository` manda siempre `orden`, `sentido`, `page` y `size`, y `fecha` (con hoy precargada), `ci`, `consultaId`, `medicoId`, `estado` y `llegada` solo si se completaron: con la fecha borrada se ven las consultas de todos los días) | CONFIRMADA | feat/front-agendas 29/10/2026; feat/front-agendas-fecha-opcional 15/11/2026 | [contrato #28](contrato-v1.md#e28) |
 | 29 | `GET /api/medico/turnos?fecha=` | MEDICO | 21 | Mis turnos (pantalla Flutter `/medico/turnos`, sondeo cada 15 s, PR #39); `fecha` viaja como `aaaa-mm-dd`, la pantalla la muestra como dd/mm/aaaa y el día de hoy es el de Uruguay | CONFIRMADA | feat/cierre-rf21-tiempo-real 27/10/2026; feat/front-turnos-del-dia-fecha-uruguay 13/11/2026 | [contrato #29](contrato-v1.md#e29) |
 | 30 | `GET /api/medico/turnos/{id}/numeros` | MEDICO | 21, 22 | Pacientes del turno (`consulta.paciente.id` para abrir historia #40; con `llegada`, `orden`, `sentido`; sondeo cada 15 s) | CONFIRMADA | feat/cierre-rf21-tiempo-real 27/10/2026 | [contrato #30](contrato-v1.md#e30) |
 | 31 | `POST /api/medico/consultas/{id}/resultado` | MEDICO | 23, 24 | Registrar atención y pases (pantalla Flutter `/medico/consultas/:id/resultado`) | CONFIRMADA | PR #40 | [contrato #31](contrato-v1.md#e31) |
@@ -100,7 +100,7 @@ PostgreSQL.
 | 70 | `GET /api/estadisticas/pases` | ADMINISTRADOR | 43 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | feat/front-rf43-rf44-estadisticas 11/11/2026 | [contrato #70](contrato-v1.md#e70) |
 | 71 | `GET /api/estadisticas/franjas` | ADMINISTRADOR | 44 | Estadísticas | IMPLEMENTADA EN BACKEND (PR #101) | feat/front-rf43-rf44-estadisticas 11/11/2026 | [contrato #71](contrato-v1.md#e71) |
 | 72 | `POST /api/turnos-semanales/{id}/consultorio/vista-previa` | FUNCIONARIO | 20 | Vista previa de fechas, consultas y cruces del consultorio destino (solo lectura) | EN DESARROLLO (rama feat/front-rf20-consultorio-parcial) | feat/front-rf20-consultorio-parcial 12/11/2026 | [contrato #72](contrato-v1.md#e72) |
-| 73 | `POST /api/dispositivos/baja` | SOCIO | RNF-23 | Baja del token push antes de cerrar sesión (204 siempre; no borra la fila, solo deshabilita; mismo `token` recortado, no vacío y máximo 4096 caracteres después de recortar; si no, 400) | CONFIRMADA | - | [contrato #73](contrato-v1.md#e73) |
+| 73 | `POST /api/dispositivos/baja` | SOCIO | RNF-23 | Baja del token push antes de cerrar sesión (204 siempre; no borra la fila, solo deshabilita; mismo `token` recortado, no vacío y máximo 4096 caracteres después de recortar; si no, 400) | CONFIRMADA | feat/front-dispositivos-push 14/11/2026 | [contrato #73](contrato-v1.md#e73) |
 
 ## Rutas de la prueba de concepto
 
@@ -120,15 +120,6 @@ migran: se usa solo el modelo del Proyecto 2026.
 | POST /api/reservas | #17 `POST /api/consultas` | migrado en Flutter (reserva por `numeroId`) |
 | GET /api/mis-reservas | #18 `GET /api/consultas` (RF-11) | migrado en backend y Flutter; usa filtros y paginación del contrato |
 | PATCH /api/reservas/{id}/cancelacion | #20 `POST /api/consultas/{id}/cancelar` | Implementado en backend; el frontend debe habilitar la acción |
-| `POST /api/notificaciones/registro` | #33 | se elimina en la tarjeta de registro push (RNF-23); la reemplaza `POST /api/dispositivos` (#33). Se borra de esta tabla cuando se elimine el código |
-
-La ruta de registro de notificaciones que existe hoy en el backend es
-`POST /api/notificaciones/registro` (cuerpo `{fid}`, guarda en memoria). Se
-elimina en la tarjeta "RNF-23 Push Android: registro real del dispositivo":
-la reemplaza la ruta contractual `POST /api/dispositivos` (#33, cuerpo
-`{token}`, guarda en `dispositivo_push`), con la baja `POST /api/dispositivos/baja`
-(#73). Mientras exista el código, esta fila y la constante del cliente se
-mantienen.
 
 ## Endpoint adicional verificado
 
@@ -148,6 +139,11 @@ clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige pagi
 arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
+
+- 14/11/2026, gestión de la cartelera del administrador (rama feat/front-cartelera-administracion, contrato `docs/api/cartelera-administracion.md`; endpoints sin fila propia en la tabla, todos solo ADMINISTRADOR): el frontend usa `GET /api/admin/anuncios` (lista de `{id, titulo, publicadoEn, vigenteDesde, vigenteHasta, estado, posicion}`; `estado` es PROGRAMADO, VIGENTE o VENCIDO y `posicion` es nulo si no está en el carrusel; muestra el orden recibido), `PUT /api/admin/anuncios/{id}/vigencia` (cuerpo `{"vigenteDesde": ISO con -03:00 o null, "vigenteHasta": ISO con -03:00}`; espera 204; el cliente valida antes de enviar que el fin exista y sea posterior al inicio o, sin inicio, a ahora), `GET /api/admin/carrusel` y `PUT /api/admin/carrusel` (ambos con `{"posiciones":[{"posicion":1 a 5,"anuncioId":n}]}`; el PUT manda siempre la selección completa, con huecos si los hay, hasta 5, y el cliente toma la respuesta como la selección guardada) y `DELETE /api/admin/anuncios/{id}` (espera 202; el cliente pide confirmación antes). En 400 y 404 el cliente muestra el `message` del servidor y, tras un 404, vuelve a cargar la lista. Dos datos del código del backend que el contrato no dice: el 400 de la vigencia responde "El fin es obligatorio y debe ser posterior al inicio" o "El fin debe ser posterior al inicio" (el cliente usa su propio mensaje "La fecha de fin es obligatoria y debe ser posterior al inicio" cuando valida antes de enviar), y la vigencia se compara con la fecha de publicación cuando no hay inicio, mientras que el cliente la compara con ahora. Una novedad no vigente puede estar en el carrusel pero no se muestra a los socios; el cliente lo avisa en pantalla.
+- 17/11/2026, detalle de una novedad para el administrador (rama feat/front-cartelera-administracion, solo ADMINISTRADOR; sin fila propia en la tabla): el frontend usa `GET /api/admin/anuncios/{id}`, que devuelve `{id, titulo, resumen, texto, publicadoEn, vigenteDesde, vigenteHasta, estado, posicion, imagenes:[{id, orden, url}]}` de una novedad vigente, programada o vencida. `resumen`, `texto`, `vigenteDesde`, `posicion` e `imagenes` pueden venir nulos o vacíos. Responde 404 `NO_ENCONTRADO` si no existe. El botón Ver de la lista de gestión aparece en todos los estados y abre este detalle, que ya no llama a `GET /api/anuncios/{id}`: ese endpoint público responde 404 para las programadas y las vencidas. El endpoint está implementado en la rama `feat/back-admin-detalle-anuncio` (en revisión) y descrito en su `docs/api/cartelera-administracion.md`; hasta que se integre, con el backend actual el botón Ver lleva a "No encontramos esta novedad.".
+
+- 14/11/2026, filas 65 y 66 (rama feat/front-cartelera-compatibilidad): en `POST /api/anuncios` el JSON `datos` agrega `vigenteHasta` (obligatorio, ISO 8601 con desfase `-03:00`, exclusivo y posterior al inicio o, sin inicio, a ese momento) y `vigenteDesde` (opcional; sin él empieza de inmediato). El frontend valida lo mismo antes de enviar y, si el servidor responde 400, muestra su mensaje. Además el Inicio deja de pedir `GET /api/anuncios?page=0&size=5` y usa `GET /api/anuncios/carrusel`: lista de detalles `{id, titulo, resumen, texto, publicadoEn, imagenes:[{id, orden, url}]}`, solo con posición y vigentes, en orden de posición y sin rellenar huecos; el frontend toma la portada de la primera imagen por `orden` (no hay `imagenPortada`), conserva el orden recibido y trata el 503 `ALMACENAMIENTO_NO_DISPONIBLE` como error de carga con reintento. Sin selección del administrador espera una lista vacía. La ruta nueva no tiene fila propia en la tabla.
 
 - 13/11/2026, fila 12 (rama feat/back-usuarios-puede-inactivar): cada fila de `GET /api/usuarios` agrega `puedeInactivar` (booleano). Es `true` solo si la cuenta está activa, no es de un socio, no es la del administrador que consulta y, si es de un médico, no tiene fechas de turnos activas ni consultas agendadas cuyo día no terminó; sale de la misma regla que la fila 61. El frontend todavía no lo lee: hoy decide con `id` y rol de la sesión y muestra el 409 si el servidor rechaza.
 

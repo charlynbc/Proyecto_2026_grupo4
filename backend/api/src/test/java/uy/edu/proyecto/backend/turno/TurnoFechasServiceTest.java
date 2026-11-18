@@ -180,8 +180,14 @@ class TurnoFechasServiceTest {
         assertEquals(2, response.consultasCanceladas());
         verify(repository).actualizarEstadoTurno(301L, "SUSPENDIDO");
         verify(repository).actualizarEstadoTurno(308L, "SUSPENDIDO");
+        verify(repository).crearNotificacionSuspension(900L,
+                "Tu consulta del 21/10/2026 fue cancelada por la institución. "
+                        + "Horario: 09:00 a 09:20 (número 1). Aviso");
+        verify(repository).crearNotificacionSuspension(901L,
+                "Tu consulta del 28/10/2026 fue cancelada por la institución. "
+                        + "Horario: 09:00 a 09:20 (número 1). Aviso");
         verify(eventPublisher).publishEvent(
-                new TurnoFechasService.EnviosSuspensionSolicitados(
+                new TurnoFechasService.EnviosNotificacionSolicitados(
                         List.of(6001L, 6002L)
                 )
         );

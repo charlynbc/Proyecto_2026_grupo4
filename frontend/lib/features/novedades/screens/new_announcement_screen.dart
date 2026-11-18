@@ -11,6 +11,7 @@ import '../../auth/providers/session_provider.dart';
 import '../models/announcement_draft.dart';
 import '../providers/announcements_provider.dart';
 import '../widgets/announcement_markdown_editor.dart';
+import '../widgets/announcement_visibility_fields.dart';
 
 final announcementImagePickerProvider =
     Provider<Future<List<AnnouncementImageUpload>> Function(int)>(
@@ -63,10 +64,12 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
   final _title = TextEditingController();
   final _summary = TextEditingController();
   final _text = TextEditingController();
+  final _visibility = AnnouncementVisibilityController();
   final _images = <AnnouncementImageUpload>[];
   bool _picking = false;
   bool _submitting = false;
   String? _imageError;
+  String? _visibilityError;
   String? _publishError;
 
   @override
@@ -74,7 +77,12 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
     _title.dispose();
     _summary.dispose();
     _text.dispose();
+    _visibility.dispose();
     super.dispose();
+  }
+
+  void _clearVisibilityError() {
+    if (_visibilityError != null) setState(() => _visibilityError = null);
   }
 
   void _close({bool published = false}) {
@@ -113,7 +121,11 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
   }
 
   Future<void> _publish() async {
-    if (_submitting || _picking || !_form.currentState!.validate()) return;
+    if (_submitting || _picking) return;
+    _visibility.validating = true;
+    final valid = _form.currentState!.validate();
+    _visibility.validating = false;
+    if (!valid) return;
     final text = _text.text.trim();
     final summary = _summary.text.trim();
     final draft = AnnouncementDraft(
@@ -121,15 +133,28 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
       summary: summary.isEmpty ? null : summary,
       text: text.isEmpty ? null : text,
       images: List.unmodifiable(_images),
+      visibleFrom: _visibility.from,
+      visibleUntil: _visibility.until,
     );
     final contentError = draft.validateContent();
     if (contentError != null) {
       setState(() => _publishError = contentError);
       return;
     }
+    final visibilityError = draft.validateVisibility(
+      ref.read(announcementClockProvider)(),
+    );
+    if (visibilityError != null) {
+      setState(() {
+        _publishError = null;
+        _visibilityError = visibilityError;
+      });
+      return;
+    }
     setState(() {
       _submitting = true;
       _publishError = null;
+      _visibilityError = null;
     });
     try {
       final repository = await ref.read(announcementsRepositoryProvider.future);
@@ -225,6 +250,20 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
                       controller: _text,
                       enabled: !_submitting,
                     ),
+                    const SizedBox(height: 24),
+                    AnnouncementVisibilityFields(
+                      controller: _visibility,
+                      enabled: !_submitting,
+                      onEdited: _clearVisibilityError,
+                    ),
+                    if (_visibilityError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Semantics(
+                          liveRegion: true,
+                          child: Text(_visibilityError!, style: errorStyle),
+                        ),
+                      ),
                     const SizedBox(height: 24),
                     Text(
                       'Imágenes',

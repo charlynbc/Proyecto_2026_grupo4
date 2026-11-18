@@ -7,6 +7,7 @@ import '../../../core/widgets/centered_content.dart';
 import '../../especialidades/providers/specialties_provider.dart';
 import '../referrals/models/referral_statistics.dart';
 import '../referrals/providers/referral_statistics_provider.dart';
+import '../referrals/widgets/referral_usage_chart.dart';
 import '../widgets/period_filter.dart';
 import '../widgets/period_label.dart';
 
@@ -91,6 +92,8 @@ class _ReferralStatisticsTabState extends ConsumerState<ReferralStatisticsTab> {
     final specialties = ref.watch(specialtiesProvider);
     return CenteredContent(
       maxWidth: 720,
+      // Arriba: el formulario no se mueve cuando cambian los resultados.
+      alignment: Alignment.topCenter,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -149,29 +152,13 @@ class _ReferralStatisticsTabState extends ConsumerState<ReferralStatisticsTab> {
           else if (result case final data?) ...[
             PeriodLabel(from: data.from, to: data.to),
             const SizedBox(height: 12),
-            if (data.items.isEmpty)
+            // Sin filas visibles (ver `ReferralUsageChart.visible`) se dice lo
+            // mismo que cuando no hay especialidades.
+            if (ReferralUsageChart.visible(data.items).isEmpty)
               const Text('Sin datos', key: Key('stats-empty'))
             else
-              for (final item in data.items)
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.name,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        Text('Emitidos: ${item.issued}'),
-                        Text('Utilizados: ${item.used}'),
-                        Text('Disponibles: ${item.available}'),
-                        Text('Vencidos: ${item.expired}'),
-                        Text('Utilización: ${item.utilization}'),
-                      ],
-                    ),
-                  ),
-                ),
+              // Una sola vista: el gráfico lleva en cada fila los cinco datos.
+              ReferralUsageChart(items: data.items),
           ],
         ],
       ),

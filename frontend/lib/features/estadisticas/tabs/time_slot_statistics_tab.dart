@@ -94,6 +94,8 @@ class _TimeSlotStatisticsTabState extends ConsumerState<TimeSlotStatisticsTab> {
     final specialties = ref.watch(specialtiesProvider);
     return CenteredContent(
       maxWidth: 720,
+      // Arriba: el formulario no se mueve cuando cambian los resultados.
+      alignment: Alignment.topCenter,
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -174,8 +176,13 @@ class _TimeSlotStatisticsTabState extends ConsumerState<TimeSlotStatisticsTab> {
           else if (result case final data?) ...[
             PeriodLabel(from: data.from, to: data.to),
             const SizedBox(height: 12),
-            if (data.cells.isEmpty)
-              const Text('Sin datos', key: Key('stats-empty'))
+            if (!data.cells.any((cell) => cell.count > 0))
+              Text(
+                view == TimeSlotView.consultations
+                    ? 'No hay consultas en el período elegido.'
+                    : 'No hay llegadas en el período elegido.',
+                key: const Key('stats-empty'),
+              )
             else
               _Heatmap(cells: data.cells),
           ],
@@ -200,10 +207,24 @@ class _Heatmap extends StatelessWidget {
       (max, c) => c.count > max ? c.count : max,
     );
     final color = Theme.of(context).colorScheme.primary;
+    // Solo se muestran las horas desde la primera hasta la última con
+    // actividad (sumando los siete días); las vacías del medio se conservan.
+    final active = [
+      for (var hour = 0; hour < 24; hour++)
+        if (cells.any((c) => c.hour == hour && c.count > 0)) hour,
+    ];
+    final firstHour = active.first;
+    final lastHour = active.last;
+    final hidesHours = firstHour > 0 || lastHour < 23;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Cantidad por día y hora (hora de Uruguay)'),
+        if (hidesHours)
+          Text(
+            'Se ocultan las horas sin actividad al principio y al final',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         const Text('Color más intenso: mayor cantidad'),
         const Text('Deslizá horizontalmente para ver todos los días'),
         SingleChildScrollView(
@@ -217,7 +238,7 @@ class _Heatmap extends StatelessWidget {
                     SizedBox(width: 58, child: Center(child: Text(day))),
                 ],
               ),
-              for (var hour = 0; hour < 24; hour++)
+              for (var hour = firstHour; hour <= lastHour; hour++)
                 Row(
                   children: [
                     SizedBox(

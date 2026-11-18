@@ -36,7 +36,7 @@ class _Repo extends FakeAnnouncementsRepository {
   int latestCalls = 0;
 
   @override
-  Future<List<Announcement>> latest() async {
+  Future<List<Announcement>> carousel() async {
     latestCalls++;
     return [
       Announcement(

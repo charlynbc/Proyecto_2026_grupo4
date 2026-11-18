@@ -6,12 +6,42 @@ class AnnouncementDraft {
     this.summary,
     this.text,
     this.images = const [],
+    this.visibleFrom,
+    this.visibleUntil,
   });
 
   final String title;
   final String? summary;
   final String? text;
   final List<AnnouncementImageUpload> images;
+
+  /// Desde cuándo se ve (`vigenteDesde`): `null` es "de inmediato". Un instante.
+  final DateTime? visibleFrom;
+
+  /// Hasta cuándo se ve (`vigenteHasta`), exclusivo: a ese minuto ya no se
+  /// muestra. El servidor lo exige; acá `null` es un error de
+  /// [validateVisibility].
+  final DateTime? visibleUntil;
+
+  /// El mensaje del servidor cuando falta el fin o no es posterior al inicio.
+  static const endRequiredMessage =
+      'La fecha de fin es obligatoria y debe ser posterior al inicio';
+
+  /// Lo mismo que valida el servidor: el fin es obligatorio y tiene que ser
+  /// posterior al inicio o, si no hay inicio, a [now].
+  String? validateVisibility(DateTime now) =>
+      validateVisibilityRange(visibleFrom, visibleUntil, now);
+
+  /// La misma regla para quien publica y para quien cambia la vigencia de una
+  /// novedad ya publicada.
+  static String? validateVisibilityRange(
+    DateTime? from,
+    DateTime? until,
+    DateTime now,
+  ) {
+    if (until == null || !until.isAfter(from ?? now)) return endRequiredMessage;
+    return null;
+  }
 
   static const maxTitleLength = 160;
   static const maxSummaryLength = 300;

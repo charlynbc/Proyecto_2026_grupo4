@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/models/user_role.dart';
+import '../widgets/bottom_system_inset.dart';
 import 'adaptive_nav_bar.dart';
 import 'app_sections.dart';
 
@@ -126,9 +127,10 @@ class _NarrowShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final offset = shell.role == UserRole.socio ? 0 : 1;
     final destinations = shell.sections.skip(offset).toList();
-    return Scaffold(
+    final hasBar = shell._showNavigation && destinations.length >= 2;
+    final scaffold = Scaffold(
       body: shell.navigationShell,
-      bottomNavigationBar: shell._showNavigation && destinations.length >= 2
+      bottomNavigationBar: hasBar
           ? AdaptiveNavBar(
               destinations: [
                 for (final section in destinations)
@@ -144,6 +146,9 @@ class _NarrowShell extends StatelessWidget {
             )
           : null,
     );
+    // Con barra, ella reserva el espacio del sistema con su SafeArea; sin
+    // barra (Inicio) lo reserva BottomSystemInset. Nunca los dos.
+    return hasBar ? scaffold : BottomSystemInset(child: scaffold);
   }
 }
 
@@ -154,30 +159,33 @@ class _WideShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Row(
-        children: [
-          if (shell._showNavigation) ...[
-            NavigationRail(
-              selectedIndex: shell.navigationShell.currentIndex,
-              onDestinationSelected: shell._onDestinationSelected,
-              labelType: NavigationRailLabelType.all,
-              destinations: [
-                for (final section in shell.sections)
-                  NavigationRailDestination(
-                    icon: Icon(section.icon),
-                    selectedIcon: Icon(section.selectedIcon),
-                    label: Text(section.label),
-                  ),
-              ],
+    // Sin barra inferior en ningún caso: el margen del sistema va siempre.
+    return BottomSystemInset(
+      child: Scaffold(
+        body: Row(
+          children: [
+            if (shell._showNavigation) ...[
+              NavigationRail(
+                selectedIndex: shell.navigationShell.currentIndex,
+                onDestinationSelected: shell._onDestinationSelected,
+                labelType: NavigationRailLabelType.all,
+                destinations: [
+                  for (final section in shell.sections)
+                    NavigationRailDestination(
+                      icon: Icon(section.icon),
+                      selectedIcon: Icon(section.selectedIcon),
+                      label: Text(section.label),
+                    ),
+                ],
+              ),
+              const VerticalDivider(width: 1),
+            ],
+            Expanded(
+              key: const ValueKey('section-content'),
+              child: shell.navigationShell,
             ),
-            const VerticalDivider(width: 1),
           ],
-          Expanded(
-            key: const ValueKey('section-content'),
-            child: shell.navigationShell,
-          ),
-        ],
+        ),
       ),
     );
   }

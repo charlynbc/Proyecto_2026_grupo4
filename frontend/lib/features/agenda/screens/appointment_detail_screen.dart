@@ -29,7 +29,10 @@ class AppointmentDetailScreen extends ConsumerWidget {
         maxWidth: 600,
         child: Padding(
           padding: const EdgeInsets.all(16),
+          // Al volver a la pantalla se vuelve a pedir el detalle: mientras
+          // llega, se sigue viendo el anterior en vez de una ruedita.
           child: appointment.when(
+            skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => _error(context, ref, error),
             data: (value) => _details(context, ref, value),
