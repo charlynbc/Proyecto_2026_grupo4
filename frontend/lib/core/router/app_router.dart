@@ -247,15 +247,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '${UserRole.administrador.announcementsPath}/carrusel',
-        builder: (context, state) => const CarouselSelectionScreen(),
+        builder: (context, state) =>
+            const BottomSystemInset(child: CarouselSelectionScreen()),
       ),
       GoRoute(
         path: '${UserRole.administrador.announcementsPath}/:id/vigencia',
         redirect: (context, state) => _appointmentId(state) == null
             ? UserRole.administrador.announcementsPath
             : null,
-        builder: (context, state) =>
-            AnnouncementValidityScreen(id: _appointmentId(state)!),
+        builder: (context, state) => BottomSystemInset(
+          child: AnnouncementValidityScreen(id: _appointmentId(state)!),
+        ),
       ),
       for (final role in UserRole.values) _roleShell(role),
     ],
