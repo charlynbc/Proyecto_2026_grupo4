@@ -1,3 +1,15 @@
+/// Un instante con zona: termina en `Z` o en un desfase `+hh:mm` (el servidor
+/// manda `-03:00`). Sin zona, `DateTime.parse` lo tomaría como hora del
+/// dispositivo y correría la hora en silencio.
+final RegExp _zonePattern = RegExp(r'(Z|[+-]\d{2}:?\d{2})$');
+
+DateTime _parseInstant(String value) {
+  if (!_zonePattern.hasMatch(value)) {
+    throw FormatException('Instante sin zona horaria', value);
+  }
+  return DateTime.parse(value);
+}
+
 /// Un aviso interno del socio (RNF-23): `GET /api/notificaciones`.
 ///
 /// [type] es uno de `AGENDA`, `CANCELACION`, `SUSPENSION`,
@@ -25,7 +37,7 @@ class AppNotification {
         title: json['titulo'] as String,
         consultaId: json['consultaId'] as int?,
         content: json['contenido'] as String,
-        createdAt: DateTime.parse(json['creadaEn'] as String),
+        createdAt: _parseInstant(json['creadaEn'] as String),
       );
 
   final int id;

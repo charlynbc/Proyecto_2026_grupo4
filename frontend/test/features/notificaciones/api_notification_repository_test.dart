@@ -231,7 +231,7 @@ void main() {
   });
 
   for (final (status, code, failure) in [
-    (400, 'VALIDACION', NotificationFailure.other),
+    (400, 'VALIDACION', NotificationFailure.validation),
     (401, 'NO_AUTENTICADO', NotificationFailure.unauthenticated),
     (403, 'ACCESO_DENEGADO', NotificationFailure.forbidden),
   ]) {
@@ -307,6 +307,43 @@ void main() {
           kApiGenericMessage,
         ),
       ),
+    );
+  });
+
+  test('una fecha de creación sin zona horaria es el error genérico', () async {
+    // Sin desfase no se sabe si es hora de Uruguay: no se adivina.
+    final (repository, _) = _repository(200, {
+      'items': [_notification(createdAt: '2026-10-16T11:20:00')],
+      'page': 0,
+      'size': 20,
+      'total': 1,
+    });
+
+    await expectLater(
+      repository.list(const NotificationQuery()),
+      throwsA(
+        isA<ApiException>().having(
+          (e) => e.message,
+          'message',
+          kApiGenericMessage,
+        ),
+      ),
+    );
+  });
+
+  test('creadaEn con -03:00 es el mismo instante que las 14:20 UTC', () async {
+    final (repository, _) = _repository(200, {
+      'items': [_notification(createdAt: '2026-10-16T11:20:00-03:00')],
+      'page': 0,
+      'size': 20,
+      'total': 1,
+    });
+
+    final page = await repository.list(const NotificationQuery());
+
+    expect(
+      page.items.single.createdAt.toUtc(),
+      DateTime.utc(2026, 10, 16, 14, 20),
     );
   });
 

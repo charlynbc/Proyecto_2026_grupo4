@@ -6,7 +6,7 @@ abstract class NotificationRepository {
   Future<AppNotificationPage> list(NotificationQuery query);
 }
 
-enum NotificationFailure { unauthenticated, forbidden, other }
+enum NotificationFailure { unauthenticated, forbidden, validation, other }
 
 class NotificationException extends ApiException {
   const NotificationException(this.failure, [super.message]);

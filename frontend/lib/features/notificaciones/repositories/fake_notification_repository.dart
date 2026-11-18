@@ -42,13 +42,13 @@ class FakeNotificationRepository implements NotificationRepository {
     await Future<void>.delayed(latency);
     if (query.size < 1 || query.size > 100) {
       throw const NotificationException(
-        NotificationFailure.other,
+        NotificationFailure.validation,
         'size debe estar entre 1 y 100',
       );
     }
     if (query.page < 0) {
       throw const NotificationException(
-        NotificationFailure.other,
+        NotificationFailure.validation,
         'page debe ser un entero mayor o igual a 0',
       );
     }

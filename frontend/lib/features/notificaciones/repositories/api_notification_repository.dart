@@ -36,6 +36,7 @@ class ApiNotificationRepository implements NotificationRepository {
     final failure = switch ((status, code)) {
       (401, _) || (_, 'NO_AUTENTICADO') => NotificationFailure.unauthenticated,
       (403, _) || (_, 'ACCESO_DENEGADO') => NotificationFailure.forbidden,
+      (400, _) || (_, 'VALIDACION') => NotificationFailure.validation,
       _ => NotificationFailure.other,
     };
     return NotificationException(failure, ApiException.fromDio(error).message);

@@ -72,6 +72,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         'Tu sesión venció. Iniciá sesión nuevamente para ver tus avisos.',
       NotificationException(failure: NotificationFailure.forbidden) =>
         'Tu cuenta no tiene permiso para ver los avisos.',
+      // El cliente nunca pide una página o un tamaño inválidos: si el
+      // servidor igual responde 400, su mensaje es técnico y no se muestra.
+      NotificationException(failure: NotificationFailure.validation) =>
+        'No se pudieron cargar los avisos. Probá de nuevo más tarde.',
       _ => apiMessageOf(error),
     };
     return Column(

@@ -16,7 +16,7 @@ class NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final value = notification;
-    final (icon, label) = notificationIconFor(value.type);
+    final icon = notificationIconFor(value.type);
     final date = formatUiDateTime(value.createdAt);
     return Card(
       // Un lector de pantalla lee cada aviso como una sola etiqueta (título,
@@ -28,11 +28,9 @@ class NotificationCard extends StatelessWidget {
         excludeSemantics: true,
         child: ListTile(
           key: Key('notification-${value.id}'),
-          leading: Icon(
-            icon,
-            key: Key('notification-icon-${value.id}'),
-            semanticLabel: label,
-          ),
+          // Decorativo: el título que lee el lector de pantalla es el del
+          // servidor, el cliente no arma uno por tipo.
+          leading: Icon(icon, key: Key('notification-icon-${value.id}')),
           title: Text(value.title),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,16 +55,13 @@ String _sentence(String text) {
   return RegExp(r'[.!?]$').hasMatch(trimmed) ? trimmed : '$trimmed.';
 }
 
-/// El ícono de cada tipo de aviso y la descripción que lee un lector de
-/// pantalla. Un tipo que el cliente no conoce usa un ícono genérico.
-(IconData, String) notificationIconFor(String type) => switch (type) {
-  'AGENDA' => (Icons.event_available, 'Consulta agendada'),
-  'CANCELACION' => (Icons.event_busy, 'Consulta cancelada'),
-  'SUSPENSION' => (Icons.pause_circle_outline, 'Turno suspendido'),
-  'HISTORIA_ACTUALIZADA' => (
-    Icons.medical_information_outlined,
-    'Historia clínica actualizada',
-  ),
-  'RECORDATORIO' => (Icons.alarm, 'Recordatorio de consulta'),
-  _ => (Icons.notifications_none, 'Aviso'),
+/// El ícono de cada tipo de aviso. Un tipo que el cliente no conoce usa un
+/// ícono genérico.
+IconData notificationIconFor(String type) => switch (type) {
+  'AGENDA' => Icons.event_available,
+  'CANCELACION' => Icons.event_busy,
+  'SUSPENSION' => Icons.pause_circle_outline,
+  'HISTORIA_ACTUALIZADA' => Icons.medical_information_outlined,
+  'RECORDATORIO' => Icons.alarm,
+  _ => Icons.notifications_none,
 };

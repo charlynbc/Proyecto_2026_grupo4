@@ -149,7 +149,7 @@ void main() {
             isA<NotificationException>().having(
               (e) => e.failure,
               'failure',
-              NotificationFailure.other,
+              NotificationFailure.validation,
             ),
           ),
         );

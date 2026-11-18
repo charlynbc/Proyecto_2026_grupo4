@@ -203,7 +203,7 @@ void main() {
     );
   });
 
-  testWidgets('cada tipo tiene su ícono y su descripción accesible', (
+  testWidgets('cada tipo tiene su ícono, sin descripción propia del cliente', (
     tester,
   ) async {
     final items = [
@@ -223,20 +223,22 @@ void main() {
     ];
     await _pump(tester, _one(items));
 
+    // El título lo arma el servidor; el cliente no lo reconstruye por tipo,
+    // ni siquiera como descripción del ícono.
     final expected = {
-      1: (Icons.event_available, 'Consulta agendada'),
-      2: (Icons.event_busy, 'Consulta cancelada'),
-      3: (Icons.pause_circle_outline, 'Turno suspendido'),
-      4: (Icons.medical_information_outlined, 'Historia clínica actualizada'),
-      5: (Icons.alarm, 'Recordatorio de consulta'),
-      6: (Icons.notifications_none, 'Aviso'),
+      1: Icons.event_available,
+      2: Icons.event_busy,
+      3: Icons.pause_circle_outline,
+      4: Icons.medical_information_outlined,
+      5: Icons.alarm,
+      6: Icons.notifications_none,
     };
-    for (final MapEntry(key: id, value: (icon, label)) in expected.entries) {
+    for (final MapEntry(key: id, value: icon) in expected.entries) {
       final widget = tester.widget<Icon>(
         find.byKey(Key('notification-icon-$id')),
       );
       expect(widget.icon, icon, reason: 'aviso $id');
-      expect(widget.semanticLabel, label, reason: 'aviso $id');
+      expect(widget.semanticLabel, isNull, reason: 'aviso $id');
     }
   });
 
@@ -314,6 +316,25 @@ void main() {
         tester.widget<Text>(find.byKey(const Key('notifications-error'))).data,
         'Tu cuenta no tiene permiso para ver los avisos.',
       );
+    });
+
+    testWidgets('un 400 de validación no muestra el mensaje técnico del '
+        'servidor', (tester) async {
+      await _pump(
+        tester,
+        _Repository(
+          error: const NotificationException(
+            NotificationFailure.validation,
+            'size debe estar entre 1 y 100',
+          ),
+        ),
+      );
+
+      expect(
+        tester.widget<Text>(find.byKey(const Key('notifications-error'))).data,
+        'No se pudieron cargar los avisos. Probá de nuevo más tarde.',
+      );
+      expect(find.text('Reintentar'), findsOneWidget);
     });
 
     testWidgets('otra falla muestra el mensaje que trae', (tester) async {
