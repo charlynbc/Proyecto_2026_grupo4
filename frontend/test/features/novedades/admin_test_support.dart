@@ -15,6 +15,7 @@ import 'package:agenda_medica/features/novedades/providers/announcements_provide
 import 'package:agenda_medica/features/novedades/repositories/fake_announcements_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/pump_app.dart';
@@ -187,6 +188,7 @@ Future<ProviderContainer> pumpAdminScreen(
   double scale = 1,
   UserRole role = UserRole.administrador,
   String? location,
+  List<Override> extraOverrides = const [],
 }) async {
   tester.view.physicalSize = Size(width, 1600);
   tester.view.devicePixelRatio = 1;
@@ -200,6 +202,7 @@ Future<ProviderContainer> pumpAdminScreen(
         (ref) async => RecordingAccountRepository(),
       ),
       announcementsRepositoryProvider.overrideWith((ref) async => repo),
+      ...extraOverrides,
     ],
   );
   addTearDown(() async {
