@@ -255,4 +255,97 @@ void main() {
       expect(db.shifts.single.clinicId, room7Id);
     },
   );
+
+  group('la confirmación quedó vieja', () {
+    late ChangeWeeklyShiftClinicController controller;
+
+    setUp(() {
+      // Un oyente mantiene vivo el controlador entre un envío y otro.
+      container.listen(changeWeeklyShiftClinicControllerProvider, (_, _) {});
+      controller = container.read(
+        changeWeeklyShiftClinicControllerProvider.notifier,
+      );
+    });
+
+    test('empieza en falso', () {
+      expect(controller.lastFailureWasStaleConfirmation, isFalse);
+    });
+
+    test('un 409 al guardar con confirmación y total visto la marca', () async {
+      // La vista previa mostró 2; al guardar ya hay 3.
+      db.agendadasPorTurnoSemanal[1] = 3;
+
+      final result = await controller.submit(
+        1,
+        room7Id,
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 2,
+      );
+
+      expect(result, isNull);
+      expect(controller.lastFailureWasStaleConfirmation, isTrue);
+    });
+
+    test('un 409 sin confirmación no la marca', () async {
+      db.agendadasPorTurnoSemanal[1] = 2;
+
+      final result = await controller.submit(
+        1,
+        room7Id,
+        consultasAgendadasVistas: 2,
+      );
+
+      expect(result, isNull);
+      expect(controller.lastFailureWasStaleConfirmation, isFalse);
+    });
+
+    test('un 409 con confirmación pero sin total visto no la marca', () async {
+      // Sin total visto el servidor no compara; este 409 es otro.
+      db.agendadasPorTurnoSemanal[1] = 2;
+      db.shifts.clear();
+
+      final result = await controller.submit(
+        1,
+        room7Id,
+        confirmarConConsultas: true,
+      );
+
+      expect(result, isNull);
+      expect(controller.lastFailureWasStaleConfirmation, isFalse);
+    });
+
+    test('otro error con confirmación y total visto no la marca', () async {
+      // La configuración 99 no existe: es un 404, no un 409.
+      final result = await controller.submit(
+        99,
+        room7Id,
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 0,
+      );
+
+      expect(result, isNull);
+      expect(controller.lastFailureWasStaleConfirmation, isFalse);
+    });
+
+    test('un guardado correcto después la limpia', () async {
+      db.agendadasPorTurnoSemanal[1] = 3;
+      await controller.submit(
+        1,
+        room7Id,
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 2,
+      );
+      expect(controller.lastFailureWasStaleConfirmation, isTrue);
+
+      final result = await controller.submit(
+        1,
+        room7Id,
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 3,
+      );
+
+      expect(result, isNotNull);
+      expect(controller.lastFailureWasStaleConfirmation, isFalse);
+    });
+  });
 }

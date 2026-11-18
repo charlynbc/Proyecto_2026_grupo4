@@ -63,11 +63,17 @@ class _RecordingClinicChange implements WeeklyShiftClinicRepository {
   final sentViewedTotals = <int?>[];
   final sentShiftIds = <List<int>?>[];
 
+  /// Cuántas veces se pidió la vista previa.
+  int previewCalls = 0;
+
   @override
   Future<ClinicChangePreview> previewClinicChange(
     int weeklyShiftId,
     int clinicId,
-  ) async => db.previewClinicChange(weeklyShiftId, clinicId);
+  ) async {
+    previewCalls++;
+    return db.previewClinicChange(weeklyShiftId, clinicId);
+  }
 
   @override
   Future<WeeklyShift> changeClinic(
@@ -647,28 +653,35 @@ void main() {
       },
     );
 
-    testWidgets('una consulta nueva tras la vista previa se rechaza y se '
-        'confirma de nuevo con la vista actualizada', (tester) async {
+    testWidgets('una consulta nueva tras la vista previa recarga sola la vista '
+        'previa, desmarca la confirmación y se guarda con el total nuevo', (
+      tester,
+    ) async {
+      late _RecordingClinicChange recorder;
       final (harness, dates) = await _pumpFiveDates(
         tester,
+        clinicChange: (db) => recorder = _RecordingClinicChange(db),
         prepare: (db, weeklyShiftId, dates) =>
-            db.agendadasPorTurno[dates[1].id] = 1,
+            db.agendadasPorTurno[dates[1].id] = 2,
       );
       final room7Id = harness.admin.clinics
           .firstWhere((clinic) => clinic.name == 'Consultorio 7')
           .id;
       await _openDialog(tester);
       await _pickClinic(tester, 'Consultorio 7');
+      expect(find.textContaining('hay 2 consulta(s)'), findsOneWidget);
+      expect(recorder.previewCalls, 1);
       final confirm = find.byKey(const Key('weekly-shift-confirm-booked'));
       await tester.ensureVisible(confirm);
       await tester.tap(confirm);
       await tester.pumpAndSettle();
 
       // Entra una consulta nueva después de la vista previa.
-      harness.shiftDb.agendadasPorTurno[dates[1].id] = 2;
+      harness.shiftDb.agendadasPorTurno[dates[1].id] = 3;
       await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
       await tester.pumpAndSettle();
 
+      // El guardado falló con el texto de siempre y nada cambió.
       expect(find.byType(AlertDialog), findsOneWidget);
       expect(
         find.descendant(
@@ -678,20 +691,95 @@ void main() {
         findsOneWidget,
       );
       expect(dates.any((date) => date.clinicId == room7Id), isFalse);
+      // La vista previa se recargó sola y ya muestra 3.
+      expect(recorder.previewCalls, 2);
+      expect(find.textContaining('hay 3 consulta(s)'), findsOneWidget);
+      expect(find.textContaining('hay 2 consulta(s)'), findsNothing);
+      // La confirmación quedó desmarcada y sin ella no se puede guardar.
+      expect(tester.widget<CheckboxListTile>(confirm).value, isFalse);
+      expect(_saveButton(tester).onPressed, isNull);
 
-      // Con la vista previa actualizada el funcionario ve 2 y confirma.
-      await tester.tap(find.text('Actualizar vista previa'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('hay 2 consulta(s)'), findsOneWidget);
       await tester.ensureVisible(confirm);
       await tester.tap(confirm);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
       await tester.pumpAndSettle();
 
+      expect(recorder.sentConfirmations, [true, true]);
+      expect(recorder.sentViewedTotals, [2, 3]);
       expect(find.byType(AlertDialog), findsNothing);
       expect(dates.every((date) => date.clinicId == room7Id), isTrue);
     });
+
+    testWidgets('la recarga tras el 409 conserva las fechas que estaban '
+        'elegidas', (tester) async {
+      final (harness, dates) = await _pumpFiveDates(
+        tester,
+        prepare: (db, weeklyShiftId, dates) =>
+            db.agendadasPorTurno[dates[1].id] = 2,
+      );
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+      await _uncheck(tester, dates[4]);
+      expect(find.textContaining('Seleccionadas: 4 de 5.'), findsOneWidget);
+      final confirm = find.byKey(const Key('weekly-shift-confirm-booked'));
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+
+      harness.shiftDb.agendadasPorTurno[dates[1].id] = 3;
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Seleccionadas: 4 de 5.'), findsOneWidget);
+      expect(
+        tester
+            .widget<CheckboxListTile>(
+              find.byKey(Key('weekly-shift-date-${dates[4].id}')),
+            )
+            .value,
+        isFalse,
+      );
+      expect(
+        tester
+            .widget<CheckboxListTile>(
+              find.byKey(Key('weekly-shift-date-${dates[1].id}')),
+            )
+            .value,
+        isTrue,
+      );
+    });
+
+    testWidgets(
+      'un 409 al guardar sin confirmación no recarga la vista previa',
+      (tester) async {
+        late _RecordingClinicChange recorder;
+        final (harness, dates) = await _pumpFiveDates(
+          tester,
+          clinicChange: (db) => recorder = _RecordingClinicChange(db),
+        );
+        await _openDialog(tester);
+        await _pickClinic(tester, 'Consultorio 7');
+        expect(recorder.previewCalls, 1);
+        // La vista previa mostró 0 consultas; después entra 1.
+        harness.shiftDb.agendadasPorTurno[dates[1].id] = 1;
+
+        await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+        await tester.pumpAndSettle();
+
+        expect(recorder.sentConfirmations, [false]);
+        expect(find.byType(AlertDialog), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('weekly-shift-clinic-error')),
+            matching: find.text(kClinicChangeBookedMessage),
+          ),
+          findsOneWidget,
+        );
+        expect(recorder.previewCalls, 1);
+        expect(find.textContaining('consulta(s) agendada(s)'), findsNothing);
+      },
+    );
 
     testWidgets('un solapamiento bloquea esa fecha, no las demás', (
       tester,
