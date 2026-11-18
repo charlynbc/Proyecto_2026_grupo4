@@ -32,6 +32,7 @@ class UserAccount {
     required this.status,
     required this.activated,
     required this.createdAt,
+    required this.canDeactivate,
   });
 
   final int id;
@@ -48,6 +49,10 @@ class UserAccount {
   /// Fecha de alta (`fechaAlta`), un instante.
   final DateTime createdAt;
 
+  /// `puedeInactivar`: si inactivar esa cuenta se aceptaría ahora.
+  /// No dice nada de reactivar.
+  final bool canDeactivate;
+
   factory UserAccount.fromJson(Map<String, dynamic> json) {
     final role = UserRole.tryParse(json['rol'] as String?);
     if (role == null) {
@@ -63,6 +68,7 @@ class UserAccount {
       status: AccountStatus.fromApi(json['estado'] as String),
       activated: json['activada'] as bool,
       createdAt: DateTime.parse(json['fechaAlta'] as String),
+      canDeactivate: json['puedeInactivar'] as bool,
     );
   }
 }

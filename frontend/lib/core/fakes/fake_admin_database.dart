@@ -60,6 +60,7 @@ class FakeAccount {
     status: status,
     activated: activated,
     createdAt: createdAt,
+    canDeactivate: true,
   );
 }
 
