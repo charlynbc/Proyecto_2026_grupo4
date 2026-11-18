@@ -30,6 +30,8 @@ class _CountingClinicRepository implements WeeklyShiftClinicRepository {
   final FakeShiftDatabase _db;
   final Completer<void> _gate;
   int calls = 0;
+  bool? lastConfirmation;
+  int? lastViewedTotal;
 
   @override
   Future<ClinicChangePreview> previewClinicChange(
@@ -43,8 +45,11 @@ class _CountingClinicRepository implements WeeklyShiftClinicRepository {
     int clinicId, {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
+    int? consultasAgendadasVistas,
   }) async {
     calls++;
+    lastConfirmation = confirmarConConsultas;
+    lastViewedTotal = consultasAgendadasVistas;
     await _gate.future;
     return _db.changeClinic(weeklyShiftId, clinicId);
   }
@@ -181,4 +186,73 @@ void main() {
     expect(db.weeklyShiftById(1)!.clinic.name, 'Consultorio 3');
     expect(db.shifts.single.clinicId, isNot(room7Id));
   });
+
+  test('pasa al repositorio la confirmación y el total visto', () async {
+    final gate = Completer<void>()..complete();
+    final counting = _CountingClinicRepository(db, gate);
+    final local = ProviderContainer(
+      overrides: [
+        shiftRepositoryProvider.overrideWith(
+          (ref) async => FakeShiftRepository(db, latency: Duration.zero),
+        ),
+        weeklyShiftClinicRepositoryProvider.overrideWith(
+          (ref) async => counting,
+        ),
+      ],
+    );
+    addTearDown(local.dispose);
+    local.listen(changeWeeklyShiftClinicControllerProvider, (_, _) {});
+    final controller = local.read(
+      changeWeeklyShiftClinicControllerProvider.notifier,
+    );
+
+    await controller.submit(
+      1,
+      room7Id,
+      confirmarConConsultas: true,
+      consultasAgendadasVistas: 2,
+    );
+    expect(counting.lastConfirmation, isTrue);
+    expect(counting.lastViewedTotal, 2);
+
+    await controller.submit(1, room7Id);
+    expect(counting.lastConfirmation, isFalse);
+    expect(counting.lastViewedTotal, isNull);
+  });
+
+  test(
+    'una consulta nueva tras la vista previa se rechaza y no cambia',
+    () async {
+      // La vista previa mostró 2 consultas; al guardar ya hay 3.
+      db.agendadasPorTurnoSemanal[1] = 3;
+      final controller = container.read(
+        changeWeeklyShiftClinicControllerProvider.notifier,
+      );
+
+      final rejected = await controller.submit(
+        1,
+        room7Id,
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 2,
+      );
+
+      expect(rejected, isNull);
+      final state = container.read(changeWeeklyShiftClinicControllerProvider);
+      expect(state.status, SubmitStatus.error);
+      expect(state.errorMessage, _twoAppointments);
+      expect(db.weeklyShiftById(1)!.clinic.name, 'Consultorio 3');
+      expect(db.shifts.single.clinicId, isNot(room7Id));
+
+      // Con el total que ahora sí vio, el cambio se aplica.
+      final accepted = await controller.submit(
+        1,
+        room7Id,
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 3,
+      );
+
+      expect(accepted, isNotNull);
+      expect(db.shifts.single.clinicId, room7Id);
+    },
+  );
 }

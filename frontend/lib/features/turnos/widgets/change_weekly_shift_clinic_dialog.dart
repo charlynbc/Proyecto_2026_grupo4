@@ -138,6 +138,11 @@ class _ChangeWeeklyShiftClinicDialogState
           date.shiftId,
     ];
     if (chosen.isEmpty) return;
+    // Lo que el funcionario vio en la vista previa para las fechas que va a
+    // cambiar. Si entra una consulta antes de guardar, el servidor lo rechaza.
+    final viewedAppointments = dates
+        .where((date) => chosen.contains(date.shiftId))
+        .fold<int>(0, (total, date) => total + date.bookedAppointments);
     final updated = await ref
         .read(changeWeeklyShiftClinicControllerProvider.notifier)
         .submit(
@@ -145,6 +150,7 @@ class _ChangeWeeklyShiftClinicDialogState
           _clinicId,
           turnoIds: chosen,
           confirmarConConsultas: _confirmarConConsultas,
+          consultasAgendadasVistas: viewedAppointments,
         );
     if (updated != null && mounted) {
       Navigator.of(context).pop(

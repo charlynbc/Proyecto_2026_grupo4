@@ -20,6 +20,7 @@ class ChangeWeeklyShiftClinicController extends Notifier<SubmitState> {
     int clinicId, {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
+    int? consultasAgendadasVistas,
   }) async {
     // Con un envío en curso, un segundo toque no manda otro pedido.
     if (state.isLoading) return null;
@@ -34,6 +35,7 @@ class ChangeWeeklyShiftClinicController extends Notifier<SubmitState> {
         clinicId,
         turnoIds: turnoIds,
         confirmarConConsultas: confirmarConConsultas,
+        consultasAgendadasVistas: consultasAgendadasVistas,
       );
       ref.invalidate(weeklyShiftProvider(weeklyShiftId));
       ref.invalidate(shiftsPageProvider);

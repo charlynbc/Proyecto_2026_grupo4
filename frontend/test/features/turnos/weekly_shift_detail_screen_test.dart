@@ -58,6 +58,11 @@ class _RecordingClinicChange implements WeeklyShiftClinicRepository {
   final Completer<void>? gate;
   int calls = 0;
 
+  /// Lo que recibió cada pedido de cambio, en orden.
+  final sentConfirmations = <bool>[];
+  final sentViewedTotals = <int?>[];
+  final sentShiftIds = <List<int>?>[];
+
   @override
   Future<ClinicChangePreview> previewClinicChange(
     int weeklyShiftId,
@@ -70,14 +75,19 @@ class _RecordingClinicChange implements WeeklyShiftClinicRepository {
     int clinicId, {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
+    int? consultasAgendadasVistas,
   }) async {
     calls++;
+    sentConfirmations.add(confirmarConConsultas);
+    sentViewedTotals.add(consultasAgendadasVistas);
+    sentShiftIds.add(turnoIds);
     if (gate != null) await gate!.future;
     return db.changeClinic(
       weeklyShiftId,
       clinicId,
       turnoIds: turnoIds,
       confirmarConConsultas: confirmarConConsultas,
+      consultasAgendadasVistas: consultasAgendadasVistas,
     );
   }
 }
@@ -97,6 +107,7 @@ class _NotFoundClinic implements WeeklyShiftClinicRepository {
     int clinicId, {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
+    int? consultasAgendadasVistas,
   }) async {
     throw const ShiftNotFoundException('No existe el consultorio indicado');
   }
@@ -187,8 +198,9 @@ Future<(_Harness, List<FakeShift>)> _pumpFiveDates(
   WidgetTester tester, {
   void Function(FakeShiftDatabase db, int weeklyShiftId, List<FakeShift> dates)?
   prepare,
+  WeeklyShiftClinicRepository Function(FakeShiftDatabase db)? clinicChange,
 }) async {
-  final harness = await _pump(tester);
+  final harness = await _pump(tester, clinicChange: clinicChange);
   final acosta = harness.admin.accounts.firstWhere(
     (account) =>
         account.role == UserRole.medico && account.lastName == 'Acosta',
@@ -592,6 +604,93 @@ void main() {
       await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
       await tester.pumpAndSettle();
       expect(find.byType(AlertDialog), findsNothing);
+    });
+
+    testWidgets(
+      'manda la suma de consultas de las fechas que quedaron elegidas',
+      (tester) async {
+        late _RecordingClinicChange recorder;
+        final (harness, dates) = await _pumpFiveDates(
+          tester,
+          clinicChange: (db) => recorder = _RecordingClinicChange(db),
+          prepare: (db, weeklyShiftId, dates) {
+            db.agendadasPorTurno[dates[1].id] = 1;
+            db.agendadasPorTurno[dates[2].id] = 2;
+            db.agendadasPorTurno[dates[3].id] = 4;
+          },
+        );
+        expect(harness.shiftDb.agendadasPorTurno[dates[3].id], 4);
+        await _openDialog(tester);
+        await _pickClinic(tester, 'Consultorio 7');
+        // Con las 5 fechas elegidas hay 1 + 2 + 4 consultas.
+        expect(find.textContaining('hay 7 consulta(s)'), findsOneWidget);
+
+        // Se saca la fecha de las 4 consultas: quedan 1 + 2.
+        await _uncheck(tester, dates[3]);
+        expect(find.textContaining('hay 3 consulta(s)'), findsOneWidget);
+        final confirm = find.byKey(const Key('weekly-shift-confirm-booked'));
+        await tester.ensureVisible(confirm);
+        await tester.tap(confirm);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+        await tester.pumpAndSettle();
+
+        expect(recorder.sentConfirmations, [true]);
+        expect(recorder.sentViewedTotals, [3]);
+        expect(recorder.sentShiftIds.single, [
+          dates[0].id,
+          dates[1].id,
+          dates[2].id,
+          dates[4].id,
+        ]);
+        expect(find.byType(AlertDialog), findsNothing);
+      },
+    );
+
+    testWidgets('una consulta nueva tras la vista previa se rechaza y se '
+        'confirma de nuevo con la vista actualizada', (tester) async {
+      final (harness, dates) = await _pumpFiveDates(
+        tester,
+        prepare: (db, weeklyShiftId, dates) =>
+            db.agendadasPorTurno[dates[1].id] = 1,
+      );
+      final room7Id = harness.admin.clinics
+          .firstWhere((clinic) => clinic.name == 'Consultorio 7')
+          .id;
+      await _openDialog(tester);
+      await _pickClinic(tester, 'Consultorio 7');
+      final confirm = find.byKey(const Key('weekly-shift-confirm-booked'));
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+
+      // Entra una consulta nueva después de la vista previa.
+      harness.shiftDb.agendadasPorTurno[dates[1].id] = 2;
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('weekly-shift-clinic-error')),
+          matching: find.text(kClinicChangeBookedMessage),
+        ),
+        findsOneWidget,
+      );
+      expect(dates.any((date) => date.clinicId == room7Id), isFalse);
+
+      // Con la vista previa actualizada el funcionario ve 2 y confirma.
+      await tester.tap(find.text('Actualizar vista previa'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('hay 2 consulta(s)'), findsOneWidget);
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('weekly-shift-clinic-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(dates.every((date) => date.clinicId == room7Id), isTrue);
     });
 
     testWidgets('un solapamiento bloquea esa fecha, no las demás', (
