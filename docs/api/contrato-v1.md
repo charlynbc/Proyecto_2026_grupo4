@@ -2685,6 +2685,18 @@ en [Gestión de cartelera](cartelera-administracion.md). La publicación de esta
 versión exige `vigenteHasta`; el ejemplo histórico de #65 debe actualizarse junto
 con el cliente Flutter antes de utilizarla.
 
+Edición de una novedad ya publicada: `PUT /api/admin/anuncios/{id}`, solo
+ADMINISTRADOR, multipart con la parte `datos` (`titulo`, `resumen`, `texto` y,
+opcional, `imagenes`: la lista final en orden de `{"id": n}` existentes y
+`{"archivo": "nombre"}` nuevas, que llegan como partes de archivo con ese nombre) y
+las mismas reglas de #65. Estado: IMPLEMENTADA EN BACKEND. Responde `204`;
+`400 VALIDACION` o `400 IMAGEN_INVALIDA`, `401`, `403`, `404 NO_ENCONTRADO` y
+`503 ALMACENAMIENTO_NO_DISPONIBLE`. Es todo o nada. No cambia vigencia, posición en
+el carrusel, autor ni fecha de publicación. El pedido y los mensajes exactos están en [Gestión de cartelera](cartelera-administracion.md). Desde esta
+versión `PUT /api/admin/anuncios/{id}/vigencia` y `PUT /api/admin/carrusel`
+responden `400 VALIDACION` con cuerpo JSON ante un cuerpo ilegible, en lugar del 400
+por defecto sin cuerpo.
+
 Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
 
 <a id="e65"></a>
