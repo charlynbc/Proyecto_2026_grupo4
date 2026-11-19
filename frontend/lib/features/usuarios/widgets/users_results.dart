@@ -107,41 +107,46 @@ class _UsersTableState extends State<_UsersTable> {
   @override
   Widget build(BuildContext context) {
     // La barra se ve siempre (si la tabla no entra) para que se note que se
-    // puede desplazar.
-    return Scrollbar(
-      controller: _scrollController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
+    // puede desplazar. Es la barra de siempre de Flutter: el tema de la app
+    // (barra vertical gruesa y con pista) no se aplica al desplazamiento
+    // horizontal de las tablas.
+    return ScrollbarTheme(
+      data: const ScrollbarThemeData(),
+      child: Scrollbar(
         controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columnSpacing: 24,
-          horizontalMargin: 16,
-          columns: const [
-            DataColumn(label: Text('CI')),
-            DataColumn(label: Text('Apellido y nombre')),
-            DataColumn(label: Text('Rol')),
-            DataColumn(label: Text('Correo')),
-            DataColumn(label: Text('Estado')),
-            DataColumn(label: Text('Activada')),
-            DataColumn(label: Text('Alta')),
-            DataColumn(label: Text('Acciones')),
-          ],
-          rows: [
-            for (final a in widget.items)
-              DataRow(
-                cells: [
-                  DataCell(Text(a.ci)),
-                  DataCell(Text(_fullName(a))),
-                  DataCell(Text(roleLabel(a.role))),
-                  DataCell(Text(a.email)),
-                  DataCell(Text(a.status.label)),
-                  DataCell(Text(a.activated ? 'Sí' : 'No')),
-                  DataCell(Text(_createdOn(a))),
-                  DataCell(UserActionsMenu(account: a)),
-                ],
-              ),
-          ],
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columnSpacing: 24,
+            horizontalMargin: 16,
+            columns: const [
+              DataColumn(label: Text('CI')),
+              DataColumn(label: Text('Apellido y nombre')),
+              DataColumn(label: Text('Rol')),
+              DataColumn(label: Text('Correo')),
+              DataColumn(label: Text('Estado')),
+              DataColumn(label: Text('Activada')),
+              DataColumn(label: Text('Alta')),
+              DataColumn(label: Text('Acciones')),
+            ],
+            rows: [
+              for (final a in widget.items)
+                DataRow(
+                  cells: [
+                    DataCell(Text(a.ci)),
+                    DataCell(Text(_fullName(a))),
+                    DataCell(Text(roleLabel(a.role))),
+                    DataCell(Text(a.email)),
+                    DataCell(Text(a.status.label)),
+                    DataCell(Text(a.activated ? 'Sí' : 'No')),
+                    DataCell(Text(_createdOn(a))),
+                    DataCell(UserActionsMenu(account: a)),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );

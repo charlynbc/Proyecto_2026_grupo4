@@ -237,4 +237,185 @@ class TurnoSemanalCambioParcialTest {
         assertFalse(vista.fechas().getLast().solapamientos().iterator().hasNext());
         verify(repository, never()).actualizarConsultorioDelPatron(41L, 7L);
     }
+
+    @Test
+    void consultaNuevaEntreVistaPreviaYGuardadoRechazaYNoCambiaNada() {
+        prepararCambio();
+        // La vista previa mostro 2 consultas; al guardar ya hay 3.
+        when(repository.contarAgendadasPorFecha(41L, HOY))
+                .thenReturn(Map.of(301L, 3));
+
+        ApiException error = assertThrows(ApiException.class, () ->
+                service.modificarConsultorio(
+                        41L, new ModificarTurnoSemanalRequest(
+                                7L, List.of(301L), true, 2
+                        )
+                )
+        );
+
+        assertEquals("TURNO_NO_MODIFICABLE", error.getCode());
+        assertTrue(error.getMessage().contains("vista previa"));
+        verify(repository, never()).actualizarConsultorioDeFechas(
+                41L, 7L, List.of(301L), HOY
+        );
+        verify(repository, never()).actualizarConsultorioDelPatron(41L, 7L);
+    }
+
+    @Test
+    void conElTotalVistoCorrectoElCambioSeAplica() {
+        prepararCambio();
+        prepararRespuesta();
+        when(repository.contarAgendadasPorFecha(41L, HOY))
+                .thenReturn(Map.of(301L, 2));
+
+        service.modificarConsultorio(
+                41L, new ModificarTurnoSemanalRequest(
+                        7L, List.of(301L), true, 2
+                )
+        );
+
+        verify(repository).actualizarConsultorioDeFechas(
+                41L, 7L, List.of(301L), HOY
+        );
+    }
+
+    @Test
+    void unaConsultaMenosQueLasVistasTambienRechaza() {
+        prepararCambio();
+        // Se cancelo una consulta: el total ya no es el que el funcionario vio.
+        when(repository.contarAgendadasPorFecha(41L, HOY))
+                .thenReturn(Map.of(301L, 1));
+
+        ApiException error = assertThrows(ApiException.class, () ->
+                service.modificarConsultorio(
+                        41L, new ModificarTurnoSemanalRequest(
+                                7L, List.of(301L), true, 2
+                        )
+                )
+        );
+
+        assertEquals("TURNO_NO_MODIFICABLE", error.getCode());
+        verify(repository, never()).actualizarConsultorioDeFechas(
+                41L, 7L, List.of(301L), HOY
+        );
+    }
+
+    @Test
+    void elTotalVistoSumaTodasLasFechasElegidas() {
+        prepararCambio();
+        prepararRespuesta();
+        when(repository.contarAgendadasPorFecha(41L, HOY))
+                .thenReturn(Map.of(301L, 1, 302L, 2));
+
+        service.modificarConsultorio(
+                41L, new ModificarTurnoSemanalRequest(
+                        7L, List.of(301L, 302L), true, 3
+                )
+        );
+        verify(repository).actualizarConsultorioDeFechas(
+                41L, 7L, List.of(301L, 302L), HOY
+        );
+
+        // Si el cliente hubiera sumado una sola fecha, el total no coincide.
+        ApiException error = assertThrows(ApiException.class, () ->
+                service.modificarConsultorio(
+                        41L, new ModificarTurnoSemanalRequest(
+                                7L, List.of(301L, 302L), true, 1
+                        )
+                )
+        );
+        assertEquals("TURNO_NO_MODIFICABLE", error.getCode());
+    }
+
+    @Test
+    void unaFechaElegidaQueYaUsaElDestinoTambienCuentaEnElTotal() {
+        when(repository.bloquearPatron(41L)).thenReturn(Optional.of(PATRON));
+        when(repository.bloquearConsultorio(7L)).thenReturn(Optional.of(NUEVO));
+        var primeraYaEnDestino = new FechaTurno(301L, HOY, "ACTIVO", NUEVO);
+        when(repository.listarFechasDesde(41L, HOY, true))
+                .thenReturn(List.of(primeraYaEnDestino, SEGUNDA));
+        prepararRespuesta();
+        when(repository.contarAgendadasPorFecha(41L, HOY))
+                .thenReturn(Map.of(301L, 1, 302L, 1));
+
+        service.modificarConsultorio(
+                41L, new ModificarTurnoSemanalRequest(
+                        7L, List.of(301L, 302L), true, 2
+                )
+        );
+
+        verify(repository).actualizarConsultorioDeFechas(
+                41L, 7L, List.of(302L), HOY
+        );
+    }
+
+    @Test
+    void sinElTotalVistoSeComportaComoAntes() {
+        prepararCambio();
+        prepararRespuesta();
+        when(repository.contarAgendadasPorFecha(41L, HOY))
+                .thenReturn(Map.of(301L, 5));
+
+        service.modificarConsultorio(
+                41L, new ModificarTurnoSemanalRequest(
+                        7L, List.of(301L), true, null
+                )
+        );
+
+        verify(repository).actualizarConsultorioDeFechas(
+                41L, 7L, List.of(301L), HOY
+        );
+    }
+
+    @Test
+    void elTotalVistoSeIgnoraSiNoHayConfirmacion() {
+        prepararCambio();
+        prepararRespuesta();
+        when(repository.contarAgendadasPorFecha(41L, HOY))
+                .thenReturn(Map.of());
+
+        service.modificarConsultorio(
+                41L, new ModificarTurnoSemanalRequest(
+                        7L, List.of(301L), false, 9
+                )
+        );
+
+        verify(repository).actualizarConsultorioDeFechas(
+                41L, 7L, List.of(301L), HOY
+        );
+    }
+
+    @Test
+    void sinConfirmacionYConConsultasSigueElRechazoDeSiempre() {
+        prepararCambio();
+        when(repository.contarAgendadasPorFecha(41L, HOY))
+                .thenReturn(Map.of(301L, 2));
+
+        ApiException error = assertThrows(ApiException.class, () ->
+                service.modificarConsultorio(
+                        41L, new ModificarTurnoSemanalRequest(
+                                7L, List.of(301L), false, 2
+                        )
+                )
+        );
+
+        assertEquals("TURNO_NO_MODIFICABLE", error.getCode());
+        assertTrue(error.getMessage().contains(HOY.toString()));
+    }
+
+    @Test
+    void unTotalVistoNegativoEsUnaValidacion() {
+        ApiException error = assertThrows(ApiException.class, () ->
+                service.modificarConsultorio(
+                        41L, new ModificarTurnoSemanalRequest(
+                                7L, List.of(301L), true, -1
+                        )
+                )
+        );
+
+        assertEquals("VALIDACION", error.getCode());
+        verify(repository, never()).actualizarConsultorioDeFechas(
+                41L, 7L, List.of(301L), HOY
+        );
+    }
 }

@@ -3,6 +3,7 @@ import 'package:agenda_medica/features/estadisticas/referrals/widgets/referral_u
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../helpers/contrast.dart';
 import '../../../helpers/load_roboto.dart';
 
 /// Una especialidad de destino. `emitidos` sale de la suma, salvo que se
@@ -308,7 +309,7 @@ void main() {
   });
 
   group('leyenda', () {
-    testWidgets('nombra los tres tramos con su patrón', (tester) async {
+    testWidgets('nombra los tres tramos con su color', (tester) async {
       await _pump(tester, [_item('Cardiología', 5, 3, 2)]);
       final legend = find.byKey(const Key('referral-chart-legend'));
       expect(legend, findsOneWidget);
@@ -717,6 +718,242 @@ void main() {
       );
       expect(legend.left, greaterThanOrEqualTo(0));
       expect(legend.right, lessThanOrEqualTo(320));
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('colores sólidos por tramo', () {
+    // Valores escritos a mano. Luminancia relativa WCAG de cada fondo:
+    // utilizados #1F3A66 = 0,0428; disponibles #7FA6DE = 0,3706;
+    // vencidos #E3ECF8 = 0,8310. Contraste de cada número con su fondo
+    // (L1 + 0,05) / (L2 + 0,05): utilizados blanco 11,32; disponibles
+    // #0B1B33 6,90; vencidos #1B2A41 12,12.
+    const fills = {
+      'used': Color(0xFF1F3A66),
+      'available': Color(0xFF7FA6DE),
+      'expired': Color(0xFFE3ECF8),
+    };
+    const texts = {
+      'used': Color(0xFFFFFFFF),
+      'available': Color(0xFF0B1B33),
+      'expired': Color(0xFF1B2A41),
+    };
+    const borders = {
+      'used': Color(0xFF14264A),
+      'available': Color(0xFF4A6FA5),
+      'expired': Color(0xFF8FA3BF),
+    };
+    const contrasts = {'used': 11.32, 'available': 6.90, 'expired': 12.12};
+    const counts = {'used': '5', 'available': '3', 'expired': '2'};
+    final items = [_item('Cardiología', 5, 3, 2)];
+
+    BoxDecoration decorationIn(WidgetTester tester, Finder within) =>
+        tester
+                .widget<DecoratedBox>(
+                  find
+                      .descendant(
+                        of: within,
+                        matching: find.byType(DecoratedBox),
+                      )
+                      .first,
+                )
+                .decoration
+            as BoxDecoration;
+
+    testWidgets('cada tramo es un color sólido, sin patrón', (tester) async {
+      await _pump(tester, items);
+      for (final part in fills.keys) {
+        final seg = _seg(0, part);
+        expect(decorationIn(tester, seg).color, fills[part], reason: part);
+        expect(
+          find.descendant(of: seg, matching: find.byType(CustomPaint)),
+          findsNothing,
+          reason: part,
+        );
+      }
+    });
+
+    testWidgets('cada tramo lleva un borde fino de su color', (tester) async {
+      await _pump(tester, items);
+      for (final part in fills.keys) {
+        final border = decorationIn(tester, _seg(0, part)).border! as Border;
+        expect(border.top.color, borders[part], reason: part);
+        expect(border.top.width, 1, reason: part);
+      }
+    });
+
+    testWidgets('el número de cada tramo tiene su color de texto', (
+      tester,
+    ) async {
+      await _pump(tester, items);
+      for (final part in fills.keys) {
+        final text = tester.widget<Text>(
+          find.descendant(
+            of: _seg(0, part),
+            matching: find.text(counts[part]!),
+          ),
+        );
+        expect(text.style!.color, texts[part], reason: part);
+      }
+    });
+
+    testWidgets('el contraste del número con su fondo es el calculado y '
+        'llega a 4,5', (tester) async {
+      await _pump(tester, items);
+      for (final part in fills.keys) {
+        final fill = decorationIn(tester, _seg(0, part)).color!;
+        final text = tester
+            .widget<Text>(
+              find.descendant(
+                of: _seg(0, part),
+                matching: find.text(counts[part]!),
+              ),
+            )
+            .style!
+            .color!;
+        final ratio = contrastRatio(text, fill);
+        expect(ratio, closeTo(contrasts[part]!, 0.01), reason: part);
+        expect(ratio, greaterThanOrEqualTo(4.5), reason: part);
+      }
+    });
+
+    testWidgets('los tres tramos se distinguen en escala de grises', (
+      tester,
+    ) async {
+      await _pump(tester, items);
+      double luminance(String part) =>
+          relativeLuminance(decorationIn(tester, _seg(0, part)).color!);
+      expect(luminance('used'), closeTo(0.0428, 0.001));
+      expect(luminance('available'), closeTo(0.3706, 0.001));
+      expect(luminance('expired'), closeTo(0.8310, 0.001));
+      // Utilizados oscuro, disponibles medio, vencidos claro, con al menos
+      // 0,25 de luminancia entre un tramo y el siguiente.
+      expect(luminance('available') - luminance('used'), greaterThan(0.25));
+      expect(luminance('expired') - luminance('available'), greaterThan(0.25));
+    });
+
+    testWidgets('la leyenda usa los mismos colores y el mismo orden', (
+      tester,
+    ) async {
+      await _pump(tester, items);
+      for (final part in fills.keys) {
+        expect(
+          decorationIn(tester, find.byKey(Key('referral-legend-$part'))).color,
+          fills[part],
+          reason: part,
+        );
+      }
+      final xs = [
+        for (final name in ['Utilizados', 'Disponibles', 'Vencidos'])
+          tester.getTopLeft(find.text(name)).dx,
+      ];
+      expect(xs[0], lessThan(xs[1]));
+      expect(xs[1], lessThan(xs[2]));
+    });
+
+    testWidgets('el número que sale de la barra lleva el color de su tramo', (
+      tester,
+    ) async {
+      await _pump(tester, [_item('Cardiología', 1, 0, 99)]);
+      expect(decorationIn(tester, _out(0, 'used')).color, fills['used']);
+    });
+  });
+
+  group('espaciado de las filas', () {
+    final items = [_item('Cardiología', 5, 3, 2), _item('Pediatría', 2, 1, 1)];
+
+    testWidgets('hay al menos 8 px entre la barra y la línea de datos', (
+      tester,
+    ) async {
+      await _pump(tester, items);
+      for (final row in [0, 1]) {
+        final gap =
+            tester.getTopLeft(find.byKey(Key('referral-data-$row'))).dy -
+            tester.getRect(_track(row)).bottom;
+        expect(gap, greaterThanOrEqualTo(8), reason: 'fila $row');
+      }
+    });
+
+    testWidgets('hay al menos 20 px entre una fila y la siguiente', (
+      tester,
+    ) async {
+      await _pump(tester, items);
+      final gap =
+          tester.getTopLeft(find.text('Pediatría')).dy -
+          tester.getRect(find.byKey(const Key('referral-data-0'))).bottom;
+      expect(gap, greaterThanOrEqualTo(20));
+    });
+
+    testWidgets('a 320 px con el texto al doble no hay desbordes', (
+      tester,
+    ) async {
+      await _pump(tester, items, width: 320, textScale: 2);
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getRect(find.byKey(const Key('referral-data-1'))).right,
+        lessThanOrEqualTo(320),
+      );
+    });
+  });
+
+  group('línea de datos con aire entre datos y entre renglones', () {
+    final items = [_item('Cardiología', 5, 3, 2, utilization: '71.43 %')];
+    const labels = [
+      'Emitidos: 10',
+      'Utilizados: 5',
+      'Disponibles: 3',
+      'Vencidos: 2',
+      'Utilización: 71.43 %',
+    ];
+
+    testWidgets('el Wrap separa 16 px en horizontal y 6 en vertical', (
+      tester,
+    ) async {
+      await _pump(tester, items);
+
+      final wrap = tester.widget<Wrap>(
+        find.byKey(const Key('referral-data-0')),
+      );
+      expect(wrap.spacing, 16);
+      expect(wrap.runSpacing, 6);
+    });
+
+    testWidgets('en un renglón hay al menos 16 px entre un dato y el '
+        'siguiente', (tester) async {
+      await _pump(tester, items, width: 900);
+
+      for (var i = 1; i < labels.length; i++) {
+        final before = tester.getRect(find.text(labels[i - 1]));
+        final after = tester.getRect(find.text(labels[i]));
+        expect(after.top, before.top, reason: labels[i]);
+        expect(after.left - before.right, greaterThanOrEqualTo(16));
+      }
+    });
+
+    testWidgets('al partirse en renglones hay al menos 6 px entre ellos', (
+      tester,
+    ) async {
+      await _pump(tester, items, width: 320, textScale: 2);
+
+      final rects = [for (final l in labels) tester.getRect(find.text(l))];
+      var rowBottom = rects.first.bottom;
+      var rowTop = rects.first.top;
+      var breaks = 0;
+      for (var i = 1; i < rects.length; i++) {
+        if (rects[i].top > rowTop) {
+          expect(
+            rects[i].top - rowBottom,
+            greaterThanOrEqualTo(6),
+            reason: labels[i],
+          );
+          rowTop = rects[i].top;
+          rowBottom = rects[i].bottom;
+          breaks++;
+        } else if (rects[i].bottom > rowBottom) {
+          rowBottom = rects[i].bottom;
+        }
+      }
+      expect(breaks, greaterThanOrEqualTo(2));
       expect(tester.takeException(), isNull);
     });
   });

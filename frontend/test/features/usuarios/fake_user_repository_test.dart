@@ -246,4 +246,27 @@ void main() {
       },
     );
   });
+
+  test('el listado dice quien se puede inactivar', () async {
+    final page = await repository.listUsers(const UserFilters(size: 100));
+
+    bool of(String ci, UserRole role) => page.items
+        .singleWhere((account) => account.ci == ci && account.role == role)
+        .canDeactivate;
+
+    // Ana, socia.
+    expect(of('12345672', UserRole.socio), isFalse);
+    // Bruno funcionario, activo y sin bloqueo.
+    expect(of('23456783', UserRole.funcionario), isTrue);
+    // Bruno médico, cuenta ya inactiva.
+    expect(of('23456783', UserRole.medico), isFalse);
+    // Carla, médica con turnos activos.
+    expect(of('34567894', UserRole.medico), isFalse);
+    // Diego, el administrador de la sesión falsa.
+    expect(of('45678905', UserRole.administrador), isFalse);
+    // Esteban, médico sin turnos.
+    expect(of('56789016', UserRole.medico), isTrue);
+    // Florencia, médica sin primer ingreso y sin turnos.
+    expect(of('67890127', UserRole.medico), isTrue);
+  });
 }
