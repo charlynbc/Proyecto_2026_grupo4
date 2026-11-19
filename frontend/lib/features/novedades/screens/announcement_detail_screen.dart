@@ -107,6 +107,13 @@ class _AnnouncementDetailScreenState
           _lastDetail = next.value;
           _loadedAt = DateTime.now();
         }
+        // El administrador llegó desde su lista de gestión: si la novedad ya
+        // no existe o dejó de estar vigente, esa lista tiene que actualizarse.
+        if (next is AsyncError &&
+            next.error is AnnouncementNotFoundException &&
+            widget.role == UserRole.administrador) {
+          ref.invalidate(adminAnnouncementsProvider);
+        }
       });
     }
     final detail = state?.asData?.value ?? _lastDetail;

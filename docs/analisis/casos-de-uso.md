@@ -106,7 +106,7 @@
 
 - Consultar lista de turnos y agendas en tiempo real.
 
-- Cancelar consultas a pedido del socio.
+- Cancelar consultas a pedido del socio o por otro motivo.
 
 ## 1.3. Médico
 

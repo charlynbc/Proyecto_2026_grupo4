@@ -15,6 +15,12 @@ public final class AnuncioDTO {
     public record Datos(String titulo, String resumen, String texto, OffsetDateTime vigenteDesde, OffsetDateTime vigenteHasta) {
         public Datos(String titulo, String resumen, String texto) { this(titulo, resumen, texto, null, null); }
     }
+    /** Una entrada de la lista final de imagenes: o una existente (id) o una nueva (nombre de la parte de archivo). */
+    public record ImagenEdicion(Long id, String archivo) { }
+    /** Edicion de una novedad; con imagenes en null las imagenes no se tocan, con una lista es la lista final en orden. */
+    public record Edicion(String titulo, String resumen, String texto, List<ImagenEdicion> imagenes) {
+        public Edicion(String titulo, String resumen, String texto) { this(titulo, resumen, texto, null); }
+    }
     public record Vigencia(OffsetDateTime vigenteDesde, OffsetDateTime vigenteHasta) { }
     public record Administracion(long id, String titulo, OffsetDateTime publicadoEn, OffsetDateTime vigenteDesde,
                                   OffsetDateTime vigenteHasta, String estado, Integer posicion) { }

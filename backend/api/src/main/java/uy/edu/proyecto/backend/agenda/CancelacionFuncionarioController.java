@@ -5,6 +5,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import uy.edu.proyecto.backend.exception.ApiException;
@@ -18,10 +19,13 @@ public class CancelacionFuncionarioController {
     }
 
     @PostMapping("/api/funcionario/consultas/{id}/cancelar")
-    public CancelacionDTO cancelar(@PathVariable String id, @AuthenticationPrincipal Jwt jwt) {
+    public CancelacionDTO cancelar(
+            @PathVariable String id,
+            @RequestBody(required = false) CancelacionFuncionarioRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
         try {
             long funcionarioId = Long.parseLong(jwt.getSubject());
-            return service.cancelar(funcionarioId, id);
+            return service.cancelar(funcionarioId, id, request);
         } catch (NumberFormatException exception) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "TOKEN_INVALIDO",
                     "La sesión no es válida");

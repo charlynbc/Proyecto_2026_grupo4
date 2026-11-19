@@ -80,6 +80,53 @@ void main() {
     expect(page.items.single.status, 'CANCELADA_SOCIO');
   });
 
+  test('por otro motivo queda cancelada por la institución', () async {
+    final (schedules, cancellations) = _repositories([
+      _entry(id: 9001, startMinutes: 780, status: 'AGENDADA'),
+    ]);
+
+    final result = await cancellations.cancel(9001, reason: '  Guardia  ');
+
+    expect(result.status, 'CANCELADA_INSTITUCION');
+    final page = await schedules.search(ScheduleFilters(date: _date));
+    expect(page.items.single.status, 'CANCELADA_INSTITUCION');
+  });
+
+  test('por otro motivo con el motivo vacío no cancela', () async {
+    final (schedules, cancellations) = _repositories([
+      _entry(id: 9001, startMinutes: 780, status: 'AGENDADA'),
+    ]);
+
+    await expectLater(
+      cancellations.cancel(9001, reason: '   '),
+      throwsA(_failure(StaffCancellationFailure.validation)),
+    );
+    final page = await schedules.search(ScheduleFilters(date: _date));
+    expect(page.items.single.status, 'AGENDADA');
+  });
+
+  test('por otro motivo con 1001 caracteres no cancela', () async {
+    final (_, cancellations) = _repositories([
+      _entry(id: 9001, startMinutes: 780, status: 'AGENDADA'),
+    ]);
+
+    await expectLater(
+      cancellations.cancel(9001, reason: 'a' * 1001),
+      throwsA(_failure(StaffCancellationFailure.validation)),
+    );
+  });
+
+  test('por otro motivo respeta el plazo de dos horas', () async {
+    final (_, cancellations) = _repositories([
+      _entry(id: 9002, startMinutes: 690, status: 'AGENDADA'),
+    ]);
+
+    await expectLater(
+      cancellations.cancel(9002, reason: 'Guardia'),
+      throwsA(_failure(StaffCancellationFailure.outsideWindow)),
+    );
+  });
+
   test('cancelada a las 10:00 devuelve la hora UTC correcta', () async {
     final (_, cancellations) = _repositories([
       _entry(id: 9008, startMinutes: 780, status: 'AGENDADA'),

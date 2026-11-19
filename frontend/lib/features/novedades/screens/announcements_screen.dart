@@ -25,7 +25,6 @@ class AnnouncementsScreen extends ConsumerStatefulWidget {
 class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
     with WidgetsBindingObserver {
   int _page = 0;
-  int _scrollReset = 0;
   DateTime? _loadedAt;
   bool _wasActive = false;
 
@@ -75,17 +74,6 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
     });
   }
 
-  Future<void> _create() async {
-    final published = await context.push<bool>(
-      '${widget.role.announcementsPath}/nueva',
-    );
-    if (!mounted || published != true) return;
-    setState(() {
-      _page = 0;
-      _scrollReset++;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(announcementsPageProvider(_page));
@@ -100,7 +88,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
           icon: const Icon(Icons.arrow_back),
         ),
         title: const Text(
-          'Novedades',
+          'Cartelera',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -109,7 +97,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
       body: Align(
         alignment: Alignment.topCenter,
         child: SingleChildScrollView(
-          key: ValueKey(('announcements-page', _page, _scrollReset)),
+          key: ValueKey(('announcements-page', _page)),
           padding: EdgeInsets.all(
             MediaQuery.sizeOf(context).width < 600 ? 16 : 32,
           ),
@@ -131,12 +119,6 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
                         icon: const Icon(Icons.refresh),
                         label: const Text('Actualizar novedades'),
                       ),
-                      if (widget.role == UserRole.administrador)
-                        FilledButton.icon(
-                          onPressed: _create,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Crear nueva novedad'),
-                        ),
                     ],
                   ),
                 ),

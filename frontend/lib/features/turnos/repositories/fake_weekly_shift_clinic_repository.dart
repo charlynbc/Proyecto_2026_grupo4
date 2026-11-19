@@ -29,6 +29,7 @@ class FakeWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
     int clinicId, {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
+    int? consultasAgendadasVistas,
   }) async {
     await Future<void>.delayed(latency);
     return _db.changeClinic(
@@ -36,6 +37,7 @@ class FakeWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
       clinicId,
       turnoIds: turnoIds,
       confirmarConConsultas: confirmarConConsultas,
+      consultasAgendadasVistas: consultasAgendadasVistas,
     );
   }
 }

@@ -404,6 +404,122 @@ class CancelacionConsultaIT extends BaseIntegracionIT {
                 "SELECT cancelada_en FROM consulta WHERE id_consulta = ?", Object.class, b));
     }
 
+    /* ---------- RF-19: el funcionario cancela a pedido del socio o por otro motivo ---------- */
+
+    private Respuesta cancelarComoFuncionario(long consultaId, String cuerpo) {
+        return post("/api/funcionario/consultas/" + consultaId + "/cancelar",
+                tokenEmpleado(ciFuncionario), cuerpo);
+    }
+
+    private String motivoGuardado(long consultaId) {
+        return jdbc.queryForObject(
+                "SELECT motivo_cancelacion FROM consulta WHERE id_consulta = ?",
+                String.class, consultaId);
+    }
+
+    @Test
+    void funcionarioSinCuerpoCancelaAPedidoDelSocioComoAntes() {
+        long numero = numeroId(sembrarTurno(hoy().plusDays(7), 1), 1);
+        long consulta = reservarOk(tokenSocio(ciSocio1), numero, null);
+
+        Respuesta r = cancelarComoFuncionario(consulta, null);
+
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals("CANCELADA_SOCIO", r.json().path("estado").asString());
+        assertEquals("CANCELADA_SOCIO", estadoConsulta(consulta));
+        assertNull(motivoGuardado(consulta));
+        assertEquals(idFuncionario, jdbc.queryForObject(
+                "SELECT cancelada_por FROM consulta WHERE id_consulta = ?", Long.class, consulta));
+    }
+
+    @Test
+    void funcionarioPorOtroMotivoDejaCanceladaInstitucionConMotivoVisibleParaElSocio() {
+        long numero = numeroId(sembrarTurno(hoy().plusDays(7), 2), 1);
+        String socio = tokenSocio(ciSocio1);
+        long consulta = reservarOk(socio, numero, null);
+
+        Respuesta r = cancelarComoFuncionario(consulta,
+                "{\"aPedidoDelSocio\":false,\"motivo\":\"  Se rompio el equipo  \"}");
+
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals("CANCELADA_INSTITUCION", r.json().path("estado").asString());
+        assertEquals("CANCELADA_INSTITUCION", estadoConsulta(consulta));
+        assertEquals("Se rompio el equipo", motivoGuardado(consulta));
+        assertEquals(idFuncionario, jdbc.queryForObject(
+                "SELECT cancelada_por FROM consulta WHERE id_consulta = ?", Long.class, consulta));
+
+        Respuesta detalle = get("/api/consultas/" + consulta, socio);
+        assertEquals(200, detalle.estado());
+        assertEquals("CANCELADA_INSTITUCION", detalle.json().path("estado").asString());
+        assertEquals("Se rompio el equipo", detalle.json().path("motivoCancelacion").asString());
+
+        // El aviso al socio lleva el motivo y la fecha con barras.
+        String aviso = jdbc.queryForObject(
+                "SELECT contenido FROM notificacion WHERE id_consulta = ? AND tipo = 'CANCELACION'",
+                String.class, consulta);
+        var dia = hoy().plusDays(7);
+        assertEquals(String.format("Tu consulta del %02d/%02d/%04d fue cancelada por la institución. "
+                + "Motivo: Se rompio el equipo", dia.getDayOfMonth(), dia.getMonthValue(), dia.getYear()), aviso);
+
+        // El numero vuelve a ofrecerse a otro socio.
+        reservarOk(tokenSocio(ciSocio2), numero, null);
+    }
+
+    @Test
+    void funcionarioAPedidoDelSocioIgnoraElMotivoYNoLoGuarda() {
+        long numero = numeroId(sembrarTurno(hoy().plusDays(7), 1), 1);
+        long consulta = reservarOk(tokenSocio(ciSocio1), numero, null);
+
+        Respuesta r = cancelarComoFuncionario(consulta,
+                "{\"aPedidoDelSocio\":true,\"motivo\":\"Esto no se guarda\"}");
+
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals("CANCELADA_SOCIO", r.json().path("estado").asString());
+        assertNull(motivoGuardado(consulta));
+    }
+
+    @Test
+    void funcionarioPorOtroMotivoSinMotivoOConMotivoLargoDa400SinCambiarNada() {
+        long numero = numeroId(sembrarTurno(hoy().plusDays(7), 1), 1);
+        long consulta = reservarOk(tokenSocio(ciSocio1), numero, null);
+
+        for (String cuerpo : List.of(
+                "{\"aPedidoDelSocio\":false}",
+                "{\"aPedidoDelSocio\":false,\"motivo\":\"   \"}",
+                "{\"aPedidoDelSocio\":false,\"motivo\":\"" + "a".repeat(1001) + "\"}")) {
+            Respuesta r = cancelarComoFuncionario(consulta, cuerpo);
+            assertEquals(400, r.estado(), r.cuerpo());
+            assertEquals("VALIDACION", r.codigo());
+        }
+        assertEquals("AGENDADA", estadoConsulta(consulta));
+    }
+
+    @Test
+    void funcionarioPorOtroMotivoAceptaUnMotivoDeMilCaracteres() {
+        long numero = numeroId(sembrarTurno(hoy().plusDays(7), 1), 1);
+        long consulta = reservarOk(tokenSocio(ciSocio1), numero, null);
+
+        Respuesta r = cancelarComoFuncionario(consulta,
+                "{\"aPedidoDelSocio\":false,\"motivo\":\"" + "a".repeat(1000) + "\"}");
+
+        assertEquals(200, r.estado(), r.cuerpo());
+        assertEquals(1000, motivoGuardado(consulta).length());
+    }
+
+    @Test
+    void funcionarioPorOtroMotivoNoPuedeCancelarUnaConsultaYaCancelada() {
+        long numero = numeroId(sembrarTurno(hoy().plusDays(7), 1), 1);
+        long consulta = reservarOk(tokenSocio(ciSocio1), numero, null);
+        assertEquals(200, cancelarComoFuncionario(consulta, null).estado());
+
+        Respuesta r = cancelarComoFuncionario(consulta,
+                "{\"aPedidoDelSocio\":false,\"motivo\":\"Guardia\"}");
+
+        assertEquals(409, r.estado());
+        assertEquals("CONSULTA_NO_AGENDADA", r.codigo());
+        assertNull(motivoGuardado(consulta));
+    }
+
     private List<Respuesta> enParalelo(List<Callable<Respuesta>> tareas) throws Exception {
         CyclicBarrier barrera = new CyclicBarrier(tareas.size());
         ExecutorService pool = Executors.newFixedThreadPool(tareas.size());

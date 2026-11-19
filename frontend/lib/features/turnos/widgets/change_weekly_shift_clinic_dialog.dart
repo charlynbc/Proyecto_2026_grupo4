@@ -74,8 +74,17 @@ class _ChangeWeeklyShiftClinicDialogState
   }
 
   /// La vista previa no guarda nada; cada cambio de consultorio la invalida.
-  Future<void> _loadPreview() async {
-    ref.read(changeWeeklyShiftClinicControllerProvider.notifier).reset();
+  ///
+  /// Con [keepResult] no borra el aviso del último guardado, y con
+  /// [keepSelection] vuelve a marcar solo esas fechas (las que sigan siendo
+  /// elegibles). Es lo que usa la recarga automática tras un 409.
+  Future<void> _loadPreview({
+    bool keepResult = false,
+    Set<int>? keepSelection,
+  }) async {
+    if (!keepResult) {
+      ref.read(changeWeeklyShiftClinicControllerProvider.notifier).reset();
+    }
     final requestedClinic = _clinicId;
     setState(() {
       _loadingPreview = true;
@@ -97,7 +106,12 @@ class _ChangeWeeklyShiftClinicDialogState
         _preview = result;
         _selectedTurnoIds.addAll(
           result.dates
-              .where((date) => _isSelectable(date))
+              .where(
+                (date) =>
+                    _isSelectable(date) &&
+                    (keepSelection == null ||
+                        keepSelection.contains(date.shiftId)),
+              )
               .map((date) => date.shiftId),
         );
       });
@@ -138,14 +152,30 @@ class _ChangeWeeklyShiftClinicDialogState
           date.shiftId,
     ];
     if (chosen.isEmpty) return;
-    final updated = await ref
-        .read(changeWeeklyShiftClinicControllerProvider.notifier)
-        .submit(
-          widget.weeklyShift.id,
-          _clinicId,
-          turnoIds: chosen,
-          confirmarConConsultas: _confirmarConConsultas,
-        );
+    // Lo que el funcionario vio en la vista previa para las fechas que va a
+    // cambiar. Si entra una consulta antes de guardar, el servidor lo rechaza.
+    final viewedAppointments = dates
+        .where((date) => chosen.contains(date.shiftId))
+        .fold<int>(0, (total, date) => total + date.bookedAppointments);
+    final controller = ref.read(
+      changeWeeklyShiftClinicControllerProvider.notifier,
+    );
+    final updated = await controller.submit(
+      widget.weeklyShift.id,
+      _clinicId,
+      turnoIds: chosen,
+      confirmarConConsultas: _confirmarConConsultas,
+      consultasAgendadasVistas: viewedAppointments,
+    );
+    if (updated == null &&
+        mounted &&
+        controller.lastFailureWasStaleConfirmation) {
+      // La confirmación quedó vieja: la vista previa se recarga sola, con las
+      // mismas fechas elegidas y la confirmación desmarcada, y el aviso del
+      // servidor sigue a la vista.
+      await _loadPreview(keepResult: true, keepSelection: chosen.toSet());
+      return;
+    }
     if (updated != null && mounted) {
       Navigator.of(context).pop(
         ClinicChangeResult(

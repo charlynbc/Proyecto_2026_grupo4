@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,8 @@ import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolici
 
 @Service
 public class CancelacionFuncionarioService {
+    private static final int MOTIVO_MAX_LENGTH = 1000;
+
     private final CancelacionFuncionarioRepository repository;
     private final ConsultaRepository consultaRepository;
     private final TurnoFechasRepository notificaciones;
@@ -35,8 +38,17 @@ public class CancelacionFuncionarioService {
         this.parametros = parametros;
     }
 
-    @Transactional
     public CancelacionDTO cancelar(Long funcionarioId, String id) {
+        return cancelar(funcionarioId, id, null);
+    }
+
+    @Transactional
+    public CancelacionDTO cancelar(Long funcionarioId, String id,
+            CancelacionFuncionarioRequest request) {
+        boolean aPedidoDelSocio = request == null || request.esAPedidoDelSocio();
+        // Primero de todo, como en la cancelación del médico. Con aPedidoDelSocio
+        // el motivo se ignora: no se valida ni se guarda.
+        String motivo = aPedidoDelSocio ? null : validarMotivo(request.motivo());
         Long consultaId;
         try {
             consultaId = Long.valueOf(id);
@@ -76,10 +88,16 @@ public class CancelacionFuncionarioService {
                             + " para la consulta");
         }
 
-        OffsetDateTime canceladaEn = repository.cancelar(consultaId, funcionarioId)
+        String estado = aPedidoDelSocio ? "CANCELADA_SOCIO" : "CANCELADA_INSTITUCION";
+        Optional<OffsetDateTime> cancelada = aPedidoDelSocio
+                ? repository.cancelar(consultaId, funcionarioId)
+                : repository.cancelarPorInstitucion(consultaId, funcionarioId, motivo);
+        OffsetDateTime canceladaEn = cancelada
                 .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT,
                         "CONSULTA_NO_AGENDADA", "La consulta ya no está agendada"));
-        Long notificacionId = repository.crearNotificacion(consultaId, consulta.fecha());
+        Long notificacionId = aPedidoDelSocio
+                ? repository.crearNotificacion(consultaId, consulta.fecha())
+                : repository.crearNotificacionPorInstitucion(consultaId, consulta.fecha(), motivo);
         List<Long> envios = notificaciones.registrarEnviosNotificacion(
                 notificacionId, consulta.socioId(), consulta.correo());
         if (!envios.isEmpty()) {
@@ -87,7 +105,20 @@ public class CancelacionFuncionarioService {
         }
         boolean paseDevuelto = consulta.venceElPase() != null
                 && !consulta.venceElPase().isBefore(ahora.toLocalDate());
-        return new CancelacionDTO(consultaId, "CANCELADA_SOCIO", canceladaEn, paseDevuelto);
+        return new CancelacionDTO(consultaId, estado, canceladaEn, paseDevuelto);
+    }
+
+    private String validarMotivo(String motivo) {
+        if (motivo == null || motivo.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "motivo es obligatorio");
+        }
+        String limpio = motivo.trim();
+        if (limpio.length() > MOTIVO_MAX_LENGTH) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "VALIDACION",
+                    "motivo no puede superar 1000 caracteres");
+        }
+        return limpio;
     }
 
     private ApiException validacion() {

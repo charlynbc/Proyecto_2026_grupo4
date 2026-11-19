@@ -11,6 +11,7 @@ import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/cuenta/providers/account_repository_provider.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
+import 'package:agenda_medica/features/novedades/models/admin_announcement.dart';
 import 'package:agenda_medica/features/novedades/models/announcement.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_detail.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_draft.dart';
@@ -79,6 +80,19 @@ class _News extends FakeAnnouncementsRepository {
 
   @override
   Future<List<Announcement>> carousel() async => items.take(5).toList();
+
+  /// La Cartelera del administrador lee el listado de administración: acá son
+  /// las mismas novedades, todas vigentes.
+  @override
+  Future<List<AdminAnnouncement>> adminList() async => [
+    for (final item in items)
+      AdminAnnouncement(
+        id: item.id,
+        title: item.title,
+        publishedAt: item.publishedAt,
+        status: AnnouncementStatus.active,
+      ),
+  ];
 
   @override
   Future<AnnouncementDetail> detail(int id) async {
@@ -218,13 +232,17 @@ void main() {
         find.text('Crear nueva novedad'),
         role == UserRole.administrador ? findsOneWidget : findsNothing,
       );
-      await tester.tap(find.text('Novedad 23'));
-      await tester.pumpAndSettle();
-      expect(find.text('Detalle 23'), findsOneWidget);
-      expect(repo.details, [23]);
-      await tester.tap(find.byTooltip('Volver a novedades'));
-      await tester.pumpAndSettle();
-      expect(locationOf(container), role.announcementsPath);
+      // El administrador gestiona desde su propia pantalla (con estados y
+      // acciones); el detalle de la novedad lo abren los demás roles.
+      if (role != UserRole.administrador) {
+        await tester.tap(find.text('Novedad 23'));
+        await tester.pumpAndSettle();
+        expect(find.text('Detalle 23'), findsOneWidget);
+        expect(repo.details, [23]);
+        await tester.tap(find.byTooltip('Volver a novedades'));
+        await tester.pumpAndSettle();
+        expect(locationOf(container), role.announcementsPath);
+      }
       if (role != UserRole.administrador) {
         await goTo(tester, container, '/admin/cartelera/nueva');
         expect(locationOf(container), role.homePath);
@@ -247,11 +265,6 @@ void main() {
         repo,
         role: UserRole.administrador,
       );
-      final next = find.widgetWithText(OutlinedButton, 'Siguiente');
-      await tester.ensureVisible(next);
-      await tester.tap(next);
-      await tester.pumpAndSettle();
-      expect(find.text('Página 2'), findsOneWidget);
       await tester.tap(find.text('Crear nueva novedad'));
       await tester.pumpAndSettle();
       final title = find.widgetWithText(TextFormField, 'Título');
@@ -286,11 +299,28 @@ void main() {
       await tester.tap(publish);
       await tester.pumpAndSettle();
       expect(locationOf(container), '/admin/cartelera');
-      expect(find.text('Página 1'), findsOneWidget);
       expect(find.text('Jornada informativa'), findsOneWidget);
       expect(find.text('Novedad publicada'), findsOneWidget);
     },
   );
+
+  for (final role in [UserRole.socio, UserRole.administrador]) {
+    testWidgets('el título del listado es Cartelera para ${role.name}', (
+      tester,
+    ) async {
+      await _pumpList(tester, _News(), role: role);
+
+      final appBar = find.byType(AppBar);
+      expect(
+        find.descendant(of: appBar, matching: find.text('Cartelera')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: appBar, matching: find.text('Novedades')),
+        findsNothing,
+      );
+    });
+  }
 
   testWidgets('deshabilita Publicar mientras el envío está pendiente', (
     tester,
