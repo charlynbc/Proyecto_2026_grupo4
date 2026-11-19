@@ -125,7 +125,7 @@ void main() {
   setUpAll(loadRoboto);
 
   testWidgets(
-    'entra al Inicio, saluda y muestra cuatro cuadrados en una fila',
+    'entra al Inicio, saluda y muestra cinco cuadrados en una fila',
     (tester) async {
       final container = await _pumpHome(tester, _News()..items = [news(1)]);
       expect(locationOf(container), '/socio/inicio');
@@ -154,6 +154,7 @@ void main() {
           'disponibilidad',
           'consultas',
           'historia',
+          'avisos',
           'cartelera',
         ])
           find.byKey(Key('home-shortcut-$slug')),
@@ -172,7 +173,7 @@ void main() {
     },
   );
 
-  testWidgets('los cuatro accesos conservan sus destinos existentes', (
+  testWidgets('los cinco accesos llevan a sus destinos', (
     tester,
   ) async {
     final container = await _pumpHome(tester, _News());
@@ -180,6 +181,7 @@ void main() {
       ('disponibilidad', '/socio/disponibilidad'),
       ('consultas', '/socio/consultas'),
       ('historia', '/socio/historia'),
+      ('avisos', '/socio/avisos'),
       ('cartelera', '/socio/cartelera'),
     ]) {
       await goTo(tester, container, '/socio/inicio');

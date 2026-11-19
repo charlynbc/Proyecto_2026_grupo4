@@ -10,6 +10,7 @@ import 'package:agenda_medica/features/auth/repositories/fake_first_login_reposi
 import 'package:agenda_medica/features/auth/repositories/first_login_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Un [AuthRepository] que anota los logins y rechaza todos con
@@ -79,6 +80,7 @@ Future<ProviderContainer> pumpApp(
   AuthRepository? auth,
   FirstLoginRepository? firstLogin,
   Size size = const Size(900, 1800),
+  List<Override> overrides = const [],
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -86,6 +88,7 @@ Future<ProviderContainer> pumpApp(
 
   final container = ProviderContainer(
     overrides: [
+      ...overrides,
       useFakesProvider.overrideWithValue(true),
       employeeAccessAvailableProvider.overrideWithValue(employeeAccess),
       authRepositoryProvider.overrideWith(
