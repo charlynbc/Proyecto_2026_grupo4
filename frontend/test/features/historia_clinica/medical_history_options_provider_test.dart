@@ -65,6 +65,9 @@ class _SpecialtyRepository implements SpecialtyRepository {
 }
 
 void main() {
+  // El provider escucha el ciclo de vida de la app (AppLifecycleListener),
+  // que necesita el binding de widgets aunque estos tests no armen pantallas.
+  TestWidgetsFlutterBinding.ensureInitialized();
   late ProviderContainer container;
   late _HistoryRepository history;
   late _SpecialtyRepository catalog;

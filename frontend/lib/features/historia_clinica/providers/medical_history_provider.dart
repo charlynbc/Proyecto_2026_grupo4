@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
@@ -7,14 +8,30 @@ import '../models/medical_history_entry.dart';
 import 'medical_history_filters_controller.dart';
 import 'medical_history_repository_provider.dart';
 
-/// Renueva los datos al volver a una vista conservada por el shell o una ruta.
+/// Renueva los datos al volver a verlos, por dos caminos distintos:
+///
+/// - `ref.onResume`: la pantalla estaba conservada por el shell o tapada por
+///   otra ruta y vuelve a verse (cambia su `TickerMode`).
+/// - `AppLifecycleListener`: la pestaña del navegador o la app vuelven a primer
+///   plano. Riverpod no mira ese evento. Solo pide datos si la pantalla se está
+///   viendo: con Historia en otra sección del shell no hace nada, y al volver a
+///   ella lo hace `onResume`.
+///
 /// La microtarea evita invalidar durante el callback de ciclo de vida.
 void refreshMedicalHistoryWhenVisibleAgain(Ref ref) {
-  ref.onResume(() {
+  void refresh() {
     Future.microtask(() {
       if (ref.mounted) ref.invalidateSelf();
     });
-  });
+  }
+
+  ref.onResume(refresh);
+  final lifecycle = AppLifecycleListener(
+    onResume: () {
+      if (ref.mounted && !ref.isPaused) refresh();
+    },
+  );
+  ref.onDispose(lifecycle.dispose);
 }
 
 /// Transición sin datos anteriores para un cambio de sesión.
