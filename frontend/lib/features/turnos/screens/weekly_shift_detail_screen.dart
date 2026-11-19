@@ -10,6 +10,7 @@ import '../models/weekly_shift.dart';
 import '../providers/weekly_shift_provider.dart';
 import '../repositories/shift_repository.dart';
 import '../widgets/change_weekly_shift_clinic_dialog.dart';
+import '../widgets/clinic_date_breakdown_section.dart';
 import 'shift_routes.dart';
 
 /// Detalle de una configuración semanal (RF-17): el patrón con su vigencia, los
@@ -112,8 +113,7 @@ class _Detail extends ConsumerWidget {
         ),
         if (weeklyShift.clinicVariesByDate)
           const Text(
-            'El consultorio varía según la fecha. Consultá el listado de '
-            'Turnos para ver el de cada una y revisá cada turno antes de '
+            'El consultorio varía según la fecha. Revisá cada turno antes de '
             'informar al socio.',
           ),
         _Field('Día', weekdayLabel(weeklyShift.weekday)),
@@ -123,6 +123,15 @@ class _Detail extends ConsumerWidget {
               '${formatUiDate(weeklyShift.endDate)}',
         ),
         _Field('Fechas generadas', '$count ${count == 1 ? 'fecha' : 'fechas'}'),
+        if (weeklyShift.clinicVariesByDate) ...[
+          const Text(
+            'Fechas generadas incluye las que ya pasaron y las suspendidas. '
+            'El aviso de consultorio variable solo mira las fechas de hoy en '
+            'adelante.',
+          ),
+          const SizedBox(height: 12),
+          ClinicDateBreakdownSection(weeklyShiftId: weeklyShift.id),
+        ],
         const SizedBox(height: 8),
         Text('Números', style: textTheme.titleMedium),
         const SizedBox(height: 4),
