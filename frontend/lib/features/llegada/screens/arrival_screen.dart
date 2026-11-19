@@ -27,6 +27,11 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
   /// quedado escrito en el campo.
   String? _searchedCi;
   List<Appointment>? _appointments;
+
+  /// El aviso que devolvió el registro de la búsqueda que se ve (201 o 200).
+  /// Con él, el botón queda deshabilitado con la hora de la llegada. Se borra
+  /// al cambiar la cédula o al buscar de nuevo.
+  ArrivalResult? _registered;
   String? _searchError;
   bool _searching = false;
   bool _registering = false;
@@ -52,6 +57,7 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
       setState(() {
         _searchedCi = null;
         _appointments = null;
+        _registered = null;
       });
     }
   }
@@ -63,6 +69,7 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
       _searching = true;
       _searchedCi = null;
       _appointments = null;
+      _registered = null;
       _searchError = null;
     });
     try {
@@ -90,6 +97,9 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
     try {
       final repository = await ref.read(arrivalRepositoryProvider.future);
       final result = await repository.registerArrival(ci);
+      // Si la cédula cambió mientras se registraba, el resultado ya no es de
+      // la búsqueda que se ve y no se marca.
+      if (mounted && _searchedCi == ci) setState(() => _registered = result);
       messenger.showSnackBar(SnackBar(content: Text(_resultMessage(result))));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(apiMessageOf(e))));
@@ -111,6 +121,7 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appointments = _appointments;
+    final registered = _registered;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Llegada'),
@@ -164,11 +175,21 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
                   _TodayAppointmentCard(appointment: appointment),
               const SizedBox(height: 16),
               FilledButton(
-                onPressed: appointments.isEmpty || _registering
+                onPressed:
+                    appointments.isEmpty || _registering || registered != null
                     ? null
                     : _register,
-                child: const Text('Registrar llegada'),
+                child: Text(
+                  registered == null
+                      ? 'Registrar llegada'
+                      : 'Llegada registrada a las '
+                            '${registered.arrival.registeredTime}',
+                ),
               ),
+              if (registered != null && !registered.created) ...[
+                const SizedBox(height: 8),
+                Text('La registró ${registered.arrival.registeredByName}.'),
+              ],
             ],
           ],
         ),
