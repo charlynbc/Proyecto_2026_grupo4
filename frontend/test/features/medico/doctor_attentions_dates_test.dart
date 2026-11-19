@@ -24,6 +24,8 @@ const _noExiste =
 /// inyectable (arma las fechas con `DoctorAttentionQuery.initial()`), así que
 /// se fijan en el provider de los filtros, que es de donde las toma.
 class _FixedFilters extends DoctorAttentionFiltersController {
+  _FixedFilters({this.initial});
+  final DoctorAttentionQuery? initial;
   static final fixed = DoctorAttentionQuery(
     from: DateTime.utc(2026, 11, 1),
     to: DateTime.utc(2026, 11, 12),
@@ -34,7 +36,7 @@ class _FixedFilters extends DoctorAttentionFiltersController {
   static DoctorAttentionQuery afterClear = fixed;
 
   @override
-  DoctorAttentionQuery build() => fixed;
+  DoctorAttentionQuery build() => initial ?? fixed;
 
   @override
   void clear() => state = afterClear;
@@ -57,6 +59,7 @@ Future<_Repository> _pump(
   WidgetTester tester, {
   Size size = const Size(900, 1800),
   double textScale = 1,
+  DoctorAttentionQuery? initial,
 }) async {
   final repository = _Repository();
   _FixedFilters.afterClear = _FixedFilters.fixed;
@@ -70,7 +73,9 @@ Future<_Repository> _pump(
         doctorAttentionRepositoryProvider.overrideWith(
           (ref) async => repository,
         ),
-        doctorAttentionFiltersProvider.overrideWith(_FixedFilters.new),
+        doctorAttentionFiltersProvider.overrideWith(
+          () => _FixedFilters(initial: initial),
+        ),
         specialtiesProvider.overrideWith((ref) async => const []),
       ],
       child: MaterialApp(
@@ -118,6 +123,162 @@ Map<String, dynamic> _last(_Repository repository) =>
     repository.queries.last.toQueryParameters();
 
 void main() {
+  testWidgets('sin resultados muestra cero atenciones y el mensaje exacto', (
+    tester,
+  ) async {
+    await _pump(tester);
+    expect(find.text('0 atenciones'), findsOneWidget);
+    expect(
+      find.text('No hay atenciones que coincidan con los filtros.'),
+      findsOneWidget,
+    );
+    expect(find.byType(ListTile), findsNothing);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith('attention-'),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+    'al abrir refleja las fechas previamente aplicadas de otro período',
+    (tester) async {
+      final repo = await _pump(
+        tester,
+        initial: DoctorAttentionQuery(
+          from: DateTime.utc(2025, 8, 5),
+          to: DateTime.utc(2025, 8, 20),
+        ),
+      );
+      expect(_text(tester, _fromKey), '05/08/2025');
+      expect(_text(tester, _toKey), '20/08/2025');
+      expect(_last(repo)['fechaDesde'], '2025-08-05');
+      expect(_last(repo)['fechaHasta'], '2025-08-20');
+    },
+  );
+
+  for (final (key, label) in [(_fromKey, 'Desde'), (_toKey, 'Hasta')]) {
+    testWidgets('Enter en $label no ejecuta Buscar', (tester) async {
+      final repo = await _pump(tester);
+      final before = repo.queries.length;
+      await _type(tester, key, '06/11/2026');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      expect(repo.queries, hasLength(before));
+      expect(_text(tester, key), '06/11/2026');
+    });
+
+    testWidgets('Buscar quita el foco de $label y aplica la fecha', (
+      tester,
+    ) async {
+      final repo = await _pump(tester);
+      await _type(tester, key, '06/11/2026');
+      final field = tester.widget<EditableText>(_input(key));
+      expect(field.focusNode.hasFocus, isTrue);
+      final before = repo.queries.length;
+      await _tap(tester, 'attentions-search');
+      expect(field.focusNode.hasFocus, isFalse);
+      expect(repo.queries, hasLength(before + 1));
+      expect(
+        _last(repo)[key == _fromKey ? 'fechaDesde' : 'fechaHasta'],
+        '2026-11-06',
+      );
+    });
+  }
+
+  testWidgets('los calendarios de Desde y Hasta aplican las fechas al buscar', (
+    tester,
+  ) async {
+    final repo = await _pump(tester);
+    final before = repo.queries.length;
+    for (final (tooltip, day) in [
+      ('Elegir la fecha desde', '5'),
+      ('Elegir la fecha hasta', '10'),
+    ]) {
+      await tester.tap(find.byTooltip(tooltip));
+      await tester.pumpAndSettle();
+      final calendar = find.byType(CalendarDatePicker);
+      expect(calendar, findsOneWidget);
+      await tester.tap(find.descendant(of: calendar, matching: find.text(day)));
+      await tester.tap(find.text('Aceptar'));
+      await tester.pumpAndSettle();
+    }
+    expect(_text(tester, _fromKey), '05/11/2026');
+    expect(_text(tester, _toKey), '10/11/2026');
+    expect(repo.queries, hasLength(before));
+    await _tap(tester, 'attentions-search');
+    expect(repo.queries, hasLength(before + 1));
+    expect(_last(repo)['fechaDesde'], '2026-11-05');
+    expect(_last(repo)['fechaHasta'], '2026-11-10');
+  });
+
+  testWidgets('Hasta vacía abre en Desde y una Hasta válida tiene prioridad', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await _type(tester, _fromKey, '05/11/2026');
+    await _type(tester, _toKey, '');
+    await tester.tap(find.byTooltip('Elegir la fecha hasta'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<CalendarDatePicker>(find.byType(CalendarDatePicker))
+          .initialDate,
+      DateTime(2026, 11, 5),
+    );
+    await tester.tap(find.text('Aceptar'));
+    await tester.pumpAndSettle();
+    expect(_text(tester, _toKey), '05/11/2026');
+    await _type(tester, _toKey, '10/11/2026');
+    await tester.tap(find.byTooltip('Elegir la fecha hasta'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<CalendarDatePicker>(find.byType(CalendarDatePicker))
+          .initialDate,
+      DateTime(2026, 11, 10),
+    );
+    await tester.tap(find.text('Cancelar'));
+    await tester.pumpAndSettle();
+  });
+
+  for (final (key, tooltip, outside, expected, date) in [
+    (
+      _fromKey,
+      'Elegir la fecha desde',
+      '31/12/1899',
+      '01/01/1900',
+      DateTime(1900),
+    ),
+    (
+      _toKey,
+      'Elegir la fecha hasta',
+      '02/01/2100',
+      '01/01/2100',
+      DateTime(2100),
+    ),
+  ]) {
+    testWidgets('el calendario respeta el límite $expected', (tester) async {
+      await _pump(tester);
+      await _type(tester, key, outside);
+      await tester.tap(find.byTooltip(tooltip));
+      await tester.pumpAndSettle();
+      final calendar = tester.widget<CalendarDatePicker>(
+        find.byType(CalendarDatePicker),
+      );
+      expect(calendar.firstDate, DateTime(1900));
+      expect(calendar.lastDate, DateTime(2100));
+      expect(calendar.initialDate, date);
+      await tester.tap(find.text('Aceptar'));
+      await tester.pumpAndSettle();
+      expect(_text(tester, key), expected);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('al abrir muestra 01/11/2026 y 12/11/2026', (tester) async {
     await _pump(tester);
 
