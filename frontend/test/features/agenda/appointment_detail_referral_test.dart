@@ -66,7 +66,7 @@ Future<void> _pumpDetail(WidgetTester tester, Appointment appointment) async {
   );
   await tester.pumpAndSettle();
   expect(repository.requestedId, 9001);
-  expect(find.text('Detalle de consulta'), findsOneWidget);
+  expect(find.text('Consulta'), findsOneWidget);
   expect(find.text('Agendada'), findsOneWidget);
 }
 

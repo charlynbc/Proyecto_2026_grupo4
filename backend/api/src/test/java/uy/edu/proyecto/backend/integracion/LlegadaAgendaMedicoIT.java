@@ -72,6 +72,10 @@ class LlegadaAgendaMedicoIT extends BaseIntegracionIT {
         Respuesta todas = get("/api/agendas?fecha=" + hoy(), funcionario);
         assertEquals(200, todas.estado(), todas.cuerpo());
         assertEquals(2, todas.json().path("items").size());
+        // El valor depende de la hora del dia de la prueba; aca solo se exige
+        // que cada consulta traiga el campo, como booleano.
+        assertTrue(todas.json().path("items").get(0).path("cancelable").isBoolean());
+        assertTrue(todas.json().path("items").get(1).path("cancelable").isBoolean());
 
         Respuesta conLlegada = get("/api/agendas?fecha=" + hoy() + "&llegada=true", funcionario);
         assertEquals(1, conLlegada.json().path("items").size());
@@ -139,6 +143,8 @@ class LlegadaAgendaMedicoIT extends BaseIntegracionIT {
 
         Respuesta agenda = get("/api/agendas?ci=" + ciSocio1, funcionario);
         assertEquals("ATENDIDA", agenda.json().path("items").get(0).path("estado").asString());
+        // Una consulta atendida nunca se puede cancelar.
+        assertEquals(false, agenda.json().path("items").get(0).path("cancelable").asBoolean(true));
     }
 
     @Test

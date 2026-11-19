@@ -92,7 +92,8 @@ class AgendaConsultaSeguridadTest {
                 "09:40",
                 new AgendaOperativaDTO.Consultorio(5L, "Consultorio 5", "Piso 2"),
                 "AGENDADA",
-                OffsetDateTime.parse("2026-10-23T08:55:12-03:00")
+                OffsetDateTime.parse("2026-10-23T08:55:12-03:00"),
+                true
         );
         when(service.consultar(
                 null, null, null, null, null, null, null, null, null, null
@@ -108,6 +109,7 @@ class AgendaConsultaSeguridadTest {
                 .andExpect(jsonPath("$.items[0].fecha").value("2026-10-23"))
                 .andExpect(jsonPath("$.items[0].llegadaEn")
                         .value("2026-10-23T08:55:12-03:00"))
+                .andExpect(jsonPath("$.items[0].cancelable").value(true))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();

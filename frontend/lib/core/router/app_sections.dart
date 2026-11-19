@@ -42,6 +42,12 @@ const Map<UserRole, List<AppSection>> kSectionsByRole = {
       Icons.medical_information_outlined,
       Icons.medical_information,
     ),
+    AppSection(
+      'avisos',
+      'Avisos',
+      Icons.notifications_outlined,
+      Icons.notifications,
+    ),
     _announcements,
   ],
   UserRole.funcionario: [
