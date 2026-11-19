@@ -146,7 +146,7 @@ Los filtros son parámetros de query, opcionales salvo que se indique. Un filtro
 | `medico`, `especialidad`, `consultorio` | referencias | Sección 1.8. |
 | `paseId` | entero o `null` | Pase usado al agendar. Se conserva aunque la consulta se cancele (diseño 2.2.4). |
 | `agendadaEn` | instante | |
-| `canceladaEn`, `motivoCancelacion` | instante o `null`, texto o `null` | Solo con estados cancelados. El motivo existe en las cancelaciones institucionales (modelo de datos, `motivo_cancelacion`). |
+| `canceladaEn`, `motivoCancelacion` | instante o `null`, texto o `null` | Solo con estados cancelados. El motivo existe en las cancelaciones institucionales (modelo de datos, `motivo_cancelacion`): las del médico (#38, #39), las de la suspensión del funcionario (#24) y las que hace el funcionario por otro motivo (#44). En `CANCELADA_SOCIO` es `null`. |
 
 ## 2. Correspondencia con el Diseño 2.1 a 2.7 (figuras 1 a 7)
 
@@ -1930,12 +1930,22 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 #### #44 · `POST /api/funcionario/consultas/{id}/cancelar`
 
 - **Roles:** FUNCIONARIO exclusivamente.
-- **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración.
+- **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración. El cuerpo con `aPedidoDelSocio` y `motivo` está implementado en la rama `feat/rf19-cancelacion-con-motivo`, sobre el despacho genérico de avisos.
 - **Ruta:** `id`, identificador entero positivo de consulta.
-- **Cuerpo:** ninguno.
-- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio; la cancela el funcionario a pedido del socio, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO`. Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales.
+- **Cuerpo** (`CancelacionFuncionarioRequest`, entrada), **opcional**: sin cuerpo se conserva el comportamiento anterior (`aPedidoDelSocio` verdadero).
 
-**Respuesta 200**
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `aPedidoDelSocio` | booleano | no | Por defecto `true`. Con `true` la cancelación es a pedido del socio y la consulta queda `CANCELADA_SOCIO`. Con `false` es por otro motivo (administrativo u otro) y queda `CANCELADA_INSTITUCION`. |
+| `motivo` | texto | solo si `aPedidoDelSocio` es `false` | Se recorta; máximo 1000 caracteres. Se guarda en `motivo_cancelacion` y se envía al socio en la notificación. Con `aPedidoDelSocio` verdadero se ignora si viene: no da error y no se guarda. |
+
+```json
+{ "aPedidoDelSocio": false, "motivo": "Se rompió el equipo del consultorio" }
+```
+
+- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio; la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`, que se entrega por el despacho genérico (correo y push, RNF-24) con la fecha de la consulta en formato `dd/mm/aaaa` (RNF-20) en los dos casos: a pedido del socio, `Tu consulta del 20/10/2026 fue cancelada a tu solicitud.`; por otro motivo, `Tu consulta del 20/10/2026 fue cancelada por la institución. Motivo: {motivo}`, sin nombrar al funcionario. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
+
+**Respuesta 200** (`estado` es el estado que quedó guardado: `CANCELADA_SOCIO` o `CANCELADA_INSTITUCION`)
 
 ```json
 {
@@ -1950,7 +1960,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 
 | HTTP | `code` | Causa |
 |---|---|---|
-| 400 | `VALIDACION` | Identificador inválido o no positivo. |
+| 400 | `VALIDACION` | Identificador inválido o no positivo; con `aPedidoDelSocio` en `false`, `motivo` ausente, vacío o de más de 1000 caracteres. |
 | 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
 | 403 | `ACCESO_DENEGADO` | El rol no es funcionario o la cuenta no tiene permiso. |
 | 403 | `CONFLICTO_INTERES` | El funcionario intenta cancelar su propia consulta. |

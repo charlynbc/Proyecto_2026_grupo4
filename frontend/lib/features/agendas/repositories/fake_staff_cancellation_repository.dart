@@ -17,13 +17,14 @@ class FakeStaffCancellationRepository implements StaffCancellationRepository {
   static const Duration _cancellationDeadline = Duration(hours: 2);
 
   @override
-  Future<StaffCancellationResult> cancel(int id) async {
+  Future<StaffCancellationResult> cancel(int id, {String? reason}) async {
     if (id <= 0) {
       throw const StaffCancellationException(
         StaffCancellationFailure.validation,
         'La consulta indicada no es válida.',
       );
     }
+    if (reason != null) validatedStaffCancellationReason(reason);
 
     await Future<void>.delayed(latency);
 
@@ -60,12 +61,13 @@ class FakeStaffCancellationRepository implements StaffCancellationRepository {
       );
     }
 
-    _schedules.markCancelled(id);
+    final status = reason == null ? 'CANCELADA_SOCIO' : 'CANCELADA_INSTITUCION';
+    _schedules.markCancelled(id, status: status);
 
     // paseDevuelto es una simplificación del Fake.
     return StaffCancellationResult(
       appointmentId: id,
-      status: 'CANCELADA_SOCIO',
+      status: status,
       cancelledAt: now,
       referralReturned: entry.specialty.requiresReferral,
     );

@@ -11,31 +11,43 @@ class ApiStaffCancellationRepository implements StaffCancellationRepository {
   final Dio _dio;
 
   @override
-  Future<StaffCancellationResult> cancel(int id) => _request(() async {
-    if (id <= 0) {
-      throw const StaffCancellationException(
-        StaffCancellationFailure.validation,
-        kApiGenericMessage,
+  Future<StaffCancellationResult> cancel(int id, {String? reason}) => _request(
+    () async {
+      if (id <= 0) {
+        throw const StaffCancellationException(
+          StaffCancellationFailure.validation,
+          kApiGenericMessage,
+        );
+      }
+      // Sin motivo no hay cuerpo: el servidor lo toma como a pedido del socio.
+      final requestBody = reason == null
+          ? null
+          : {
+              'aPedidoDelSocio': false,
+              'motivo': validatedStaffCancellationReason(reason),
+            };
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiRoutes.staffAppointmentCancel(id),
+        data: requestBody,
       );
-    }
-    final response = await _dio.post<Map<String, dynamic>>(
-      ApiRoutes.staffAppointmentCancel(id),
-    );
-    final body = response.data ?? _throwMalformed();
-    final appointmentId = body['consultaId'] as int;
-    final status = body['estado'] as String;
-    final cancelledAt = DateTime.parse(body['canceladaEn'] as String).toUtc();
-    final referralReturned = body['paseDevuelto'] as bool;
-    if (status != 'CANCELADA_SOCIO') {
-      throw const FormatException();
-    }
-    return StaffCancellationResult(
-      appointmentId: appointmentId,
-      status: status,
-      cancelledAt: cancelledAt,
-      referralReturned: referralReturned,
-    );
-  });
+      final body = response.data ?? _throwMalformed();
+      final appointmentId = body['consultaId'] as int;
+      final status = body['estado'] as String;
+      final cancelledAt = DateTime.parse(body['canceladaEn'] as String).toUtc();
+      final referralReturned = body['paseDevuelto'] as bool;
+      // El servidor responde con el estado que quedó guardado. Un servidor que
+      // todavía no entiende el motivo responde CANCELADA_SOCIO: no es un error.
+      if (status != 'CANCELADA_SOCIO' && status != 'CANCELADA_INSTITUCION') {
+        throw const FormatException();
+      }
+      return StaffCancellationResult(
+        appointmentId: appointmentId,
+        status: status,
+        cancelledAt: cancelledAt,
+        referralReturned: referralReturned,
+      );
+    },
+  );
 
   Future<T> _request<T>(Future<T> Function() call) async {
     try {
