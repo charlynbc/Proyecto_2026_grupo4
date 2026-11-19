@@ -7,6 +7,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import uy.edu.proyecto.backend.anuncio.ErroresImagen;
 import jakarta.servlet.http.HttpServletRequest;
 
 @RestControllerAdvice
@@ -17,16 +18,28 @@ public class ApiExceptionHandler {
             MaxUploadSizeExceededException exception,
             HttpServletRequest request
     ) {
-        boolean anuncio = request.getRequestURI().startsWith("/api/anuncios");
+        boolean anuncio = esRutaDeAnuncios(request.getRequestURI());
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(
                         new ApiErrorResponse(
-                                anuncio ? "IMAGEN_INVALIDA" : "CSV_INVALIDO",
-                                anuncio ? "Las imágenes superan el tamaño máximo permitido"
+                                anuncio ? ErroresImagen.CODIGO : "CSV_INVALIDO",
+                                anuncio ? ErroresImagen.TAMANO
                                         : "El archivo supera el tamaño máximo permitido (1 MB)"
                         )
                 );
+    }
+
+    /**
+     * El limite de multipart corta el pedido antes de que haya controlador, asi que la excepcion no dice a que
+     * endpoint iba: se decide por la ruta (la publicacion y la edicion de novedades), por segmentos completos.
+     */
+    private static boolean esRutaDeAnuncios(String ruta) {
+        return coincide(ruta, "/api/anuncios") || coincide(ruta, "/api/admin/anuncios");
+    }
+
+    private static boolean coincide(String ruta, String base) {
+        return ruta.equals(base) || ruta.startsWith(base + "/");
     }
 
     @ExceptionHandler(ApiException.class)

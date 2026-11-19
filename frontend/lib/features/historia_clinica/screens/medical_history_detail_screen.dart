@@ -21,8 +21,8 @@ class MedicalHistoryDetailScreen extends ConsumerWidget {
       body: CenteredContent(
         maxWidth: 900,
         child: detail.when(
-          skipLoadingOnRefresh: false,
-          skipLoadingOnReload: false,
+          skipLoadingOnRefresh: detail.hasValue,
+          skipLoadingOnReload: detail.hasValue,
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
