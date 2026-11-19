@@ -14,6 +14,8 @@ import '../providers/medical_history_filters_controller.dart';
 import '../providers/medical_history_options_provider.dart';
 import '../providers/medical_history_provider.dart';
 
+const String kMedicalHistoryPath = '/socio/historia';
+
 /// Listado y filtros de las atenciones registradas del socio.
 class MedicalHistoryScreen extends ConsumerStatefulWidget {
   const MedicalHistoryScreen({super.key});

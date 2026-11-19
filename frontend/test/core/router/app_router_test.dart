@@ -1,5 +1,12 @@
 import 'dart:async' show unawaited;
 
+import 'package:agenda_medica/core/config/app_config.dart';
+import 'package:agenda_medica/features/medico/models/doctor_attention.dart';
+import 'package:agenda_medica/features/medico/providers/doctor_attention_repository_provider.dart';
+import 'package:agenda_medica/features/medico/repositories/fake_doctor_attention_repository.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_attention_detail_screen.dart';
+import 'package:agenda_medica/features/medico/screens/doctor_attentions_screen.dart';
+
 import 'package:agenda_medica/core/fakes/datos_prueba.dart';
 import 'package:agenda_medica/core/router/adaptive_nav_bar.dart';
 import 'package:agenda_medica/core/router/app_router.dart';
@@ -52,7 +59,129 @@ Future<void> _loginAs(
   await tester.pumpAndSettle();
 }
 
+class _AttentionRouteSession extends SessionNotifier {
+  @override
+  SessionState build() => const SessionState(
+    status: SessionStatus.authenticated,
+    accessToken: 'atenciones-router-prueba',
+    role: UserRole.medico,
+  );
+}
+
+class _RecordingAttentionRepository extends FakeDoctorAttentionRepository {
+  _RecordingAttentionRepository()
+    : super(latency: Duration.zero, clock: () => DateTime.utc(2026, 11, 12));
+
+  final detailIds = <int>[];
+
+  @override
+  Future<DoctorAttention> get(int id) {
+    detailIds.add(id);
+    return super.get(id);
+  }
+}
+
 void main() {
+  for (final scenario in [
+    'botón no encontrado',
+    'flecha no encontrado',
+    'flecha detalle válido',
+  ]) {
+    testWidgets('Atenciones desde ruta directa: $scenario vuelve al listado', (
+      tester,
+    ) async {
+      final repository = _RecordingAttentionRepository();
+      final container = ProviderContainer(
+        overrides: [
+          useFakesProvider.overrideWithValue(true),
+          sessionProvider.overrideWith(_AttentionRouteSession.new),
+          doctorAttentionRepositoryProvider.overrideWith(
+            (ref) async => repository,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = container.read(goRouterProvider);
+      final valid = scenario == 'flecha detalle válido';
+      router.go(valid ? '/medico/atenciones/5530' : '/medico/atenciones/9999');
+      try {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(routerConfig: router),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(router.canPop(), isFalse);
+        expect(find.byType(DoctorAttentionDetailScreen), findsOneWidget);
+        expect(repository.detailIds, valid ? [5530] : [9999]);
+        if (valid) {
+          expect(find.text('Lucía Fernández'), findsOneWidget);
+        } else {
+          expect(
+            find.text('No encontramos esta atención entre las tuyas.'),
+            findsOneWidget,
+          );
+        }
+        expect(tester.takeException(), isNull);
+        final back = scenario == 'botón no encontrado'
+            ? find.widgetWithText(OutlinedButton, 'Volver a Atenciones')
+            : find.descendant(
+                of: find.byType(AppBar),
+                matching: find.byType(BackButton),
+              );
+        expect(back, findsOneWidget);
+        if (scenario == 'botón no encontrado') {
+          expect(find.text('Reintentar'), findsNothing);
+        }
+        await tester.tap(back);
+        await tester.pumpAndSettle();
+        expect(locationOf(container), '/medico/atenciones');
+        expect(find.byType(DoctorAttentionsScreen), findsOneWidget);
+        expect(find.byType(DoctorAttentionDetailScreen), findsNothing);
+        expect(tester.takeException(), isNull);
+      } finally {
+        await unmountApp(tester);
+      }
+    });
+  }
+
+  for (final id in ['0', '-1', 'abc']) {
+    testWidgets(
+      'ruta real de Atenciones con id $id vuelve al listado sin consultar detalle',
+      (tester) async {
+        final repository = _RecordingAttentionRepository();
+        final container = ProviderContainer(
+          overrides: [
+            useFakesProvider.overrideWithValue(true),
+            sessionProvider.overrideWith(_AttentionRouteSession.new),
+            doctorAttentionRepositoryProvider.overrideWith(
+              (ref) async => repository,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final router = container.read(goRouterProvider);
+        router.go('/medico/atenciones/$id');
+        try {
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp.router(routerConfig: router),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(locationOf(container), '/medico/atenciones');
+          expect(find.byType(DoctorAttentionsScreen), findsOneWidget);
+          expect(find.byType(DoctorAttentionDetailScreen), findsNothing);
+          expect(repository.detailIds, isEmpty);
+          expect(tester.takeException(), isNull);
+        } finally {
+          await unmountApp(tester);
+        }
+      },
+    );
+  }
   testWidgets('ruta real de corrección abre un consultorio válido', (
     tester,
   ) async {
@@ -170,6 +299,7 @@ void main() {
       );
       expect(redirectFor(socio, Uri.parse('/socio')), UserRole.socio.homePath);
       expect(redirectFor(socio, Uri.parse('/socio/historia')), null);
+      expect(redirectFor(socio, Uri.parse('/socio/avisos')), null);
     });
 
     test('la edición de cuenta admite una sesión de cada rol', () {

@@ -13,8 +13,15 @@ public record AgendaOperativaDTO(
         String horaFin,
         Consultorio consultorio,
         String estado,
-        OffsetDateTime llegadaEn
+        OffsetDateTime llegadaEn,
+        boolean cancelable
 ) {
+    /** La misma consulta con {@code cancelable} resuelto por el servicio. */
+    public AgendaOperativaDTO conCancelable(boolean valor) {
+        return new AgendaOperativaDTO(consultaId, socio, medico, especialidad,
+                fecha, horaInicio, horaFin, consultorio, estado, llegadaEn, valor);
+    }
+
     public record Socio(String ci, String nombre, String apellido) {
     }
 
