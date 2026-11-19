@@ -1613,19 +1613,19 @@ Longitud máxima de los textos: P-18. Vencimiento y duplicados de pases en panta
 #### #32 · `GET /api/notificaciones`
 
 - **Roles:** SOCIO exclusivamente (solo las propias).
-- **RF:** RNF-23 ("por la interfaz del sistema"), RNF-25. **Diseño:** el Diseño 2.1 a 2.7 solo tiene `registrarAvisoPendiente` (escritura); la lectura la define este contrato sobre la tabla `notificacion` del modelo de datos. **Estado:** PROPUESTA (decisiones tomadas el 15/11/2026, sección 7.1 puntos 12 y 13; pasa a CONFIRMADA cuando se integre el backend).
+- **RF:** RNF-23 ("por la interfaz del sistema"), RNF-25. **Diseño:** el Diseño 2.1 a 2.7 solo tiene `registrarAvisoPendiente` (escritura); la lectura la define este contrato sobre la tabla `notificacion` del modelo de datos. **Estado:** CONFIRMADA (backend 17/11/2026, rama `feat/back-notificaciones-lista-socio`; las decisiones del 15/11/2026, sección 7.1 puntos 12 y 13, se mantienen).
 
 Lista los avisos que el sistema guardó para el socio autenticado: agenda, cancelación, suspensión, historia actualizada y recordatorio (`TipoNotificacion`, sección 1.7). El socio sale del JWT; el pedido no lleva identificador de socio.
 
 | Parámetro | Tipo | Notas |
 |---|---|---|
-| `page`, `size` | | Sección 1.3, con los mismos nombres y límites que los demás listados: `page` desde 0, `size` de 1 a 100, por defecto 20. |
+| `page`, `size` | | Sección 1.3, con los mismos nombres y límites que los demás listados: `page` desde 0, `size` de 1 a 100, por defecto 20. Un parámetro ausente o en blanco vale su valor por defecto. Si no es un entero o está fuera de rango, responde `400 VALIDACION` con el mensaje `page debe ser un entero mayor o igual a 0` o `size debe estar entre 1 y 100`. Cualquier otro parámetro (por ejemplo un `socioId`) se ignora: el socio sale siempre del token. |
 
 **Reglas**
 
 - **Solo los propios.** Se listan los avisos de las consultas del socio autenticado (el destinatario sale de `consulta.id_socio`). Un socio nunca ve avisos de otro.
-- **Orden:** del más nuevo al más viejo (`creadaEn` descendente). No hay parámetros de orden.
-- **Recordatorios futuros:** un aviso con `programada_para` en el futuro no se lista; aparece cuando llega su hora.
+- **Orden:** del más nuevo al más viejo (`creadaEn` descendente); con la misma `creadaEn`, el de `id` mayor primero. No hay parámetros de orden.
+- **Recordatorios futuros:** un aviso con `programada_para` en el futuro no se lista; aparece cuando llega su hora, según el reloj del servidor (hora de Uruguay).
 - **Sin leído ni no leído:** la lista muestra todo. Marcar un aviso como leído queda como mejora futura y necesita una columna nueva en `notificacion`.
 - **Sin límite de retención:** en esta versión no se borran avisos.
 - **Cuándo consulta el cliente:** al abrir la pantalla y al volver a verla, como el resto de los listados. No hay consulta periódica. En Android, el push avisa mientras la aplicación no está a la vista (RNF-23).
@@ -1636,9 +1636,9 @@ Lista los avisos que el sistema guardó para el socio autenticado: agenda, cance
 |---|---|---|
 | `id` | entero | `id_notificacion`. |
 | `tipo` | `TipoNotificacion` | Sección 1.7. |
-| `titulo` | texto | Título corto del aviso, armado por el servidor a partir del `tipo`. No se guarda en la tabla. El cliente lo muestra tal cual. |
+| `titulo` | texto | Título corto del aviso, armado por el servidor a partir del `tipo` (el mismo que lleva el asunto del correo y el título del push): `AGENDA`, `Consulta agendada`; `CANCELACION`, `Consulta cancelada`; `SUSPENSION`, `Turno suspendido`; `HISTORIA_ACTUALIZADA`, `Historia clínica actualizada`; `RECORDATORIO`, `Recordatorio de consulta`. No se guarda en la tabla. El cliente lo muestra tal cual. |
 | `contenido` | texto | El texto del aviso, ya armado por el servidor (`notificacion.contenido`). El cliente lo muestra tal cual, sin armarlo ni interpretarlo. En una cancelación por otro motivo (#44, #38) lleva el motivo. |
-| `creadaEn` | instante | `creada_en`, con el formato de la sección 1.2. |
+| `creadaEn` | instante | `creada_en`, con el formato de la sección 1.2: ISO 8601 con el desfase de Uruguay, `-03:00`, por ejemplo `2026-10-16T11:20:00-03:00`. |
 | `consultaId` | entero | La consulta que originó el aviso. Hoy siempre está presente (`notificacion.id_consulta` no admite nulo); el cliente tolera `null`. |
 
 **Respuesta 200** (los textos de `titulo` y `contenido` del ejemplo son ilustrativos)
@@ -1661,7 +1661,7 @@ Lista los avisos que el sistema guardó para el socio autenticado: agenda, cance
 }
 ```
 
-Sin avisos, `items` es `[]` y `total` es `0`. `total` cuenta los avisos que se listan (no los recordatorios futuros).
+Sin avisos, `items` es `[]` y `total` es `0`. `total` cuenta los avisos que se listan (no los recordatorios futuros), solo los del socio autenticado. La respuesta lleva exactamente `items`, `page`, `size` y `total`, y cada item exactamente los seis campos de la tabla.
 
 El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni observaciones (arquitectura 8.2).
 
@@ -1672,6 +1672,7 @@ El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni
 | 400 | `VALIDACION` | `page` o `size` fuera de los límites de la sección 1.3. |
 | 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
 | 403 | `ACCESO_DENEGADO` | El rol no es socio. |
+| 401 | `TOKEN_INVALIDO` | El token es válido pero su identificador de socio no es un entero positivo (catálogo de la sección 5). |
 
 <a id="e33"></a>
 #### #33 · `POST /api/dispositivos`
