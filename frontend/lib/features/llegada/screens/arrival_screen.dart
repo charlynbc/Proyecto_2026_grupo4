@@ -57,7 +57,6 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
       setState(() {
         _searchedCi = null;
         _appointments = null;
-        _registered = null;
       });
     }
   }
