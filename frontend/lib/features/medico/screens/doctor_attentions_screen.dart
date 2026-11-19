@@ -237,25 +237,29 @@ class _DoctorAttentionsScreenState
                   spacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    DropdownButton<DoctorAttentionOrder>(
-                      key: const Key('attentions-order'),
-                      value: order,
-                      items: const [
-                        DropdownMenuItem(
-                          value: DoctorAttentionOrder.date,
-                          child: Text('Fecha'),
-                        ),
-                        DropdownMenuItem(
-                          value: DoctorAttentionOrder.patientLastName,
-                          child: Text('Apellido del paciente'),
-                        ),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => order = v);
-                          sort();
-                        }
-                      },
+                    IntrinsicWidth(
+                      child: DropdownButton<DoctorAttentionOrder>(
+                        key: const Key('attentions-order'),
+                        value: order,
+                        isExpanded: true,
+                        itemHeight: null,
+                        items: const [
+                          DropdownMenuItem(
+                            value: DoctorAttentionOrder.date,
+                            child: Text('Fecha'),
+                          ),
+                          DropdownMenuItem(
+                            value: DoctorAttentionOrder.patientLastName,
+                            child: Text('Apellido del paciente'),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => order = v);
+                            sort();
+                          }
+                        },
+                      ),
                     ),
                     SortDirectionButton(
                       key: const Key('attentions-direction'),
@@ -290,6 +294,8 @@ class _DoctorAttentionsScreenState
                 ),
                 const SizedBox(height: 16),
                 items.when(
+                  skipLoadingOnRefresh: true,
+                  skipLoadingOnReload: true,
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Column(

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../../../core/utils/uruguay_time.dart';
 import '../../agenda/models/agenda_time.dart';
 import '../../agenda/models/available_number.dart' show DoctorRef;
@@ -10,7 +12,7 @@ import 'schedule_repository.dart';
 
 /// Implementación en memoria de [ScheduleRepository] para `USE_FAKES=true`.
 /// Tiene cinco consultas de hoy y aplica de verdad los filtros, el orden y la
-/// paginación.
+/// paginación. Con `relativeTo` las dos agendadas salen del reloj.
 ///
 /// Los médicos, las especialidades y los consultorios son los de los datos
 /// falsos que alimentan el selector de médicos (`FakeAdminDatabase`, ids 4, 6 y
@@ -24,6 +26,24 @@ class FakeScheduleRepository implements ScheduleRepository {
            ? List.of(entries)
            : _seed(today ?? UruguayTime.today());
 
+  FakeScheduleRepository._(this.latency, this._entries);
+
+  /// Las mismas cinco consultas de hoy, pero con las dos agendadas puestas
+  /// respecto de [clock] (por defecto, la hora real): la 9001 empieza dentro de
+  /// una hora, así que ya no se puede cancelar (faltan menos de dos horas), y
+  /// la 9004 dentro de tres, así que sí. De esa forma, a cualquier hora del día
+  /// se prueban los dos caminos de la cancelación. Las horas se redondean hacia
+  /// arriba a múltiplos de 5 minutos; cerca de medianoche pasan al día
+  /// siguiente. Es lo que usa la app con `USE_FAKES`; las pruebas arman el
+  /// repositorio con `today` o `entries`, con horas fijas.
+  factory FakeScheduleRepository.relativeTo({
+    Duration latency = const Duration(milliseconds: 300),
+    DateTime Function()? clock,
+  }) => FakeScheduleRepository._(
+    latency,
+    _relativeSeed((clock ?? DateTime.now)()),
+  );
+
   final Duration latency;
   final List<ScheduleEntry> _entries;
 
@@ -36,7 +56,7 @@ class FakeScheduleRepository implements ScheduleRepository {
   }
 
   /// Permite cancelar consultas desde el fake del funcionario.
-  void markCancelled(int id) {
+  void markCancelled(int id, {String status = 'CANCELADA_SOCIO'}) {
     final index = _entries.indexWhere((entry) => entry.appointmentId == id);
     if (index == -1) return;
 
@@ -50,7 +70,7 @@ class FakeScheduleRepository implements ScheduleRepository {
       startMinutes: entry.startMinutes,
       endMinutes: entry.endMinutes,
       clinic: entry.clinic,
-      status: 'CANCELADA_SOCIO',
+      status: status,
       arrivedAt: entry.arrivedAt,
     );
   }
@@ -126,6 +146,44 @@ class FakeScheduleRepository implements ScheduleRepository {
         return byDateTime(a, b);
       },
     };
+  }
+
+  static List<ScheduleEntry> _relativeSeed(DateTime now) {
+    final local = UruguayTime.toUruguay(now);
+    final today = DateTime.utc(local.year, local.month, local.day);
+
+    ScheduleEntry retime(ScheduleEntry entry, Duration ahead) {
+      final target = local.add(ahead);
+      final hasSeconds = target.second > 0 || target.millisecond > 0;
+      var minutes = target.hour * 60 + target.minute + (hasSeconds ? 1 : 0);
+      minutes = ((minutes + 4) ~/ 5) * 5;
+      var date = DateTime.utc(target.year, target.month, target.day);
+      if (minutes >= 24 * 60) {
+        date = date.add(const Duration(days: 1));
+        minutes -= 24 * 60;
+      }
+      return ScheduleEntry(
+        appointmentId: entry.appointmentId,
+        member: entry.member,
+        doctor: entry.doctor,
+        specialty: entry.specialty,
+        date: date,
+        startMinutes: minutes,
+        endMinutes: math.min(minutes + 20, 24 * 60 - 1),
+        clinic: entry.clinic,
+        status: entry.status,
+        arrivedAt: null,
+      );
+    }
+
+    return [
+      for (final entry in _seed(today))
+        switch (entry.appointmentId) {
+          9001 => retime(entry, const Duration(hours: 1)),
+          9004 => retime(entry, const Duration(hours: 3)),
+          _ => entry,
+        },
+    ];
   }
 
   static List<ScheduleEntry> _seed(DateTime today) {

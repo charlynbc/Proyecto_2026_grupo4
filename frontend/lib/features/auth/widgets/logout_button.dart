@@ -61,28 +61,39 @@ class _LogoutButtonState extends ConsumerState<LogoutButton> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          key: const Key('open-account'),
-          // `push` y no `go`: la flecha de "Mi cuenta" vuelve a esta pantalla.
-          onPressed: () => context.push(kAccountPath),
-          tooltip: 'Mi cuenta',
-          icon: const Icon(Icons.account_circle_outlined),
+    // Con ancho de sobra mide lo de siempre (dos íconos de 48 px). Si el
+    // ancho se achica, por ejemplo al redimensionar la ventana en vivo, la
+    // fila se reduce en vez de desbordarse. El `Flexible` es lo que le da al
+    // `FittedBox` el ancho que queda: el `Row` de las acciones del AppBar
+    // les pasa ancho ilimitado a los hijos que no son flexibles. Por eso el
+    // botón va siempre en `actions`.
+    return Flexible(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              key: const Key('open-account'),
+              // `push` y no `go`: la flecha de "Mi cuenta" vuelve a esta pantalla.
+              onPressed: () => context.push(kAccountPath),
+              tooltip: 'Mi cuenta',
+              icon: const Icon(Icons.account_circle_outlined),
+            ),
+            IconButton(
+              onPressed: _loggingOut ? null : _confirmAndLogout,
+              tooltip: 'Cerrar sesión',
+              icon: _loggingOut
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.logout),
+            ),
+          ],
         ),
-        IconButton(
-          onPressed: _loggingOut ? null : _confirmAndLogout,
-          tooltip: 'Cerrar sesión',
-          icon: _loggingOut
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.logout),
-        ),
-      ],
+      ),
     );
   }
 }

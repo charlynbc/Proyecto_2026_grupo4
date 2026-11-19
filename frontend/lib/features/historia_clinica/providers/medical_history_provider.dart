@@ -7,6 +7,16 @@ import '../models/medical_history_entry.dart';
 import 'medical_history_filters_controller.dart';
 import 'medical_history_repository_provider.dart';
 
+/// Renueva los datos al volver a una vista conservada por el shell o una ruta.
+/// La microtarea evita invalidar durante el callback de ciclo de vida.
+void refreshMedicalHistoryWhenVisibleAgain(Ref ref) {
+  ref.onResume(() {
+    Future.microtask(() {
+      if (ref.mounted) ref.invalidateSelf();
+    });
+  });
+}
+
 /// Transición sin datos anteriores para un cambio de sesión.
 ///
 /// Riverpod 3.4.3 fusiona los estados simples con el valor anterior. Un estado
@@ -47,6 +57,7 @@ bool _isAuthenticatedMember(SessionState session) =>
 class _MedicalHistory extends AsyncNotifier<List<MedicalHistoryEntry>> {
   @override
   Future<List<MedicalHistoryEntry>> build() async {
+    refreshMedicalHistoryWhenVisibleAgain(ref);
     final session = _observeSession(ref, () {
       state = _sessionLoading<List<MedicalHistoryEntry>>();
     });
@@ -68,6 +79,7 @@ class _MedicalHistoryDetail extends AsyncNotifier<MedicalHistoryEntry> {
 
   @override
   Future<MedicalHistoryEntry> build() async {
+    refreshMedicalHistoryWhenVisibleAgain(ref);
     final session = _observeSession(ref, () {
       state = _sessionLoading<MedicalHistoryEntry>();
     });
@@ -87,18 +99,14 @@ class _MedicalHistoryDetail extends AsyncNotifier<MedicalHistoryEntry> {
 
 /// Listado según los filtros aplicados, con reintento explícito por invalidación.
 final medicalHistoryProvider =
-    AsyncNotifierProvider<_MedicalHistory, List<MedicalHistoryEntry>>(
-      _MedicalHistory.new,
-      retry: (_, _) => null,
-    );
+    AsyncNotifierProvider.autoDispose<
+      _MedicalHistory,
+      List<MedicalHistoryEntry>
+    >(_MedicalHistory.new, retry: (_, _) => null);
 
 /// Consulta independiente del detalle, utilizando el mismo repositorio.
-final medicalHistoryDetailProvider =
-    AsyncNotifierProvider.family<
-      _MedicalHistoryDetail,
-      MedicalHistoryEntry,
-      int
-    >(
+final medicalHistoryDetailProvider = AsyncNotifierProvider.autoDispose
+    .family<_MedicalHistoryDetail, MedicalHistoryEntry, int>(
       _MedicalHistoryDetail.new,
       retry: (_, _) => null,
     );

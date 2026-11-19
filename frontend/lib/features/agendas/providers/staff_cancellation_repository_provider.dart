@@ -7,6 +7,7 @@ import '../repositories/fake_schedule_repository.dart';
 import '../repositories/fake_staff_cancellation_repository.dart';
 import '../repositories/staff_cancellation_repository.dart';
 import 'schedule_repository_provider.dart';
+import 'schedules_clock_provider.dart';
 
 final staffCancellationRepositoryProvider =
     FutureProvider<StaffCancellationRepository>((ref) async {
@@ -14,6 +15,7 @@ final staffCancellationRepositoryProvider =
         final schedules = await ref.watch(scheduleRepositoryProvider.future);
         return FakeStaffCancellationRepository(
           schedules as FakeScheduleRepository,
+          clock: ref.watch(schedulesClockProvider),
         );
       }
       final dio = await ref.watch(dioProvider.future);

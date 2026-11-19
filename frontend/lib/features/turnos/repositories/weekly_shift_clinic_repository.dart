@@ -11,11 +11,17 @@ abstract class WeeklyShiftClinicRepository {
   );
 
   /// Devuelve la configuración resultante. El consultorio actual es un no-op.
+  ///
+  /// [consultasAgendadasVistas] es el total de consultas agendadas que el
+  /// funcionario vio en la vista previa para las fechas elegidas. Solo vale
+  /// junto con [confirmarConConsultas]: si el total real ya es otro, el
+  /// servidor rechaza el cambio y pide revisar la vista previa.
   Future<WeeklyShift> changeClinic(
     int weeklyShiftId,
     int clinicId, {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
+    int? consultasAgendadasVistas,
   });
 }
 

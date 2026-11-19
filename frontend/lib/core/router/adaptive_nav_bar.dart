@@ -160,9 +160,12 @@ class _Destination extends StatelessWidget {
               children: [
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final indicatorWidth = math.min(
-                      64.0,
-                      constraints.maxWidth - 4,
+                    // Nunca negativo: al redimensionar la ventana en vivo la
+                    // ranura llega a medir menos de 4 px y un ancho negativo
+                    // rompe la animación del indicador.
+                    final indicatorWidth = math.max(
+                      0.0,
+                      math.min(64.0, constraints.maxWidth - 4),
                     );
                     return SizedBox(
                       height: 32,
