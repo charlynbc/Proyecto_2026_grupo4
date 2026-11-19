@@ -8,6 +8,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NotificacionTextosTest {
 
@@ -76,6 +77,44 @@ class NotificacionTextosTest {
                 NotificacionTextos.cuerpoCancelacionPorMedico(
                         LocalDate.of(2026, 10, 20), "Imprevisto")
         );
+    }
+
+    @Test
+    void elCuerpoDeCancelacionPorOtroMotivoUsaFechaDiaMesAnioYElMotivo() {
+        assertEquals(
+                "Tu consulta del 20/10/2026 fue cancelada por la institución. "
+                        + "Motivo: Se rompio el equipo",
+                NotificacionTextos.cuerpoCancelacionPorOtroMotivo(
+                        LocalDate.of(2026, 10, 20), "Se rompio el equipo")
+        );
+    }
+
+    @Test
+    void elCuerpoDeCancelacionPorOtroMotivoCompletaConCeroElDiaYElMes() {
+        assertEquals(
+                "Tu consulta del 05/01/2026 fue cancelada por la institución. Motivo: Feriado",
+                NotificacionTextos.cuerpoCancelacionPorOtroMotivo(
+                        LocalDate.of(2026, 1, 5), "Feriado")
+        );
+    }
+
+    @Test
+    void elCuerpoDeCancelacionPorOtroMotivoCopiaElMotivoTalCual() {
+        assertEquals(
+                "Tu consulta del 31/12/2026 fue cancelada por la institución. "
+                        + "Motivo: Corte de luz: se reprograma (ver 5/1).",
+                NotificacionTextos.cuerpoCancelacionPorOtroMotivo(
+                        LocalDate.of(2026, 12, 31), "Corte de luz: se reprograma (ver 5/1).")
+        );
+    }
+
+    @Test
+    void elCuerpoPorOtroMotivoYElDeASolicitudDelSocioUsanElMismoFormatoDeFecha() {
+        LocalDate fecha = LocalDate.of(2026, 3, 9);
+        assertTrue(NotificacionTextos.cuerpoCancelacionASolicitudDelSocio(fecha)
+                .contains("09/03/2026"));
+        assertTrue(NotificacionTextos.cuerpoCancelacionPorOtroMotivo(fecha, "x")
+                .contains("09/03/2026"));
     }
 
     @Test

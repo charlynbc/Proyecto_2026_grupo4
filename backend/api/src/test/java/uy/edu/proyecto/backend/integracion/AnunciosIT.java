@@ -140,6 +140,7 @@ class AnunciosIT extends BaseIntegracionIT {
         Respuesta tamano = publicar(admin, DATOS_TEXTO, new byte[5 * 1024 * 1024 + 1]);
         assertEquals(400, tamano.estado(), tamano.cuerpo());
         assertEquals("IMAGEN_INVALIDA", tamano.codigo());
+        assertEquals("Cada imagen admite hasta 5 MB", tamano.json().path("message").asString());
         assertEquals(0, contar("anuncio"));
         verifyNoInteractions(almacen);
     }
