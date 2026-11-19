@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/doctor_attention.dart';
@@ -5,13 +6,25 @@ import '../models/doctor_attention_query.dart';
 import 'doctor_attention_repository_provider.dart';
 
 // El shell y las rutas cubiertas conservan las pantallas montadas. Riverpod
-// reanuda sus suscripciones al volver a verlas; se renuevan solo los datos.
+// reanuda sus suscripciones al volver a verlas (`onResume`); se renuevan solo
+// los datos. Cuando vuelve la pestaña del navegador o la app a primer plano,
+// Riverpod no se entera: lo escucha un `AppLifecycleListener`, que solo pide
+// datos si la pantalla se está viendo (con Atenciones en otra sección del
+// shell, lo hace `onResume` al volver).
 void _refreshWhenVisibleAgain(Ref ref) {
-  ref.onResume(() {
+  void refresh() {
     Future.microtask(() {
       if (ref.mounted) ref.invalidateSelf();
     });
-  });
+  }
+
+  ref.onResume(refresh);
+  final lifecycle = AppLifecycleListener(
+    onResume: () {
+      if (ref.mounted && !ref.isPaused) refresh();
+    },
+  );
+  ref.onDispose(lifecycle.dispose);
 }
 
 class DoctorAttentionFiltersController extends Notifier<DoctorAttentionQuery> {
