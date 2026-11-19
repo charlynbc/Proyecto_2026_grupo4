@@ -207,6 +207,9 @@ class _AdminAnnouncementsScreenState
                                 onView: () => context.go(
                                   '$_listPath/${item.id}?desde=cartelera',
                                 ),
+                                onEdit: () => context.push(
+                                  '$_listPath/${item.id}/editar',
+                                ),
                                 onChangeValidity: () => context.push(
                                   '$_listPath/${item.id}/vigencia',
                                 ),
@@ -231,6 +234,7 @@ class _AdminAnnouncementCard extends StatelessWidget {
     required this.item,
     required this.busy,
     required this.onView,
+    required this.onEdit,
     required this.onChangeValidity,
     required this.onDelete,
   });
@@ -238,6 +242,7 @@ class _AdminAnnouncementCard extends StatelessWidget {
   final AdminAnnouncement item;
   final bool busy;
   final VoidCallback onView;
+  final VoidCallback onEdit;
   final VoidCallback onChangeValidity;
   final VoidCallback onDelete;
 
@@ -287,6 +292,12 @@ class _AdminAnnouncementCard extends StatelessWidget {
                   onPressed: busy ? null : onView,
                   icon: const Icon(Icons.visibility_outlined),
                   label: const Text('Ver'),
+                ),
+                TextButton.icon(
+                  key: ValueKey('admin-edit-${item.id}'),
+                  onPressed: busy ? null : onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Editar'),
                 ),
                 TextButton.icon(
                   key: ValueKey('admin-validity-${item.id}'),

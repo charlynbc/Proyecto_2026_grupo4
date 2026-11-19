@@ -4,6 +4,16 @@ import '../models/doctor_attention.dart';
 import '../models/doctor_attention_query.dart';
 import 'doctor_attention_repository_provider.dart';
 
+// El shell y las rutas cubiertas conservan las pantallas montadas. Riverpod
+// reanuda sus suscripciones al volver a verlas; se renuevan solo los datos.
+void _refreshWhenVisibleAgain(Ref ref) {
+  ref.onResume(() {
+    Future.microtask(() {
+      if (ref.mounted) ref.invalidateSelf();
+    });
+  });
+}
+
 class DoctorAttentionFiltersController extends Notifier<DoctorAttentionQuery> {
   @override
   DoctorAttentionQuery build() => DoctorAttentionQuery.initial();
@@ -30,13 +40,14 @@ final doctorAttentionFiltersProvider =
     >(DoctorAttentionFiltersController.new);
 final doctorAttentionsProvider =
     FutureProvider.autoDispose<List<DoctorAttention>>((ref) async {
+      _refreshWhenVisibleAgain(ref);
       final query = ref.watch(doctorAttentionFiltersProvider);
       return (await ref.watch(doctorAttentionRepositoryProvider.future))
           .list(query);
     }, retry: (_, _) => null);
 final doctorAttentionDetailProvider = FutureProvider.autoDispose
-    .family<DoctorAttention, int>(
-      (ref, id) async =>
-          (await ref.watch(doctorAttentionRepositoryProvider.future)).get(id),
-      retry: (_, _) => null,
-    );
+    .family<DoctorAttention, int>((ref, id) async {
+      _refreshWhenVisibleAgain(ref);
+      return (await ref.watch(doctorAttentionRepositoryProvider.future))
+          .get(id);
+    }, retry: (_, _) => null);

@@ -7,13 +7,16 @@ import 'package:agenda_medica/features/cuenta/screens/edit_account_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_appointment_result_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_attention_detail_screen.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_patient_history_screen.dart';
+import 'package:agenda_medica/features/novedades/screens/announcement_validity_screen.dart';
+import 'package:agenda_medica/features/novedades/screens/carousel_selection_screen.dart';
+import 'package:agenda_medica/features/novedades/screens/edit_announcement_screen.dart';
 import 'package:agenda_medica/features/novedades/screens/new_announcement_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/pump_app.dart';
 import '../../helpers/system_inset_support.dart';
 
-/// Las siete rutas de nivel superior (fuera de `AppShell`) no tienen barra
+/// Las diez rutas de nivel superior (fuera de `AppShell`) no tienen barra
 /// inferior propia: cada una tiene que quedar dentro de un `BottomSystemInset`.
 void main() {
   final cases = <(String, UserRole, String, Type)>[
@@ -48,6 +51,24 @@ void main() {
       UserRole.administrador,
       '/admin/cartelera/nueva',
       NewAnnouncementScreen,
+    ),
+    (
+      'Carrusel del Inicio (administrador)',
+      UserRole.administrador,
+      '/admin/cartelera/carrusel',
+      CarouselSelectionScreen,
+    ),
+    (
+      'Vigencia de una novedad (administrador)',
+      UserRole.administrador,
+      '/admin/cartelera/1/vigencia',
+      AnnouncementValidityScreen,
+    ),
+    (
+      'Editar una novedad (administrador)',
+      UserRole.administrador,
+      '/admin/cartelera/1/editar',
+      EditAnnouncementScreen,
     ),
   ];
 

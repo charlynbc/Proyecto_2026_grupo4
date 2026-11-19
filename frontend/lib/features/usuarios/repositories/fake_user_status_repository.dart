@@ -13,7 +13,13 @@ class FakeUserStatusRepository implements UserStatusRepository {
     this._db, {
     this.latency = const Duration(milliseconds: 300),
     Set<int>? doctorsWithActiveShifts,
-  }) : doctorsWithActiveShifts = doctorsWithActiveShifts ?? _carla(_db);
+  }) {
+    if (doctorsWithActiveShifts != null) {
+      _db.doctorsWithActiveShifts
+        ..clear()
+        ..addAll(doctorsWithActiveShifts);
+    }
+  }
 
   /// El id del administrador que "hace" los cambios en la base falsa: el
   /// de la cuenta de la sesión falsa.
@@ -23,16 +29,12 @@ class FakeUserStatusRepository implements UserStatusRepository {
   final Duration latency;
 
   /// Ids de médicos con fechas de turnos activas: no se pueden inactivar.
-  final Set<int> doctorsWithActiveShifts;
+  /// Es el mismo conjunto que usa el listado.
+  Set<int> get doctorsWithActiveShifts => _db.doctorsWithActiveShifts;
 
   /// Última inactivación y reactivación de cada cuenta (como las guarda el
   /// servidor), para devolverlas completas.
   final _audit = <int, _Audit>{};
-
-  static Set<int> _carla(FakeAdminDatabase db) => {
-    for (final a in db.accounts)
-      if (a.ci == '34567894' && a.role == UserRole.medico) a.id,
-  };
 
   @override
   Future<AccountStatusChange> deactivate(int id) async {

@@ -12,6 +12,7 @@ import 'core/branding.dart';
 import 'core/config/app_config.dart';
 import 'core/config/app_locale.dart';
 import 'core/router/app_router.dart';
+import 'core/theme/app_scroll_behavior.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/models/user_role.dart';
 import 'features/auth/providers/session_provider.dart';
@@ -102,6 +103,7 @@ class _MyAppState extends ConsumerState<MyApp> {
       localizationsDelegates: kLocalizationsDelegates,
       scaffoldMessengerKey: _scaffoldMessengerKey,
       theme: appTheme,
+      scrollBehavior: const AppScrollBehavior(),
       routerConfig: router,
     );
   }

@@ -34,6 +34,7 @@ class ApiWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
     int clinicId, {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
+    int? consultasAgendadasVistas,
   }) => _request(() async {
     final response = await _dio.patch<Map<String, dynamic>>(
       ApiRoutes.weeklyShift(weeklyShiftId),
@@ -41,6 +42,9 @@ class ApiWeeklyShiftClinicRepository implements WeeklyShiftClinicRepository {
         'consultorioId': clinicId,
         'turnoIds': ?turnoIds,
         if (confirmarConConsultas) 'confirmarConConsultas': true,
+        // El servidor solo lo mira junto con la confirmación.
+        if (confirmarConConsultas)
+          'consultasAgendadasVistas': ?consultasAgendadasVistas,
       },
     );
     return WeeklyShift.fromJson(_body(response));
