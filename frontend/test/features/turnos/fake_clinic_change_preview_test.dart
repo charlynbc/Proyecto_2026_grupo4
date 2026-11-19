@@ -106,6 +106,168 @@ void main() {
     expect(db.agendadasPorTurno[booked.id], 2);
   });
 
+  group('confirmación atómica con el total de consultas visto', () {
+    late FakeAdminDatabase admin;
+    late FakeShiftDatabase db;
+    late FakeShift booked;
+    late int target;
+
+    setUp(() {
+      admin = FakeAdminDatabase(clock: () => DateTime.utc(2026, 11, 10, 15));
+      db = FakeShiftDatabase(admin);
+      // La fecha de la configuración 2 tiene 2 consultas agendadas.
+      booked = db.shifts.firstWhere((shift) => shift.weeklyShiftId == 2);
+      target = admin.clinics.last.id;
+    });
+
+    test('una consulta nueva tras la vista previa se rechaza sin cambiar', () {
+      final original = booked.clinicId;
+      // La vista previa mostró 2; entra una consulta más antes de guardar.
+      db.agendadasPorTurno[booked.id] = 3;
+
+      expect(
+        () => db.changeClinic(
+          2,
+          target,
+          turnoIds: [booked.id],
+          confirmarConConsultas: true,
+          consultasAgendadasVistas: 2,
+        ),
+        throwsA(
+          isA<ShiftNotModifiableException>().having(
+            (e) => e.message,
+            'message',
+            kClinicChangeBookedMessage,
+          ),
+        ),
+      );
+      expect(booked.clinicId, original);
+
+      db.changeClinic(
+        2,
+        target,
+        turnoIds: [booked.id],
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 3,
+      );
+      expect(booked.clinicId, target);
+    });
+
+    test('con menos consultas que las vistas también se rechaza', () {
+      final original = booked.clinicId;
+
+      expect(
+        () => db.changeClinic(
+          2,
+          target,
+          turnoIds: [booked.id],
+          confirmarConConsultas: true,
+          consultasAgendadasVistas: 3,
+        ),
+        throwsA(isA<ShiftNotModifiableException>()),
+      );
+      expect(booked.clinicId, original);
+    });
+
+    test('con el total visto correcto el cambio se aplica', () {
+      db.changeClinic(
+        2,
+        target,
+        turnoIds: [booked.id],
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 2,
+      );
+
+      expect(booked.clinicId, target);
+      expect(db.agendadasPorTurno[booked.id], 2);
+    });
+
+    test('el total visto suma todas las fechas elegidas', () {
+      final other = db.shifts.firstWhere(
+        (shift) => shift.weeklyShiftId == 2 && shift.id != booked.id,
+      );
+      db.agendadasPorTurno[other.id] = 1;
+
+      expect(
+        () => db.changeClinic(
+          2,
+          target,
+          turnoIds: [booked.id, other.id],
+          confirmarConConsultas: true,
+          consultasAgendadasVistas: 2,
+        ),
+        throwsA(isA<ShiftNotModifiableException>()),
+      );
+      expect(booked.clinicId, isNot(target));
+
+      db.changeClinic(
+        2,
+        target,
+        turnoIds: [booked.id, other.id],
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 3,
+      );
+      expect(booked.clinicId, target);
+      expect(other.clinicId, target);
+    });
+
+    test('una fecha elegida que ya usa el destino también cuenta', () {
+      final other = db.shifts.firstWhere(
+        (shift) => shift.weeklyShiftId == 2 && shift.id != booked.id,
+      );
+      other.clinicId = target;
+      db.agendadasPorTurno[other.id] = 1;
+
+      db.changeClinic(
+        2,
+        target,
+        turnoIds: [booked.id, other.id],
+        confirmarConConsultas: true,
+        consultasAgendadasVistas: 3,
+      );
+
+      expect(booked.clinicId, target);
+    });
+
+    test('sin confirmación el total visto se ignora', () {
+      final free = db.shifts.firstWhere(
+        (shift) => shift.weeklyShiftId == 1 && shift.state == ShiftState.active,
+      );
+
+      db.changeClinic(
+        1,
+        target,
+        turnoIds: [free.id],
+        consultasAgendadasVistas: 99,
+      );
+
+      expect(free.clinicId, target);
+      // Con consultas y sin confirmar sigue el rechazo de siempre.
+      expect(
+        () => db.changeClinic(
+          2,
+          target,
+          turnoIds: [booked.id],
+          consultasAgendadasVistas: 2,
+        ),
+        throwsA(isA<ShiftNotModifiableException>()),
+      );
+    });
+
+    test('con confirmación y sin total visto se comporta como antes', () {
+      db.agendadasPorTurno[booked.id] = 5;
+
+      db.changeClinic(
+        2,
+        target,
+        turnoIds: [booked.id],
+        confirmarConConsultas: true,
+      );
+
+      expect(booked.clinicId, target);
+    });
+  });
+
   test('dos cambios parciales terminan actualizando el patrón', () {
     final admin = FakeAdminDatabase(
       clock: () => DateTime.utc(2026, 11, 10, 15),

@@ -257,4 +257,50 @@ class TurnoSemanalPostgresTest {
         assertEquals(consultorioInicial, consultorioDelTurno(primeraFechaId));
         assertEquals(consultorioInicial, consultorioDelTurno(segundaFechaId));
     }
+
+    /**
+     * RF-20: la vista previa mostro 0 consultas, pero la primera fecha ya
+     * tiene 1 AGENDADA. Aunque la confirmacion viaja en true, se rechaza y
+     * no cambia ningun consultorio.
+     */
+    @Test
+    void confirmacionConTotalVistoViejoSeRechazaSinCambiarDatos() {
+        var error = assertThrows(ApiException.class, () ->
+                service.modificarConsultorio(
+                        patronId,
+                        new ModificarTurnoSemanalRequest(
+                                consultorioNuevo,
+                                List.of(primeraFechaId, segundaFechaId),
+                                true,
+                                0
+                        )
+                )
+        );
+        assertEquals("TURNO_NO_MODIFICABLE", error.getCode());
+        assertEquals(consultorioInicial, consultorioDelTurno(primeraFechaId));
+        assertEquals(consultorioInicial, consultorioDelTurno(segundaFechaId));
+        assertEquals("AGENDADA", jdbc.queryForObject(
+                "SELECT estado FROM public.consulta WHERE id_consulta = ?",
+                String.class, consultaId
+        ));
+    }
+
+    @Test
+    void confirmacionConElTotalVistoCorrectoCambiaLasFechas() {
+        service.modificarConsultorio(
+                patronId,
+                new ModificarTurnoSemanalRequest(
+                        consultorioNuevo,
+                        List.of(primeraFechaId, segundaFechaId),
+                        true,
+                        1
+                )
+        );
+        assertEquals(consultorioNuevo, consultorioDelTurno(primeraFechaId));
+        assertEquals(consultorioNuevo, consultorioDelTurno(segundaFechaId));
+        assertEquals("AGENDADA", jdbc.queryForObject(
+                "SELECT estado FROM public.consulta WHERE id_consulta = ?",
+                String.class, consultaId
+        ));
+    }
 }

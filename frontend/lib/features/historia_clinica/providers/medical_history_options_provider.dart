@@ -7,6 +7,7 @@ import '../../auth/providers/session_provider.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialty_repository_provider.dart';
 import '../models/medical_history_query.dart';
+import 'medical_history_provider.dart';
 import 'medical_history_repository_provider.dart';
 
 /// Opciones de los selectores de historia clínica.
@@ -23,6 +24,9 @@ class MedicalHistoryOptions {
 class _MedicalHistoryOptions extends AsyncNotifier<MedicalHistoryOptions> {
   @override
   Future<MedicalHistoryOptions> build() async {
+    // La pantalla observa estas opciones con watch: se reanudan por sí mismas.
+    // No invalidarlas también desde la lista evita dos refrescos del selector.
+    refreshMedicalHistoryWhenVisibleAgain(ref);
     ref.listen(
       sessionProvider.select(
         (session) => (session.status, session.role, session.accessToken),
@@ -88,7 +92,7 @@ class _MedicalHistoryOptions extends AsyncNotifier<MedicalHistoryOptions> {
 
 /// Opciones independientes de los filtros y limitadas a la sesión del socio.
 final medicalHistoryOptionsProvider =
-    AsyncNotifierProvider<_MedicalHistoryOptions, MedicalHistoryOptions>(
-      _MedicalHistoryOptions.new,
-      retry: (_, _) => null,
-    );
+    AsyncNotifierProvider.autoDispose<
+      _MedicalHistoryOptions,
+      MedicalHistoryOptions
+    >(_MedicalHistoryOptions.new, retry: (_, _) => null);

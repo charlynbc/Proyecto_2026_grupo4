@@ -17,6 +17,8 @@ class DoctorAttentionDetailScreen extends ConsumerWidget {
       child: ref
           .watch(doctorAttentionDetailProvider(id))
           .when(
+            skipLoadingOnRefresh: true,
+            skipLoadingOnReload: true,
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,

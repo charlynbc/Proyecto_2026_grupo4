@@ -153,6 +153,77 @@ void main() {
     });
   });
 
+  test('PATCH con confirmación manda el total de consultas vistas', () async {
+    final (repository, adapter) = _ok(200, weeklyShiftJson());
+
+    await repository.changeClinic(
+      120,
+      7,
+      turnoIds: [301, 303],
+      confirmarConConsultas: true,
+      consultasAgendadasVistas: 3,
+    );
+
+    expect(adapter.last!.data, {
+      'consultorioId': 7,
+      'turnoIds': [301, 303],
+      'confirmarConConsultas': true,
+      'consultasAgendadasVistas': 3,
+    });
+  });
+
+  test('un total visto de 0 también se manda', () async {
+    final (repository, adapter) = _ok(200, weeklyShiftJson());
+
+    await repository.changeClinic(
+      120,
+      7,
+      turnoIds: [301],
+      confirmarConConsultas: true,
+      consultasAgendadasVistas: 0,
+    );
+
+    expect(adapter.last!.data, {
+      'consultorioId': 7,
+      'turnoIds': [301],
+      'confirmarConConsultas': true,
+      'consultasAgendadasVistas': 0,
+    });
+  });
+
+  test('con confirmación y sin total visto no envía ese campo', () async {
+    final (repository, adapter) = _ok(200, weeklyShiftJson());
+
+    await repository.changeClinic(
+      120,
+      7,
+      turnoIds: [301],
+      confirmarConConsultas: true,
+    );
+
+    expect(adapter.last!.data, {
+      'consultorioId': 7,
+      'turnoIds': [301],
+      'confirmarConConsultas': true,
+    });
+  });
+
+  test('sin confirmación no envía el total visto', () async {
+    final (repository, adapter) = _ok(200, weeklyShiftJson());
+
+    await repository.changeClinic(
+      120,
+      7,
+      turnoIds: [301],
+      consultasAgendadasVistas: 3,
+    );
+
+    expect(adapter.last!.data, {
+      'consultorioId': 7,
+      'turnoIds': [301],
+    });
+  });
+
   test('PATCH parcial sin confirmación no envía el flag', () async {
     final (repository, adapter) = _ok(200, weeklyShiftJson());
 
