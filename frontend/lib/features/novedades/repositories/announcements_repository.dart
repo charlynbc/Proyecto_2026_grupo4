@@ -3,6 +3,7 @@ import '../models/admin_announcement_detail.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_draft.dart';
+import '../models/announcement_edit.dart';
 import '../models/announcement_page.dart';
 import '../../../core/network/api_exception.dart';
 
@@ -26,6 +27,11 @@ abstract interface class AnnouncementsRepository {
   /// El contenido de una novedad en cualquier estado (vigente, programada o
   /// vencida), con su vigencia y su posición. Responde 404 solo si no existe.
   Future<AdminAnnouncementDetail> adminDetail(int id);
+
+  /// Edita el texto y las imágenes de una novedad ya publicada, todo o nada.
+  /// No cambia la vigencia, la posición en el carrusel ni el autor. Si otro
+  /// administrador guarda a la vez, prevalece el último guardado.
+  Future<void> update(int id, AnnouncementEdit edit);
 
   /// Cambia la vigencia. El fin es obligatorio (el servidor responde 400 si
   /// falta) y va después del inicio o, sin inicio, después de ahora.

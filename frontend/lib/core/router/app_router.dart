@@ -43,6 +43,7 @@ import '../../features/novedades/screens/announcement_detail_screen.dart';
 import '../../features/novedades/screens/admin_announcements_screen.dart';
 import '../../features/novedades/screens/announcement_validity_screen.dart';
 import '../../features/novedades/screens/carousel_selection_screen.dart';
+import '../../features/novedades/screens/edit_announcement_screen.dart';
 import '../../features/novedades/screens/announcements_screen.dart';
 import '../../features/novedades/screens/new_announcement_screen.dart';
 import '../../features/medico/screens/doctor_shifts_screen.dart';
@@ -247,15 +248,26 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '${UserRole.administrador.announcementsPath}/carrusel',
-        builder: (context, state) => const CarouselSelectionScreen(),
+        builder: (context, state) =>
+            const BottomSystemInset(child: CarouselSelectionScreen()),
       ),
       GoRoute(
         path: '${UserRole.administrador.announcementsPath}/:id/vigencia',
         redirect: (context, state) => _appointmentId(state) == null
             ? UserRole.administrador.announcementsPath
             : null,
-        builder: (context, state) =>
-            AnnouncementValidityScreen(id: _appointmentId(state)!),
+        builder: (context, state) => BottomSystemInset(
+          child: AnnouncementValidityScreen(id: _appointmentId(state)!),
+        ),
+      ),
+      GoRoute(
+        path: '${UserRole.administrador.announcementsPath}/:id/editar',
+        redirect: (context, state) => _appointmentId(state) == null
+            ? UserRole.administrador.announcementsPath
+            : null,
+        builder: (context, state) => BottomSystemInset(
+          child: EditAnnouncementScreen(id: _appointmentId(state)!),
+        ),
       ),
       for (final role in UserRole.values) _roleShell(role),
     ],

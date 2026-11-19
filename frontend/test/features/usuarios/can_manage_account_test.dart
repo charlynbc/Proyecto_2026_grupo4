@@ -16,6 +16,7 @@ UserAccount _row(int id, String ci, UserRole role) => UserAccount(
   status: AccountStatus.active,
   activated: true,
   createdAt: DateTime.utc(2026, 1, 1),
+  canDeactivate: true,
 );
 
 AsyncValue<Account> _session(int id, String ci) => AsyncData(

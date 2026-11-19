@@ -351,6 +351,16 @@ public class SecurityConfig {
                                                 "SOCIO"
                                         )
 
+                                        // La lista de avisos es solo del socio (RNF-23). Esta regla va antes
+                                        // de la general de /api/**, que dejaria pasar a cualquier rol.
+                                        .requestMatchers(
+                                                "/api/notificaciones",
+                                                "/api/notificaciones/**"
+                                        )
+                                        .hasRole(
+                                                "SOCIO"
+                                        )
+
                                         .requestMatchers(
                                                 HttpMethod.GET,
                                                 "/api/medico/turnos",

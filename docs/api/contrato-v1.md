@@ -146,7 +146,7 @@ Los filtros son parámetros de query, opcionales salvo que se indique. Un filtro
 | `medico`, `especialidad`, `consultorio` | referencias | Sección 1.8. |
 | `paseId` | entero o `null` | Pase usado al agendar. Se conserva aunque la consulta se cancele (diseño 2.2.4). |
 | `agendadaEn` | instante | |
-| `canceladaEn`, `motivoCancelacion` | instante o `null`, texto o `null` | Solo con estados cancelados. El motivo existe en las cancelaciones institucionales (modelo de datos, `motivo_cancelacion`). |
+| `canceladaEn`, `motivoCancelacion` | instante o `null`, texto o `null` | Solo con estados cancelados. El motivo existe en las cancelaciones institucionales (modelo de datos, `motivo_cancelacion`): las del médico (#38, #39), las de la suspensión del funcionario (#24) y las que hace el funcionario por otro motivo (#44). En `CANCELADA_SOCIO` es `null`. |
 
 ## 2. Correspondencia con el Diseño 2.1 a 2.7 (figuras 1 a 7)
 
@@ -764,7 +764,7 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 #### #51 · `PATCH /api/turnos-semanales/{id}`
 
 - **Rol:** FUNCIONARIO.
-- **RF:** RF-20. **Estado:** ampliación en `feat/front-rf20-consultorio-parcial` (pendiente de validación de integración).
+- **RF:** RF-20. **Estado:** CONFIRMADA en backend. El campo `consultasAgendadasVistas` está en `feat/rf20-confirmacion-atomica` (pendiente de integración).
 - Modifica **solamente consultorio**; médico, especialidad, día y números no cambian.
 
 **Cuerpo**
@@ -774,9 +774,10 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 | `consultorioId` | entero | sí | ID positivo del destino. |
 | `turnoIds` | arreglo de enteros | no | IDs únicos de fechas concretas del patrón, hoy o futuras. Si se omite, se aplica a todas las fechas de hoy en adelante; vacío es `400 VALIDACION`. |
 | `confirmarConConsultas` | booleano | no | Por defecto `false`. Permite cambiar fechas seleccionadas con consultas `AGENDADA`; no permite solapamientos. |
+| `consultasAgendadasVistas` | entero | no | 0 o más; negativo es `400 VALIDACION`. Total de consultas `AGENDADA` que el funcionario vio en la vista previa (#72) para las fechas que va a modificar: la suma de `consultasAgendadas` de las fechas elegidas. Solo se usa con `confirmarConConsultas: true`; sin esa confirmación se ignora. Si no viene, el servidor se comporta como antes. |
 
 ```json
-{ "consultorioId": 7, "turnoIds": [301, 303], "confirmarConConsultas": true }
+{ "consultorioId": 7, "turnoIds": [301, 303], "confirmarConConsultas": true, "consultasAgendadasVistas": 3 }
 ```
 
 **Respuesta 200:** `TurnoSemanalDTO` de #13/#14, agregando `consultorioVariaPorFecha` (booleano). Es verdadero si hay diferentes consultorios entre las fechas de hoy en adelante. El consultorio del patrón semanal se actualiza cuando, después del cambio, todas las fechas futuras del turno quedan en el consultorio destino, aunque la solicitud sea parcial. Ejemplo: si primero se cambia una fecha al consultorio 7 y después se cambian las restantes, el patrón también queda en el consultorio 7. Si se envía el destino actual y todas las fechas ya lo usan, el resultado es idempotente.
@@ -787,17 +788,18 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 - En fechas ACTIVO se revalidan los cruces con números activos del mismo médico o consultorio destino: `409 SOLAPAMIENTO_TURNO` siempre, incluso si hay confirmación.
 - Las fechas SUSPENDIDO cambian sin control de solapamientos y conservan el estado. RF-15 vuelve a comprobar al rehabilitar.
 - Si hay consultas `AGENDADA` en una fecha a modificar y la confirmación no es `true`, `409 TURNO_NO_MODIFICABLE` informa las fechas. Con confirmación se cambia sin cancelar consultas ni pases.
+- Si vienen `confirmarConConsultas: true` y `consultasAgendadasVistas`, el servidor cuenta las consultas `AGENDADA` reales de las fechas elegidas dentro de la misma transacción que bloquea esas fechas. Si el total no coincide con el visto (por ejemplo, porque entró una consulta nueva entre la vista previa y el guardado), responde `409 TURNO_NO_MODIFICABLE` con un mensaje que pide revisar la vista previa y confirmar de nuevo, y no cambia nada. Cuentan todas las fechas elegidas, también las que ya usan el consultorio destino, igual que la suma que hace el cliente.
 - **Limitación conocida:** por ahora no se notifica a los socios cuyas consultas ya estaban agendadas.
 - El cambio usa una transacción y bloqueos sobre las fechas del patrón para evitar carreras con agendas concurrentes.
 - Sin campos opcionales se conserva el comportamiento anterior, incluido el rechazo de configuraciones sin ninguna fecha ACTIVA futura.
 
-**Errores:** `400 VALIDACION` (datos o selección inválidos), `404 NO_ENCONTRADO` (patrón o consultorio), `409 TURNO_NO_MODIFICABLE` (consultas sin confirmar o sin fechas aplicables), `409 SOLAPAMIENTO_TURNO` (conflicto de horario).
+**Errores:** `400 VALIDACION` (datos o selección inválidos), `404 NO_ENCONTRADO` (patrón o consultorio), `409 TURNO_NO_MODIFICABLE` (consultas sin confirmar, consultas distintas de las vistas o sin fechas aplicables), `409 SOLAPAMIENTO_TURNO` (conflicto de horario).
 
 <a id="e72"></a>
 #### #72 · `POST /api/turnos-semanales/{id}/consultorio/vista-previa`
 
 - **Rol:** FUNCIONARIO.
-- **RF:** RF-20. **Estado:** ampliación en `feat/front-rf20-consultorio-parcial` (pendiente de validación de integración).
+- **RF:** RF-20. **Estado:** CONFIRMADA en backend.
 - Consulta de **solo lectura**. No cambia patrón, turnos ni consultas.
 
 **Cuerpo**
@@ -829,7 +831,7 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 }
 ```
 
-En fechas SUSPENDIDO, `solapamientos` es arreglo vacío y se revalida en RF-15. Si no hay fechas aplicables, `fechas: []`. La información es orientativa: el PATCH vuelve a validar todo en la transacción.
+En fechas SUSPENDIDO, `solapamientos` es arreglo vacío y se revalida en RF-15. Si no hay fechas aplicables, `fechas: []`. La información es orientativa: el PATCH vuelve a validar todo en la transacción. El cliente suma `consultasAgendadas` de las fechas elegidas y lo manda como `consultasAgendadasVistas` en #51.
 
 **Errores:** `400 VALIDACION` y `404 NO_ENCONTRADO`.
 
@@ -1615,19 +1617,19 @@ Longitud máxima de los textos: P-18. Vencimiento y duplicados de pases en panta
 #### #32 · `GET /api/notificaciones`
 
 - **Roles:** SOCIO exclusivamente (solo las propias).
-- **RF:** RNF-23 ("por la interfaz del sistema"), RNF-25. **Diseño:** el Diseño 2.1 a 2.7 solo tiene `registrarAvisoPendiente` (escritura); la lectura la define este contrato sobre la tabla `notificacion` del modelo de datos. **Estado:** PROPUESTA (decisiones tomadas el 15/11/2026, sección 7.1 puntos 12 y 13; pasa a CONFIRMADA cuando se integre el backend).
+- **RF:** RNF-23 ("por la interfaz del sistema"), RNF-25. **Diseño:** el Diseño 2.1 a 2.7 solo tiene `registrarAvisoPendiente` (escritura); la lectura la define este contrato sobre la tabla `notificacion` del modelo de datos. **Estado:** CONFIRMADA (backend 17/11/2026, rama `feat/back-notificaciones-lista-socio`; las decisiones del 15/11/2026, sección 7.1 puntos 12 y 13, se mantienen).
 
 Lista los avisos que el sistema guardó para el socio autenticado: agenda, cancelación, suspensión, historia actualizada y recordatorio (`TipoNotificacion`, sección 1.7). El socio sale del JWT; el pedido no lleva identificador de socio.
 
 | Parámetro | Tipo | Notas |
 |---|---|---|
-| `page`, `size` | | Sección 1.3, con los mismos nombres y límites que los demás listados: `page` desde 0, `size` de 1 a 100, por defecto 20. |
+| `page`, `size` | | Sección 1.3, con los mismos nombres y límites que los demás listados: `page` desde 0, `size` de 1 a 100, por defecto 20. Un parámetro ausente o en blanco vale su valor por defecto. Si no es un entero o está fuera de rango, responde `400 VALIDACION` con el mensaje `page debe ser un entero mayor o igual a 0` o `size debe estar entre 1 y 100`. Cualquier otro parámetro (por ejemplo un `socioId`) se ignora: el socio sale siempre del token. |
 
 **Reglas**
 
 - **Solo los propios.** Se listan los avisos de las consultas del socio autenticado (el destinatario sale de `consulta.id_socio`). Un socio nunca ve avisos de otro.
-- **Orden:** del más nuevo al más viejo (`creadaEn` descendente). No hay parámetros de orden.
-- **Recordatorios futuros:** un aviso con `programada_para` en el futuro no se lista; aparece cuando llega su hora.
+- **Orden:** del más nuevo al más viejo (`creadaEn` descendente); con la misma `creadaEn`, el de `id` mayor primero. No hay parámetros de orden.
+- **Recordatorios futuros:** un aviso con `programada_para` en el futuro no se lista; aparece cuando llega su hora, según el reloj del servidor (hora de Uruguay).
 - **Sin leído ni no leído:** la lista muestra todo. Marcar un aviso como leído queda como mejora futura y necesita una columna nueva en `notificacion`.
 - **Sin límite de retención:** en esta versión no se borran avisos.
 - **Cuándo consulta el cliente:** al abrir la pantalla y al volver a verla, como el resto de los listados. No hay consulta periódica. En Android, el push avisa mientras la aplicación no está a la vista (RNF-23).
@@ -1638,9 +1640,9 @@ Lista los avisos que el sistema guardó para el socio autenticado: agenda, cance
 |---|---|---|
 | `id` | entero | `id_notificacion`. |
 | `tipo` | `TipoNotificacion` | Sección 1.7. |
-| `titulo` | texto | Título corto del aviso, armado por el servidor a partir del `tipo`. No se guarda en la tabla. El cliente lo muestra tal cual. |
+| `titulo` | texto | Título corto del aviso, armado por el servidor a partir del `tipo` (el mismo que lleva el asunto del correo y el título del push): `AGENDA`, `Consulta agendada`; `CANCELACION`, `Consulta cancelada`; `SUSPENSION`, `Turno suspendido`; `HISTORIA_ACTUALIZADA`, `Historia clínica actualizada`; `RECORDATORIO`, `Recordatorio de consulta`. No se guarda en la tabla. El cliente lo muestra tal cual. |
 | `contenido` | texto | El texto del aviso, ya armado por el servidor (`notificacion.contenido`). El cliente lo muestra tal cual, sin armarlo ni interpretarlo. En una cancelación por otro motivo (#44, #38) lleva el motivo. |
-| `creadaEn` | instante | `creada_en`, con el formato de la sección 1.2. |
+| `creadaEn` | instante | `creada_en`, con el formato de la sección 1.2: ISO 8601 con el desfase de Uruguay, `-03:00`, por ejemplo `2026-10-16T11:20:00-03:00`. |
 | `consultaId` | entero | La consulta que originó el aviso. Hoy siempre está presente (`notificacion.id_consulta` no admite nulo); el cliente tolera `null`. |
 
 **Respuesta 200** (los textos de `titulo` y `contenido` del ejemplo son ilustrativos)
@@ -1663,7 +1665,7 @@ Lista los avisos que el sistema guardó para el socio autenticado: agenda, cance
 }
 ```
 
-Sin avisos, `items` es `[]` y `total` es `0`. `total` cuenta los avisos que se listan (no los recordatorios futuros).
+Sin avisos, `items` es `[]` y `total` es `0`. `total` cuenta los avisos que se listan (no los recordatorios futuros), solo los del socio autenticado. La respuesta lleva exactamente `items`, `page`, `size` y `total`, y cada item exactamente los seis campos de la tabla.
 
 El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni observaciones (arquitectura 8.2).
 
@@ -1674,6 +1676,7 @@ El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni
 | 400 | `VALIDACION` | `page` o `size` fuera de los límites de la sección 1.3. |
 | 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
 | 403 | `ACCESO_DENEGADO` | El rol no es socio. |
+| 401 | `TOKEN_INVALIDO` | El token es válido pero su identificador de socio no es un entero positivo (catálogo de la sección 5). |
 
 <a id="e33"></a>
 #### #33 · `POST /api/dispositivos`
@@ -1932,12 +1935,22 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 #### #44 · `POST /api/funcionario/consultas/{id}/cancelar`
 
 - **Roles:** FUNCIONARIO exclusivamente.
-- **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración.
+- **RF:** RF-19. **Estado:** IMPLEMENTADO EN BACKEND, pendiente de validar integración. El cuerpo con `aPedidoDelSocio` y `motivo` está implementado en la rama `feat/rf19-cancelacion-con-motivo`, sobre el despacho genérico de avisos.
 - **Ruta:** `id`, identificador entero positivo de consulta.
-- **Cuerpo:** ninguno.
-- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio (el cliente puede apoyarse en el campo `cancelable` de la fila 28 para no ofrecer la acción cuando ya no corresponde; el `409` de esta fila sigue siendo la protección final, porque la hora pasa entre la consulta y el pedido); la cancela el funcionario a pedido del socio, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO`. Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales.
+- **Cuerpo** (`CancelacionFuncionarioRequest`, entrada), **opcional**: sin cuerpo se conserva el comportamiento anterior (`aPedidoDelSocio` verdadero).
 
-**Respuesta 200**
+| Campo | Tipo | Obligatorio | Notas |
+|---|---|---|---|
+| `aPedidoDelSocio` | booleano | no | Por defecto `true`. Con `true` la cancelación es a pedido del socio y la consulta queda `CANCELADA_SOCIO`. Con `false` es por otro motivo (administrativo u otro) y queda `CANCELADA_INSTITUCION`. |
+| `motivo` | texto | solo si `aPedidoDelSocio` es `false` | Se recorta; máximo 1000 caracteres. Se guarda en `motivo_cancelacion` y se envía al socio en la notificación. Con `aPedidoDelSocio` verdadero se ignora si viene: no da error y no se guarda. |
+
+```json
+{ "aPedidoDelSocio": false, "motivo": "Se rompió el equipo del consultorio" }
+```
+
+- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio (el cliente puede apoyarse en el campo `cancelable` de la fila 28 para no ofrecer la acción cuando ya no corresponde; el `409` de esta fila sigue siendo la protección final, porque la hora pasa entre la consulta y el pedido); la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`, que se entrega por el despacho genérico (correo y push, RNF-24) con la fecha de la consulta en formato `dd/mm/aaaa` (RNF-20) en los dos casos: a pedido del socio, `Tu consulta del 20/10/2026 fue cancelada a tu solicitud.`; por otro motivo, `Tu consulta del 20/10/2026 fue cancelada por la institución. Motivo: {motivo}`, sin nombrar al funcionario. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
+
+**Respuesta 200** (`estado` es el estado que quedó guardado: `CANCELADA_SOCIO` o `CANCELADA_INSTITUCION`)
 
 ```json
 {
@@ -1952,7 +1965,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 
 | HTTP | `code` | Causa |
 |---|---|---|
-| 400 | `VALIDACION` | Identificador inválido o no positivo. |
+| 400 | `VALIDACION` | Identificador inválido o no positivo; con `aPedidoDelSocio` en `false`, `motivo` ausente, vacío o de más de 1000 caracteres. |
 | 401 | `NO_AUTENTICADO` | Sesión inexistente o inválida. |
 | 403 | `ACCESO_DENEGADO` | El rol no es funcionario o la cuenta no tiene permiso. |
 | 403 | `CONFLICTO_INTERES` | El funcionario intenta cancelar su propia consulta. |
@@ -2676,6 +2689,18 @@ manual del carrusel, incluidos los efectos sobre clientes anteriores, se describ
 en [Gestión de cartelera](cartelera-administracion.md). La publicación de esta
 versión exige `vigenteHasta`; el ejemplo histórico de #65 debe actualizarse junto
 con el cliente Flutter antes de utilizarla.
+
+Edición de una novedad ya publicada: `PUT /api/admin/anuncios/{id}`, solo
+ADMINISTRADOR, multipart con la parte `datos` (`titulo`, `resumen`, `texto` y,
+opcional, `imagenes`: la lista final en orden de `{"id": n}` existentes y
+`{"archivo": "nombre"}` nuevas, que llegan como partes de archivo con ese nombre) y
+las mismas reglas de #65. Estado: IMPLEMENTADA EN BACKEND. Responde `204`;
+`400 VALIDACION` o `400 IMAGEN_INVALIDA`, `401`, `403`, `404 NO_ENCONTRADO` y
+`503 ALMACENAMIENTO_NO_DISPONIBLE`. Es todo o nada. No cambia vigencia, posición en
+el carrusel, autor ni fecha de publicación. El pedido y los mensajes exactos están en [Gestión de cartelera](cartelera-administracion.md). Desde esta
+versión `PUT /api/admin/anuncios/{id}/vigencia` y `PUT /api/admin/carrusel`
+responden `400 VALIDACION` con cuerpo JSON ante un cuerpo ilegible, en lugar del 400
+por defecto sin cuerpo.
 
 Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
 

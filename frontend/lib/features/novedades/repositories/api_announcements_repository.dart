@@ -10,6 +10,7 @@ import '../models/admin_announcement_detail.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_draft.dart';
+import '../models/announcement_edit.dart';
 import '../models/announcement_page.dart';
 import 'announcements_repository.dart';
 
@@ -61,6 +62,62 @@ class ApiAnnouncementsRepository implements AnnouncementsRepository {
       if (status == null || status >= 500 && status != 503) {
         throw _unconfirmedPublication;
       }
+      throw ApiException.fromDio(error);
+    }
+  }
+
+  /// PUT multipart: la parte `datos` (JSON) y una parte de archivo por cada
+  /// imagen nueva, con el nombre que figura en `imagenes` (`nueva1`,
+  /// `nueva2`, en el orden de la lista). Sin lista, `datos` no lleva
+  /// `imagenes` y el servidor no toca las imágenes. No lleva la vigencia.
+  @override
+  Future<void> update(int id, AnnouncementEdit edit) async {
+    final summary = edit.summary?.trim() ?? '';
+    final text = edit.text?.trim() ?? '';
+    final refs = edit.images;
+    final newFiles = <MapEntry<String, MultipartFile>>[];
+    final entries = <Map<String, Object>>[];
+    for (final ref in refs ?? const <AnnouncementImageRef>[]) {
+      switch (ref) {
+        case ExistingImageRef(:final id):
+          entries.add({'id': id});
+        case NewImageRef(:final upload):
+          final name = 'nueva${newFiles.length + 1}';
+          entries.add({'archivo': name});
+          newFiles.add(
+            MapEntry(
+              name,
+              MultipartFile.fromBytes(
+                upload.bytes,
+                filename: upload.name,
+                contentType: DioMediaType('image', upload.subtype),
+              ),
+            ),
+          );
+      }
+    }
+    final form = FormData()
+      ..files.add(
+        MapEntry(
+          'datos',
+          MultipartFile.fromString(
+            jsonEncode({
+              'titulo': edit.title.trim(),
+              if (summary.isNotEmpty) 'resumen': summary,
+              if (text.isNotEmpty) 'texto': text,
+              if (refs != null) 'imagenes': entries,
+            }),
+            contentType: DioMediaType('application', 'json'),
+          ),
+        ),
+      )
+      ..files.addAll(newFiles);
+    try {
+      await _dio.put<Object?>(
+        ApiRoutes.adminAnnouncementUpdate(id),
+        data: form,
+      );
+    } on DioException catch (error) {
       throw ApiException.fromDio(error);
     }
   }
