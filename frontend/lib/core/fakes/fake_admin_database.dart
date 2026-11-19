@@ -50,17 +50,32 @@ class FakeAccount {
   final String? phone2;
   final String? address;
 
-  UserAccount toAccount() => UserAccount(
-    id: id,
-    ci: ci,
-    firstName: firstName,
-    lastName: lastName,
-    role: role,
-    email: email,
-    status: status,
-    activated: activated,
-    createdAt: createdAt,
-  );
+  /// La misma regla que el servidor, vista por [viewerId]. Las consultas
+  /// agendadas no se modelan: solo los turnos activos.
+  UserAccount toAccount(
+    Set<int> doctorsWithActiveShifts, {
+    int viewerId = kFakeAdminAccountId,
+  }) {
+    final blockedDoctor =
+        role == UserRole.medico && doctorsWithActiveShifts.contains(id);
+    final canDeactivate =
+        role != UserRole.socio &&
+        status == AccountStatus.active &&
+        id != viewerId &&
+        !blockedDoctor;
+    return UserAccount(
+      id: id,
+      ci: ci,
+      firstName: firstName,
+      lastName: lastName,
+      role: role,
+      email: email,
+      status: status,
+      activated: activated,
+      createdAt: createdAt,
+      canDeactivate: canDeactivate,
+    );
+  }
 }
 
 /// Estado en memoria del área del administrador, compartido por los
@@ -78,6 +93,10 @@ class FakeAdminDatabase {
   final List<Specialty> specialties = [];
   final List<Clinic> clinics = [];
   final List<FakeAccount> accounts = [];
+
+  /// Médicos con fechas de turnos activas. El listado y la inactivación
+  /// leen el mismo conjunto. Por defecto es Carla Méndez.
+  final Set<int> doctorsWithActiveShifts = {};
 
   int _nextSpecialtyId = 1;
   int _nextClinicId = 1;
@@ -317,6 +336,12 @@ class FakeAdminDatabase {
         createdDaysAgo: 1 + i * 9,
         birthYear: 1950 + i * 3,
       );
+    }
+
+    for (final account in accounts) {
+      if (account.ci == '34567894' && account.role == UserRole.medico) {
+        doctorsWithActiveShifts.add(account.id);
+      }
     }
   }
 }
