@@ -13,9 +13,9 @@ import 'medical_history_repository_provider.dart';
 /// - `ref.onResume`: la pantalla estaba conservada por el shell o tapada por
 ///   otra ruta y vuelve a verse (cambia su `TickerMode`).
 /// - `AppLifecycleListener`: la pestaña del navegador o la app vuelven a primer
-///   plano. Riverpod no mira ese evento. Solo pide datos si la pantalla se está
-///   viendo: con Historia en otra sección del shell no hace nada, y al volver a
-///   ella lo hace `onResume`.
+///   plano. Riverpod no mira ese evento. Con Historia en otra sección del
+///   shell el provider está pausado: Riverpod deja pendiente la reconstrucción
+///   hasta que vuelve a verse, y `onResume` pide lo mismo una sola vez.
 ///
 /// La microtarea evita invalidar durante el callback de ciclo de vida.
 void refreshMedicalHistoryWhenVisibleAgain(Ref ref) {
@@ -28,9 +28,10 @@ void refreshMedicalHistoryWhenVisibleAgain(Ref ref) {
   ref.onResume(refresh);
   final lifecycle = AppLifecycleListener(
     onResume: () {
-      if (ref.mounted && !ref.isPaused) refresh();
+      if (ref.mounted) refresh();
     },
   );
+  // Evita que el listener quede registrado después de descartar el provider.
   ref.onDispose(lifecycle.dispose);
 }
 

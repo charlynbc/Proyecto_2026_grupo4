@@ -8,9 +8,10 @@ import 'doctor_attention_repository_provider.dart';
 // El shell y las rutas cubiertas conservan las pantallas montadas. Riverpod
 // reanuda sus suscripciones al volver a verlas (`onResume`); se renuevan solo
 // los datos. Cuando vuelve la pestaña del navegador o la app a primer plano,
-// Riverpod no se entera: lo escucha un `AppLifecycleListener`, que solo pide
-// datos si la pantalla se está viendo (con Atenciones en otra sección del
-// shell, lo hace `onResume` al volver).
+// Riverpod no se entera: lo escucha un `AppLifecycleListener`. Con Atenciones
+// en otra sección del shell el provider está pausado: Riverpod deja pendiente
+// la reconstrucción hasta que vuelve a verse, y `onResume` pide lo mismo una
+// sola vez.
 void _refreshWhenVisibleAgain(Ref ref) {
   void refresh() {
     Future.microtask(() {
@@ -21,9 +22,10 @@ void _refreshWhenVisibleAgain(Ref ref) {
   ref.onResume(refresh);
   final lifecycle = AppLifecycleListener(
     onResume: () {
-      if (ref.mounted && !ref.isPaused) refresh();
+      if (ref.mounted) refresh();
     },
   );
+  // Evita que el listener quede registrado después de descartar el provider.
   ref.onDispose(lifecycle.dispose);
 }
 
