@@ -180,6 +180,8 @@ Finder get _ciField =>
     find.widgetWithText(TextFormField, 'Cédula de identidad');
 Finder get _search => find.widgetWithText(FilledButton, 'Buscar');
 Finder get _register => find.widgetWithText(FilledButton, 'Registrar llegada');
+Finder get _registered =>
+    find.widgetWithText(FilledButton, 'Llegada registrada a las 08:47');
 
 Future<void> _searchCi(WidgetTester tester, String ci) async {
   await tester.enterText(_ciField, ci);
@@ -290,6 +292,37 @@ void main() {
     expect(find.text('Llegada registrada a las 08:47.'), findsOneWidget);
   });
 
+  testWidgets('201 deja el botón deshabilitado con la hora de la llegada', (
+    tester,
+  ) async {
+    await _pump(tester, _RecordingRepository());
+    await _searchCi(tester, '90000046');
+
+    await tester.tap(_register);
+    await tester.pumpAndSettle();
+
+    expect(_registered, findsOneWidget);
+    expect(_enabled(tester, _registered), isFalse);
+    expect(_register, findsNothing);
+    // En el 201 la registró quien está en la pantalla: no se nombra a nadie.
+    expect(find.textContaining('La registró'), findsNothing);
+  });
+
+  testWidgets('200 deja el botón deshabilitado con la hora original y quien', (
+    tester,
+  ) async {
+    await _pump(tester, _RecordingRepository(created: false));
+    await _searchCi(tester, '90000046');
+
+    await tester.tap(_register);
+    await tester.pumpAndSettle();
+
+    expect(_registered, findsOneWidget);
+    expect(_enabled(tester, _registered), isFalse);
+    expect(_register, findsNothing);
+    expect(find.text('La registró Mariana Ferreira.'), findsOneWidget);
+  });
+
   testWidgets('200 muestra que ya estaba registrada, con hora y quien', (
     tester,
   ) async {
@@ -306,7 +339,8 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.textContaining('Llegada registrada'), findsNothing);
+    // El aviso breve del 200 no es el del 201 (que termina en punto).
+    expect(find.text('Llegada registrada a las 08:47.'), findsNothing);
   });
 
   testWidgets('dos toques seguidos en Registrar hacen una sola llamada', (
@@ -325,6 +359,81 @@ void main() {
 
     expect(repository.registerCalls, 1);
   });
+
+  testWidgets('con el botón ya deshabilitado, tocarlo no pide nada más', (
+    tester,
+  ) async {
+    final repository = _RecordingRepository();
+    await _pump(tester, repository);
+    await _searchCi(tester, '90000046');
+    await tester.tap(_register);
+    await tester.pumpAndSettle();
+    expect(repository.registerCalls, 1);
+
+    await tester.tap(_registered, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(repository.registerCalls, 1);
+    expect(_enabled(tester, _registered), isFalse);
+  });
+
+  testWidgets('cambiar la CI quita el estado registrado', (tester) async {
+    await _pump(tester, _RecordingRepository());
+    await _searchCi(tester, '90000046');
+    await tester.tap(_register);
+    await tester.pumpAndSettle();
+    expect(_registered, findsOneWidget);
+
+    await tester.enterText(_ciField, '90000052');
+    await tester.pump();
+
+    expect(_registered, findsNothing);
+    expect(_register, findsNothing);
+
+    // Al buscar a otro socio vuelve el botón normal, activo.
+    await tester.tap(_search);
+    await tester.pumpAndSettle();
+    expect(_registered, findsNothing);
+    expect(_enabled(tester, _register), isTrue);
+  });
+
+  testWidgets('buscar de nuevo con la misma CI vuelve al botón normal', (
+    tester,
+  ) async {
+    await _pump(tester, _RecordingRepository());
+    await _searchCi(tester, '90000046');
+    await tester.tap(_register);
+    await tester.pumpAndSettle();
+    expect(_registered, findsOneWidget);
+
+    await tester.tap(_search);
+    await tester.pumpAndSettle();
+
+    expect(_registered, findsNothing);
+    expect(_enabled(tester, _register), isTrue);
+  });
+
+  testWidgets(
+    'si se busca a otro socio mientras se registra, no queda marcado',
+    (tester) async {
+      final repository = _RecordingRepository()..pending = Completer<void>();
+      await _pump(tester, repository);
+      await _searchCi(tester, '90000046');
+      await tester.tap(_register);
+      await tester.pump();
+
+      // Antes de que termine el registro de Ana, se busca a Luis (90000052).
+      await _searchCi(tester, '90000052');
+      expect(find.textContaining('Beatriz Cabrera'), findsOneWidget);
+      repository.pending!.complete();
+      await tester.pumpAndSettle();
+
+      // El aviso de Ana no se le pone al botón de Luis.
+      expect(_registered, findsNothing);
+      expect(find.text('La registró Mariana Ferreira.'), findsNothing);
+      expect(_enabled(tester, _register), isTrue);
+    },
+  );
 
   for (final code in ['CONFLICTO_INTERES', 'CONFLICTO_DE_INTERES']) {
     testWidgets('403 $code muestra el mensaje de conflicto de interes', (
@@ -515,5 +624,37 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  });
+
+  group('resultado de la búsqueda a 320 px con Roboto', () {
+    setUpAll(loadRoboto);
+
+    for (final (created, name) in [(true, '201'), (false, '200')]) {
+      testWidgets('con el botón deshabilitado tras el $name no desborda', (
+        tester,
+      ) async {
+        await _pump(
+          tester,
+          _RecordingRepository(created: created),
+          size: const Size(320, 800),
+        );
+        await _searchCi(tester, '90000046');
+        expect(find.textContaining('Alejandro Rivas'), findsOneWidget);
+
+        await tester.ensureVisible(_register);
+        await tester.tap(_register);
+        await tester.pumpAndSettle();
+
+        expect(_registered, findsOneWidget);
+        expect(_enabled(tester, _registered), isFalse);
+        if (!created) {
+          expect(find.text('La registró Mariana Ferreira.'), findsOneWidget);
+        }
+        final rect = tester.getRect(_registered);
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(320));
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 }

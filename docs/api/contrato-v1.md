@@ -1428,7 +1428,8 @@ las llegadas nulas quedan al final.
       "horaFin": "09:40",
       "consultorio": { "id": 5, "nombre": "Consultorio 5", "ubicacion": "Piso 2, ala norte" },
       "estado": "AGENDADA",
-      "llegadaEn": "2026-10-20T08:55:12-03:00"
+      "llegadaEn": "2026-10-20T08:55:12-03:00",
+      "cancelable": true
     }
   ],
   "page": 0,
@@ -1438,6 +1439,7 @@ las llegadas nulas quedan al final.
 ```
 
 `llegadaEn` es `null` si el socio no registró llegada ese día.
+`cancelable` (booleano, último campo de cada consulta) es `true` solo si el estado que se presenta es `AGENDADA` y el inicio de la consulta no cae antes de ahora más la anticipación mínima de cancelación (2 horas por defecto, parámetro del servidor `PARAM_CANCELAR_ANTICIPACION_MINIMA_HORAS`). Es la misma comparación que hace la cancelación de la fila 44, con la hora del servidor en America/Montevideo: un inicio justo en el límite es cancelable. Las consultas con estado `NO_ATENDIDA` o `NO_ASISTIO` (fechas pasadas) o cualquier otro estado distinto de `AGENDADA` traen `false`. No cubre el conflicto de interés de la fila 44 (`403 CONFLICTO_INTERES`), porque la agenda no depende de quién consulta. Es opcional para los clientes: un servidor anterior a este campo no lo envía, y en ese caso el cliente conserva su comportamiento anterior.
 Las consultas `AGENDADA` de fechas pasadas sin resultado se presentan como
 `NO_ATENDIDA` si existe aviso de llegada y `NO_ASISTIO` si no existe, en
 coherencia con RF-11; no se modifican los estados almacenados. Los estados
@@ -1946,7 +1948,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 { "aPedidoDelSocio": false, "motivo": "Se rompió el equipo del consultorio" }
 ```
 
-- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio; la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`, que se entrega por el despacho genérico (correo y push, RNF-24) con la fecha de la consulta en formato `dd/mm/aaaa` (RNF-20) en los dos casos: a pedido del socio, `Tu consulta del 20/10/2026 fue cancelada a tu solicitud.`; por otro motivo, `Tu consulta del 20/10/2026 fue cancelada por la institución. Motivo: {motivo}`, sin nombrar al funcionario. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
+- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio (el cliente puede apoyarse en el campo `cancelable` de la fila 28 para no ofrecer la acción cuando ya no corresponde; el `409` de esta fila sigue siendo la protección final, porque la hora pasa entre la consulta y el pedido); la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`, que se entrega por el despacho genérico (correo y push, RNF-24) con la fecha de la consulta en formato `dd/mm/aaaa` (RNF-20) en los dos casos: a pedido del socio, `Tu consulta del 20/10/2026 fue cancelada a tu solicitud.`; por otro motivo, `Tu consulta del 20/10/2026 fue cancelada por la institución. Motivo: {motivo}`, sin nombrar al funcionario. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
 
 **Respuesta 200** (`estado` es el estado que quedó guardado: `CANCELADA_SOCIO` o `CANCELADA_INSTITUCION`)
 

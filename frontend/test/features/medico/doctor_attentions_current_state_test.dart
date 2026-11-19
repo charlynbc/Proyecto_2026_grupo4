@@ -23,6 +23,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/app_lifecycle.dart';
 import '../../helpers/load_roboto.dart';
 
 class _Session extends SessionNotifier {
@@ -633,5 +634,72 @@ void main() {
     );
     _expectNewAttention();
     expect(repo.queries.length, greaterThan(before));
+  });
+
+  group('al volver la pestaña o la app a primer plano', () {
+    testWidgets('Atenciones actualiza la lista con un solo pedido', (
+      tester,
+    ) async {
+      final repo = await _pumpAttentions(tester);
+      expect(_card(7101), findsOneWidget);
+      expect(_card(7102), findsNothing);
+      // Mientras la app estaba en segundo plano se registró la 7102
+      // (17/11/2026, "Control de seguimiento").
+      repo.addAttention();
+      final before = repo.queries.length;
+
+      backgroundAndReturn(tester);
+      await _settle(tester);
+
+      _expectNewAttention();
+      expect(repo.queries.length, before + 1);
+    });
+
+    testWidgets('con Atenciones en otra sección no pide nada', (tester) async {
+      final repo = await _pumpAttentions(tester);
+      final shell = _shell(tester);
+      await _section(tester, shell, 'inicio');
+      repo.addAttention();
+      final before = repo.queries.length;
+
+      backgroundAndReturn(tester);
+      await _settle(tester);
+
+      expect(repo.queries.length, before);
+
+      // Al volver a Atenciones lo hace el regreso a la sección, una sola vez.
+      await _section(tester, shell, 'atenciones');
+      _expectNewAttention();
+      expect(repo.queries.length, before + 1);
+    });
+
+    testWidgets('sin pasar a segundo plano no hay pedidos extra', (
+      tester,
+    ) async {
+      final repo = await _pumpAttentions(tester);
+      repo.addAttention();
+      final before = repo.queries.length;
+
+      await _settle(tester);
+
+      expect(repo.queries.length, before);
+      expect(_card(7102), findsNothing);
+    });
+
+    testWidgets('con el detalle abierto lo actualiza al volver', (
+      tester,
+    ) async {
+      final repo = await _pumpAttentions(tester);
+      await _openDetail(tester);
+      final before = repo.callsFor(7101);
+      repo.updateTreatment();
+
+      backgroundAndReturn(tester);
+      await _settle(tester);
+
+      expect(find.text('Control en siete días'), findsOneWidget);
+      expect(find.text('Reposo'), findsNothing);
+      expect(repo.callsFor(7101), before + 1);
+    });
   });
 }

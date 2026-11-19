@@ -1,19 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../providers/doctor_attentions_provider.dart';
+import '../repositories/doctor_attention_repository.dart';
+import 'doctor_attention_routes.dart';
 
 class DoctorAttentionDetailScreen extends ConsumerWidget {
   const DoctorAttentionDetailScreen({required this.id, super.key});
   final int id;
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
-    appBar: AppBar(title: const Text('Detalle de atención')),
+    appBar: AppBar(
+      title: const Text('Detalle de atención'),
+      leading: BackButton(
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(kDoctorAttentionsPath);
+          }
+        },
+      ),
+    ),
     body: CenteredContent(
       maxWidth: 900,
+      alignment: Alignment.topCenter,
       child: ref
           .watch(doctorAttentionDetailProvider(id))
           .when(
@@ -24,17 +39,25 @@ class DoctorAttentionDetailScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(apiMessageOf(e)),
-                OutlinedButton(
-                  onPressed: () =>
-                      ref.invalidate(doctorAttentionDetailProvider(id)),
-                  child: const Text('Reintentar'),
-                ),
+                if (e is DoctorAttentionException &&
+                    e.failure == DoctorAttentionFailure.notFound)
+                  OutlinedButton(
+                    onPressed: () => context.go(kDoctorAttentionsPath),
+                    child: const Text('Volver a Atenciones'),
+                  )
+                else
+                  OutlinedButton(
+                    onPressed: () =>
+                        ref.invalidate(doctorAttentionDetailProvider(id)),
+                    child: const Text('Reintentar'),
+                  ),
               ],
             ),
             data: (a) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -58,15 +81,22 @@ class DoctorAttentionDetailScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Pases emitidos',
-                  style: Theme.of(context).textTheme.titleMedium,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    'Pases emitidos',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 if (a.referrals.isEmpty)
-                  const Text('No se emitieron pases en esta atención.')
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4),
+                    child: Text('No se emitieron pases en esta atención.'),
+                  )
                 else
                   for (final r in a.referrals)
                     Card(
+                      margin: const EdgeInsets.only(left: 4, right: 4, top: 8),
                       child: Padding(
                         padding: const EdgeInsets.all(16),
                         child: Column(

@@ -36,7 +36,11 @@ class AgendaConsultaServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AgendaConsultaService(repository, RELOJ);
+        service = new AgendaConsultaService(
+                repository,
+                RELOJ,
+                uy.edu.proyecto.backend.parametro.ParametroService.porDefecto()
+        );
     }
 
     @Test

@@ -65,7 +65,12 @@ void main() {
     final repo = ApiDoctorAttentionRepository(Dio()..httpClientAdapter = stub);
     final result = await repo.list(query);
     expect(stub.last!.path, '/api/medico/atenciones');
-    expect(stub.last!.queryParameters, query.toQueryParameters());
+    expect(stub.last!.queryParameters, {
+      'fechaDesde': '2026-10-01',
+      'fechaHasta': '2026-10-31',
+      'orden': 'fecha',
+      'sentido': 'desc',
+    });
     expect(result.single.patient.fullName, 'Lucía Fernández');
     expect(result.single.referrals.single.expiresOn, DateTime.utc(2027, 1, 18));
     final detailStub = Stub(200, sample);
@@ -85,10 +90,25 @@ void main() {
       ),
     );
   });
-  for (final (status, code, failure) in [
-    (400, 'VALIDACION', DoctorAttentionFailure.validation),
-    (403, 'ACCESO_DENEGADO', DoctorAttentionFailure.forbidden),
-    (404, 'NO_ENCONTRADO', DoctorAttentionFailure.notFound),
+  for (final (status, code, failure, message) in [
+    (
+      400,
+      'VALIDACION',
+      DoctorAttentionFailure.validation,
+      'Revisá los filtros: las dos fechas son obligatorias y la fecha desde no puede ser posterior a la fecha hasta.',
+    ),
+    (
+      403,
+      'ACCESO_DENEGADO',
+      DoctorAttentionFailure.forbidden,
+      'Tu cuenta no tiene permiso para consultar atenciones.',
+    ),
+    (
+      404,
+      'NO_ENCONTRADO',
+      DoctorAttentionFailure.notFound,
+      'No encontramos esta atención entre las tuyas.',
+    ),
   ]) {
     test('mapea $code sin mostrar el texto del servidor', () async {
       final repo = ApiDoctorAttentionRepository(
@@ -103,6 +123,7 @@ void main() {
         throwsA(
           isA<DoctorAttentionException>()
               .having((e) => e.failure, 'failure', failure)
+              .having((e) => e.message, 'message', message)
               .having((e) => e.message, 'message', isNot('texto del servidor')),
         ),
       );

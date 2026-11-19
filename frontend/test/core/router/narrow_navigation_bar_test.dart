@@ -5,6 +5,7 @@ import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_agenda_controller.dart';
+import 'package:agenda_medica/features/notificaciones/screens/notifications_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -269,8 +270,11 @@ void main() {
         ]);
       }
 
+      final avisos = _labelHeight(tester, 'Avisos');
+      expect(avisos, closeTo(cartelera, 0.01), reason: 'Avisos en una línea');
+
       final bar = tester.widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar));
-      expect(bar.destinations, hasLength(5));
+      expect(bar.destinations, hasLength(6));
       expect(bar.selectedIndex, 1);
       expectSocioLabelsCentered();
 
@@ -280,9 +284,83 @@ void main() {
         tester
             .widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar))
             .selectedIndex,
-        4,
+        5,
       );
       expectSocioLabelsCentered();
+      expect(tester.takeException(), isNull);
+    } finally {
+      await unmountApp(tester);
+    }
+  });
+
+  testWidgets('socio a 320 px con texto al doble: seis destinos sin desborde y '
+      'Avisos abre la lista de avisos', (tester) async {
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final container = await pumpApp(tester, size: const Size(320, 800));
+    try {
+      await _loginAs(tester, container, UserRole.socio);
+      await goTo(tester, container, '/socio/disponibilidad');
+      _expectNarrowShell(tester);
+
+      final bar = tester.widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar));
+      expect(
+        [for (final d in bar.destinations) d.label],
+        [
+          'Inicio',
+          'Reservar consulta',
+          'Mis consultas',
+          'Historia clínica',
+          'Avisos',
+          'Cartelera',
+        ],
+      );
+      expect(
+        tester.getSize(find.byType(AdaptiveNavBar)).height,
+        greaterThan(0),
+      );
+
+      final destination = find.descendant(
+        of: find.byType(AdaptiveNavBar),
+        matching: find.text('Avisos'),
+      );
+      expect(destination.hitTestable(), findsOneWidget);
+      await tester.tap(destination);
+      await tester.pumpAndSettle();
+
+      expect(locationOf(container), '/socio/avisos');
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+      expect(
+        tester
+            .widget<AdaptiveNavBar>(find.byType(AdaptiveNavBar))
+            .selectedIndex,
+        4,
+      );
+      expect(tester.takeException(), isNull);
+    } finally {
+      await unmountApp(tester);
+    }
+  });
+
+  testWidgets('el rail del socio muestra Avisos entre Historia clínica y '
+      'Cartelera', (tester) async {
+    final container = await pumpApp(tester, size: const Size(900, 800));
+    try {
+      await _loginAs(tester, container, UserRole.socio);
+      await goTo(tester, container, '/socio/disponibilidad');
+
+      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+      expect(
+        [for (final d in rail.destinations) (d.label as Text).data],
+        [
+          'Inicio',
+          'Reservar consulta',
+          'Mis consultas',
+          'Historia clínica',
+          'Avisos',
+          'Cartelera',
+        ],
+      );
       expect(tester.takeException(), isNull);
     } finally {
       await unmountApp(tester);

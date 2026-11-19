@@ -23,11 +23,17 @@ class AppShell extends StatelessWidget {
     required this.navigationShell,
     required this.sections,
     required this.role,
+    this.onSectionReopened,
   });
 
   final StatefulNavigationShell navigationShell;
   final List<AppSection> sections;
   final UserRole role;
+
+  /// Se llama al volver a una sección ya abierta antes, para que refresque
+  /// sus datos.
+  final void Function(BuildContext context, AppSection section)?
+  onSectionReopened;
 
   bool get _showNavigation =>
       sections[navigationShell.currentIndex].slug != 'inicio';
@@ -50,15 +56,66 @@ class AppShell extends StatelessWidget {
       child = _NarrowShell(this);
     }
 
-    return PopScope(
-      canPop: navigationShell.currentIndex == 0,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        navigationShell.goBranch(0);
-      },
-      child: child,
+    return _SectionReopenWatcher(
+      index: navigationShell.currentIndex,
+      onReopened: (context, index) =>
+          onSectionReopened?.call(context, sections[index]),
+      child: PopScope(
+        canPop: navigationShell.currentIndex == 0,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          navigationShell.goBranch(0);
+        },
+        child: child,
+      ),
     );
   }
+}
+
+/// Avisa cuando se vuelve a una sección que ya se había abierto antes (no la
+/// primera vez, cuando la pantalla recién se arma y pide sus datos sola, ni
+/// al tocar la sección que ya está a la vista). Las secciones quedan montadas
+/// en segundo plano, así que sin esto una sección mostraría datos viejos al
+/// volver. El aviso sale después del cuadro actual: los providers no se
+/// modifican durante la construcción.
+class _SectionReopenWatcher extends StatefulWidget {
+  const _SectionReopenWatcher({
+    required this.index,
+    required this.onReopened,
+    required this.child,
+  });
+
+  final int index;
+  final void Function(BuildContext context, int index) onReopened;
+  final Widget child;
+
+  @override
+  State<_SectionReopenWatcher> createState() => _SectionReopenWatcherState();
+}
+
+class _SectionReopenWatcherState extends State<_SectionReopenWatcher> {
+  final Set<int> _visited = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _visited.add(widget.index);
+  }
+
+  @override
+  void didUpdateWidget(_SectionReopenWatcher oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final index = widget.index;
+    if (index == oldWidget.index) return;
+    if (!_visited.add(index)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onReopened(context, index);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _NarrowShell extends StatelessWidget {

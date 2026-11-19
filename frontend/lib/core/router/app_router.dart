@@ -27,6 +27,8 @@ import '../../features/cuenta/screens/edit_account_screen.dart';
 import '../../features/cuenta/screens/change_password_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
+import '../../features/notificaciones/providers/notification_list_provider.dart';
+import '../../features/notificaciones/screens/notifications_screen.dart';
 import '../../features/medico/screens/doctor_attention_routes.dart';
 import '../../features/medico/screens/doctor_attentions_screen.dart';
 import '../../features/medico/screens/doctor_attention_detail_screen.dart';
@@ -282,6 +284,16 @@ RouteBase _roleShell(UserRole role) {
       navigationShell: navigationShell,
       sections: role.sections,
       role: role,
+      onSectionReopened: (context, section) {
+        // Al volver a la pestaña de Avisos se empieza por la primera página.
+        // El nuevo pedido lo hace la propia lista cuando vuelve a verse
+        // (`notificationListProvider`), y solo de la página que se mira.
+        if (section.slug == 'avisos') {
+          ProviderScope.containerOf(context)
+              .read(notificationListReopenedProvider.notifier)
+              .reopened();
+        }
+      },
     ),
     branches: [
       for (final section in role.sections)
@@ -481,6 +493,11 @@ GoRoute _sectionRoute(UserRole role, AppSection section) {
         return GoRoute(
           path: path,
           builder: (context, state) => const AvailabilityScreen(),
+        );
+      case kNotificationsPath:
+        return GoRoute(
+          path: path,
+          builder: (context, state) => const NotificationsScreen(),
         );
       case kAppointmentsPath:
         return GoRoute(
