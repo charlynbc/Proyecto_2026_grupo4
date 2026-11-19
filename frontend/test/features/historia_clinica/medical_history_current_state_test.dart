@@ -21,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/app_lifecycle.dart';
 import '../../helpers/load_roboto.dart';
 
 class _Session extends SessionNotifier {
@@ -649,4 +650,74 @@ void main() {
       expect(repository.listCalls, greaterThan(callsBeforeReturn));
     },
   );
+
+  group('al volver la pestaña o la app a primer plano', () {
+    testWidgets('actualiza la lista y las opciones con un pedido cada una', (
+      tester,
+    ) async {
+      final repo = await _pumpHistory(tester);
+      expect(_card(7101), findsOneWidget);
+      expect(_card(7102), findsNothing);
+      // Mientras la app estaba en segundo plano, el médico registró la 7102
+      // (17/11/2026, "Control de seguimiento").
+      repo.addAttention();
+      final before = repo.queries.length;
+
+      backgroundAndReturn(tester);
+      await _settle(tester);
+
+      _expectNewAttention(tester);
+      // Un pedido de la lista y otro de las opciones.
+      expect(repo.queries.length, before + 2);
+    });
+
+    testWidgets('con Historia en otra sección no pide nada', (tester) async {
+      final repo = await _pumpHistory(tester);
+      final shell = _shell(tester);
+      await _switchSection(tester, shell, 'inicio');
+      repo.addAttention();
+      final before = repo.queries.length;
+
+      backgroundAndReturn(tester);
+      await _settle(tester);
+
+      expect(repo.queries.length, before);
+
+      // Al volver a Historia lo hace el regreso a la sección, una sola vez.
+      await _switchSection(tester, shell, 'historia');
+      _expectNewAttention(tester);
+      expect(repo.queries.length, before + 2);
+    });
+
+    testWidgets('sin pasar a segundo plano no hay pedidos extra', (
+      tester,
+    ) async {
+      final repo = await _pumpHistory(tester);
+      repo.addAttention();
+      final before = repo.queries.length;
+
+      await _pendingFrames(tester);
+      await _settle(tester);
+
+      expect(repo.queries.length, before);
+      expect(_card(7102), findsNothing);
+    });
+
+    testWidgets('con el detalle abierto lo actualiza al volver', (
+      tester,
+    ) async {
+      final repo = await _pumpHistory(tester);
+      await _openDetail(tester);
+      expect(repo.detailIds, [7101]);
+      expect(find.text('Reposo'), findsOneWidget);
+      repo.updateTreatment();
+
+      backgroundAndReturn(tester);
+      await _settle(tester);
+
+      expect(find.text('Control en siete días'), findsOneWidget);
+      expect(find.text('Reposo'), findsNothing);
+      expect(repo.detailIds, [7101, 7101]);
+    });
+  });
 }
