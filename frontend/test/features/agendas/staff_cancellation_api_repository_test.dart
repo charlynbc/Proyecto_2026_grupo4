@@ -83,6 +83,91 @@ void main() {
     },
   );
 
+  group('cancelar por otro motivo', () {
+    Map<String, Object?> okBody(String status) => {
+      'consultaId': 9001,
+      'estado': status,
+      'canceladaEn': '2026-10-30T09:03:10-03:00',
+      'paseDevuelto': false,
+    };
+
+    test('manda aPedidoDelSocio en false y el motivo recortado', () async {
+      final (repository, adapter) = _ok(okBody('CANCELADA_INSTITUCION'));
+
+      final result = await repository.cancel(
+        9001,
+        reason: '  Se rompió el equipo  ',
+      );
+
+      expect(adapter.last!.path, '/api/funcionario/consultas/9001/cancelar');
+      expect(adapter.last!.data, {
+        'aPedidoDelSocio': false,
+        'motivo': 'Se rompió el equipo',
+      });
+      expect(result.status, 'CANCELADA_INSTITUCION');
+    });
+
+    test('un motivo de 1000 caracteres se manda', () async {
+      final (repository, adapter) = _ok(okBody('CANCELADA_INSTITUCION'));
+
+      await repository.cancel(9001, reason: 'a' * 1000);
+
+      expect((adapter.last!.data as Map)['motivo'], 'a' * 1000);
+    });
+
+    test('un motivo de 1001 caracteres no llama al servidor', () async {
+      final (repository, adapter) = _ok(okBody('CANCELADA_INSTITUCION'));
+
+      await expectLater(
+        repository.cancel(9001, reason: 'a' * 1001),
+        throwsA(
+          _staffError(
+            StaffCancellationFailure.validation,
+            'El motivo no puede tener más de 1000 caracteres.',
+          ),
+        ),
+      );
+      expect(adapter.last, isNull);
+    });
+
+    for (final blank in ['', '   ']) {
+      test('un motivo vacío ("$blank") no llama al servidor', () async {
+        final (repository, adapter) = _ok(okBody('CANCELADA_INSTITUCION'));
+
+        await expectLater(
+          repository.cancel(9001, reason: blank),
+          throwsA(
+            _staffError(
+              StaffCancellationFailure.validation,
+              'Escribí el motivo de la cancelación.',
+            ),
+          ),
+        );
+        expect(adapter.last, isNull);
+      });
+    }
+
+    test('si el servidor responde CANCELADA_SOCIO no es un error', () async {
+      final (repository, _) = _ok(okBody('CANCELADA_SOCIO'));
+
+      final result = await repository.cancel(9001, reason: 'Guardia');
+
+      expect(result.status, 'CANCELADA_SOCIO');
+    });
+
+    test(
+      'sin motivo sigue sin cuerpo y acepta CANCELADA_INSTITUCION',
+      () async {
+        final (repository, adapter) = _ok(okBody('CANCELADA_INSTITUCION'));
+
+        final result = await repository.cancel(9001);
+
+        expect(adapter.last!.data, isNull);
+        expect(result.status, 'CANCELADA_INSTITUCION');
+      },
+    );
+  });
+
   group('respuestas mal formadas', () {
     final cases = <({String name, Map<String, Object?> body})>[
       (
