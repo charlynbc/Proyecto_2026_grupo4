@@ -95,7 +95,9 @@ public class AgendaConsultaRepository {
                             rs.getString("consultorio_ubicacion")
                     ),
                     rs.getString("estado"),
-                    rs.getObject("llegada_en", OffsetDateTime.class)
+                    rs.getObject("llegada_en", OffsetDateTime.class),
+                    // Lo resuelve AgendaConsultaService con el reloj y el plazo.
+                    false
             );
 
     private final JdbcTemplate jdbcTemplate;
