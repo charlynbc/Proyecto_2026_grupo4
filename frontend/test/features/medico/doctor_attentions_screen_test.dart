@@ -60,6 +60,61 @@ Future<RecordingRepository> _pumpScreen(
 }
 
 void main() {
+  for (final width in [320.0, 1200.0]) {
+    testWidgets(
+      'separa orden y acciones al menos 16 px a ${width.toInt()} px',
+      (tester) async {
+        await loadRoboto();
+        await _pumpScreen(tester, size: Size(width, 900));
+
+        final order = find.byKey(const Key('attentions-order'));
+        final direction = find.byKey(const Key('attentions-direction'));
+        final search = find.byKey(const Key('attentions-search'));
+        final clear = find.byKey(const Key('attentions-clear'));
+        final orderBlock = find.ancestor(
+          of: order,
+          matching: find.byType(Wrap),
+        );
+        final actionsBlock = find.ancestor(
+          of: search,
+          matching: find.byType(Wrap),
+        );
+        expect(orderBlock, findsOneWidget);
+        expect(actionsBlock, findsOneWidget);
+        expect(
+          find.descendant(of: orderBlock, matching: direction),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: actionsBlock, matching: clear),
+          findsOneWidget,
+        );
+
+        await tester.ensureVisible(actionsBlock);
+        await tester.pumpAndSettle();
+        expect(search.hitTestable(), findsOneWidget);
+        expect(clear.hitTestable(), findsOneWidget);
+        for (final button in [search, clear]) {
+          final rect = tester.getRect(button);
+          expect(rect.left, greaterThanOrEqualTo(0));
+          expect(rect.right, lessThanOrEqualTo(width));
+          expect(rect.top, greaterThanOrEqualTo(0));
+          expect(rect.bottom, lessThanOrEqualTo(900));
+        }
+        expect(tester.takeException(), isNull);
+
+        final gap =
+            tester.getRect(actionsBlock).top -
+            tester.getRect(orderBlock).bottom;
+        expect(
+          gap,
+          greaterThanOrEqualTo(16),
+          reason: 'Separación entre los bloques completos a $width px',
+        );
+      },
+    );
+  }
+
   group('sentido del orden como botón', () {
     final direction = find.byKey(const Key('attentions-direction'));
 
@@ -240,6 +295,21 @@ void main() {
       await _pumpScreen(tester, size: const Size(320, 900));
 
       expect(find.text('Descendente'), findsOneWidget);
+      for (final finder in [
+        find.byKey(const Key('attentions-search')),
+        find.byKey(const Key('attentions-clear')),
+        find.text('Lucía Fernández · CI 45678911'),
+        find.byKey(const Key('attention-5530')),
+      ]) {
+        await tester.ensureVisible(finder);
+        await tester.pumpAndSettle();
+        expect(finder.hitTestable(), findsOneWidget);
+        final rect = tester.getRect(finder);
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(320));
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(900));
+      }
       expect(
         tester.getRect(find.text('Descendente')).right,
         lessThanOrEqualTo(320),
