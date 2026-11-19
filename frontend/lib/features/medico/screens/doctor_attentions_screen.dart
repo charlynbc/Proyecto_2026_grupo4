@@ -277,6 +277,7 @@ class _DoctorAttentionsScreenState
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
                 Wrap(
                   spacing: 8,
                   children: [
