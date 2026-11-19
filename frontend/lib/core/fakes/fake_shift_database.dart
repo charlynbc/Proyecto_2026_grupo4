@@ -458,11 +458,11 @@ class FakeShiftDatabase {
             shiftId: shift.id,
             date: shift.date,
             state: shift.state,
-            bookedAppointments:
-                agendadasPorTurno[shift.id] ??
-                (shift == future.first
-                    ? (agendadasPorTurnoSemanal[weeklyShiftId] ?? 0)
-                    : 0),
+            bookedAppointments: _bookedAppointments(
+              shift,
+              future.first,
+              weeklyShiftId,
+            ),
             currentClinicId: shift.clinicId,
             currentClinicName: admin.clinics
                 .firstWhere((clinic) => clinic.id == shift.clinicId)
@@ -491,11 +491,16 @@ class FakeShiftDatabase {
 
   /// RF-20: valida todas las fechas antes de aplicar un cambio atómico.
   /// Sin turnoIds conserva el cambio de todas las fechas futuras.
+  ///
+  /// Con [confirmarConConsultas] y [consultasAgendadasVistas], el total real
+  /// de consultas de las fechas elegidas tiene que ser el visto; si no, la
+  /// confirmación quedó vieja y se rechaza, igual que el servidor.
   WeeklyShift changeClinic(
     int weeklyShiftId,
     int clinicId, {
     List<int>? turnoIds,
     bool confirmarConConsultas = false,
+    int? consultasAgendadasVistas,
   }) {
     if (weeklyShiftId <= 0 || clinicId <= 0) {
       throw const ShiftValidationException(kClinicChangeInvalidMessage);
@@ -557,16 +562,25 @@ class FakeShiftDatabase {
       );
     }
 
+    final firstFuture = ([
+      ...future,
+    ]..sort((a, b) => a.date.compareTo(b.date))).first;
+    int booked(FakeShift shift) =>
+        _bookedAppointments(shift, firstFuture, weeklyShiftId);
     final withBookings = [
       for (final shift in changing)
-        if ((agendadasPorTurno[shift.id] ??
-                (shift == future.first
-                    ? agendadasPorTurnoSemanal[weeklyShiftId] ?? 0
-                    : 0)) >
-            0)
-          shift,
+        if (booked(shift) > 0) shift,
     ];
     if (withBookings.isNotEmpty && !confirmarConConsultas) {
+      throw const ShiftNotModifiableException(kClinicChangeBookedMessage);
+    }
+    // La confirmación vale solo para lo que se vio en la vista previa. Cuenta
+    // todas las fechas elegidas, también las que ya usan el consultorio
+    // destino, igual que la suma del cliente.
+    if (confirmarConConsultas &&
+        consultasAgendadasVistas != null &&
+        selected.fold<int>(0, (total, shift) => total + booked(shift)) !=
+            consultasAgendadasVistas) {
       throw const ShiftNotModifiableException(kClinicChangeBookedMessage);
     }
 
@@ -596,6 +610,16 @@ class FakeShiftDatabase {
     weeklyShifts[index] = updated;
     return updated;
   }
+
+  /// Consultas agendadas de una fecha. La cuenta por configuración semanal
+  /// cae en la primera fecha futura, que es [first].
+  int _bookedAppointments(
+    FakeShift shift,
+    FakeShift first,
+    int weeklyShiftId,
+  ) =>
+      agendadasPorTurno[shift.id] ??
+      (shift == first ? (agendadasPorTurnoSemanal[weeklyShiftId] ?? 0) : 0);
 
   /// Cruces contra turnos activos de otras configuraciones, en las fechas
   /// activas de hoy en adelante. El mensaje no es el del alta.

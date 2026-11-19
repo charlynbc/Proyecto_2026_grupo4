@@ -764,7 +764,7 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 #### #51 · `PATCH /api/turnos-semanales/{id}`
 
 - **Rol:** FUNCIONARIO.
-- **RF:** RF-20. **Estado:** ampliación en `feat/front-rf20-consultorio-parcial` (pendiente de validación de integración).
+- **RF:** RF-20. **Estado:** CONFIRMADA en backend. El campo `consultasAgendadasVistas` está en `feat/rf20-confirmacion-atomica` (pendiente de integración).
 - Modifica **solamente consultorio**; médico, especialidad, día y números no cambian.
 
 **Cuerpo**
@@ -774,9 +774,10 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 | `consultorioId` | entero | sí | ID positivo del destino. |
 | `turnoIds` | arreglo de enteros | no | IDs únicos de fechas concretas del patrón, hoy o futuras. Si se omite, se aplica a todas las fechas de hoy en adelante; vacío es `400 VALIDACION`. |
 | `confirmarConConsultas` | booleano | no | Por defecto `false`. Permite cambiar fechas seleccionadas con consultas `AGENDADA`; no permite solapamientos. |
+| `consultasAgendadasVistas` | entero | no | 0 o más; negativo es `400 VALIDACION`. Total de consultas `AGENDADA` que el funcionario vio en la vista previa (#72) para las fechas que va a modificar: la suma de `consultasAgendadas` de las fechas elegidas. Solo se usa con `confirmarConConsultas: true`; sin esa confirmación se ignora. Si no viene, el servidor se comporta como antes. |
 
 ```json
-{ "consultorioId": 7, "turnoIds": [301, 303], "confirmarConConsultas": true }
+{ "consultorioId": 7, "turnoIds": [301, 303], "confirmarConConsultas": true, "consultasAgendadasVistas": 3 }
 ```
 
 **Respuesta 200:** `TurnoSemanalDTO` de #13/#14, agregando `consultorioVariaPorFecha` (booleano). Es verdadero si hay diferentes consultorios entre las fechas de hoy en adelante. El consultorio del patrón semanal se actualiza cuando, después del cambio, todas las fechas futuras del turno quedan en el consultorio destino, aunque la solicitud sea parcial. Ejemplo: si primero se cambia una fecha al consultorio 7 y después se cambian las restantes, el patrón también queda en el consultorio 7. Si se envía el destino actual y todas las fechas ya lo usan, el resultado es idempotente.
@@ -787,17 +788,18 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 - En fechas ACTIVO se revalidan los cruces con números activos del mismo médico o consultorio destino: `409 SOLAPAMIENTO_TURNO` siempre, incluso si hay confirmación.
 - Las fechas SUSPENDIDO cambian sin control de solapamientos y conservan el estado. RF-15 vuelve a comprobar al rehabilitar.
 - Si hay consultas `AGENDADA` en una fecha a modificar y la confirmación no es `true`, `409 TURNO_NO_MODIFICABLE` informa las fechas. Con confirmación se cambia sin cancelar consultas ni pases.
+- Si vienen `confirmarConConsultas: true` y `consultasAgendadasVistas`, el servidor cuenta las consultas `AGENDADA` reales de las fechas elegidas dentro de la misma transacción que bloquea esas fechas. Si el total no coincide con el visto (por ejemplo, porque entró una consulta nueva entre la vista previa y el guardado), responde `409 TURNO_NO_MODIFICABLE` con un mensaje que pide revisar la vista previa y confirmar de nuevo, y no cambia nada. Cuentan todas las fechas elegidas, también las que ya usan el consultorio destino, igual que la suma que hace el cliente.
 - **Limitación conocida:** por ahora no se notifica a los socios cuyas consultas ya estaban agendadas.
 - El cambio usa una transacción y bloqueos sobre las fechas del patrón para evitar carreras con agendas concurrentes.
 - Sin campos opcionales se conserva el comportamiento anterior, incluido el rechazo de configuraciones sin ninguna fecha ACTIVA futura.
 
-**Errores:** `400 VALIDACION` (datos o selección inválidos), `404 NO_ENCONTRADO` (patrón o consultorio), `409 TURNO_NO_MODIFICABLE` (consultas sin confirmar o sin fechas aplicables), `409 SOLAPAMIENTO_TURNO` (conflicto de horario).
+**Errores:** `400 VALIDACION` (datos o selección inválidos), `404 NO_ENCONTRADO` (patrón o consultorio), `409 TURNO_NO_MODIFICABLE` (consultas sin confirmar, consultas distintas de las vistas o sin fechas aplicables), `409 SOLAPAMIENTO_TURNO` (conflicto de horario).
 
 <a id="e72"></a>
 #### #72 · `POST /api/turnos-semanales/{id}/consultorio/vista-previa`
 
 - **Rol:** FUNCIONARIO.
-- **RF:** RF-20. **Estado:** ampliación en `feat/front-rf20-consultorio-parcial` (pendiente de validación de integración).
+- **RF:** RF-20. **Estado:** CONFIRMADA en backend.
 - Consulta de **solo lectura**. No cambia patrón, turnos ni consultas.
 
 **Cuerpo**
@@ -829,7 +831,7 @@ Devuelve el `TurnoSemanalDTO` de #13, tal cual. Sin parámetros.
 }
 ```
 
-En fechas SUSPENDIDO, `solapamientos` es arreglo vacío y se revalida en RF-15. Si no hay fechas aplicables, `fechas: []`. La información es orientativa: el PATCH vuelve a validar todo en la transacción.
+En fechas SUSPENDIDO, `solapamientos` es arreglo vacío y se revalida en RF-15. Si no hay fechas aplicables, `fechas: []`. La información es orientativa: el PATCH vuelve a validar todo en la transacción. El cliente suma `consultasAgendadas` de las fechas elegidas y lo manda como `consultasAgendadasVistas` en #51.
 
 **Errores:** `400 VALIDACION` y `404 NO_ENCONTRADO`.
 
