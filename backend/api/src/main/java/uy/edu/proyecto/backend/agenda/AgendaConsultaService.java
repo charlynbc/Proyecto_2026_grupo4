@@ -2,7 +2,9 @@ package uy.edu.proyecto.backend.agenda;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.Set;
 
 import org.springframework.http.HttpStatus;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.usuario.CiUruguaya;
 
 @Service
@@ -27,13 +30,16 @@ public class AgendaConsultaService {
 
     private final AgendaConsultaRepository repository;
     private final Clock clock;
+    private final ParametroService parametros;
 
     public AgendaConsultaService(
             AgendaConsultaRepository repository,
-            Clock clock
+            Clock clock,
+            ParametroService parametros
     ) {
         this.repository = repository;
         this.clock = clock;
+        this.parametros = parametros;
     }
 
     @Transactional(readOnly = true)
@@ -89,7 +95,33 @@ public class AgendaConsultaService {
                 page,
                 size
         );
-        return repository.listar(filtro, LocalDate.now(clock));
+        AgendaOperativaPageResponse pagina =
+                repository.listar(filtro, LocalDate.now(clock));
+        return new AgendaOperativaPageResponse(
+                conCancelable(pagina.items()),
+                pagina.page(),
+                pagina.size(),
+                pagina.total()
+        );
+    }
+
+    /**
+     * Completa cancelable de cada consulta con el reloj y el plazo del
+     * servidor, sin consultar la base de nuevo.
+     */
+    private List<AgendaOperativaDTO> conCancelable(List<AgendaOperativaDTO> items) {
+        ZonedDateTime ahora = ZonedDateTime.now(clock);
+        int horasMinimas = parametros.cancelarAnticipacionMinimaHoras();
+        return items.stream()
+                .map(item -> item.conCancelable(ReglaCancelableAgenda.evaluar(
+                        item.estado(),
+                        item.fecha(),
+                        item.horaInicio(),
+                        clock.getZone(),
+                        ahora,
+                        horasMinimas
+                )))
+                .toList();
     }
 
     private String ci(String raw) {
