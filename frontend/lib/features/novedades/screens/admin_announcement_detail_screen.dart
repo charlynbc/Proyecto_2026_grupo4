@@ -79,8 +79,7 @@ class _AdminAnnouncementDetailScreenState
         }
         // Si la novedad ya no existe, la lista de gestión tiene que
         // actualizarse al volver.
-        if (next is AsyncError &&
-            next.error is AnnouncementNotFoundException) {
+        if (next is AsyncError && next.error is AnnouncementNotFoundException) {
           ref.invalidate(adminAnnouncementsProvider);
         }
       });
@@ -185,6 +184,18 @@ class _AdminAnnouncementDetailScreenState
         ),
         const SizedBox(height: 12),
         AnnouncementStatusLabel(status: detail.status, id: detail.id),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            key: const Key('admin-detail-edit'),
+            onPressed: () => context.push(
+              '${UserRole.administrador.announcementsPath}/${detail.id}/editar',
+            ),
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Editar'),
+          ),
+        ),
         const SizedBox(height: 12),
         Text(
           'Publicado el ${DateFormat('dd/MM/yyyy').format(detail.publishedAt.toLocal())}',

@@ -69,6 +69,7 @@ void main() {
           'estado': 'ACTIVA',
           'activada': true,
           'fechaAlta': '2026-09-01T09:00:00-03:00',
+          'puedeInactivar': false,
         },
       ],
       'page': 1,
@@ -101,6 +102,7 @@ void main() {
     expect(page.hasPrevious, isTrue);
     expect(page.items.single.lastName, 'Fernández');
     expect(page.items.single.role, UserRole.socio);
+    expect(page.items.single.canDeactivate, isFalse);
   });
 
   test('un filtro vacío no se envía', () async {

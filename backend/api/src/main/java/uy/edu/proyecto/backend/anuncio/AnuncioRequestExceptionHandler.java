@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import uy.edu.proyecto.backend.exception.ApiErrorResponse;
 
-@RestControllerAdvice(assignableTypes = AnuncioController.class)
+@RestControllerAdvice(assignableTypes = {AnuncioController.class, CarteleraController.class})
 public class AnuncioRequestExceptionHandler {
     @ExceptionHandler({MissingServletRequestPartException.class,
             HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class})

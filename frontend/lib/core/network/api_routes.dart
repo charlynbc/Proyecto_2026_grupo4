@@ -149,6 +149,11 @@ class ApiRoutes {
   /// `adminAnnouncement`, que se usa con DELETE; por eso no se repite en
   /// `all`.
   static String adminAnnouncementDetail(int id) => '/api/admin/anuncios/$id';
+
+  /// Editar el texto y las imágenes de una novedad (PUT multipart, 204). Es la
+  /// misma ruta que `adminAnnouncement` (DELETE) y `adminAnnouncementDetail`
+  /// (GET), que se distinguen por el método; no se repite en `all`.
+  static String adminAnnouncementUpdate(int id) => '/api/admin/anuncios/$id';
   static const String adminCarousel = '/api/admin/carrusel';
 
   /// Todas las rutas, con un id de ejemplo (`1`) donde la ruta lo lleva.

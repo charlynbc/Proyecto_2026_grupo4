@@ -117,7 +117,7 @@ AuthService autentica; ActivacionService gestiona el primer ingreso. TokenServic
 
 *Figura 2. Servicios de agenda, cancelación y aviso de llegada (S03-S05, S10, S12 y S23-S25).*
 
-AgendaService concentra disponibilidad, reserva y consultas de agenda. En agendar, paseId puede ser nulo cuando la especialidad no exige pase. CancelacionService distingue los tres actores que pueden cancelar. CancelacionMedicoDTO incluye el alcance, el motivo y el identificador de la consulta o del turno afectado.
+AgendaService concentra disponibilidad, reserva y consultas de agenda. En agendar, paseId puede ser nulo cuando la especialidad no exige pase. CancelacionService distingue los tres actores que pueden cancelar. CancelacionMedicoDTO incluye el alcance, el motivo y el identificador de la consulta o del turno afectado. En la cancelación del funcionario, el cuerpo opcional incluye aPedidoDelSocio y el motivo.
 
 ## **2.3. Planificación de turnos**
 
@@ -367,11 +367,11 @@ Actor: Funcionario \| Requerimiento: RF-19 \| Subsistema: consulta / pase
 
 *Diagrama de secuencia S24 · RF-19 - Cancelar por funcionario*
 
-> Descripción del flujo. CancelacionService ejecuta la cancelación solicitada por el socio mediante un funcionario distinto de esa persona, conservando quién realizó materialmente el cambio. Antes de cancelarla comprueba que la consulta siga Agendada y falten al menos dos horas para su inicio; devuelve el pase utilizado según RF-09 y registra la notificación al socio.
+> Descripción del flujo. CancelacionService ejecuta la cancelación que realiza un funcionario distinto del socio de la consulta, a pedido del socio o por otro motivo (administrativo u otro), conservando quién realizó materialmente el cambio. El pedido puede llevar un cuerpo opcional con aPedidoDelSocio (verdadero por defecto) y motivo. Antes de cancelarla comprueba que la consulta siga Agendada y falten al menos dos horas para su inicio; devuelve el pase utilizado según RF-09 y registra la notificación al socio. El diagrama muestra el flujo a pedido del socio; la variante por otro motivo se describe en el texto.
 >
-> Regla de negocio. Aunque la solicita el socio, el responsable material es el funcionario que la procesa.
+> Regla de negocio. El funcionario elige entre “A pedido del socio” (aPedidoDelSocio verdadero; sin cuerpo se conserva este comportamiento) y “Otro motivo” (aPedidoDelSocio falso). En ambos casos el responsable material es el funcionario que la procesa.
 >
-> Variantes y validaciones. La operación a pedido del socio almacena al funcionario ejecutor, aunque la categoría de cancelación sea “por el socio”.
+> Variantes y validaciones. A pedido del socio, la consulta queda Cancelada por el socio (CANCELADA_SOCIO), sin motivo, y se almacena al funcionario ejecutor aunque la categoría de cancelación sea “por el socio”; si viene un motivo, se ignora. Por otro motivo, el motivo es obligatorio, se recorta y admite hasta 1000 caracteres (si falta o lo supera, 400 VALIDACION), y la consulta queda Cancelada por la institución (CANCELADA_INSTITUCION) con el motivo guardado en motivo_cancelacion. El socio ve el motivo en el detalle de su consulta (motivoCancelacion) y en la notificación.
 
 ## 3.4. Rol Médico
 

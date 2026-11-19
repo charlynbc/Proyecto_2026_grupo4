@@ -43,20 +43,22 @@ class _UserAction {
   final void Function(BuildContext context) run;
 }
 
-/// "Corregir datos" va en toda cuenta, incluidos los socios y la propia;
-/// inactivar o reactivar solo si [canChangeStatus].
+/// "Corregir datos" va en toda cuenta, incluidos los socios y la propia.
+/// Inactivar solo si [canChangeStatus] y el listado dijo `puedeInactivar`.
+/// Reactivar se decide por el estado: ese campo no habla de reactivar.
 List<_UserAction> _actionsFor(
   UserAccount account, {
   required bool canChangeStatus,
 }) {
   final active = account.status == AccountStatus.active;
+  final offerStatus = canChangeStatus && (!active || account.canDeactivate);
   return [
     _UserAction(
       key: Key('user-edit-${account.id}'),
       label: 'Corregir datos',
       run: (context) => context.go(userEditPath(account.id)),
     ),
-    if (canChangeStatus)
+    if (offerStatus)
       _UserAction(
         key: Key(
           active

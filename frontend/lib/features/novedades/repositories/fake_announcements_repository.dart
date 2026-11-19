@@ -1,9 +1,12 @@
+import 'dart:math' as math;
+
 import '../../../core/network/api_exception.dart';
 import '../models/admin_announcement.dart';
 import '../models/admin_announcement_detail.dart';
 import '../models/announcement.dart';
 import '../models/announcement_detail.dart';
 import '../models/announcement_draft.dart';
+import '../models/announcement_edit.dart';
 import '../models/announcement_page.dart';
 import 'announcements_repository.dart';
 
@@ -47,6 +50,14 @@ class FakeAnnouncementEntry {
         position: position,
       );
 
+  FakeAnnouncementEntry withDetail(AnnouncementDetail newDetail) =>
+      FakeAnnouncementEntry(
+        detail: newDetail,
+        visibleFrom: visibleFrom,
+        visibleUntil: visibleUntil,
+        position: position,
+      );
+
   FakeAnnouncementEntry withPosition(int? newPosition) => FakeAnnouncementEntry(
     detail: detail,
     visibleFrom: visibleFrom,
@@ -69,6 +80,7 @@ class FakeAnnouncementsRepository implements AnnouncementsRepository {
       0,
       (max, e) => e.detail.id > max ? e.detail.id : max,
     );
+    _lastImageId = _highestImageId;
   }
 
   static final List<FakeAnnouncementEntry> _defaultSeed = [
@@ -128,6 +140,14 @@ class FakeAnnouncementsRepository implements AnnouncementsRepository {
   /// Los ids solo crecen: el de una novedad eliminada no se vuelve a usar.
   late int _lastId;
 
+  /// Lo mismo para las imágenes que se suman al editar: como en el servidor,
+  /// el id de una imagen quitada no se vuelve a usar.
+  int _lastImageId = 0;
+
+  int get _highestImageId => _entries
+      .expand((e) => e.detail.images)
+      .fold(0, (max, image) => math.max(max, image.id));
+
   /// Las novedades vigentes ahora: el listado, el detalle y el carrusel
   /// comparten esta regla y este reloj.
   Iterable<FakeAnnouncementEntry> get _visible {
@@ -167,6 +187,97 @@ class FakeAnnouncementsRepository implements AnnouncementsRepository {
         visibleUntil: draft.visibleUntil,
       ),
     );
+  }
+
+  /// Las mismas reglas y los mismos mensajes que el servidor, en este orden:
+  /// título, resumen, existencia, imágenes y, al final, que quede texto o
+  /// imágenes. Es todo o nada: nada se guarda hasta que todo pasó.
+  @override
+  Future<void> update(int id, AnnouncementEdit edit) async {
+    final title = edit.title.trim();
+    if (title.isEmpty || title.length > AnnouncementDraft.maxTitleLength) {
+      throw const ApiException(
+        'El título es obligatorio y admite hasta 160 caracteres',
+      );
+    }
+    final summary = _blankToNull(edit.summary);
+    if ((summary?.length ?? 0) > AnnouncementDraft.maxSummaryLength) {
+      throw const ApiException('El resumen admite hasta 300 caracteres');
+    }
+    final index = _indexOf(id);
+    if (index < 0) throw const ApiException(_notFoundMessage);
+    final current = _entries[index].detail;
+    final text = _blankToNull(edit.text);
+
+    var images = current.images;
+    var lastImageId = _lastImageId;
+    final refs = edit.images;
+    if (refs != null) {
+      if (refs.length > AnnouncementImageUpload.maxCount) {
+        throw const ApiException('La novedad admite hasta 5 imágenes');
+      }
+      final owned = {for (final image in current.images) image.id: image};
+      final seen = <int>{};
+      var nextId = math.max(_lastImageId, _highestImageId);
+      final result = <AnnouncementImage>[];
+      for (final ref in refs) {
+        switch (ref) {
+          case ExistingImageRef(id: final imageId):
+            final existing = owned[imageId];
+            if (existing == null) {
+              throw ApiException(
+                'La imagen $imageId no pertenece a esta novedad',
+              );
+            }
+            if (!seen.add(imageId)) {
+              throw ApiException('La imagen $imageId figura más de una vez');
+            }
+            result.add(
+              AnnouncementImage(
+                id: imageId,
+                order: result.length,
+                url: existing.url,
+              ),
+            );
+          case NewImageRef(:final upload):
+            final error = upload.validate();
+            if (error != null) throw ApiException(error);
+            result.add(
+              AnnouncementImage(
+                id: ++nextId,
+                order: result.length,
+                url: Uri.dataFromBytes(
+                  upload.bytes,
+                  mimeType: 'image/${upload.subtype}',
+                ).toString(),
+              ),
+            );
+        }
+      }
+      images = result;
+      lastImageId = nextId;
+    }
+    if (text == null && images.isEmpty) {
+      throw const ApiException(
+        'La novedad debe tener texto o al menos una imagen',
+      );
+    }
+    _lastImageId = lastImageId;
+    _entries[index] = _entries[index].withDetail(
+      AnnouncementDetail(
+        id: current.id,
+        title: title,
+        summary: summary,
+        text: text,
+        publishedAt: current.publishedAt,
+        images: List.unmodifiable(images),
+      ),
+    );
+  }
+
+  static String? _blankToNull(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 
   @override

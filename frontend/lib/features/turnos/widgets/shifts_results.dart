@@ -107,43 +107,48 @@ class _ShiftsTableState extends State<_ShiftsTable> {
   @override
   Widget build(BuildContext context) {
     // La barra se ve siempre (si la tabla no entra) para que se note que se
-    // puede desplazar.
-    return Scrollbar(
-      controller: _scrollController,
-      thumbVisibility: true,
-      child: SingleChildScrollView(
+    // puede desplazar. Es la barra de siempre de Flutter: el tema de la app
+    // (barra vertical gruesa y con pista) no se aplica al desplazamiento
+    // horizontal de las tablas.
+    return ScrollbarTheme(
+      data: const ScrollbarThemeData(),
+      child: Scrollbar(
         controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columnSpacing: 24,
-          horizontalMargin: 16,
-          columns: const [
-            DataColumn(label: Text('Fecha')),
-            DataColumn(label: Text('Médico')),
-            DataColumn(label: Text('Especialidad')),
-            DataColumn(label: Text('Día')),
-            DataColumn(label: Text('Horario')),
-            DataColumn(label: Text('Consultorio')),
-            DataColumn(label: Text('Números')),
-            DataColumn(label: Text('Estado')),
-            DataColumn(label: Text('Configuración')),
-          ],
-          rows: [
-            for (final shift in widget.items)
-              DataRow(
-                cells: [
-                  DataCell(Text(formatUiDate(shift.date))),
-                  DataCell(Text(shift.doctor.fullName)),
-                  DataCell(Text(shift.specialty.name)),
-                  DataCell(Text(weekdayLabel(shift.weekday))),
-                  DataCell(Text(_schedule(shift))),
-                  DataCell(Text(shift.clinic.name)),
-                  DataCell(Text('${shift.numberCount}')),
-                  DataCell(Text(shift.state.label)),
-                  DataCell(_ConfigLink(shift, label: 'Ver')),
-                ],
-              ),
-          ],
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          scrollDirection: Axis.horizontal,
+          child: DataTable(
+            columnSpacing: 24,
+            horizontalMargin: 16,
+            columns: const [
+              DataColumn(label: Text('Fecha')),
+              DataColumn(label: Text('Médico')),
+              DataColumn(label: Text('Especialidad')),
+              DataColumn(label: Text('Día')),
+              DataColumn(label: Text('Horario')),
+              DataColumn(label: Text('Consultorio')),
+              DataColumn(label: Text('Números')),
+              DataColumn(label: Text('Estado')),
+              DataColumn(label: Text('Configuración')),
+            ],
+            rows: [
+              for (final shift in widget.items)
+                DataRow(
+                  cells: [
+                    DataCell(Text(formatUiDate(shift.date))),
+                    DataCell(Text(shift.doctor.fullName)),
+                    DataCell(Text(shift.specialty.name)),
+                    DataCell(Text(weekdayLabel(shift.weekday))),
+                    DataCell(Text(_schedule(shift))),
+                    DataCell(Text(shift.clinic.name)),
+                    DataCell(Text('${shift.numberCount}')),
+                    DataCell(Text(shift.state.label)),
+                    DataCell(_ConfigLink(shift, label: 'Ver')),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );

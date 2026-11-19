@@ -71,7 +71,8 @@ class _Recording implements UserStatusRepository {
 }
 
 class _Users extends FakeUserRepository {
-  _Users(super.db, {this.pageSize}) : super(latency: Duration.zero);
+  _Users(super.db, {this.pageSize, super.viewerId})
+    : super(latency: Duration.zero);
 
   final int? pageSize;
   int listCalls = 0;
@@ -129,6 +130,18 @@ typedef _Harness = ({
   ProviderContainer container,
 });
 
+/// El listado se armó sin el bloqueo de Carla y, después, ella pasó a tener
+/// turnos. La fila ofrece Inactivar y confirmar recibe el 409.
+Future<_Harness> _pumpStaleShifts(
+  WidgetTester tester, {
+  Size size = _wide,
+}) async {
+  final db = _trimmedDb()..doctorsWithActiveShifts.clear();
+  final harness = await _pump(tester, size: size, db: db);
+  db.doctorsWithActiveShifts.add(4);
+  return harness;
+}
+
 Future<_Harness> _pump(
   WidgetTester tester, {
   Size size = _wide,
@@ -141,7 +154,13 @@ Future<_Harness> _pump(
   final status = _Recording(
     FakeUserStatusRepository(database, latency: Duration.zero),
   );
-  final users = usersOverride ?? _Users(database, pageSize: pageSize);
+  final users =
+      usersOverride ??
+      _Users(
+        database,
+        pageSize: pageSize,
+        viewerId: account?.account?.id ?? kFakeAdminAccountId,
+      );
   final accountRepository =
       account ?? RecordingAccountRepository(account: _diego);
   await pumpAdminScreens(
@@ -296,8 +315,9 @@ List<Key?> _actionKeys(WidgetTester tester, int id) {
 }
 
 /// Los ids, entre los de las cinco cuentas, cuyo menú ofrece inactivar o
-/// reactivar. Todas las cuentas tienen menú ("Corregir datos"), pero esta
-/// acción no se ofrece en socios ni en la fila propia.
+/// reactivar. Todas las cuentas tienen menú ("Corregir datos"). No se ofrece
+/// en socios, en la fila propia ni cuando el listado dice que no se puede
+/// inactivar. Una inactiva igual ofrece reactivar.
 List<int> _withStatusAction(WidgetTester tester) => [
   for (final id in [1, 2, 3, 4, 5])
     if (_menu(id).evaluate().isNotEmpty &&
@@ -329,13 +349,23 @@ void main() {
         await _pump(tester, size: size);
 
         expect(_withMenu(), [1, 2, 3, 4, 5]);
-        expect(_withStatusAction(tester), [2, 3, 4]);
+        expect(_withStatusAction(tester), [2, 3]);
         expect(
           tester.widget<PopupMenuButton<Object?>>(_menu(2)).tooltip,
           'Acciones',
         );
       });
     }
+
+    testWidgets('Carla tiene turnos: la fila no ofrece Inactivar', (
+      tester,
+    ) async {
+      await _pump(tester);
+
+      expect(_actionKeys(tester, 4), [const Key('user-edit-4')]);
+      expect(_actionKeys(tester, 3), contains(const Key('user-reactivate-3')));
+      expect(_actionKeys(tester, 2), contains(const Key('user-deactivate-2')));
+    });
 
     testWidgets(
       'con la sesión de otro administrador, Diego se puede inactivar',
@@ -347,7 +377,7 @@ void main() {
           ),
         );
 
-        expect(_withStatusAction(tester), [2, 3, 4, 5]);
+        expect(_withStatusAction(tester), [2, 3, 5]);
       },
     );
 
@@ -362,7 +392,7 @@ void main() {
         ),
       );
 
-      expect(_withStatusAction(tester), [2, 3, 4, 5]);
+      expect(_withStatusAction(tester), [2, 3, 5]);
     });
 
     testWidgets(
@@ -378,7 +408,7 @@ void main() {
         );
 
         expect(_withMenu(), [1, 2, 3, 4, 5]);
-        expect(_withStatusAction(tester), [2, 3, 4]);
+        expect(_withStatusAction(tester), [2, 3]);
       },
     );
 
@@ -391,7 +421,7 @@ void main() {
         );
 
         expect(_withMenu(), [1, 2, 3, 4, 5]);
-        expect(_withStatusAction(tester), [2, 3, 4]);
+        expect(_withStatusAction(tester), [2, 3]);
       },
     );
   });
@@ -628,7 +658,7 @@ void main() {
     testWidgets(
       'Carla tiene turnos: el mensaje y la ayuda, con el diálogo abierto',
       (tester) async {
-        final h = await _pump(tester);
+        final h = await _pumpStaleShifts(tester);
         final loadsBefore = h.users.listCalls;
         await _open(tester, 4);
         await _choose(tester, _deactivate(4));
@@ -655,7 +685,8 @@ void main() {
     testWidgets('médico con consultas agendadas: mismo mensaje y ayuda', (
       tester,
     ) async {
-      final h = await _pump(tester);
+      final db = _trimmedDb()..doctorsWithActiveShifts.clear();
+      final h = await _pump(tester, db: db);
       h.status.error = const UserStatusException(
         UserStatusFailure.doctorHasAppointments,
         'El médico tiene consultas agendadas.',
@@ -773,7 +804,7 @@ void main() {
     for (final size in [const Size(900, 1800), _narrow]) {
       testWidgets('Carla con turnos, a ${size.width} px: confirmar queda '
           'deshabilitado y Cancelar no', (tester) async {
-        await _pump(tester, size: size);
+        await _pumpStaleShifts(tester, size: size);
         await _open(tester, 4);
         await _choose(tester, _deactivate(4));
 
@@ -839,7 +870,7 @@ void main() {
     }
 
     testWidgets('cerrar con el error y reabrir empieza limpio', (tester) async {
-      final h = await _pump(tester);
+      final h = await _pumpStaleShifts(tester);
       await _open(tester, 4);
       await _choose(tester, _deactivate(4));
       await _tapConfirm(tester);
@@ -1105,7 +1136,7 @@ void main() {
           account: RecordingAccountRepository(account: _diego),
         );
         // Antes de corregir, la fila propia (id 5) no ofrece inactivar.
-        expect(_withStatusAction(tester), [2, 3, 4]);
+        expect(_withStatusAction(tester), [2, 3]);
 
         // Una cédula libre y válida; el dígito verificador es un dato de entrada.
         const body = '3644426';
@@ -1122,7 +1153,7 @@ void main() {
 
         // El padrón ya trae la nueva, con el mismo id de cuenta.
         expect(h.db.accounts.firstWhere((a) => a.id == 5).ci, newCi);
-        expect(_withStatusAction(tester), [2, 3, 4]);
+        expect(_withStatusAction(tester), [2, 3]);
         // La corrección sigue disponible en esa fila.
         expect(_actionKeys(tester, 5).first, const Key('user-edit-5'));
       },
@@ -1234,7 +1265,7 @@ void main() {
     testWidgets('el diálogo con el error y la ayuda visibles no desborda', (
       tester,
     ) async {
-      await _pump(tester, size: phone);
+      await _pumpStaleShifts(tester, size: phone);
       await _open(tester, 4);
       await _choose(tester, _deactivate(4));
       await _tapConfirm(tester);
