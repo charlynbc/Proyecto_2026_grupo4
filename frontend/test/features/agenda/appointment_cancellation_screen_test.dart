@@ -339,7 +339,7 @@ void main() {
     final cancellation = _CancellationRepository()
       ..exception = const CancellationException(
         CancellationFailure.outsideWindow,
-        'No se puede cancelar con menos de 2 horas de anticipación.',
+        'Faltan menos de 2 horas para la hora del número',
       );
     final history = _HistoryRepository(
       appointment: _appointment(status: 'AGENDADA'),
@@ -357,7 +357,7 @@ void main() {
     expect(find.text('¿Cancelar la consulta?'), findsOneWidget);
     expect(
       tester.widget<Text>(find.byKey(const Key('cancel-error'))).data,
-      'No se puede cancelar con menos de 2 horas de anticipación.',
+      'Faltan menos de 2 horas para la hora del número',
     );
     expect(history.getCalls, 1);
     expect(_isEnabled(tester, 'confirm-cancel-appointment'), isTrue);
