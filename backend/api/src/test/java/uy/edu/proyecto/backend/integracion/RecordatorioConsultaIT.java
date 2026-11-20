@@ -85,6 +85,21 @@ class RecordatorioConsultaIT extends RecordatorioITBase {
     }
 
     @Test
+    void dosInstanciasConLaMismaListaDeCandidatasNoDuplicanNiFallan() {
+        reloj.fijar(diaDelTurno().minusDays(1).atTime(11, 0));
+        consultaAgendadaEn(diaDelTurno().minusDays(2).atTime(11, 0));
+        var candidatas = servicio.consultasPorRecordar();
+        assertEquals(1, candidatas.size());
+
+        // La instancia A y la B leyeron la misma lista antes de que cualquiera guardara.
+        assertEquals(true, servicio.generar(candidatas.getFirst()));
+        assertEquals(false, servicio.generar(candidatas.getFirst()));
+
+        assertEquals(1, recordatorios());
+        assertEquals(1, contar("envio_notificacion"));
+    }
+
+    @Test
     void elEnvioDeUnRecordatorioProgramadoParaMasTardeNoSeDespachaHastaSuHora() {
         reloj.fijar(diaDelTurno().minusDays(1).atTime(9, 0));
         long consulta = consultaAgendadaEn(diaDelTurno().minusDays(3).atTime(9, 0));

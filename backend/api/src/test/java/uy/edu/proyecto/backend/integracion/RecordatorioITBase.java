@@ -12,6 +12,7 @@ import uy.edu.proyecto.backend.correo.CorreoSender;
 import uy.edu.proyecto.backend.notificacion.EnvioNotificacionPoller;
 import uy.edu.proyecto.backend.notificacion.PushSender;
 import uy.edu.proyecto.backend.notificacion.RecordatorioConsultaProceso;
+import uy.edu.proyecto.backend.notificacion.RecordatorioConsultaService;
 
 /**
  * Datos y ayudas comunes de los IT del recordatorio de consulta (RNF-25).
@@ -31,6 +32,9 @@ abstract class RecordatorioITBase extends BaseIntegracionIT {
 
     @Autowired
     RecordatorioConsultaProceso proceso;
+
+    @Autowired
+    RecordatorioConsultaService servicio;
 
     @Autowired
     EnvioNotificacionPoller poller;
