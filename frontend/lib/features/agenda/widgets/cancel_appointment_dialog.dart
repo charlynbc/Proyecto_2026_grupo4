@@ -73,6 +73,8 @@ class _CancelAppointmentDialogState
           message = 'Tu sesión venció. Iniciá sesión nuevamente.';
         case CancellationFailure.forbidden:
           message = 'Tu cuenta no tiene permiso para cancelar consultas.';
+        case CancellationFailure.alreadyArrived:
+          message = 'Ya registraste tu llegada hoy, por eso no podés cancelar esta consulta desde la aplicación. Si no vas a poder asistir, pedile a un funcionario que la cancele.';
         case CancellationFailure.notScheduled:
         case CancellationFailure.notFound:
           message = apiMessageOf(error);
