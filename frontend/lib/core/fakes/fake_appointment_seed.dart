@@ -9,7 +9,8 @@ import 'fake_admin_database.dart';
 /// `USE_FAKES=true`. Las fechas son relativas a [today] (la clave de día de
 /// Uruguay), así que no envejecen:
 ///
-/// - una agendada de Dermatología, dentro de 12 días;
+/// - una agendada de Dermatología, dentro de 12 días (ese día queda con
+///   llegada, para el aviso al cancelar);
 /// - una cancelada por el socio de Medicina General, hace 11 días;
 /// - una atendida de Medicina General, hace 31 días.
 ///

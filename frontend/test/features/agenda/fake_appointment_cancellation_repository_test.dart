@@ -1,3 +1,4 @@
+import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/core/fakes/fake_database.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/agenda/models/available_number.dart';
@@ -99,6 +100,31 @@ void main() {
       ),
     );
     expect(db.appointments.single.status, 'AGENDADA');
+  });
+
+  test('la semilla tiene llegada el día de la consulta agendada', () async {
+    final today = DateTime.utc(2026, 10, 24);
+    final db = FakeDatabase(today: today, admin: FakeAdminDatabase());
+    final scheduled = db.appointments.first;
+    expect(scheduled.specialty.name, 'Dermatología');
+    expect(scheduled.date, DateTime.utc(2026, 11, 5));
+    final repo = FakeAppointmentCancellationRepository(
+      db,
+      latency: Duration.zero,
+      clock: () => DateTime.utc(2026, 10, 24, 13),
+    );
+
+    await expectLater(
+      repo.cancel(scheduled.id),
+      throwsA(
+        isA<CancellationException>().having(
+          (error) => error.failure,
+          'failure',
+          CancellationFailure.alreadyArrived,
+        ),
+      ),
+    );
+    expect(db.appointments.first.status, 'AGENDADA');
   });
 
   test('a las 11:30 faltan 1 hora 30 y queda fuera de plazo', () async {

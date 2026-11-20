@@ -16,14 +16,20 @@ class FakeDatabase {
   FakeDatabase({required DateTime today, FakeAdminDatabase? admin})
     : shifts = TestData.shiftsFrom(today) {
     if (admin != null) {
-      appointments.addAll(
-        seedMemberAppointments(
-          today: today,
-          admin: admin,
-          newId: newAppointmentId,
-        ),
+      final seeded = seedMemberAppointments(
+        today: today,
+        admin: admin,
+        newId: newAppointmentId,
       );
+      appointments.addAll(seeded);
       referrals.addAll(seedMemberReferrals(today: today, admin: admin));
+      // La agendada de la semilla (Dermatología, dentro de 12 días) tiene
+      // llegada ese día, para ver el aviso al cancelar con USE_FAKES.
+      for (final appointment in seeded) {
+        if (appointment.status == 'AGENDADA') {
+          arrivedDays.add(appointment.date);
+        }
+      }
     }
   }
 
