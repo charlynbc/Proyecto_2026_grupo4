@@ -275,6 +275,42 @@ void main() {
     _expectCards([11]);
   });
 
+  testWidgets(
+    'al cambiar el filtro muestra el indicador y no la lista anterior',
+    (tester) async {
+      final repository = _RecordingRepository();
+      await _pump(tester, repository);
+      _expectCards([12, 10, 11, 13]);
+
+      await _select(tester, 'medical-history-specialty', 'Cardiología');
+      final pending = Completer<List<MedicalHistoryEntry>>();
+      repository.response = (query) => pending.future;
+      await tester.ensureVisible(
+        find.widgetWithText(FilledButton, 'Aplicar filtros'),
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Aplicar filtros'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      _expectCards([]);
+      expect(repository.queries.last.specialtyId, 3);
+
+      final filteredFuture = repository.fake.list(repository.queries.last);
+      await tester.pump(const Duration(milliseconds: 1));
+      pending.complete(await filteredFuture);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 5),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      _expectCards([12, 10]);
+    },
+  );
+
   testWidgets('filtra por médico elegido por nombre', (tester) async {
     final repository = _RecordingRepository();
     await _pump(tester, repository);
