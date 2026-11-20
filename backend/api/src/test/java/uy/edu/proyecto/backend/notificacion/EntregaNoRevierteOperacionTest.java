@@ -231,7 +231,9 @@ class EntregaNoRevierteOperacionTest {
                 CorreoSender correoSender,
                 PushSender pushSender
         ) {
-            return new EnvioNotificacionDispatcher(repository, correoSender, pushSender);
+            return new EnvioNotificacionDispatcher(
+                    repository, correoSender, pushSender,
+                    java.time.Clock.system(java.time.ZoneId.of("America/Montevideo")));
         }
 
         @Bean
