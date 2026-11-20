@@ -40,6 +40,13 @@ class FakeAppointmentCancellationRepository
       );
     }
 
+    if (_db.arrivedDays.contains(appointment.date)) {
+      throw const CancellationException(
+        CancellationFailure.alreadyArrived,
+        'El socio ya registró su llegada ese día',
+      );
+    }
+
     final now = _clock().toUtc();
     final localStart = DateTime.utc(
       appointment.date.year,

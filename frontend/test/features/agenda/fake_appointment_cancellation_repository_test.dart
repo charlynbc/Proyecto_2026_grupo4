@@ -1,3 +1,4 @@
+import 'package:agenda_medica/core/fakes/fake_admin_database.dart';
 import 'package:agenda_medica/core/fakes/fake_database.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/agenda/models/available_number.dart';
@@ -77,6 +78,54 @@ void main() {
       expect((await history.get(9001)).status, 'CANCELADA_SOCIO');
     },
   );
+
+  test('con llegada ese día responde alreadyArrived y no cancela', () async {
+    final (db, repo) = _repo(status: 'AGENDADA', startMinutes: 690);
+    db.arrivedDays.add(_day);
+
+    await expectLater(
+      repo.cancel(9001),
+      throwsA(
+        isA<CancellationException>()
+            .having(
+              (error) => error.failure,
+              'failure',
+              CancellationFailure.alreadyArrived,
+            )
+            .having(
+              (error) => error.message,
+              'message',
+              'El socio ya registró su llegada ese día',
+            ),
+      ),
+    );
+    expect(db.appointments.single.status, 'AGENDADA');
+  });
+
+  test('la semilla tiene llegada el día de la consulta agendada', () async {
+    final today = DateTime.utc(2026, 10, 24);
+    final db = FakeDatabase(today: today, admin: FakeAdminDatabase());
+    final scheduled = db.appointments.first;
+    expect(scheduled.specialty.name, 'Dermatología');
+    expect(scheduled.date, DateTime.utc(2026, 11, 5));
+    final repo = FakeAppointmentCancellationRepository(
+      db,
+      latency: Duration.zero,
+      clock: () => DateTime.utc(2026, 10, 24, 13),
+    );
+
+    await expectLater(
+      repo.cancel(scheduled.id),
+      throwsA(
+        isA<CancellationException>().having(
+          (error) => error.failure,
+          'failure',
+          CancellationFailure.alreadyArrived,
+        ),
+      ),
+    );
+    expect(db.appointments.first.status, 'AGENDADA');
+  });
 
   test('a las 11:30 faltan 1 hora 30 y queda fuera de plazo', () async {
     final (_, repo) = _repo(status: 'AGENDADA', startMinutes: 690);
