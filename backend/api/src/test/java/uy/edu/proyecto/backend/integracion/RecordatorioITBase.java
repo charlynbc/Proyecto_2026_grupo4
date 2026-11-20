@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import uy.edu.proyecto.backend.correo.CorreoSender;
@@ -12,7 +13,14 @@ import uy.edu.proyecto.backend.notificacion.EnvioNotificacionPoller;
 import uy.edu.proyecto.backend.notificacion.PushSender;
 import uy.edu.proyecto.backend.notificacion.RecordatorioConsultaProceso;
 
-/** Datos y ayudas comunes de los IT del recordatorio de consulta (RNF-25). */
+/**
+ * Datos y ayudas comunes de los IT del recordatorio de consulta (RNF-25).
+ *
+ * El agendador de fondo va apagado (app.scheduling.enabled=false): los beans del
+ * proceso y del poller siguen, pero solo corren cuando el test los llama, asi no
+ * compiten con el sembrado de datos ni con el reloj fijado.
+ */
+@TestPropertySource(properties = "app.scheduling.enabled=false")
 abstract class RecordatorioITBase extends BaseIntegracionIT {
 
     @MockitoBean
