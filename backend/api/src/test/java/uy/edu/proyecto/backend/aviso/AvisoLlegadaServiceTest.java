@@ -17,10 +17,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import uy.edu.proyecto.backend.agenda.ConsultaDTO;
 import uy.edu.proyecto.backend.aviso.AvisoLlegadaRepository.Funcionario;
 import uy.edu.proyecto.backend.aviso.AvisoLlegadaRepository.Socio;
+import uy.edu.proyecto.backend.consultorio.Consultorio;
+import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.lenient;
@@ -157,9 +160,69 @@ class AvisoLlegadaServiceTest {
         when(repository.listarConsultasAgendadas(CI_SOCIO, HOY))
                 .thenReturn(List.of());
 
-        assertTrue(service.consultasDeHoy("67.890.127").isEmpty());
+        assertTrue(service.consultasDeHoy("67.890.127").items().isEmpty());
         verify(repository).buscarSocioHabilitado(CI_SOCIO);
         verify(repository).listarConsultasAgendadas(CI_SOCIO, HOY);
+    }
+
+    @Test
+    void sinLlegadaDeHoyLaRespuestaTraeLlegadaNula() {
+        when(repository.buscarSocioHabilitado(CI_SOCIO))
+                .thenReturn(Optional.of(new Socio(
+                        91L, CI_SOCIO, "Lucía", "Fernández"
+                )));
+        when(repository.listarConsultasAgendadas(CI_SOCIO, HOY))
+                .thenReturn(List.of(consultaAgendada()));
+        when(repository.buscarAviso(91L, HOY)).thenReturn(Optional.empty());
+
+        ConsultasDeHoyDTO respuesta = service.consultasDeHoy(CI_SOCIO);
+
+        assertEquals(List.of(consultaAgendada()), respuesta.items());
+        assertNull(respuesta.llegada());
+    }
+
+    @Test
+    void conLlegadaDeHoyLaRespuestaTraeLaHoraYQuienLaRegistro() {
+        when(repository.buscarSocioHabilitado(CI_SOCIO))
+                .thenReturn(Optional.of(new Socio(
+                        91L, CI_SOCIO, "Lucía", "Fernández"
+                )));
+        when(repository.listarConsultasAgendadas(CI_SOCIO, HOY))
+                .thenReturn(List.of(consultaAgendada()));
+        when(repository.buscarAviso(91L, HOY))
+                .thenReturn(Optional.of(avisoOriginal()));
+
+        ConsultasDeHoyDTO respuesta = service.consultasDeHoy(CI_SOCIO);
+
+        assertEquals(List.of(consultaAgendada()), respuesta.items());
+        assertEquals(
+                new LlegadaDeHoyDTO(
+                        OffsetDateTime.parse("2026-10-21T08:55:12-03:00"),
+                        new AvisoLlegadaDTO.FuncionarioRef(31L, "Pablo", "Gómez")
+                ),
+                respuesta.llegada()
+        );
+    }
+
+    @Test
+    void conLlegadaPeroSinConsultasAgendadasHoyIgualDevuelveLaLlegada() {
+        when(repository.buscarSocioHabilitado(CI_SOCIO))
+                .thenReturn(Optional.of(new Socio(
+                        91L, CI_SOCIO, "Lucía", "Fernández"
+                )));
+        when(repository.listarConsultasAgendadas(CI_SOCIO, HOY))
+                .thenReturn(List.of());
+        when(repository.buscarAviso(91L, HOY))
+                .thenReturn(Optional.of(avisoOriginal()));
+
+        ConsultasDeHoyDTO respuesta = service.consultasDeHoy(CI_SOCIO);
+
+        assertTrue(respuesta.items().isEmpty());
+        assertEquals(
+                OffsetDateTime.parse("2026-10-21T08:55:12-03:00"),
+                respuesta.llegada().registradaEn()
+        );
+        assertEquals("Pablo", respuesta.llegada().registradaPor().nombre());
     }
 
     @Test
@@ -183,6 +246,24 @@ class AvisoLlegadaServiceTest {
                 () -> service.consultasDeHoy(CI_SOCIO)
         );
         assertEquals("NO_ENCONTRADO", socioException.getCode());
+    }
+
+    private ConsultaDTO consultaAgendada() {
+        return new ConsultaDTO(
+                9001L,
+                "AGENDADA",
+                HOY,
+                2,
+                "09:20",
+                "09:40",
+                new ConsultaDTO.MedicoRef(17L, "Marta", "Rodríguez"),
+                new Especialidad(3L, "Cardiología", true),
+                new Consultorio(5L, "Consultorio 5", "Piso 2"),
+                77L,
+                OffsetDateTime.parse("2026-10-14T10:12:45-03:00"),
+                null,
+                null
+        );
     }
 
     private AvisoLlegadaDTO avisoOriginal() {
