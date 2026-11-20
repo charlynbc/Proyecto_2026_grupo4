@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/app_lifecycle.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_app.dart' show goTo, unmountApp;
 
@@ -410,6 +411,63 @@ void main() {
       expect(_title('Dermatología · Cancelada por el socio'), findsOneWidget);
       await unmountApp(tester);
     });
+  });
+
+  group('al volver la pestaña o la app a primer plano', () {
+    testWidgets(
+      'la lista pide una vez visible, ninguna tapada y una al verla',
+      (tester) async {
+        final (container, repo) = await _pump(tester);
+        await _openMyAppointments(tester, container);
+        final visible = repo.listCalls;
+
+        backgroundAndReturn(tester);
+        await _wait(tester);
+
+        expect(repo.listCalls, visible + 1);
+
+        await goTo(tester, container, '/socio/disponibilidad');
+        await _wait(tester);
+        final covered = repo.listCalls;
+        backgroundAndReturn(tester);
+        await _wait(tester);
+
+        expect(repo.listCalls, covered);
+
+        await _openMyAppointments(tester, container);
+        expect(repo.listCalls, covered + 1);
+        await unmountApp(tester);
+      },
+    );
+
+    testWidgets(
+      'el detalle pide una vez visible, ninguno tapado y uno al verlo',
+      (tester) async {
+        final (container, repo) = await _pump(tester);
+        await _openMyAppointments(tester, container);
+        await tester.tap(find.byKey(const Key('appointment-1')));
+        await _wait(tester);
+        final visible = repo.detailCalls;
+
+        backgroundAndReturn(tester);
+        await _wait(tester);
+
+        expect(repo.detailCalls, visible + 1);
+
+        await goTo(tester, container, '/socio/disponibilidad');
+        await _wait(tester);
+        final covered = repo.detailCalls;
+        backgroundAndReturn(tester);
+        await _wait(tester);
+
+        expect(repo.detailCalls, covered);
+
+        await goTo(tester, container, '/socio/consultas/1');
+        await _wait(tester);
+        expect(repo.detailCalls, covered + 1);
+        await unmountApp(tester);
+      },
+    );
   });
 
   group('a 320 px con Roboto', () {

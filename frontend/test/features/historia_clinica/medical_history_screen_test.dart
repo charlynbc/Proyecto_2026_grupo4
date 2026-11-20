@@ -13,6 +13,7 @@ import 'package:agenda_medica/features/auth/widgets/logout_button.dart';
 import 'package:agenda_medica/features/historia_clinica/models/medical_history_entry.dart';
 import 'package:agenda_medica/features/historia_clinica/models/medical_history_query.dart';
 import 'package:agenda_medica/features/historia_clinica/providers/medical_history_filters_controller.dart';
+import 'package:agenda_medica/features/historia_clinica/providers/medical_history_provider.dart';
 import 'package:agenda_medica/features/historia_clinica/providers/medical_history_repository_provider.dart';
 import 'package:agenda_medica/features/historia_clinica/repositories/fake_medical_history_repository.dart';
 import 'package:agenda_medica/features/historia_clinica/repositories/medical_history_repository.dart';
@@ -273,6 +274,85 @@ void main() {
 
     expect(repository.queries.last.specialtyId, 5);
     _expectCards([11]);
+  });
+
+  testWidgets(
+    'al cambiar el filtro muestra el indicador y no la lista anterior',
+    (tester) async {
+      final repository = _RecordingRepository();
+      await _pump(tester, repository);
+      _expectCards([12, 10, 11, 13]);
+
+      await _select(tester, 'medical-history-specialty', 'Cardiología');
+      final pending = Completer<List<MedicalHistoryEntry>>();
+      repository.response = (query) => pending.future;
+      await tester.ensureVisible(
+        find.widgetWithText(FilledButton, 'Aplicar filtros'),
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Aplicar filtros'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      _expectCards([]);
+      expect(repository.queries.last.specialtyId, 3);
+
+      final filteredFuture = repository.fake.list(repository.queries.last);
+      await tester.pump(const Duration(milliseconds: 1));
+      pending.complete(await filteredFuture);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        const Duration(seconds: 5),
+      );
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      _expectCards([12, 10]);
+    },
+  );
+
+  testWidgets('al desmontar la pantalla se descarta el listado', (
+    tester,
+  ) async {
+    final repository = _RecordingRepository();
+    final container = ProviderContainer(
+      overrides: [
+        useFakesProvider.overrideWithValue(true),
+        sessionProvider.overrideWith(_TestSession.new),
+        medicalHistoryRepositoryProvider.overrideWith(
+          (ref) async => repository,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: appTheme,
+          locale: const Locale('es', 'UY'),
+          supportedLocales: const [Locale('es', 'UY')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: const MedicalHistoryScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    _expectCards([12, 10, 11, 13]);
+    expect(container.exists(medicalHistoryProvider), isTrue);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SizedBox.shrink()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(MedicalHistoryScreen), findsNothing);
+    expect(container.exists(medicalHistoryProvider), isFalse);
   });
 
   testWidgets('filtra por médico elegido por nombre', (tester) async {

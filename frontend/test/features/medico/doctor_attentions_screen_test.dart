@@ -5,6 +5,7 @@ import 'package:agenda_medica/features/especialidades/providers/specialties_prov
 import 'package:agenda_medica/features/medico/models/doctor_attention.dart';
 import 'package:agenda_medica/features/medico/models/doctor_attention_query.dart';
 import 'package:agenda_medica/features/medico/providers/doctor_attention_repository_provider.dart';
+import 'package:agenda_medica/features/medico/providers/doctor_attentions_provider.dart';
 import 'package:agenda_medica/features/medico/repositories/doctor_attention_repository.dart';
 import 'package:agenda_medica/features/medico/repositories/fake_doctor_attention_repository.dart';
 import 'package:agenda_medica/features/medico/screens/doctor_attention_detail_screen.dart';
@@ -449,4 +450,100 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'al buscar un paciente muestra el indicador y no los 3 resultados',
+    (tester) async {
+      // El 12/11/2026 el mes en curso tiene tres atenciones: 5530, 5531 y
+      // 5533. La 5532 es de hace 40 días y queda fuera.
+      final fake = FakeDoctorAttentionRepository(
+        latency: Duration.zero,
+        clock: () => DateTime.utc(2026, 11, 12, 15),
+      );
+      final repo = _ListingRepository(fake);
+      tester.view.physicalSize = const Size(900, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            doctorAttentionRepositoryProvider.overrideWith((ref) async => repo),
+            doctorAttentionFiltersProvider.overrideWith(_NovemberFilters.new),
+            specialtiesProvider.overrideWith(
+              (ref) async => const [
+                Specialty(id: 3, name: 'Cardiología', requiresReferral: true),
+              ],
+            ),
+          ],
+          child: const MaterialApp(home: DoctorAttentionsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('3 atenciones'), findsOneWidget);
+      expect(find.byKey(const Key('attention-5530')), findsOneWidget);
+      expect(find.byKey(const Key('attention-5531')), findsOneWidget);
+      expect(find.byKey(const Key('attention-5533')), findsOneWidget);
+      expect(find.byKey(const Key('attention-5532')), findsNothing);
+
+      final pending = Completer<List<DoctorAttention>>();
+      repo.pending = pending;
+      await tester.enterText(
+        find.byKey(const Key('attentions-patient-field')),
+        '45678911',
+      );
+      await tester.tap(find.byKey(const Key('attentions-search')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('3 atenciones'), findsNothing);
+      expect(find.byKey(const Key('attention-5530')), findsNothing);
+      expect(find.byKey(const Key('attention-5531')), findsNothing);
+      expect(find.byKey(const Key('attention-5533')), findsNothing);
+      expect(repo.queries.last.toQueryParameters()['paciente'], '45678911');
+
+      final filteredFuture = fake.list(repo.queries.last);
+      await tester.pump(const Duration(milliseconds: 1));
+      pending.complete(await filteredFuture);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('1 atención'), findsOneWidget);
+      expect(find.text('Lucía Fernández · CI 45678911'), findsOneWidget);
+      expect(find.byKey(const Key('attention-5530')), findsOneWidget);
+      expect(find.byKey(const Key('attention-5531')), findsNothing);
+      expect(find.byKey(const Key('attention-5533')), findsNothing);
+    },
+  );
+}
+
+/// Del 01/11/2026 al 12/11/2026, para que el listado no dependa del día real.
+class _NovemberFilters extends DoctorAttentionFiltersController {
+  @override
+  DoctorAttentionQuery build() => DoctorAttentionQuery(
+    from: DateTime.utc(2026, 11, 1),
+    to: DateTime.utc(2026, 11, 12),
+  );
+}
+
+class _ListingRepository implements DoctorAttentionRepository {
+  _ListingRepository(this.fake);
+
+  final FakeDoctorAttentionRepository fake;
+  final queries = <DoctorAttentionQuery>[];
+  Completer<List<DoctorAttention>>? pending;
+
+  @override
+  Future<List<DoctorAttention>> list(DoctorAttentionQuery query) {
+    queries.add(query);
+    final gate = pending;
+    if (gate != null) return gate.future;
+    return fake.list(query);
+  }
+
+  @override
+  Future<DoctorAttention> get(int id) => fake.get(id);
 }

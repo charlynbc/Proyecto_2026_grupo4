@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/providers/refetch_when_visible_again.dart';
 import '../../../core/fakes/fake_database.dart';
 import '../../../core/network/dio_client.dart';
 import '../models/appointment.dart';
@@ -32,26 +33,6 @@ final appointmentHistoryRepositoryProvider =
       final dio = await ref.watch(dioProvider.future);
       return ApiAppointmentHistoryRepository(dio);
     });
-
-/// Ejecuta [refetch] cuando la pantalla que mira a [ref] vuelve a verse.
-///
-/// El shell mantiene montadas las secciones que ya se visitaron, y la lista y
-/// el detalle de una consulta quedan debajo de otras pantallas: mientras no se
-/// ven, Riverpod pausa sus suscripciones pero no descarta el provider, y el
-/// estado de la consulta puede haber cambiado (la cancela el funcionario o el
-/// médico, o se atiende). Al volver a verse (`onResume`) se pide de nuevo;
-/// mientras llega lo nuevo, la pantalla sigue mostrando lo anterior, sin
-/// parpadeo.
-///
-/// Riverpod no deja usar la `Ref` dentro de un ciclo de vida: el pedido se
-/// difiere un instante.
-void refetchWhenVisibleAgain(Ref ref, void Function() refetch) {
-  ref.onResume(() {
-    Future.microtask(() {
-      if (ref.mounted) refetch();
-    });
-  });
-}
 
 /// La página de consultas que corresponde a [AppointmentHistoryQuery].
 ///

@@ -453,7 +453,8 @@ void main() {
         UserRole.socio.sections.indexWhere((s) => s.slug == 'historia'),
       );
       await _pendingFrames(tester);
-      expect(repo.listCalls, greaterThan(beforeA));
+      // Un pedido de la lista y otro de las opciones.
+      expect(repo.listCalls, beforeA + 2);
       expect(_card(7101), findsOneWidget);
 
       final newResponse = Completer<List<MedicalHistoryEntry>>();
@@ -470,7 +471,8 @@ void main() {
       expect(_card(7101), findsNothing);
       expect(find.text('Control inicial'), findsNothing);
       await _pendingFrames(tester);
-      expect(repo.listCalls, greaterThan(beforeB));
+      // La lista y las opciones vuelven a pedirse para el socio nuevo.
+      expect(repo.listCalls, beforeB + 2);
       expect(_card(7101), findsNothing);
       expect(newResponse.isCompleted, isFalse);
       // El contenido principal tiene el Form de filtros y, al final, el
@@ -589,8 +591,8 @@ void main() {
 
     expect(tester.element(find.byType(MedicalHistoryScreen)), same(element));
     _expectNewAttention(tester);
-    // La lista y las opciones comparten list; no se fija un total artificial.
-    expect(repository.listCalls, greaterThan(callsBeforeReturn));
+    // Un pedido de la lista y otro de las opciones.
+    expect(repository.listCalls, callsBeforeReturn + 2);
   });
 
   testWidgets(
@@ -647,7 +649,8 @@ void main() {
       await _backToList(tester);
 
       _expectNewAttention(tester);
-      expect(repository.listCalls, greaterThan(callsBeforeReturn));
+      // Un pedido de la lista y otro de las opciones.
+      expect(repository.listCalls, callsBeforeReturn + 2);
     },
   );
 

@@ -273,7 +273,7 @@ class _MedicalHistoryScreenState extends ConsumerState<MedicalHistoryScreen> {
             const SizedBox(height: 24),
             history.when(
               skipLoadingOnRefresh: history.hasValue,
-              skipLoadingOnReload: history.hasValue,
+              skipLoadingOnReload: false,
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) =>
                   _error(error, () => ref.invalidate(medicalHistoryProvider)),
