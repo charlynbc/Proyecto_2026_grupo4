@@ -18,16 +18,22 @@ class ApiArrivalRepository implements ArrivalRepository {
   final Dio _dio;
 
   @override
-  Future<List<Appointment>> listTodayAppointments(String ci) =>
+  Future<TodayAppointments> listTodayAppointments(String ci) =>
       _request(() async {
         final response = await _dio.get<Map<String, dynamic>>(
           ApiRoutes.arrivalsTodayAppointments,
           queryParameters: {'ci': normalizeCi(ci)},
         );
-        return [
-          for (final item in _body(response)['items'] as List<dynamic>)
-            Appointment.fromJson(item as Map<String, dynamic>),
-        ];
+        final body = _body(response);
+        // `llegada` es opcional: si falta o es null, no hay llegada de hoy.
+        final arrival = body['llegada'] as Map<String, dynamic>?;
+        return TodayAppointments(
+          appointments: [
+            for (final item in body['items'] as List<dynamic>)
+              Appointment.fromJson(item as Map<String, dynamic>),
+          ],
+          arrival: arrival == null ? null : TodayArrival.fromJson(arrival),
+        );
       });
 
   @override

@@ -1,11 +1,11 @@
 import '../../../core/network/api_exception.dart';
-import '../../agenda/models/appointment.dart';
 import '../models/arrival.dart';
 
 /// Registro del aviso de llegada de un socio en ventanilla (RF-16).
 abstract class ArrivalRepository {
-  /// Consultas agendadas de hoy del socio con esa cédula.
-  Future<List<Appointment>> listTodayAppointments(String ci);
+  /// Consultas agendadas de hoy del socio con esa cédula y, si ya se registró,
+  /// su llegada de hoy.
+  Future<TodayAppointments> listTodayAppointments(String ci);
 
   /// Registra la llegada del socio. Si ya estaba registrada, devuelve el aviso
   /// original con [ArrivalResult.created] en `false`.

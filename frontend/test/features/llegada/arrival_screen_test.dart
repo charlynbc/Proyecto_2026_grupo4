@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:agenda_medica/features/agenda/models/appointment.dart';
 import 'package:agenda_medica/features/auth/models/access_type.dart';
 import 'package:agenda_medica/features/auth/providers/auth_repository_provider.dart';
 import 'package:agenda_medica/features/auth/repositories/auth_repository.dart';
@@ -73,20 +72,28 @@ class _RecordingRepository implements ArrivalRepository {
   final FakeArrivalRepository _fake = FakeArrivalRepository(
     latency: Duration.zero,
   );
+  final Set<String> _registeredCis = {};
   int searchCalls = 0;
   int registerCalls = 0;
   Completer<void>? pending;
 
+  /// Como el servidor: una vez registrada la llegada, la búsqueda la informa.
   @override
-  Future<List<Appointment>> listTodayAppointments(String ci) {
+  Future<TodayAppointments> listTodayAppointments(String ci) async {
     searchCalls++;
-    return _fake.listTodayAppointments(ci);
+    final result = await _fake.listTodayAppointments(ci);
+    if (!_registeredCis.contains(normalizeCi(ci))) return result;
+    return TodayAppointments(
+      appointments: result.appointments,
+      arrival: TodayArrival.fromArrival(_arrival),
+    );
   }
 
   @override
   Future<ArrivalResult> registerArrival(String ci) async {
     registerCalls++;
     if (pending != null) await pending!.future;
+    _registeredCis.add(normalizeCi(ci));
     return ArrivalResult(arrival: _arrival, created: created);
   }
 }
@@ -94,7 +101,26 @@ class _RecordingRepository implements ArrivalRepository {
 /// Servidor falso: el GET devuelve la consulta de Ana, o 404 con [getError]
 /// si está puesto, y el POST responde con [postStatus] y [postBody].
 class _ServerAdapter implements HttpClientAdapter {
-  _ServerAdapter({this.getError, this.postStatus = 201, this.postBody});
+  _ServerAdapter({
+    this.getError,
+    this.postStatus = 201,
+    this.postBody,
+    this.getExtra = const {},
+    this.noItems = false,
+  });
+
+  /// Campos que se suman a la respuesta del GET, como `llegada`.
+  final Map<String, Object?> getExtra;
+
+  /// El GET responde sin consultas agendadas.
+  final bool noItems;
+
+  Object? _withExtra(Object? body, bool isPost) {
+    if (isPost || getError != null || body is! Map<String, dynamic>) {
+      return body;
+    }
+    return {...body, if (noItems) 'items': <Object>[], ...getExtra};
+  }
 
   final Object? getError;
   final int postStatus;
@@ -143,7 +169,7 @@ class _ServerAdapter implements HttpClientAdapter {
                 ],
               };
     return ResponseBody.fromString(
-      jsonEncode(body),
+      jsonEncode(_withExtra(body, isPost)),
       status,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
@@ -182,6 +208,11 @@ Finder get _search => find.widgetWithText(FilledButton, 'Buscar');
 Finder get _register => find.widgetWithText(FilledButton, 'Registrar llegada');
 Finder get _registered =>
     find.widgetWithText(FilledButton, 'Llegada registrada a las 08:47');
+
+const _stampedArrival = {
+  'registradaEn': '2026-10-22T08:47:00-03:00',
+  'registradaPor': {'id': 46, 'nombre': 'Mariana', 'apellido': 'Ferreira'},
+};
 
 Future<void> _searchCi(WidgetTester tester, String ci) async {
   await tester.enterText(_ciField, ci);
@@ -397,20 +428,123 @@ void main() {
     expect(_enabled(tester, _register), isTrue);
   });
 
-  testWidgets('buscar de nuevo con la misma CI vuelve al botón normal', (
-    tester,
-  ) async {
-    await _pump(tester, _RecordingRepository());
-    await _searchCi(tester, '90000046');
-    await tester.tap(_register);
-    await tester.pumpAndSettle();
-    expect(_registered, findsOneWidget);
+  testWidgets(
+    'buscar de nuevo tras registrar muestra la llegada ya registrada',
+    (tester) async {
+      await _pump(tester, _RecordingRepository());
+      await _searchCi(tester, '90000046');
+      await tester.tap(_register);
+      await tester.pumpAndSettle();
+      expect(_registered, findsOneWidget);
 
-    await tester.tap(_search);
-    await tester.pumpAndSettle();
+      await tester.tap(_search);
+      await tester.pumpAndSettle();
 
-    expect(_registered, findsNothing);
-    expect(_enabled(tester, _register), isTrue);
+      expect(_registered, findsOneWidget);
+      expect(_enabled(tester, _registered), isFalse);
+      expect(_register, findsNothing);
+      expect(find.text('La registró Mariana Ferreira.'), findsOneWidget);
+    },
+  );
+
+  group('llegada ya registrada al buscar', () {
+    testWidgets(
+      'con llegada se ve la hora y quien, y el botón queda deshabilitado',
+      (tester) async {
+        final dio = Dio()
+          ..httpClientAdapter = _ServerAdapter(
+            getExtra: {'llegada': _stampedArrival},
+          );
+        await _pump(tester, ApiArrivalRepository(dio));
+
+        await _searchCi(tester, '90000046');
+
+        expect(find.textContaining('Alejandro Rivas'), findsOneWidget);
+        expect(_registered, findsOneWidget);
+        expect(_enabled(tester, _registered), isFalse);
+        expect(_register, findsNothing);
+        expect(find.text('La registró Mariana Ferreira.'), findsOneWidget);
+      },
+    );
+
+    testWidgets('con llegada nula el botón sigue activo', (tester) async {
+      final dio = Dio()
+        ..httpClientAdapter = _ServerAdapter(getExtra: {'llegada': null});
+      await _pump(tester, ApiArrivalRepository(dio));
+
+      await _searchCi(tester, '90000046');
+
+      expect(_enabled(tester, _register), isTrue);
+      expect(_registered, findsNothing);
+      expect(find.textContaining('La registró'), findsNothing);
+    });
+
+    testWidgets(
+      'si el servidor no manda llegada, la pantalla funciona como antes',
+      (tester) async {
+        final dio = Dio()..httpClientAdapter = _ServerAdapter();
+        await _pump(tester, ApiArrivalRepository(dio));
+
+        await _searchCi(tester, '90000046');
+
+        expect(_enabled(tester, _register), isTrue);
+        expect(find.textContaining('La registró'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('el socio de los datos falsos con llegada la muestra', (
+      tester,
+    ) async {
+      await _pump(tester, FakeArrivalRepository(latency: Duration.zero));
+
+      await _searchCi(tester, '90000074');
+
+      expect(_registered, findsOneWidget);
+      expect(_enabled(tester, _registered), isFalse);
+      expect(find.text('La registró Mariana Ferreira.'), findsOneWidget);
+    });
+
+    testWidgets('cambiar la CI vuelve al estado normal', (tester) async {
+      await _pump(tester, FakeArrivalRepository(latency: Duration.zero));
+      await _searchCi(tester, '90000074');
+      expect(_registered, findsOneWidget);
+
+      await tester.enterText(_ciField, '90000046');
+      await tester.pump();
+
+      expect(_registered, findsNothing);
+      expect(find.textContaining('La registró'), findsNothing);
+
+      await tester.tap(_search);
+      await tester.pumpAndSettle();
+      expect(_registered, findsNothing);
+      expect(_enabled(tester, _register), isTrue);
+    });
+
+    testWidgets(
+      'con llegada pero sin consultas agendadas muestra el aviso de sin consultas',
+      (tester) async {
+        final dio = Dio()
+          ..httpClientAdapter = _ServerAdapter(
+            noItems: true,
+            getExtra: {'llegada': _stampedArrival},
+          );
+        await _pump(tester, ApiArrivalRepository(dio));
+
+        await _searchCi(tester, '90000046');
+
+        expect(
+          find.text(
+            'El socio no tiene consultas agendadas para hoy, así que no se '
+            'puede registrar su llegada.',
+          ),
+          findsOneWidget,
+        );
+        expect(_enabled(tester, _register), isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
   });
 
   testWidgets(
@@ -628,6 +762,31 @@ void main() {
 
   group('resultado de la búsqueda a 320 px con Roboto', () {
     setUpAll(loadRoboto);
+
+    testWidgets('con la llegada ya registrada al buscar no desborda', (
+      tester,
+    ) async {
+      final dio = Dio()
+        ..httpClientAdapter = _ServerAdapter(
+          getExtra: {'llegada': _stampedArrival},
+        );
+      await _pump(
+        tester,
+        ApiArrivalRepository(dio),
+        size: const Size(320, 800),
+      );
+
+      await _searchCi(tester, '90000046');
+
+      await tester.ensureVisible(_registered);
+      expect(_registered, findsOneWidget);
+      expect(_enabled(tester, _registered), isFalse);
+      expect(find.text('La registró Mariana Ferreira.'), findsOneWidget);
+      final rect = tester.getRect(_registered);
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(320));
+      expect(tester.takeException(), isNull);
+    });
 
     for (final (created, name) in [(true, '201'), (false, '200')]) {
       testWidgets('con el botón deshabilitado tras el $name no desborda', (

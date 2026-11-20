@@ -28,10 +28,15 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
   String? _searchedCi;
   List<Appointment>? _appointments;
 
-  /// El aviso que devolvió el registro de la búsqueda que se ve (201 o 200).
-  /// Con él, el botón queda deshabilitado con la hora de la llegada. Se borra
-  /// al cambiar la cédula o al buscar de nuevo.
-  ArrivalResult? _registered;
+  /// La llegada de hoy del socio de la búsqueda que se ve: la que informó la
+  /// búsqueda o la que devolvió el registro (201 o 200). Con ella, el botón
+  /// queda deshabilitado con la hora de la llegada. Se borra al cambiar la
+  /// cédula o al buscar de nuevo.
+  TodayArrival? _arrival;
+
+  /// Si se nombra a quien registró la llegada: no cuando la registró ahora el
+  /// funcionario que está en la pantalla (201).
+  bool _showRegisteredBy = false;
   String? _searchError;
   bool _searching = false;
   bool _registering = false;
@@ -68,16 +73,19 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
       _searching = true;
       _searchedCi = null;
       _appointments = null;
-      _registered = null;
+      _arrival = null;
       _searchError = null;
     });
     try {
       final repository = await ref.read(arrivalRepositoryProvider.future);
-      final appointments = await repository.listTodayAppointments(ci);
+      final result = await repository.listTodayAppointments(ci);
       if (!mounted) return;
       setState(() {
         _searchedCi = ci;
-        _appointments = appointments;
+        _appointments = result.appointments;
+        // Una llegada que ya estaba registrada se muestra con quién la hizo.
+        _arrival = result.arrival;
+        _showRegisteredBy = result.arrival != null;
       });
     } catch (e) {
       if (!mounted) return;
@@ -98,7 +106,12 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
       final result = await repository.registerArrival(ci);
       // Si la cédula cambió mientras se registraba, el resultado ya no es de
       // la búsqueda que se ve y no se marca.
-      if (mounted && _searchedCi == ci) setState(() => _registered = result);
+      if (mounted && _searchedCi == ci) {
+        setState(() {
+          _arrival = TodayArrival.fromArrival(result.arrival);
+          _showRegisteredBy = !result.created;
+        });
+      }
       messenger.showSnackBar(SnackBar(content: Text(_resultMessage(result))));
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(apiMessageOf(e))));
@@ -120,7 +133,7 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appointments = _appointments;
-    final registered = _registered;
+    final arrival = _arrival;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Llegada'),
@@ -175,19 +188,20 @@ class _ArrivalScreenState extends ConsumerState<ArrivalScreen> {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed:
-                    appointments.isEmpty || _registering || registered != null
+                    appointments.isEmpty || _registering || arrival != null
                     ? null
                     : _register,
                 child: Text(
-                  registered == null
+                  appointments.isEmpty || arrival == null
                       ? 'Registrar llegada'
-                      : 'Llegada registrada a las '
-                            '${registered.arrival.registeredTime}',
+                      : 'Llegada registrada a las ${arrival.registeredTime}',
                 ),
               ),
-              if (registered != null && !registered.created) ...[
+              if (appointments.isNotEmpty &&
+                  arrival != null &&
+                  _showRegisteredBy) ...[
                 const SizedBox(height: 8),
-                Text('La registró ${registered.arrival.registeredByName}.'),
+                Text('La registró ${arrival.registeredByName}.'),
               ],
             ],
           ],
