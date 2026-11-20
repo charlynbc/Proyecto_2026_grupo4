@@ -472,11 +472,7 @@ void main() {
             doctorAttentionFiltersProvider.overrideWith(_NovemberFilters.new),
             specialtiesProvider.overrideWith(
               (ref) async => const [
-                Specialty(
-                  id: 3,
-                  name: 'Cardiología',
-                  requiresReferral: true,
-                ),
+                Specialty(id: 3, name: 'Cardiología', requiresReferral: true),
               ],
             ),
           ],
@@ -516,10 +512,7 @@ void main() {
 
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.text('1 atención'), findsOneWidget);
-      expect(
-        find.text('Lucía Fernández · CI 45678911'),
-        findsOneWidget,
-      );
+      expect(find.text('Lucía Fernández · CI 45678911'), findsOneWidget);
       expect(find.byKey(const Key('attention-5530')), findsOneWidget);
       expect(find.byKey(const Key('attention-5531')), findsNothing);
       expect(find.byKey(const Key('attention-5533')), findsNothing);
