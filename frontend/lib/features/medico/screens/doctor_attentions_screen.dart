@@ -295,7 +295,6 @@ class _DoctorAttentionsScreenState
                 ),
                 const SizedBox(height: 16),
                 items.when(
-                  skipLoadingOnRefresh: true,
                   skipLoadingOnReload: false,
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
