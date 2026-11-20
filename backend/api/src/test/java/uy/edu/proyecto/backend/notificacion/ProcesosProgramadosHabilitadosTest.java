@@ -16,7 +16,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 /**
  * La propiedad app.notificaciones.procesos-programados.habilitados (variable
  * NOTIFICACIONES_PROCESOS_PROGRAMADOS_HABILITADOS) apaga los procesos
- * programados de avisos, hoy el poller de envios. El listener que envia al
+ * programados de avisos: el poller de envios y la generacion de recordatorios. El listener que envia al
  * crearse la notificacion no depende de ella.
  */
 class ProcesosProgramadosHabilitadosTest {
@@ -27,8 +27,11 @@ class ProcesosProgramadosHabilitadosTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withBean(EnvioNotificacionDispatcher.class,
                     () -> mock(EnvioNotificacionDispatcher.class))
+            .withBean(RecordatorioConsultaService.class,
+                    () -> mock(RecordatorioConsultaService.class))
             .withUserConfiguration(EnvioNotificacionPoller.class,
-                    EnvioNotificacionListener.class);
+                    EnvioNotificacionListener.class,
+                    RecordatorioConsultaProceso.class);
 
     @Test
     void sinLaPropiedadElPollerEstaActivo() {
@@ -61,6 +64,35 @@ class ProcesosProgramadosHabilitadosTest {
         runner.withPropertyValues(PROPIEDAD + "=true")
                 .run(contexto -> assertTrue(
                         contexto.containsBean("envioNotificacionListener")));
+    }
+
+    @Test
+    void sinLaPropiedadElProcesoDeRecordatoriosEstaActivo() {
+        runner.run(contexto -> assertTrue(
+                contexto.containsBean("recordatorioConsultaProceso")));
+    }
+
+    @Test
+    void conTrueElProcesoDeRecordatoriosEstaActivo() {
+        runner.withPropertyValues(PROPIEDAD + "=true")
+                .run(contexto -> assertTrue(
+                        contexto.containsBean("recordatorioConsultaProceso")));
+    }
+
+    @Test
+    void conFalseNoHayProcesoDeRecordatorios() {
+        runner.withPropertyValues(PROPIEDAD + "=false")
+                .run(contexto -> assertFalse(
+                        contexto.containsBean("recordatorioConsultaProceso")));
+    }
+
+    @Test
+    void conLaConfiguracionRealLaVariableEnFalseApagaElProcesoDeRecordatorios() {
+        runner.withInitializer(new ConfigDataApplicationContextInitializer())
+                .withPropertyValues(
+                        "NOTIFICACIONES_PROCESOS_PROGRAMADOS_HABILITADOS=false")
+                .run(contexto -> assertFalse(
+                        contexto.containsBean("recordatorioConsultaProceso")));
     }
 
     @Test
