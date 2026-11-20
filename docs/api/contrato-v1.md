@@ -179,7 +179,7 @@ Los nombres de operación, DTO y parámetro de esta tabla son los del Diseño. E
 | 23 | `POST /api/turnos/suspensiones/previsualizar` | `TurnoService.previsualizarSuspension(ids)` | `VistaPreviaSuspensionDTO` | S08 | 14 |
 | 24 | `POST /api/turnos/suspensiones` | `TurnoService.suspenderFechas(filtro, ids, cantidadConfirmada)` | `FiltroFechasDTO`, `ResultadoFechasDTO` | S08 | 14 |
 | 25 | `POST /api/turnos/rehabilitaciones` | `TurnoService.rehabilitarFechas(filtro, ids)` | `FiltroFechasDTO`, `ResultadoFechasDTO` | S09 | 15 |
-| 26 | `GET /api/avisos-llegada/consultas-hoy` | sin operación propia; derivado de S10 (`buscarAgendadasHoy(ci)`) | `ConsultaDTO` | S10 | 16 |
+| 26 | `GET /api/avisos-llegada/consultas-hoy` | sin operación propia; derivado de S10 (`buscarAgendadasHoy(ci)`) | `ConsultaDTO`, llegada de hoy (forma de `AvisoLlegadaDTO`) | S10 | 16 |
 | 27 | `POST /api/avisos-llegada` | `LlegadaService.registrarAviso(ci, funcionarioId, fecha)` | `AvisoLlegadaDTO` | S10 | 16 |
 | 28 | `GET /api/agendas` | `AgendaService.consultarAgendas(filtros)` | `FiltroAgendaDTO`, `AgendaOperativaDTO` | S12 | 18 |
 | 29 | `GET /api/medico/turnos` | `TurnoService.consultarTurnosDelMedico(medicoId, fecha)` | `TurnosPacientesDTO` | S13 | 21 |
@@ -1305,13 +1305,13 @@ Reactiva turnos suspendidos sin modificar médico, especialidad, fecha, consulto
 - **Roles:** FUNCIONARIO.
 - **RF:** RF-16. **Diseño:** sin operación propia; derivado de S10 (`buscarAgendadasHoy(ci)`). **Estado:** PROPUESTA.
 
-Devuelve las consultas **en `AGENDADA` de hoy** del socio con esa CI (mismo criterio que `buscarAgendadasHoy(ci)`).
+Devuelve las consultas **en `AGENDADA` de hoy** del socio con esa CI (mismo criterio que `buscarAgendadasHoy(ci)`) y, en `llegada`, la llegada de hoy si ya se registró, para que el cliente no ofrezca registrarla otra vez.
 
 | Parámetro | Tipo | Obligatorio | Notas |
 |---|---|---|---|
 | `ci` | texto | sí | CI del socio, sección 1.6. |
 
-**Respuesta 200** (`ConsultaDTO`, sección 1.9, todas con `fecha` de hoy y `estado: "AGENDADA"`)
+**Respuesta 200** (`items`: `ConsultaDTO`, sección 1.9, todas con `fecha` de hoy y `estado: "AGENDADA"`; `llegada`: ver debajo del ejemplo)
 
 ```json
 {
@@ -1331,11 +1331,17 @@ Devuelve las consultas **en `AGENDADA` de hoy** del socio con esa CI (mismo crit
       "canceladaEn": null,
       "motivoCancelacion": null
     }
-  ]
+  ],
+  "llegada": {
+    "registradaEn": "2026-10-20T08:55:12-03:00",
+    "registradaPor": { "id": 31, "nombre": "Pablo", "apellido": "Gómez" }
+  }
 }
 ```
 
-Sin consultas hoy: `200` con `{ "items": [] }`; el cliente muestra "El socio no posee consultas agendadas para el día de hoy" (CU 3.3.4, 3.A.2).
+`llegada` es un objeto con `registradaEn` y `registradaPor` `{id, nombre, apellido}`, con la misma forma que esos campos en el cuerpo del `POST` de la fila 27 (#27), o `null` si el socio no tiene llegada registrada hoy. Se devuelve aunque `items` esté vacío (por ejemplo, si la consulta ya no está `AGENDADA`). El día es el de hoy según el servidor, en America/Montevideo. Un cliente que no lo conozca puede ignorarlo: el resto de la respuesta no cambia.
+
+Sin consultas hoy: `200` con `{ "items": [], "llegada": null }` (o con `llegada` si ya la había); el cliente muestra "El socio no posee consultas agendadas para el día de hoy" (CU 3.3.4, 3.A.2).
 
 **Errores**
 
