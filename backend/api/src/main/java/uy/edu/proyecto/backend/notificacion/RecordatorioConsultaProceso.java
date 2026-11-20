@@ -13,7 +13,9 @@ import uy.edu.proyecto.backend.agenda.ConsultaRepository.ConsultaParaRecordatori
  * la misma propiedad que el poller de envios
  * (app.notificaciones.procesos-programados.habilitados), para que backend-dev,
  * que comparte la base, no compita por las mismas consultas. El intervalo sale de
- * app.notificaciones.recordatorios.intervalo-ms (60000 ms por defecto).
+ * app.notificaciones.recordatorios.intervalo-ms (60000 ms por defecto) y la
+ * primera ejecucion espera app.notificaciones.recordatorios.retraso-inicial-ms
+ * (0 por defecto: arranca de inmediato).
  *
  * Pendiente: la regla R-MDAT-21 pide comprobar que la consulta siga AGENDADA
  * justo antes de enviar el recordatorio. No se hace todavia porque falta un
@@ -38,7 +40,9 @@ public class RecordatorioConsultaProceso {
         this.servicio = servicio;
     }
 
-    @Scheduled(fixedDelayString = "${app.notificaciones.recordatorios.intervalo-ms:60000}")
+    @Scheduled(
+            fixedDelayString = "${app.notificaciones.recordatorios.intervalo-ms:60000}",
+            initialDelayString = "${app.notificaciones.recordatorios.retraso-inicial-ms:0}")
     public void generarRecordatorios() {
         Iterable<ConsultaParaRecordatorio> consultas;
         try {

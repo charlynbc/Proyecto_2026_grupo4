@@ -240,6 +240,9 @@ abstract class BaseIntegracionIT {
         // corriera de fondo podria cruzarse con el TRUNCATE de reiniciarDatos. Los
         // ITs que lo necesitan lo invocan a mano (RecordatorioITBase).
         registry.add("app.notificaciones.recordatorios.intervalo-ms", () -> "3600000");
+        // Sin retraso inicial el barrido correria apenas arranca el contexto, justo
+        // sobre el primer TRUNCATE de la clase.
+        registry.add("app.notificaciones.recordatorios.retraso-inicial-ms", () -> "3600000");
     }
 
     private static synchronized void prepararBase() throws Exception {
