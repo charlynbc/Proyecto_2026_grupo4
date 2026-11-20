@@ -30,6 +30,10 @@ class FakeDatabase {
   final List<TestShift> shifts;
   final List<Appointment> appointments = [];
 
+  /// Días (clave de Uruguay) en los que el socio ya registró la llegada.
+  /// La regla mira el día, no una consulta.
+  final Set<DateTime> arrivedDays = {};
+
   /// Los pases de la socia. Si un pase está usado o disponible no se guarda
   /// acá: se deriva de [appointments], como hace el servidor.
   final List<Referral> referrals = [];

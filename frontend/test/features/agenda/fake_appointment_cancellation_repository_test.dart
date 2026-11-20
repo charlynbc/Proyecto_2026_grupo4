@@ -78,6 +78,29 @@ void main() {
     },
   );
 
+  test('con llegada ese día responde alreadyArrived y no cancela', () async {
+    final (db, repo) = _repo(status: 'AGENDADA', startMinutes: 690);
+    db.arrivedDays.add(_day);
+
+    await expectLater(
+      repo.cancel(9001),
+      throwsA(
+        isA<CancellationException>()
+            .having(
+              (error) => error.failure,
+              'failure',
+              CancellationFailure.alreadyArrived,
+            )
+            .having(
+              (error) => error.message,
+              'message',
+              'El socio ya registró su llegada ese día',
+            ),
+      ),
+    );
+    expect(db.appointments.single.status, 'AGENDADA');
+  });
+
   test('a las 11:30 faltan 1 hora 30 y queda fuera de plazo', () async {
     final (_, repo) = _repo(status: 'AGENDADA', startMinutes: 690);
 
