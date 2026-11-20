@@ -81,8 +81,9 @@ Future<void> _pump(
   int? referralId,
   required _HistoryRepository history,
   required _CancellationRepository cancellation,
+  Size size = const Size(900, 1800),
 }) async {
-  tester.view.physicalSize = const Size(900, 1800);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -363,41 +364,42 @@ void main() {
     expect(_isEnabled(tester, 'dismiss-cancel-dialog'), isTrue);
   });
 
-  testWidgets('alreadyArrived muestra el texto propio y deja el diálogo abierto', (
-    tester,
-  ) async {
-    const serverMessage = 'El socio ya registró su llegada ese día';
-    const ownMessage =
-        'Ya registraste tu llegada hoy, por eso no podés cancelar esta '
-        'consulta desde la aplicación. Si no vas a poder asistir, pedile a '
-        'un funcionario que la cancele.';
-    final cancellation = _CancellationRepository()
-      ..exception = const CancellationException(
-        CancellationFailure.alreadyArrived,
-        serverMessage,
+  testWidgets(
+    'alreadyArrived muestra el texto propio y deja el diálogo abierto',
+    (tester) async {
+      const serverMessage = 'El socio ya registró su llegada ese día';
+      const ownMessage =
+          'Ya registraste tu llegada hoy, por eso no podés cancelar esta '
+          'consulta desde la aplicación. Si no vas a poder asistir, pedile a '
+          'un funcionario que la cancele.';
+      final cancellation = _CancellationRepository()
+        ..exception = const CancellationException(
+          CancellationFailure.alreadyArrived,
+          serverMessage,
+        );
+      final history = _HistoryRepository(
+        appointment: _appointment(status: 'AGENDADA'),
       );
-    final history = _HistoryRepository(
-      appointment: _appointment(status: 'AGENDADA'),
-    );
-    await _pump(
-      tester,
-      status: 'AGENDADA',
-      history: history,
-      cancellation: cancellation,
-    );
-    await _openDialog(tester);
-    await tester.tap(find.byKey(const Key('confirm-cancel-appointment')));
-    await tester.pumpAndSettle();
+      await _pump(
+        tester,
+        status: 'AGENDADA',
+        history: history,
+        cancellation: cancellation,
+      );
+      await _openDialog(tester);
+      await tester.tap(find.byKey(const Key('confirm-cancel-appointment')));
+      await tester.pumpAndSettle();
 
-    expect(find.text('¿Cancelar la consulta?'), findsOneWidget);
-    expect(
-      tester.widget<Text>(find.byKey(const Key('cancel-error'))).data,
-      ownMessage,
-    );
-    expect(find.text(serverMessage), findsNothing);
-    expect(history.getCalls, 1);
-    expect(find.byType(AppointmentDetailScreen), findsOneWidget);
-  });
+      expect(find.text('¿Cancelar la consulta?'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('cancel-error'))).data,
+        ownMessage,
+      );
+      expect(find.text(serverMessage), findsNothing);
+      expect(history.getCalls, 1);
+      expect(find.byType(AppointmentDetailScreen), findsOneWidget);
+    },
+  );
 
   for (final failure in [
     (CancellationFailure.notScheduled, 'La consulta ya no está agendada.'),
@@ -508,6 +510,48 @@ void main() {
       );
 
       expect(find.byKey(const Key('cancel-appointment')), findsOneWidget);
+    });
+
+    testWidgets('alreadyArrived a 320 px con el texto al doble no desborda', (
+      tester,
+    ) async {
+      const serverMessage = 'El socio ya registró su llegada ese día';
+      const ownMessage =
+          'Ya registraste tu llegada hoy, por eso no podés cancelar esta '
+          'consulta desde la aplicación. Si no vas a poder asistir, pedile a '
+          'un funcionario que la cancele.';
+      final cancellation = _CancellationRepository()
+        ..exception = const CancellationException(
+          CancellationFailure.alreadyArrived,
+          serverMessage,
+        );
+      final history = _HistoryRepository(
+        appointment: _appointment(status: 'AGENDADA'),
+      );
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pump(
+        tester,
+        status: 'AGENDADA',
+        history: history,
+        cancellation: cancellation,
+        size: const Size(320, 2400),
+      );
+      await _openDialog(tester);
+      await tester.tap(find.byKey(const Key('confirm-cancel-appointment')));
+      await tester.pumpAndSettle();
+
+      expect(
+        MediaQuery.of(tester.element(find.byKey(const Key('cancel-error'))))
+            .textScaler
+            .scale(10),
+        20,
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('cancel-error'))).data,
+        ownMessage,
+      );
+      expect(tester.takeException(), isNull);
     });
   });
 }
