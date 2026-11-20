@@ -589,8 +589,8 @@ void main() {
 
     expect(tester.element(find.byType(MedicalHistoryScreen)), same(element));
     _expectNewAttention(tester);
-    // La lista y las opciones comparten list; no se fija un total artificial.
-    expect(repository.listCalls, greaterThan(callsBeforeReturn));
+    // Un pedido de la lista y otro de las opciones.
+    expect(repository.listCalls, callsBeforeReturn + 2);
   });
 
   testWidgets(
@@ -647,7 +647,8 @@ void main() {
       await _backToList(tester);
 
       _expectNewAttention(tester);
-      expect(repository.listCalls, greaterThan(callsBeforeReturn));
+      // Un pedido de la lista y otro de las opciones.
+      expect(repository.listCalls, callsBeforeReturn + 2);
     },
   );
 
