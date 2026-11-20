@@ -363,6 +363,42 @@ void main() {
     expect(_isEnabled(tester, 'dismiss-cancel-dialog'), isTrue);
   });
 
+  testWidgets('alreadyArrived muestra el texto propio y deja el diálogo abierto', (
+    tester,
+  ) async {
+    const serverMessage = 'El socio ya registró su llegada ese día';
+    const ownMessage =
+        'Ya registraste tu llegada hoy, por eso no podés cancelar esta '
+        'consulta desde la aplicación. Si no vas a poder asistir, pedile a '
+        'un funcionario que la cancele.';
+    final cancellation = _CancellationRepository()
+      ..exception = const CancellationException(
+        CancellationFailure.alreadyArrived,
+        serverMessage,
+      );
+    final history = _HistoryRepository(
+      appointment: _appointment(status: 'AGENDADA'),
+    );
+    await _pump(
+      tester,
+      status: 'AGENDADA',
+      history: history,
+      cancellation: cancellation,
+    );
+    await _openDialog(tester);
+    await tester.tap(find.byKey(const Key('confirm-cancel-appointment')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('¿Cancelar la consulta?'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('cancel-error'))).data,
+      ownMessage,
+    );
+    expect(find.text(serverMessage), findsNothing);
+    expect(history.getCalls, 1);
+    expect(find.byType(AppointmentDetailScreen), findsOneWidget);
+  });
+
   for (final failure in [
     (CancellationFailure.notScheduled, 'La consulta ya no está agendada.'),
     (CancellationFailure.notFound, 'No se encontró la consulta.'),
