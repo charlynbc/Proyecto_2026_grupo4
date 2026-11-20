@@ -24,6 +24,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -33,6 +35,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.FileSystemResource;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -65,6 +68,8 @@ abstract class BaseIntegracionIT {
     static final ZoneId ZONA = ZoneId.of("America/Montevideo");
     static final ObjectMapper JSON = JsonMapper.builder().build();
 
+    private static final Logger LOG = LoggerFactory.getLogger(BaseIntegracionIT.class);
+    private static final int REINTENTOS_TRUNCATE = 3;
     private static final int[] PESOS = {2, 9, 8, 7, 6, 3, 4};
     private static boolean baseLista;
     private static String hashClave;
@@ -313,14 +318,36 @@ abstract class BaseIntegracionIT {
     }
 
     @BeforeEach
-    void reiniciarDatos() {
+    void reiniciarDatos() throws InterruptedException {
         List<String> tablas = jdbc.queryForList(
                 "SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname = 'public'",
                 String.class);
-        jdbc.execute("TRUNCATE TABLE public." + String.join(", public.", tablas)
+        truncarConReintentos("TRUNCATE TABLE public." + String.join(", public.", tablas)
                 + " RESTART IDENTITY CASCADE");
         capturaEnlaces.limpiar();
         sembrar();
+    }
+
+    /**
+     * El TRUNCATE pide bloqueo exclusivo sobre todas las tablas; un proceso de
+     * fondo que lee varias a la vez puede cruzarse y PostgreSQL aborta uno de los
+     * dos por deadlock. Si el aborto cae en el TRUNCATE, no es un fallo del test:
+     * se reintenta hasta REINTENTOS_TRUNCATE veces y cada reintento queda en el log.
+     */
+    private void truncarConReintentos(String sql) throws InterruptedException {
+        for (int intento = 1; ; intento++) {
+            try {
+                jdbc.execute(sql);
+                return;
+            } catch (PessimisticLockingFailureException e) {
+                if (intento > REINTENTOS_TRUNCATE) {
+                    throw e;
+                }
+                LOG.warn("TRUNCATE reintentado ({} de {}) por bloqueo en la base: {}",
+                        intento, REINTENTOS_TRUNCATE, e.getClass().getSimpleName());
+                Thread.sleep(200L * intento);
+            }
+        }
     }
 
     private void sembrar() {
