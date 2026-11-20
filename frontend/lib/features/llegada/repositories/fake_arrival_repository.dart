@@ -47,9 +47,10 @@ Appointment _today({
   cancellationReason: null,
 );
 
-/// Tres socios escritos a mano para la pantalla de llegada: Ana con una
-/// consulta hoy, Luis con una consulta hoy con Beatriz Cabrera y Laura sin
-/// consultas. Lo que se registra acá no aparece en otras pantallas falsas.
+/// Cuatro socios escritos a mano para la pantalla de llegada: Ana con una
+/// consulta hoy, Luis con una consulta hoy con Beatriz Cabrera, Laura sin
+/// consultas y Marta con una consulta hoy y su llegada ya registrada (cédula
+/// 9.000.007-4). Lo que se registra acá no aparece en otras pantallas falsas.
 final Map<String, _Member> _members = {
   '90000046': _Member(
     'Ana',
@@ -82,6 +83,21 @@ final Map<String, _Member> _members = {
     ],
   ),
   '90000068': _Member('Laura', 'López', () => []),
+  '90000074': _Member(
+    'Marta',
+    'Núñez',
+    () => [
+      _today(
+        id: 186,
+        doctor: const DoctorRef(
+          id: 41,
+          firstName: 'Alejandro',
+          lastName: 'Rivas',
+        ),
+        startMinutes: 11 * 60,
+      ),
+    ],
+  ),
 };
 
 /// Implementación en memoria de [ArrivalRepository] para `USE_FAKES=true` y
@@ -91,14 +107,30 @@ class FakeArrivalRepository implements ArrivalRepository {
   FakeArrivalRepository({this.latency = const Duration(milliseconds: 300)});
 
   final Duration latency;
-  final Map<String, Arrival> _arrivals = {};
+  final Map<String, Arrival> _arrivals = {
+    // Marta ya tiene su llegada de hoy, registrada a las 08:47.
+    '90000074': Arrival(
+      id: 1,
+      memberCi: '90000074',
+      memberFirstName: 'Marta',
+      memberLastName: 'Núñez',
+      registeredAt: DateTime.parse('2026-10-22T08:47:00-03:00'),
+      registeredByFirstName: 'Mariana',
+      registeredByLastName: 'Ferreira',
+    ),
+  };
 
   @override
-  Future<List<Appointment>> listTodayAppointments(String ci) async {
+  Future<TodayAppointments> listTodayAppointments(String ci) async {
     await Future<void>.delayed(latency);
-    final member = _members[normalizeCi(ci)];
+    final normalized = normalizeCi(ci);
+    final member = _members[normalized];
     if (member == null) throw const MemberNotFoundException();
-    return member.appointments();
+    final arrival = _arrivals[normalized];
+    return TodayAppointments(
+      appointments: member.appointments(),
+      arrival: arrival == null ? null : TodayArrival.fromArrival(arrival),
+    );
   }
 
   @override

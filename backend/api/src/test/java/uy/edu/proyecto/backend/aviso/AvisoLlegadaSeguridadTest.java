@@ -21,6 +21,8 @@ import uy.edu.proyecto.backend.config.SecurityErrorHandler;
 import uy.edu.proyecto.backend.consultorio.Consultorio;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 
+import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -64,7 +66,7 @@ class AvisoLlegadaSeguridadTest {
 
     @Test
     void funcionarioPuedeBuscarConsultasDeHoy() throws Exception {
-        when(service.consultasDeHoy("67890127")).thenReturn(List.of(
+        when(service.consultasDeHoy("67890127")).thenReturn(new ConsultasDeHoyDTO(List.of(
                 new ConsultaDTO(
                         9001L,
                         "AGENDADA",
@@ -80,7 +82,10 @@ class AvisoLlegadaSeguridadTest {
                         null,
                         null
                 )
-        ));
+        ), new LlegadaDeHoyDTO(
+                OffsetDateTime.parse("2026-10-21T08:55:12-03:00"),
+                new AvisoLlegadaDTO.FuncionarioRef(31L, "Pablo", "Gómez")
+        )));
 
         mockMvc.perform(get("/api/avisos-llegada/consultas-hoy")
                         .with(jwt().authorities(
@@ -90,9 +95,30 @@ class AvisoLlegadaSeguridadTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].estado").value("AGENDADA"))
                 .andExpect(jsonPath("$.items[0].consultorio.nombre")
-                        .value("Consultorio 5"));
+                        .value("Consultorio 5"))
+                .andExpect(jsonPath("$.llegada.registradaEn")
+                        .value("2026-10-21T08:55:12-03:00"))
+                .andExpect(jsonPath("$.llegada.registradaPor.id").value(31))
+                .andExpect(jsonPath("$.llegada.registradaPor.nombre").value("Pablo"))
+                .andExpect(jsonPath("$.llegada.registradaPor.apellido").value("Gómez"));
 
         verify(service).consultasDeHoy("67890127");
+    }
+
+    @Test
+    void sinLlegadaLaRespuestaTraeLaClaveLlegadaEnNulo() throws Exception {
+        when(service.consultasDeHoy("67890127"))
+                .thenReturn(new ConsultasDeHoyDTO(List.of(), null));
+
+        mockMvc.perform(get("/api/avisos-llegada/consultas-hoy")
+                        .with(jwt().authorities(
+                                new SimpleGrantedAuthority("ROLE_FUNCIONARIO")
+                        ))
+                        .param("ci", "67890127"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$", hasKey("llegada")))
+                .andExpect(jsonPath("$.llegada").value(nullValue()));
     }
 
     @Test

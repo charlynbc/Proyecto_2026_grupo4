@@ -1,7 +1,5 @@
 package uy.edu.proyecto.backend.aviso;
 
-import java.util.List;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -13,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import uy.edu.proyecto.backend.agenda.ConsultaDTO;
 import uy.edu.proyecto.backend.exception.ApiException;
 
 @RestController
@@ -27,10 +24,10 @@ public class AvisoLlegadaController {
     }
 
     @GetMapping("/consultas-hoy")
-    public ItemsConsultas consultasDeHoy(
+    public ConsultasDeHoyDTO consultasDeHoy(
             @RequestParam(name = "ci") String ci
     ) {
-        return new ItemsConsultas(service.consultasDeHoy(ci));
+        return service.consultasDeHoy(ci);
     }
 
     @PostMapping
@@ -56,8 +53,5 @@ public class AvisoLlegadaController {
                         ? HttpStatus.CREATED
                         : HttpStatus.OK)
                 .body(resultado.aviso());
-    }
-
-    public record ItemsConsultas(List<ConsultaDTO> items) {
     }
 }
