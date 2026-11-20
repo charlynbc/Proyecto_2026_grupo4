@@ -1,39 +1,12 @@
-import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/providers/refetch_when_visible_again.dart';
 import '../../auth/models/user_role.dart';
 import '../../auth/providers/session_provider.dart';
 import '../models/medical_history_entry.dart';
 import 'medical_history_filters_controller.dart';
 import 'medical_history_repository_provider.dart';
-
-/// Renueva los datos al volver a verlos, por dos caminos distintos:
-///
-/// - `ref.onResume`: la pantalla estaba conservada por el shell o tapada por
-///   otra ruta y vuelve a verse (cambia su `TickerMode`).
-/// - `AppLifecycleListener`: la pestaña del navegador o la app vuelven a primer
-///   plano. Riverpod no mira ese evento. Con Historia en otra sección del
-///   shell el provider está pausado: Riverpod deja pendiente la reconstrucción
-///   hasta que vuelve a verse, y `onResume` pide lo mismo una sola vez.
-///
-/// La microtarea evita invalidar durante el callback de ciclo de vida.
-void refreshMedicalHistoryWhenVisibleAgain(Ref ref) {
-  void refresh() {
-    Future.microtask(() {
-      if (ref.mounted) ref.invalidateSelf();
-    });
-  }
-
-  ref.onResume(refresh);
-  final lifecycle = AppLifecycleListener(
-    onResume: () {
-      if (ref.mounted) refresh();
-    },
-  );
-  // Evita que el listener quede registrado después de descartar el provider.
-  ref.onDispose(lifecycle.dispose);
-}
 
 /// Transición sin datos anteriores para un cambio de sesión.
 ///
@@ -75,7 +48,7 @@ bool _isAuthenticatedMember(SessionState session) =>
 class _MedicalHistory extends AsyncNotifier<List<MedicalHistoryEntry>> {
   @override
   Future<List<MedicalHistoryEntry>> build() async {
-    refreshMedicalHistoryWhenVisibleAgain(ref);
+    refetchWhenVisibleAgain(ref, ref.invalidateSelf);
     final session = _observeSession(ref, () {
       state = _sessionLoading<List<MedicalHistoryEntry>>();
     });
@@ -97,7 +70,7 @@ class _MedicalHistoryDetail extends AsyncNotifier<MedicalHistoryEntry> {
 
   @override
   Future<MedicalHistoryEntry> build() async {
-    refreshMedicalHistoryWhenVisibleAgain(ref);
+    refetchWhenVisibleAgain(ref, ref.invalidateSelf);
     final session = _observeSession(ref, () {
       state = _sessionLoading<MedicalHistoryEntry>();
     });

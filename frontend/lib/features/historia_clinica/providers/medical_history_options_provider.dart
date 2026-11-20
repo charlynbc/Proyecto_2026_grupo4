@@ -2,12 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
+import '../../../core/providers/refetch_when_visible_again.dart';
 import '../../auth/models/user_role.dart';
 import '../../auth/providers/session_provider.dart';
 import '../../especialidades/models/specialty.dart';
 import '../../especialidades/providers/specialty_repository_provider.dart';
 import '../models/medical_history_query.dart';
-import 'medical_history_provider.dart';
 import 'medical_history_repository_provider.dart';
 
 /// Opciones de los selectores de historia clínica.
@@ -26,7 +26,7 @@ class _MedicalHistoryOptions extends AsyncNotifier<MedicalHistoryOptions> {
   Future<MedicalHistoryOptions> build() async {
     // La pantalla observa estas opciones con watch: se reanudan por sí mismas.
     // No invalidarlas también desde la lista evita dos refrescos del selector.
-    refreshMedicalHistoryWhenVisibleAgain(ref);
+    refetchWhenVisibleAgain(ref, ref.invalidateSelf);
     ref.listen(
       sessionProvider.select(
         (session) => (session.status, session.role, session.accessToken),
