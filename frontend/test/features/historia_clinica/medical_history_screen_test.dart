@@ -13,6 +13,7 @@ import 'package:agenda_medica/features/auth/widgets/logout_button.dart';
 import 'package:agenda_medica/features/historia_clinica/models/medical_history_entry.dart';
 import 'package:agenda_medica/features/historia_clinica/models/medical_history_query.dart';
 import 'package:agenda_medica/features/historia_clinica/providers/medical_history_filters_controller.dart';
+import 'package:agenda_medica/features/historia_clinica/providers/medical_history_provider.dart';
 import 'package:agenda_medica/features/historia_clinica/providers/medical_history_repository_provider.dart';
 import 'package:agenda_medica/features/historia_clinica/repositories/fake_medical_history_repository.dart';
 import 'package:agenda_medica/features/historia_clinica/repositories/medical_history_repository.dart';
@@ -310,6 +311,49 @@ void main() {
       _expectCards([12, 10]);
     },
   );
+
+  testWidgets('al desmontar la pantalla se descarta el listado', (
+    tester,
+  ) async {
+    final repository = _RecordingRepository();
+    final container = ProviderContainer(
+      overrides: [
+        useFakesProvider.overrideWithValue(true),
+        sessionProvider.overrideWith(_TestSession.new),
+        medicalHistoryRepositoryProvider.overrideWith(
+          (ref) async => repository,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: appTheme,
+          locale: const Locale('es', 'UY'),
+          supportedLocales: const [Locale('es', 'UY')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: const MedicalHistoryScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    _expectCards([12, 10, 11, 13]);
+    expect(container.exists(medicalHistoryProvider), isTrue);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SizedBox.shrink()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(MedicalHistoryScreen), findsNothing);
+    expect(container.exists(medicalHistoryProvider), isFalse);
+  });
 
   testWidgets('filtra por médico elegido por nombre', (tester) async {
     final repository = _RecordingRepository();
