@@ -231,6 +231,10 @@ abstract class BaseIntegracionIT {
                 () -> "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=");
         registry.add("app.firebase.enabled", () -> "false");
         registry.add("app.mail.provider", () -> "none");
+        // El barrido de recordatorios lee nueve tablas en una sola consulta; si
+        // corriera de fondo podria cruzarse con el TRUNCATE de reiniciarDatos. Los
+        // ITs que lo necesitan lo invocan a mano (RecordatorioITBase).
+        registry.add("app.notificaciones.recordatorios.intervalo-ms", () -> "3600000");
     }
 
     private static synchronized void prepararBase() throws Exception {
