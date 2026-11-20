@@ -54,6 +54,28 @@ public final class NotificacionTextos {
                 + " a las " + hora(hora) + ".";
     }
 
+    /**
+     * Recordatorio de una consulta agendada (RNF-25): especialidad, medico,
+     * fecha, hora y consultorio. La ubicacion va entre parentesis solo si existe.
+     */
+    public static String cuerpoRecordatorio(
+            String especialidad,
+            String medicoNombre,
+            String medicoApellido,
+            LocalDate fecha,
+            LocalTime hora,
+            String consultorioNombre,
+            String consultorioUbicacion
+    ) {
+        String consultorio = consultorioUbicacion == null || consultorioUbicacion.isBlank()
+                ? consultorioNombre
+                : consultorioNombre + " (" + consultorioUbicacion + ")";
+        return "Recordatorio de consulta: " + especialidad + " con "
+                + medicoNombre + " " + medicoApellido
+                + ", el " + fecha(fecha) + " a las " + hora(hora)
+                + ", en " + consultorio;
+    }
+
     /** Cancelacion que hace un funcionario a pedido del socio (RF-19). */
     public static String cuerpoCancelacionASolicitudDelSocio(LocalDate fecha) {
         return "Tu consulta del " + fecha(fecha) + " fue cancelada a tu solicitud.";
