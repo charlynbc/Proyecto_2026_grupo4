@@ -71,6 +71,26 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
   String? _imageError;
   String? _visibilityError;
   String? _publishError;
+  (String, String, String) _lastText = ('', '', '');
+
+  @override
+  void initState() {
+    super.initState();
+    _title.addListener(_onEdited);
+    _summary.addListener(_onEdited);
+    _text.addListener(_onEdited);
+  }
+
+  void _onEdited() {
+    final text = (_title.text, _summary.text, _text.text);
+    if (text == _lastText) return;
+    _lastText = text;
+    if (_publishError != null) setState(_clearErrors);
+  }
+
+  void _clearErrors() {
+    _publishError = null;
+  }
 
   @override
   void dispose() {
@@ -102,7 +122,12 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
       final images = await ref.read(announcementImagePickerProvider)(
         _images.length,
       );
-      if (mounted) setState(() => _images.addAll(images));
+      if (mounted && images.isNotEmpty) {
+        setState(() {
+          _images.addAll(images);
+          _clearErrors();
+        });
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -117,7 +142,10 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
   }
 
   void _moveImage(int from, int to) {
-    setState(() => _images.insert(to, _images.removeAt(from)));
+    setState(() {
+      _images.insert(to, _images.removeAt(from));
+      _clearErrors();
+    });
   }
 
   Future<void> _publish() async {
@@ -214,6 +242,7 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _title,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       enabled: !_submitting,
                       // Corta al escribir o pegar, con la misma cuenta que
                       // `validateTitle` y el servidor (recortado, UTF-16).
@@ -332,6 +361,7 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
                                   : () => setState(() {
                                       _images.removeAt(index);
                                       _imageError = null;
+                                      _clearErrors();
                                     }),
                               icon: const Icon(Icons.close),
                             ),
