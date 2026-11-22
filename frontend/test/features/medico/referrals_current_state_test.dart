@@ -394,6 +394,7 @@ void main() {
     await _settle(tester);
     expect(tester.widget<Text>(_status(78)).data, 'Utilizado');
     // Un unico pedido al volver: no hubo un tercero mientras esperaba.
+    await tester.pump(const Duration(milliseconds: 200));
     expect(harness.repository.listCalls, 2);
   });
 
