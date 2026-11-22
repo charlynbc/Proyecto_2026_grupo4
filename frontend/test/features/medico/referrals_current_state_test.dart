@@ -393,6 +393,8 @@ void main() {
     gate.complete();
     await _settle(tester);
     expect(tester.widget<Text>(_status(78)).data, 'Utilizado');
+    // Un unico pedido al volver: no hubo un tercero mientras esperaba.
+    expect(harness.repository.listCalls, 2);
   });
 
   testWidgets('si falla al volver ofrece reintentar y carga los datos', (
