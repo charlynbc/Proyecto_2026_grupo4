@@ -236,6 +236,7 @@ Future<({Future<void> pending})> _holdConfirm(_Setup s) async {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late _Setup s;
 
   setUp(() => s = _Setup());

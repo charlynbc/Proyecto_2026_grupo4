@@ -56,6 +56,7 @@ class _CountingClinicRepository implements WeeklyShiftClinicRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late FakeAdminDatabase admin;
   late FakeShiftDatabase db;
   late ProviderContainer container;
