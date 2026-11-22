@@ -31,6 +31,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../helpers/app_lifecycle.dart';
+import '../../helpers/load_roboto.dart';
 
 const _loadFailure = 'Fallo controlado al actualizar los pases.';
 
@@ -186,8 +187,11 @@ Future<void> _settle(WidgetTester tester) => tester.pumpAndSettle(
   const Duration(seconds: 5),
 );
 
-Future<_Harness> _pump(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(1100, 1000);
+Future<_Harness> _pump(
+  WidgetTester tester, {
+  Size size = const Size(1100, 1000),
+}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
@@ -443,4 +447,14 @@ void main() {
       expect(_card(78), findsNothing);
     },
   );
+
+  testWidgets('a 320 px muestra un pase sin excepciones de layout', (
+    tester,
+  ) async {
+    await loadRoboto();
+    await _pump(tester, size: const Size(320, 800));
+
+    expect(tester.takeException(), isNull);
+    expect(_card(78), findsOneWidget);
+  });
 }
