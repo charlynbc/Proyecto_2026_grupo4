@@ -25,6 +25,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../helpers/app_lifecycle.dart';
+import '../../helpers/load_roboto.dart';
 import '../../helpers/shift_listing_data.dart';
 
 const _loadFailure = 'Fallo controlado al actualizar los turnos.';
@@ -118,8 +119,11 @@ Future<void> _settle(WidgetTester tester) => tester.pumpAndSettle(
   const Duration(seconds: 5),
 );
 
-Future<_Harness> _pump(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(1600, 1400);
+Future<_Harness> _pump(
+  WidgetTester tester, {
+  Size size = const Size(1600, 1400),
+}) async {
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
@@ -386,4 +390,14 @@ void main() {
       expect(_rowForDate(tester, '20/10/2026')[7], 'Activa');
     },
   );
+
+  testWidgets('a 320 px muestra un turno sin excepciones de layout', (
+    tester,
+  ) async {
+    await loadRoboto();
+    await _pump(tester, size: const Size(320, 800));
+
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('19/10/2026'), findsWidgets);
+  });
 }
