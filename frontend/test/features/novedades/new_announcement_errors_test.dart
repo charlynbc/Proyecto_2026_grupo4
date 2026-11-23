@@ -121,7 +121,8 @@ void main() {
       await _pump(tester);
       await _publish(tester);
       expect(find.text('Ingresá el título.'), findsOneWidget);
-      expect(find.text(_contentError), findsNothing);
+      // Sin texto ni imágenes, el contenido también se marca en el mismo toque.
+      expect(find.text(_contentError), findsOneWidget);
       await _tap(tester, _field('Título'));
       expect(find.text('Ingresá el título.'), findsOneWidget);
       await tester.enterText(_field('Título'), 'Jornada de prevención');
@@ -269,19 +270,84 @@ void main() {
     },
   );
 
+  testWidgets('muestra a la vez el error de contenido y el de fecha de fin', (
+    tester,
+  ) async {
+    await _pump(tester);
+    await tester.enterText(_field('Título'), 'Prueba');
+    await tester.enterText(_field('Texto de la novedad'), 'x');
+    await _publish(tester);
+    expect(find.text(_endError), findsOneWidget);
+    expect(find.text(_contentError), findsNothing);
+    await tester.enterText(_field('Texto de la novedad'), '');
+    await _publish(tester);
+    expect(find.text(_contentError), findsOneWidget);
+    expect(find.text(_endError), findsOneWidget);
+  });
+
   testWidgets(
-    'muestra un solo mensaje por toque: el de contenido reemplaza al de fecha',
+    'elegir una fecha de inicio y borrarla muestra contenido y fin sin pedir '
+    'la fecha',
     (tester) async {
-      await _pump(tester);
+      final repository = await _pump(tester);
+      await tester.enterText(_field('Título'), 'Prueba');
+      await tester.enterText(_field('Visible desde: fecha'), '20/11/2026');
+      await tester.pump();
+      await tester.enterText(_field('Visible desde: fecha'), '');
+      await tester.pump();
+      await _publish(tester);
+      expect(find.text(_contentError), findsOneWidget);
+      expect(find.text(_endError), findsOneWidget);
+      expect(find.text('Elegí la fecha.'), findsNothing);
+      expect(repository.drafts, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'una hora escrita sin fecha muestra a la vez la fecha, el contenido y el '
+    'fin',
+    (tester) async {
+      final repository = await _pump(tester);
+      await tester.enterText(_field('Título'), 'Prueba');
+      await tester.enterText(_field('Visible desde: hora'), '18:30');
+      await _publish(tester);
+      expect(find.text('Elegí la fecha.'), findsOneWidget);
+      expect(find.text(_contentError), findsOneWidget);
+      expect(find.text(_endError), findsOneWidget);
+      expect(repository.drafts, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'un fin con formato inválido muestra el error del campo y no el de fin '
+    'obligatorio',
+    (tester) async {
+      final repository = await _pump(tester);
+      // La fecha va primero: un campo con foco no marca un texto a medias.
+      await tester.enterText(_field('Visible hasta: fecha'), '3/11');
       await tester.enterText(_field('Título'), 'Prueba');
       await tester.enterText(_field('Texto de la novedad'), 'x');
       await _publish(tester);
-      expect(find.text(_endError), findsOneWidget);
-      expect(find.text(_contentError), findsNothing);
-      await tester.enterText(_field('Texto de la novedad'), '');
-      await _publish(tester);
-      expect(find.text(_contentError), findsOneWidget);
+      expect(
+        find.text('Escribí la fecha como dd/mm/aaaa, por ejemplo 20/10/2026.'),
+        findsOneWidget,
+      );
       expect(find.text(_endError), findsNothing);
+      expect(repository.drafts, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'a 320 px con texto x2 caben a la vez los errores de campo, contenido y fin',
+    (tester) async {
+      await _pump(tester, width: 320, scale: 2);
+      await tester.enterText(_field('Visible desde: hora'), '18:30');
+      await _publish(tester);
+      expect(find.text('Ingresá el título.'), findsOneWidget);
+      expect(find.text('Elegí la fecha.'), findsOneWidget);
+      expect(find.text(_contentError), findsOneWidget);
+      expect(find.text(_endError), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 
