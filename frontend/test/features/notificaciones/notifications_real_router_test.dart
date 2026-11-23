@@ -241,4 +241,44 @@ void main() {
     expect(router.state.uri.path, '/socio/historia');
     expect(find.byType(AppShell, skipOffstage: false), findsOneWidget);
   });
+
+  testWidgets('tras el 404 desde la lista, el botón deja una sola lista en la '
+      'pila (no se puede volver a otra lista)', (tester) async {
+    final router = await _pump(
+      tester,
+      detailMissing: true,
+      start: '/socio/historia',
+    );
+    // Parado en la lista, sin nada debajo.
+    expect(router.canPop(), isFalse);
+
+    final card = find.byKey(const ValueKey('medical-history-entry-12'));
+    final open = find.descendant(
+      of: card,
+      matching: find.widgetWithText(OutlinedButton, 'Ver detalle'),
+    );
+    await tester.ensureVisible(open);
+    await tester.tap(open);
+    await _settle(tester);
+
+    // Con el detalle encima, la lista queda debajo.
+    expect(find.byType(MedicalHistoryDetailScreen), findsOneWidget);
+    expect(router.canPop(), isTrue);
+
+    await tester.tap(
+      find.widgetWithText(OutlinedButton, 'Ir a mi historia clínica'),
+    );
+    await _settle(tester);
+
+    expect(
+      find.byType(MedicalHistoryDetailScreen, skipOffstage: false),
+      findsNothing,
+    );
+    expect(
+      find.byType(MedicalHistoryScreen, skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(router.canPop(), isFalse);
+    expect(router.state.uri.path, '/socio/historia');
+  });
 }
