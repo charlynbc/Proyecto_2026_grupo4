@@ -393,6 +393,12 @@ void main() {
       await tester.tap(search);
       await tester.pump(const Duration(milliseconds: 100));
 
+      // Son 3 pedidos y no 2: la carga inicial, un segundo pedido con los
+      // mismos filtros y el de martes. El segundo no viene del refresco al
+      // volver (refetchWhenVisibleAgain) sino de _ReloadShiftsWhenShown
+      // (shifts_screen.dart:68-102), que ya existía en la base: abrir un
+      // desplegable de filtros apila una ruta encima de la pantalla, y al
+      // cerrarse esa ruta la pantalla vuelve a pedir la lista.
       expect(harness.repository.listCalls, 3);
       expect(harness.repository.filters, [
         const ShiftFilters(),
