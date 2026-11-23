@@ -19,8 +19,19 @@ public class NotificacionRepository {
     private static final String DESDE = """
             FROM public.notificacion n
             JOIN public.consulta c ON c.id_consulta = n.id_consulta
+            """;
+
+    private static final String FILTRO = """
             WHERE c.id_socio = ?
               AND (n.programada_para IS NULL OR n.programada_para <= ?)
+            """;
+
+    /**
+     * Solo el listado trae la atencion (el conteo no la necesita). atencion tiene UNIQUE (id_consulta), asi que el
+     * LEFT JOIN no duplica filas.
+     */
+    private static final String UNIR_ATENCION = """
+            LEFT JOIN public.atencion a ON a.id_consulta = n.id_consulta
             """;
 
     private final JdbcTemplate jdbc;
@@ -31,7 +42,10 @@ public class NotificacionRepository {
 
     List<Fila> listar(long socioId, OffsetDateTime ahora, int page, int size) {
         return jdbc.query(
-                "SELECT n.id_notificacion, n.tipo, n.contenido, n.creada_en, n.id_consulta, CAST(NULL AS bigint) AS atencion_id " + DESDE + """
+                """
+                        SELECT n.id_notificacion, n.tipo, n.contenido, n.creada_en, n.id_consulta,
+                               CASE WHEN n.tipo = 'HISTORIA_ACTUALIZADA' THEN a.id_atencion END AS atencion_id
+                        """ + DESDE + UNIR_ATENCION + FILTRO + """
                         ORDER BY n.creada_en DESC, n.id_notificacion DESC
                         LIMIT ? OFFSET ?
                         """,
@@ -46,7 +60,7 @@ public class NotificacionRepository {
     }
 
     long total(long socioId, OffsetDateTime ahora) {
-        Long total = jdbc.queryForObject("SELECT count(*) " + DESDE, Long.class, socioId, ahora);
+        Long total = jdbc.queryForObject("SELECT count(*) " + DESDE + FILTRO, Long.class, socioId, ahora);
         return total == null ? 0 : total;
     }
 }
