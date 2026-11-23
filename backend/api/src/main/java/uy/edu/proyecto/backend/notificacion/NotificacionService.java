@@ -40,7 +40,8 @@ public class NotificacionService {
                         NotificacionTextos.titulo(fila.tipo()),
                         fila.contenido(),
                         fila.creadaEn().atZoneSameInstant(clock.getZone()).toOffsetDateTime(),
-                        fila.consultaId()))
+                        fila.consultaId(),
+                        fila.atencionId()))
                 .toList();
         return new NotificacionPageResponse(items, pagina, cantidad, repository.total(socioId, ahora));
     }

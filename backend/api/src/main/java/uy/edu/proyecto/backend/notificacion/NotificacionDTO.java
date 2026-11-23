@@ -9,6 +9,8 @@ public record NotificacionDTO(
         String titulo,
         String contenido,
         OffsetDateTime creadaEn,
-        long consultaId
+        long consultaId,
+        /** Solo para HISTORIA_ACTUALIZADA con atencion registrada; null en los demas casos (la clave siempre viaja). */
+        Long atencionId
 ) {
 }

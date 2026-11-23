@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 /** Lee la tabla notificacion para la lista del socio. No escribe: los avisos los crea cada operacion. */
 @Repository
 public class NotificacionRepository {
-    record Fila(long id, String tipo, String contenido, OffsetDateTime creadaEn, long consultaId) {
+    record Fila(long id, String tipo, String contenido, OffsetDateTime creadaEn, long consultaId, Long atencionId) {
     }
 
     /**
@@ -31,7 +31,7 @@ public class NotificacionRepository {
 
     List<Fila> listar(long socioId, OffsetDateTime ahora, int page, int size) {
         return jdbc.query(
-                "SELECT n.id_notificacion, n.tipo, n.contenido, n.creada_en, n.id_consulta " + DESDE + """
+                "SELECT n.id_notificacion, n.tipo, n.contenido, n.creada_en, n.id_consulta, CAST(NULL AS bigint) AS atencion_id " + DESDE + """
                         ORDER BY n.creada_en DESC, n.id_notificacion DESC
                         LIMIT ? OFFSET ?
                         """,
@@ -40,7 +40,8 @@ public class NotificacionRepository {
                         rs.getString("tipo"),
                         rs.getString("contenido"),
                         rs.getObject("creada_en", OffsetDateTime.class),
-                        rs.getLong("id_consulta")),
+                        rs.getLong("id_consulta"),
+                        rs.getObject("atencion_id", Long.class)),
                 socioId, ahora, size, (long) page * size);
     }
 
