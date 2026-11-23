@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/shift_listing_data.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late FakeAdminDatabase admin;
   late FakeShiftDatabase shiftDb;
   late ProviderContainer container;

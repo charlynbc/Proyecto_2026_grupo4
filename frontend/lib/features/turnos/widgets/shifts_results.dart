@@ -36,6 +36,10 @@ class ShiftsResults extends ConsumerWidget {
     final page = ref.watch(shiftsPageProvider);
     final colorScheme = Theme.of(context).colorScheme;
     return page.when(
+      // Al refrescar con datos a la vista se conserva la lista. Si el estado
+      // anterior era un error (que conserva el dato viejo dentro), "Reintentar"
+      // muestra la carga.
+      skipLoadingOnRefresh: page.hasValue && !page.hasError,
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
         child: Center(child: CircularProgressIndicator()),

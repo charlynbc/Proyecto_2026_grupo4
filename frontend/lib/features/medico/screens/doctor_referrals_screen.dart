@@ -41,6 +41,11 @@ class DoctorReferralsScreen extends ConsumerWidget {
                 _Filters(query: query),
                 const SizedBox(height: 16),
                 referrals.when(
+                  // Al refrescar con datos a la vista se conserva la lista. Si
+                  // el estado anterior era un error (que conserva el dato
+                  // viejo dentro), "Reintentar" muestra la carga.
+                  skipLoadingOnRefresh:
+                      referrals.hasValue && !referrals.hasError,
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (error, _) => _ErrorMessage(
@@ -120,16 +125,25 @@ class _Filters extends ConsumerWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             const Text('Ordenar por'),
-            DropdownButton<IssuedReferralOrder>(
-              key: const Key('referrals-order'),
-              value: query.order,
-              items: [
-                for (final order in IssuedReferralOrder.values)
-                  DropdownMenuItem(value: order, child: Text(order.label)),
-              ],
-              onChanged: (order) {
-                if (order != null) controller.setOrder(order);
-              },
+            // Con su ancho natural, pero sin pasar del lugar que hay: en una
+            // pantalla angosta o con texto grande el texto se corta con
+            // puntos suspensivos en vez de desbordar.
+            IntrinsicWidth(
+              child: DropdownButton<IssuedReferralOrder>(
+                key: const Key('referrals-order'),
+                isExpanded: true,
+                value: query.order,
+                items: [
+                  for (final order in IssuedReferralOrder.values)
+                    DropdownMenuItem(
+                      value: order,
+                      child: Text(order.label, overflow: TextOverflow.ellipsis),
+                    ),
+                ],
+                onChanged: (order) {
+                  if (order != null) controller.setOrder(order);
+                },
+              ),
             ),
             SortDirectionButton(
               key: const Key('referrals-direction'),
