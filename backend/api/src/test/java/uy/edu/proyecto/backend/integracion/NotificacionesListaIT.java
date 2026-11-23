@@ -188,7 +188,8 @@ class NotificacionesListaIT extends BaseIntegracionIT {
                 aviso(consulta, "AGENDA", "2026-10-01T10:00:00Z", null),
                 aviso(consulta, "CANCELACION", "2026-10-02T10:00:00Z", null),
                 aviso(consulta, "SUSPENSION", "2026-10-03T10:00:00Z", null),
-                aviso(consulta, "RECORDATORIO", "2026-10-04T10:00:00Z", null));
+                // Un RECORDATORIO exige programada_para (ck_notificacion_recordatorio); ya paso, asi que se lista.
+                aviso(consulta, "RECORDATORIO", "2026-10-04T10:00:00Z", "2026-10-04T10:00:00Z"));
 
         Respuesta r = get("/api/notificaciones", tokenSocio(ciSocio1));
 
