@@ -1650,6 +1650,7 @@ Lista los avisos que el sistema guardó para el socio autenticado: agenda, cance
 | `contenido` | texto | El texto del aviso, ya armado por el servidor (`notificacion.contenido`). El cliente lo muestra tal cual, sin armarlo ni interpretarlo. En una cancelación por otro motivo (#44, #38) lleva el motivo. |
 | `creadaEn` | instante | `creada_en`, con el formato de la sección 1.2: ISO 8601 con el desfase de Uruguay, `-03:00`, por ejemplo `2026-10-16T11:20:00-03:00`. |
 | `consultaId` | entero | La consulta que originó el aviso. Hoy siempre está presente (`notificacion.id_consulta` no admite nulo); el cliente tolera `null`. |
+| `atencionId` | entero o `null` | Solo para `HISTORIA_ACTUALIZADA`: el id de la atención registrada en esa consulta, el mismo que usa #22 (`GET /api/historia-clinica/{idAtencion}`). Es `null` en los demás tipos y también en un `HISTORIA_ACTUALIZADA` cuya consulta no tenga atención. El campo siempre está en el item: cuando no hay valor viaja como `"atencionId": null` y no se omite (el servidor no omite los campos nulos en las respuestas, salvo las que lo indican). El cliente usa el id para abrir el detalle de la atención y, si falta, abre la lista de la historia clínica. |
 
 **Respuesta 200** (los textos de `titulo` y `contenido` del ejemplo son ilustrativos)
 
@@ -1662,16 +1663,26 @@ Lista los avisos que el sistema guardó para el socio autenticado: agenda, cance
       "titulo": "Turno suspendido",
       "contenido": "Se suspendió el turno del 20/10/2026 con la Dra. Rodríguez. Se creará otro turno la semana próxima.",
       "creadaEn": "2026-10-16T11:20:00-03:00",
-      "consultaId": 9001
+      "consultaId": 9001,
+      "atencionId": null
+    },
+    {
+      "id": 15002,
+      "tipo": "HISTORIA_ACTUALIZADA",
+      "titulo": "Historia clínica actualizada",
+      "contenido": "Se registró la atención de tu consulta.",
+      "creadaEn": "2026-10-15T09:40:00-03:00",
+      "consultaId": 9000,
+      "atencionId": 4100
     }
   ],
   "page": 0,
   "size": 20,
-  "total": 1
+  "total": 2
 }
 ```
 
-Sin avisos, `items` es `[]` y `total` es `0`. `total` cuenta los avisos que se listan (no los recordatorios futuros), solo los del socio autenticado. La respuesta lleva exactamente `items`, `page`, `size` y `total`, y cada item exactamente los seis campos de la tabla.
+Sin avisos, `items` es `[]` y `total` es `0`. `total` cuenta los avisos que se listan (no los recordatorios futuros), solo los del socio autenticado. La respuesta lleva exactamente `items`, `page`, `size` y `total`, y cada item exactamente los siete campos de la tabla.
 
 El `contenido` de `HISTORIA_ACTUALIZADA` nunca incluye afección, tratamiento ni observaciones (arquitectura 8.2).
 
