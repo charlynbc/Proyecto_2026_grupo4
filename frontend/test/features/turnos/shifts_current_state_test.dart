@@ -134,6 +134,7 @@ Future<void> _settle(WidgetTester tester) => tester.pumpAndSettle(
 Future<_Harness> _pump(
   WidgetTester tester, {
   Size size = const Size(1600, 1400),
+  double textScale = 1,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -175,6 +176,11 @@ Future<_Harness> _pump(
         supportedLocales: const [Locale('es', 'UY')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         routerConfig: router,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
       ),
     ),
   );
@@ -426,6 +432,34 @@ void main() {
     await _settle(tester);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(_rowForDate(tester, '20/10/2026')[7], 'Suspendida');
+  });
+
+  testWidgets('a 320 px con texto al doble el aviso y Reintentar se ven '
+      'dentro del ancho', (tester) async {
+    await loadRoboto();
+    final harness = await _pump(
+      tester,
+      size: const Size(320, 800),
+      textScale: 2,
+    );
+    harness.router.go('/funcionario/llegada');
+    await _settle(tester);
+    harness.repository.failNextList = true;
+    harness.router.go(kShiftsPath);
+    await _settle(tester);
+
+    final message = find.text(_visibleListError);
+    expect(message, findsOneWidget);
+    // El escalado se aplica de verdad: 10 puntos pasan a ser 20 y el aviso,
+    // que sin escalar entra en una línea de unos 20 px, ocupa varias.
+    expect(MediaQuery.textScalerOf(tester.element(message)).scale(10), 20);
+    expect(tester.getSize(message).height, greaterThan(40));
+    final retry = find.widgetWithText(OutlinedButton, 'Reintentar');
+    expect(retry, findsOneWidget);
+    final rect = tester.getRect(retry);
+    expect(rect.left, greaterThanOrEqualTo(0));
+    expect(rect.right, lessThanOrEqualTo(320));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('a 320 px muestra un turno sin excepciones de layout', (

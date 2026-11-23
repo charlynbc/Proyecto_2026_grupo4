@@ -485,6 +485,34 @@ void main() {
     expect(tester.widget<Text>(_status(78)).data, 'Utilizado');
   });
 
+  testWidgets('a 320 px con texto al doble el aviso y Reintentar se ven '
+      'dentro del ancho', (tester) async {
+    await loadRoboto();
+    final harness = await _pump(
+      tester,
+      size: const Size(320, 800),
+      textScale: 2,
+    );
+    harness.router.go(kDoctorAttentionsPath);
+    await _settle(tester);
+    harness.repository.failNextList = true;
+    harness.router.go(kDoctorReferralsPath);
+    await _settle(tester);
+
+    final message = find.text('Fallo controlado al actualizar los pases.');
+    expect(message, findsOneWidget);
+    // El escalado se aplica de verdad: 10 puntos pasan a ser 20 y el aviso,
+    // que sin escalar entra en una línea de unos 20 px, ocupa varias.
+    expect(MediaQuery.textScalerOf(tester.element(message)).scale(10), 20);
+    expect(tester.getSize(message).height, greaterThan(40));
+    final retry = find.byKey(const Key('referrals-retry'));
+    expect(retry, findsOneWidget);
+    final rect = tester.getRect(retry);
+    expect(rect.left, greaterThanOrEqualTo(0));
+    expect(rect.right, lessThanOrEqualTo(320));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a 320 px con texto al doble el desplegable de orden no se '
       'desborda', (tester) async {
     await loadRoboto();
