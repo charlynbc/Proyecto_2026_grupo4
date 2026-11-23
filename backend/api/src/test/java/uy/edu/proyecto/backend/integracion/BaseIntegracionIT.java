@@ -565,6 +565,14 @@ abstract class BaseIntegracionIT {
                 Long.class, socio, numero);
     }
 
+    /** La atencion del medico de prueba sobre esa consulta (atencion tiene UNIQUE por consulta). */
+    long sembrarAtencion(long consulta) {
+        return jdbc.queryForObject(
+                "INSERT INTO atencion (id_consulta, id_medico, afeccion) VALUES (?, ?, 'Control')"
+                        + " RETURNING id_atencion",
+                Long.class, consulta, idMedico);
+    }
+
     String estadoConsulta(long consultaId) {
         return jdbc.queryForObject(
                 "SELECT estado FROM consulta WHERE id_consulta = ?", String.class, consultaId);
