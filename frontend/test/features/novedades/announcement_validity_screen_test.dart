@@ -197,6 +197,25 @@ void main() {
       expect(repo.validityCalls.single.from, isNull);
     });
 
+    testWidgets(
+      'vaciar solo la fecha de inicio borra su hora 00:00 y guarda sin '
+      'inicio',
+      (tester) async {
+        final repo = AdminTestRepo();
+        await _open(tester, repo, 20);
+        expect(_text(tester, _fromTime), '00:00');
+
+        await tester.enterText(_field(_fromDate), '');
+        await tester.pump();
+        expect(_text(tester, _fromTime), isEmpty);
+
+        await _save(tester);
+
+        expect(find.text('Elegí la fecha.'), findsNothing);
+        expect(repo.validityCalls.single.from, isNull);
+      },
+    );
+
     testWidgets('un 400 del servidor muestra su mensaje y no cierra', (
       tester,
     ) async {

@@ -20,6 +20,14 @@ class AnnouncementVisibilityController {
   /// pone quien valida el formulario, solo durante `validate()`.
   bool validating = false;
 
+  /// Los dos textos del inicio están vacíos.
+  bool get fromIsEmpty =>
+      fromDate.text.trim().isEmpty && fromTime.text.trim().isEmpty;
+
+  /// Los dos textos del fin están vacíos.
+  bool get untilIsEmpty =>
+      untilDate.text.trim().isEmpty && untilTime.text.trim().isEmpty;
+
   /// El instante de inicio, o `null` si la fecha o la hora no están completas
   /// y válidas.
   DateTime? get from => _instant(fromDate, fromTime);
@@ -117,7 +125,14 @@ class AnnouncementVisibilityFields extends ConsumerWidget {
       showErrorsNow: () => controller.validating,
       validator: (value) => _requireDate(value, time),
       onChanged: (day) {
-        if (day != null && time.text.trim().isEmpty) time.text = defaultTime;
+        if (day != null && time.text.trim().isEmpty) {
+          time.text = defaultTime;
+        } else if (date.text.trim().isEmpty &&
+            time.text.trim() == defaultTime) {
+          // Se vació la fecha: la hora que se puso sola ya no tiene sentido.
+          // Una hora escrita a mano se conserva.
+          time.clear();
+        }
         onEdited?.call();
       },
     );
