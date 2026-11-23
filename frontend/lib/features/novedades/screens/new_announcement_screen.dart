@@ -166,7 +166,10 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
     );
     final contentError = draft.validateContent();
     if (contentError != null) {
-      setState(() => _publishError = contentError);
+      setState(() {
+        _publishError = contentError;
+        _visibilityError = null;
+      });
       return;
     }
     final visibilityError = draft.validateVisibility(

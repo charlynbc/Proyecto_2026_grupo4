@@ -16,6 +16,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/load_roboto.dart';
 
 const _contentError = 'Agregá texto o al menos una imagen.';
+const _endError =
+    'La fecha de fin es obligatoria y debe ser posterior al inicio';
 const _serverError = 'No se pudo publicar la novedad de prueba.';
 
 class _Admin extends SessionNotifier {
@@ -264,6 +266,40 @@ void main() {
             .text,
         isNotEmpty,
       );
+    },
+  );
+
+  testWidgets(
+    'muestra un solo mensaje por toque: el de contenido reemplaza al de fecha',
+    (tester) async {
+      await _pump(tester);
+      await tester.enterText(_field('Título'), 'Prueba');
+      await tester.enterText(_field('Texto de la novedad'), 'x');
+      await _publish(tester);
+      expect(find.text(_endError), findsOneWidget);
+      expect(find.text(_contentError), findsNothing);
+      await tester.enterText(_field('Texto de la novedad'), '');
+      await _publish(tester);
+      expect(find.text(_contentError), findsOneWidget);
+      expect(find.text(_endError), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'sin contenido el error se limpia al escribir y vuelve al publicar de nuevo',
+    (tester) async {
+      final repository = await _pump(tester);
+      await tester.enterText(_field('Título'), 'Prueba');
+      await _publish(tester);
+      expect(find.text(_contentError), findsOneWidget);
+      await tester.enterText(_field('Texto de la novedad'), 'x');
+      await tester.pumpAndSettle();
+      expect(find.text(_contentError), findsNothing);
+      await tester.enterText(_field('Texto de la novedad'), '');
+      await tester.pumpAndSettle();
+      await _publish(tester);
+      expect(find.text(_contentError), findsOneWidget);
+      expect(repository.drafts, isEmpty);
     },
   );
 
