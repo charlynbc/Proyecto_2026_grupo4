@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** GET /api/notificaciones por HTTP y PostgreSQL real: solo los avisos del socio del token. */
@@ -167,17 +168,39 @@ class NotificacionesListaIT extends BaseIntegracionIT {
 
     @Test
     void unAvisoDeHistoriaActualizadaTraeElIdDeLaAtencionDeSuConsulta() {
+        // Una consulta con atencion y sin aviso consume el primer id de atencion: asi el id de la atencion
+        // del aviso (el segundo) no coincide con el id del aviso (el primero).
+        long consultaSinAviso = consultaDe(idSocio1);
+        sembrarAtencion(consultaSinAviso);
+        long consulta = consultaDe(idSocio1);
+        long atencion = sembrarAtencion(consulta);
+        long aviso = aviso(consulta, "HISTORIA_ACTUALIZADA", "2026-10-01T10:00:00Z", null);
+        assertNotEquals(atencion, aviso,
+                "el sembrado debe dar ids distintos de atencion y de aviso; si coinciden, un JOIN por el id "
+                        + "equivocado pasaria por casualidad (atencion=" + atencion + ", aviso=" + aviso + ")");
+
+        Respuesta r = get("/api/notificaciones", tokenSocio(ciSocio1));
+
+        assertEquals(atencion, itemDe(r, aviso).path("atencionId").asLong(), r.cuerpo());
+    }
+
+    @Test
+    void cadaAvisoDeHistoriaTraeLaAtencionDeSuConsultaAunqueSeCreenEnOrdenInverso() {
         long consultaA = consultaDe(idSocio1);
         long consultaB = consultaDe(idSocio1);
         long atencionA = sembrarAtencion(consultaA);
         long atencionB = sembrarAtencion(consultaB);
-        long avisoA = aviso(consultaA, "HISTORIA_ACTUALIZADA", "2026-10-01T10:00:00Z", null);
-        long avisoB = aviso(consultaB, "HISTORIA_ACTUALIZADA", "2026-10-02T10:00:00Z", null);
+        // Primero el aviso de la segunda consulta, despues el de la primera.
+        long avisoB = aviso(consultaB, "HISTORIA_ACTUALIZADA", "2026-10-01T10:00:00Z", null);
+        long avisoA = aviso(consultaA, "HISTORIA_ACTUALIZADA", "2026-10-02T10:00:00Z", null);
+        assertNotEquals(atencionA, avisoA, "ids de atencion y aviso de A coinciden: " + atencionA);
+        assertNotEquals(atencionB, avisoB, "ids de atencion y aviso de B coinciden: " + atencionB);
 
         Respuesta r = get("/api/notificaciones", tokenSocio(ciSocio1));
 
-        assertEquals(atencionA, itemDe(r, avisoA).path("atencionId").asLong());
-        assertEquals(atencionB, itemDe(r, avisoB).path("atencionId").asLong());
+        assertEquals(atencionA, itemDe(r, avisoA).path("atencionId").asLong(), r.cuerpo());
+        assertEquals(atencionB, itemDe(r, avisoB).path("atencionId").asLong(), r.cuerpo());
+        assertNotEquals(atencionA, atencionB);
     }
 
     @Test
