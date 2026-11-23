@@ -93,9 +93,14 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
     }
   }
 
+  /// El error del servidor se va con cualquier cambio. El de contenido se
+  /// vuelve a calcular y se va solo si ya no falta nada: escribir en el
+  /// título o el resumen no lo resuelve.
   void _clearErrors() {
     _publishError = null;
-    _contentError = null;
+    if (_contentError != null && _buildDraft().validateContent() == null) {
+      _contentError = null;
+    }
   }
 
   AnnouncementDraft _buildDraft() {

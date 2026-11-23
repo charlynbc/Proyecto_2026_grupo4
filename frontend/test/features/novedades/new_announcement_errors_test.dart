@@ -139,19 +139,39 @@ void main() {
     ('Resumen (opcional)', 'Inscripción abierta'),
     ('Texto de la novedad', '   '),
   ]) {
-    testWidgets('limpia publicación al cambiar $label y vuelve a validar', (
-      tester,
-    ) async {
+    testWidgets('el error de contenido sigue al cambiar $label si falta '
+        'contenido', (tester) async {
       final repository = await _pump(tester);
       await _contentFailure(tester);
       await tester.enterText(_field(label), value);
       await tester.pumpAndSettle();
-      expect(find.text(_contentError), findsNothing);
+      expect(find.text(_contentError), findsOneWidget);
       await _publish(tester);
       expect(find.text(_contentError), findsOneWidget);
       expect(repository.drafts, isEmpty);
     });
   }
+
+  testWidgets(
+    'el error de contenido sigue al escribir en el resumen y se limpia al '
+    'escribir texto',
+    (tester) async {
+      final repository = await _pump(tester);
+      await _contentFailure(tester);
+      await tester.enterText(_field('Resumen (opcional)'), 'Resumen');
+      await tester.pumpAndSettle();
+      expect(find.text(_contentError), findsOneWidget);
+      await tester.enterText(_field('Texto de la novedad'), 'x');
+      await tester.pumpAndSettle();
+      expect(find.text(_contentError), findsNothing);
+      await tester.enterText(_field('Texto de la novedad'), '');
+      await tester.pumpAndSettle();
+      expect(find.text(_contentError), findsNothing);
+      await _publish(tester);
+      expect(find.text(_contentError), findsOneWidget);
+      expect(repository.drafts, isEmpty);
+    },
+  );
 
   testWidgets('limpia publicación al agregar imágenes', (tester) async {
     await _pump(tester);
