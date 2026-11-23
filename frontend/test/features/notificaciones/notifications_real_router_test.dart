@@ -4,8 +4,11 @@ import 'package:agenda_medica/core/router/app_shell.dart';
 import 'package:agenda_medica/core/theme/app_theme.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
+import 'package:agenda_medica/features/historia_clinica/models/medical_history_entry.dart';
+import 'package:agenda_medica/features/historia_clinica/models/medical_history_query.dart';
 import 'package:agenda_medica/features/historia_clinica/providers/medical_history_repository_provider.dart';
 import 'package:agenda_medica/features/historia_clinica/repositories/fake_medical_history_repository.dart';
+import 'package:agenda_medica/features/historia_clinica/repositories/medical_history_repository.dart';
 import 'package:agenda_medica/features/historia_clinica/screens/medical_history_detail_screen.dart';
 import 'package:agenda_medica/features/historia_clinica/screens/medical_history_screen.dart';
 import 'package:agenda_medica/features/notificaciones/models/app_notification.dart';
@@ -55,7 +58,25 @@ Future<void> _settle(WidgetTester tester) => tester.pumpAndSettle(
   const Duration(seconds: 5),
 );
 
-Future<GoRouter> _pump(WidgetTester tester) async {
+/// La historia falsa, pero con el detalle de toda atención respondiendo 404
+/// (como si el servidor ya no la encontrara).
+class _MissingDetailRepository implements MedicalHistoryRepository {
+  final _fake = FakeMedicalHistoryRepository(latency: Duration.zero);
+
+  @override
+  Future<List<MedicalHistoryEntry>> list(MedicalHistoryQuery query) =>
+      _fake.list(query);
+
+  @override
+  Future<MedicalHistoryEntry> get(int id) =>
+      throw const MedicalHistoryNotFoundException();
+}
+
+Future<GoRouter> _pump(
+  WidgetTester tester, {
+  bool detailMissing = false,
+  String start = '/socio/avisos',
+}) async {
   tester.view.physicalSize = const Size(1100, 900);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -71,13 +92,15 @@ Future<GoRouter> _pump(WidgetTester tester) async {
         ),
       ),
       medicalHistoryRepositoryProvider.overrideWith(
-        (ref) async => FakeMedicalHistoryRepository(latency: Duration.zero),
+        (ref) async => detailMissing
+            ? _MissingDetailRepository()
+            : FakeMedicalHistoryRepository(latency: Duration.zero),
       ),
     ],
   );
   final router = container.read(goRouterProvider);
   // Fija el destino antes del montaje para no cargar otras pantallas.
-  router.go('/socio/avisos');
+  router.go(start);
   addTearDown(() async {
     await tester.pumpWidget(const SizedBox.shrink());
     router.dispose();
@@ -158,5 +181,64 @@ void main() {
 
     expect(find.byType(MedicalHistoryScreen), findsNothing);
     expect(find.byType(NotificationsScreen), findsOneWidget);
+  });
+
+  testWidgets('si el detalle responde 404 entrando desde Avisos, el botón '
+      'lleva a la lista de la historia', (tester) async {
+    final router = await _pump(tester, detailMissing: true);
+
+    await tester.tap(find.byKey(const Key('notification-15040')));
+    await _settle(tester);
+
+    expect(find.byType(MedicalHistoryDetailScreen), findsOneWidget);
+    expect(find.text('Reintentar'), findsNothing);
+    final button = find.widgetWithText(
+      OutlinedButton,
+      'Ir a mi historia clínica',
+    );
+    expect(button, findsOneWidget);
+
+    await tester.tap(button);
+    await _settle(tester);
+
+    expect(find.byType(MedicalHistoryDetailScreen), findsNothing);
+    expect(find.byType(MedicalHistoryScreen), findsOneWidget);
+    expect(router.state.uri.path, '/socio/historia');
+    expect(find.byType(AppShell, skipOffstage: false), findsOneWidget);
+  });
+
+  testWidgets('si el detalle responde 404 entrando desde la lista de la '
+      'historia, el botón lleva a esa lista', (tester) async {
+    final router = await _pump(
+      tester,
+      detailMissing: true,
+      start: '/socio/historia',
+    );
+    expect(find.byType(MedicalHistoryScreen), findsOneWidget);
+
+    final card = find.byKey(const ValueKey('medical-history-entry-12'));
+    final open = find.descendant(
+      of: card,
+      matching: find.widgetWithText(OutlinedButton, 'Ver detalle'),
+    );
+    await tester.ensureVisible(open);
+    await tester.tap(open);
+    await _settle(tester);
+
+    expect(find.byType(MedicalHistoryDetailScreen), findsOneWidget);
+    final button = find.widgetWithText(
+      OutlinedButton,
+      'Ir a mi historia clínica',
+    );
+    expect(button, findsOneWidget);
+    expect(find.text('Reintentar'), findsNothing);
+
+    await tester.tap(button);
+    await _settle(tester);
+
+    expect(find.byType(MedicalHistoryDetailScreen), findsNothing);
+    expect(find.byType(MedicalHistoryScreen), findsOneWidget);
+    expect(router.state.uri.path, '/socio/historia');
+    expect(find.byType(AppShell, skipOffstage: false), findsOneWidget);
   });
 }
