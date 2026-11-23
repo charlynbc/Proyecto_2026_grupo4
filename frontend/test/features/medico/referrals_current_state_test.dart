@@ -448,6 +448,37 @@ void main() {
     },
   );
 
+  testWidgets('Reintentar muestra la carga y oculta el aviso hasta que llega '
+      'la respuesta', (tester) async {
+    final harness = await _pump(tester);
+    _markReferral78Used(harness.referrals);
+    harness.router.go(kDoctorAttentionsPath);
+    await _settle(tester);
+    harness.repository.failNextList = true;
+    harness.router.go(kDoctorReferralsPath);
+    await _settle(tester);
+    expect(
+      find.text('Fallo controlado al actualizar los pases.'),
+      findsOneWidget,
+    );
+    final gate = harness.repository.delayNextList();
+
+    await tester.tap(find.byKey(const Key('referrals-retry')));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(harness.repository.listCalls, 3);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      find.text('Fallo controlado al actualizar los pases.'),
+      findsNothing,
+    );
+
+    gate.complete();
+    await _settle(tester);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(tester.widget<Text>(_status(78)).data, 'Utilizado');
+  });
+
   testWidgets('a 320 px muestra un pase sin excepciones de layout', (
     tester,
   ) async {

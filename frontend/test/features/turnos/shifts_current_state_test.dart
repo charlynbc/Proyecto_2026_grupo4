@@ -48,8 +48,16 @@ class _ControlledShiftRepository extends FakeShiftRepository {
   Completer<void>? _secondListGate;
   Completer<void>? _weekdayListGate;
   Completer<void>? _activeGate;
+  Completer<void>? _nextGate;
 
   int get listCalls => filters.length;
+
+  /// Frena el próximo pedido de la lista, sea cual sea.
+  Completer<void> delayNextList() {
+    final gate = Completer<void>();
+    _nextGate = gate;
+    return gate;
+  }
 
   Completer<void> delaySecondList() {
     final gate = Completer<void>();
@@ -64,7 +72,8 @@ class _ControlledShiftRepository extends FakeShiftRepository {
   }
 
   void releasePending() {
-    final gates = [_secondListGate, _weekdayListGate, _activeGate];
+    final gates = [_secondListGate, _weekdayListGate, _nextGate, _activeGate];
+    _nextGate = null;
     _secondListGate = null;
     _weekdayListGate = null;
     _activeGate = null;
@@ -77,7 +86,10 @@ class _ControlledShiftRepository extends FakeShiftRepository {
   Future<ShiftPage> listShifts(ShiftFilters query) async {
     filters.add(query);
     final Completer<void>? gate;
-    if (query.weekday == 2) {
+    if (_nextGate != null) {
+      gate = _nextGate;
+      _nextGate = null;
+    } else if (query.weekday == 2) {
       gate = _weekdayListGate;
       _weekdayListGate = null;
     } else if (filters.length == 2) {
@@ -390,6 +402,31 @@ void main() {
       expect(_rowForDate(tester, '20/10/2026')[7], 'Activa');
     },
   );
+
+  testWidgets('Reintentar muestra la carga y oculta el aviso hasta que llega '
+      'la respuesta', (tester) async {
+    final harness = await _pump(tester);
+    _suspendDate(harness, DateTime.utc(2026, 10, 20));
+    harness.router.go('/funcionario/llegada');
+    await _settle(tester);
+    harness.repository.failNextList = true;
+    harness.router.go(kShiftsPath);
+    await _settle(tester);
+    expect(find.text(_visibleListError), findsOneWidget);
+    final gate = harness.repository.delayNextList();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Reintentar'));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(harness.repository.listCalls, 3);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text(_visibleListError), findsNothing);
+
+    gate.complete();
+    await _settle(tester);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(_rowForDate(tester, '20/10/2026')[7], 'Suspendida');
+  });
 
   testWidgets('a 320 px muestra un turno sin excepciones de layout', (
     tester,

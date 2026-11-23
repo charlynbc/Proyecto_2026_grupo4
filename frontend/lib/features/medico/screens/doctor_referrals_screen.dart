@@ -41,6 +41,11 @@ class DoctorReferralsScreen extends ConsumerWidget {
                 _Filters(query: query),
                 const SizedBox(height: 16),
                 referrals.when(
+                  // Al refrescar con datos a la vista se conserva la lista. Si
+                  // el estado anterior era un error (que conserva el dato
+                  // viejo dentro), "Reintentar" muestra la carga.
+                  skipLoadingOnRefresh:
+                      referrals.hasValue && !referrals.hasError,
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
                   error: (error, _) => _ErrorMessage(
