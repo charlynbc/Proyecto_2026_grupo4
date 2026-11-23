@@ -304,6 +304,22 @@ void main() {
   );
 
   testWidgets(
+    'una fecha inválida tras un error del servidor deja solo el mensaje de fecha',
+    (tester) async {
+      final repository = await _pump(tester);
+      await _serverFailure(tester);
+      expect(repository.drafts, hasLength(1));
+      await tester.enterText(_field('Visible hasta: fecha'), '10/11/2026');
+      await tester.pumpAndSettle();
+      expect(find.text(_serverError), findsOneWidget);
+      await _publish(tester);
+      expect(find.text(_endError), findsOneWidget);
+      expect(find.text(_serverError), findsNothing);
+      expect(repository.drafts, hasLength(1));
+    },
+  );
+
+  testWidgets(
     'a 320 px con texto x2 permite corregir publicación sin desbordes',
     (tester) async {
       await _pump(tester, width: 320, scale: 2);
