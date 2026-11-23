@@ -117,7 +117,14 @@ class AnnouncementVisibilityFields extends ConsumerWidget {
       showErrorsNow: () => controller.validating,
       validator: (value) => _requireDate(value, time),
       onChanged: (day) {
-        if (day != null && time.text.trim().isEmpty) time.text = defaultTime;
+        if (day != null && time.text.trim().isEmpty) {
+          time.text = defaultTime;
+        } else if (date.text.trim().isEmpty &&
+            time.text.trim() == defaultTime) {
+          // Se vació la fecha: la hora que se puso sola ya no tiene sentido.
+          // Una hora escrita a mano se conserva.
+          time.clear();
+        }
         onEdited?.call();
       },
     );
