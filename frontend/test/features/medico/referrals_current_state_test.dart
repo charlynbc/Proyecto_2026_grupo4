@@ -190,6 +190,7 @@ Future<void> _settle(WidgetTester tester) => tester.pumpAndSettle(
 Future<_Harness> _pump(
   WidgetTester tester, {
   Size size = const Size(1100, 1000),
+  double textScale = 1,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -235,6 +236,11 @@ Future<_Harness> _pump(
         supportedLocales: const [Locale('es', 'UY')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
         routerConfig: router,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
       ),
     ),
   );
@@ -477,6 +483,41 @@ void main() {
     await _settle(tester);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.widget<Text>(_status(78)).data, 'Utilizado');
+  });
+
+  testWidgets('a 320 px con texto al doble el desplegable de orden no se '
+      'desborda', (tester) async {
+    await loadRoboto();
+    await _pump(tester, size: const Size(320, 800), textScale: 2);
+
+    expect(tester.takeException(), isNull);
+    final rect = tester.getRect(find.byKey(const Key('referrals-order')));
+    expect(rect.left, greaterThanOrEqualTo(0));
+    expect(rect.right, lessThanOrEqualTo(320));
+  });
+
+  testWidgets('a 320 px con texto al doble y el aviso de error a la vista el '
+      'desplegable de orden no se desborda', (tester) async {
+    await loadRoboto();
+    final harness = await _pump(
+      tester,
+      size: const Size(320, 800),
+      textScale: 2,
+    );
+    harness.router.go(kDoctorAttentionsPath);
+    await _settle(tester);
+    harness.repository.failNextList = true;
+    harness.router.go(kDoctorReferralsPath);
+    await _settle(tester);
+    expect(
+      find.text('Fallo controlado al actualizar los pases.'),
+      findsOneWidget,
+    );
+
+    expect(tester.takeException(), isNull);
+    final rect = tester.getRect(find.byKey(const Key('referrals-order')));
+    expect(rect.left, greaterThanOrEqualTo(0));
+    expect(rect.right, lessThanOrEqualTo(320));
   });
 
   testWidgets('a 320 px muestra un pase sin excepciones de layout', (
