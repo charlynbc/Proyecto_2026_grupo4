@@ -372,7 +372,8 @@ public class TurnoFechasRepository {
                                notificacion.contenido,
                                t.fecha, n.hora_inicio, n.hora_fin,
                                e.nombre AS especialidad_nombre,
-                               p.nombre AS socio_nombre
+                               p.nombre AS socio_nombre,
+                               CASE WHEN notificacion.tipo = 'HISTORIA_ACTUALIZADA' THEN atencion.id_atencion END AS atencion_id
                         FROM public.envio_notificacion envio
                         JOIN public.notificacion notificacion
                           ON notificacion.id_notificacion = envio.id_notificacion
@@ -387,6 +388,7 @@ public class TurnoFechasRepository {
                           ON ts.id_turno_semanal = t.id_turno_semanal
                         JOIN public.especialidad e
                           ON e.id_especialidad = ts.id_especialidad
+                        LEFT JOIN public.atencion atencion ON atencion.id_consulta = notificacion.id_consulta
                         LEFT JOIN public.dispositivo_push dispositivo
                           ON dispositivo.id_dispositivo = envio.id_dispositivo
                         WHERE envio.id_envio = ?
@@ -405,7 +407,8 @@ public class TurnoFechasRepository {
                                 rs.getObject("hora_inicio", LocalTime.class),
                                 rs.getObject("hora_fin", LocalTime.class),
                                 rs.getString("especialidad_nombre"),
-                                rs.getString("socio_nombre")
+                                rs.getString("socio_nombre"),
+                                rs.getObject("atencion_id", Long.class)
                         ),
                         envioId
                 )
@@ -575,7 +578,8 @@ public class TurnoFechasRepository {
             LocalTime horaInicio,
             LocalTime horaFin,
             String especialidad,
-            String socioNombre
+            String socioNombre,
+            Long atencionId
     ) {
     }
 }
