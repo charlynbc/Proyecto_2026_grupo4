@@ -45,4 +45,23 @@ public final class ReglaCancelableSocio {
         }
         return ReglaCancelableAgenda.evaluar(estado, fecha, horaInicio, zona, ahora, horasMinimas);
     }
+
+    /** La consulta con {@code cancelable} resuelto por esta regla, a partir de sus propios datos. */
+    public static ConsultaDTO aplicar(
+            ConsultaDTO consulta,
+            boolean llegadaRegistrada,
+            ZoneId zona,
+            ZonedDateTime ahora,
+            int horasMinimas
+    ) {
+        return consulta.conCancelable(evaluar(
+                consulta.estado(),
+                consulta.fecha(),
+                consulta.horaInicio(),
+                zona,
+                ahora,
+                horasMinimas,
+                llegadaRegistrada
+        ));
+    }
 }

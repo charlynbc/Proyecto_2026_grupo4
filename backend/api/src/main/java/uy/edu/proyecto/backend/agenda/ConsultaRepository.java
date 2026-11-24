@@ -16,6 +16,21 @@ import uy.edu.proyecto.backend.especialidad.Especialidad;
 @Repository
 public class ConsultaRepository {
 
+    /**
+     * El aviso de llegada del socio ese dia (RF-10): hoy la llegada cuenta por
+     * socio y dia, no por consulta. Es la unica definicion SQL de ese criterio:
+     * la usan el estado calculado NO_ATENDIDA, la columna llegada_registrada
+     * de la CTE y existeAvisoLlegada. Si la regla pasa a ser por consulta, se
+     * cambia aca y en ReglaCancelableSocio.
+     */
+    private static String avisoDeLlegadaEnElDia(String socio, String fecha) {
+        return "EXISTS (SELECT 1 FROM public.aviso_llegada aviso WHERE aviso.id_socio = "
+                + socio + " AND aviso.fecha = " + fecha + ")";
+    }
+
+    private static final String LLEGADA_EN_LA_CTE =
+            avisoDeLlegadaEnElDia("consulta.id_socio", "turno.fecha");
+
     private static final String HISTORIAL_CTE = """
             WITH consulta_historial AS (
                 SELECT consulta.id_consulta,
@@ -25,16 +40,12 @@ public class ConsultaRepository {
                                 AND consulta.fecha_resultado IS NULL
                                 AND turno.fecha < ? THEN
                                CASE
-                                   WHEN EXISTS (
-                                       SELECT 1
-                                       FROM public.aviso_llegada aviso
-                                       WHERE aviso.id_socio = consulta.id_socio
-                                         AND aviso.fecha = turno.fecha
-                                   ) THEN 'NO_ATENDIDA'
+                                   WHEN %s THEN 'NO_ATENDIDA'
                                    ELSE 'NO_ASISTIO'
                                END
                            ELSE consulta.estado
                        END AS estado,
+                       %s AS llegada_registrada,
                        turno.fecha,
                        numero.numero,
                        numero.hora_inicio,
@@ -69,37 +80,45 @@ public class ConsultaRepository {
                   ON consultorio.id_consultorio = turno.id_consultorio
                 WHERE consulta.id_socio = ?
             )
-            """;
+            """.formatted(LLEGADA_EN_LA_CTE, LLEGADA_EN_LA_CTE);
 
-    private static final org.springframework.jdbc.core.RowMapper<ConsultaDTO>
-            HISTORIAL_ROW_MAPPER = (rs, rowNum) -> new ConsultaDTO(
-                    rs.getLong("id_consulta"),
-                    rs.getString("estado"),
-                    rs.getObject("fecha", LocalDate.class),
-                    rs.getInt("numero"),
-                    rs.getObject("hora_inicio", LocalTime.class).toString(),
-                    rs.getObject("hora_fin", LocalTime.class).toString(),
-                    new ConsultaDTO.MedicoRef(
-                            rs.getLong("id_medico"),
-                            rs.getString("medico_nombre"),
-                            rs.getString("medico_apellido")
+    /**
+     * Arma la consulta tal como esta en la base y avisa si el socio registro
+     * llegada ese dia. No calcula cancelable: eso lo hace el servicio con
+     * ReglaCancelableSocio, el reloj y el plazo del servidor.
+     */
+    private static final org.springframework.jdbc.core.RowMapper<ConsultaConLlegada>
+            HISTORIAL_ROW_MAPPER = (rs, rowNum) -> new ConsultaConLlegada(
+                    new ConsultaDTO(
+                            rs.getLong("id_consulta"),
+                            rs.getString("estado"),
+                            rs.getObject("fecha", LocalDate.class),
+                            rs.getInt("numero"),
+                            rs.getObject("hora_inicio", LocalTime.class).toString(),
+                            rs.getObject("hora_fin", LocalTime.class).toString(),
+                            new ConsultaDTO.MedicoRef(
+                                    rs.getLong("id_medico"),
+                                    rs.getString("medico_nombre"),
+                                    rs.getString("medico_apellido")
+                            ),
+                            new Especialidad(
+                                    rs.getLong("id_especialidad"),
+                                    rs.getString("especialidad_nombre"),
+                                    rs.getBoolean("requiere_pase")
+                            ),
+                            new Consultorio(
+                                    rs.getLong("id_consultorio"),
+                                    rs.getString("consultorio_nombre"),
+                                    rs.getString("consultorio_ubicacion")
+                            ),
+                            (Long) rs.getObject("id_pase"),
+                            rs.getObject("agendada_en", OffsetDateTime.class),
+                            rs.getObject("cancelada_en", OffsetDateTime.class),
+                            rs.getString("motivo_cancelacion"),
+                            // Sin calcular: el servicio lo resuelve con la regla.
+                            false
                     ),
-                    new Especialidad(
-                            rs.getLong("id_especialidad"),
-                            rs.getString("especialidad_nombre"),
-                            rs.getBoolean("requiere_pase")
-                    ),
-                    new Consultorio(
-                            rs.getLong("id_consultorio"),
-                            rs.getString("consultorio_nombre"),
-                            rs.getString("consultorio_ubicacion")
-                    ),
-                    (Long) rs.getObject("id_pase"),
-                    rs.getObject("agendada_en", OffsetDateTime.class),
-                    rs.getObject("cancelada_en", OffsetDateTime.class),
-                    rs.getString("motivo_cancelacion"),
-                    // El servicio lo calcula con la regla y el reloj; el mapper no decide nada.
-                    false
+                    rs.getBoolean("llegada_registrada")
             );
 
     private final JdbcTemplate jdbcTemplate;
@@ -412,13 +431,7 @@ public class ConsultaRepository {
     // Consulta separada del bloqueo: en READ COMMITTED ve un aviso confirmado mientras se esperaba el bloqueo.
     public boolean existeAvisoLlegada(Long socioId, LocalDate fecha) {
         return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
-                """
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM public.aviso_llegada
-                    WHERE id_socio = ? AND fecha = ?
-                )
-                """,
+                "SELECT " + avisoDeLlegadaEnElDia("?", "?"),
                 Boolean.class,
                 socioId,
                 fecha
@@ -579,7 +592,7 @@ public class ConsultaRepository {
                 .findFirst();
     }
 
-    public ConsultaHistorialPageResponse listarHistorial(
+    public PaginaHistorial listarHistorial(
             Long socioId,
             ConsultaHistorialFiltro filtro,
             LocalDate hoyUruguay
@@ -612,7 +625,7 @@ public class ConsultaRepository {
         List<Object> paginaParametros = new ArrayList<>(parametros);
         paginaParametros.add(filtro.size());
         paginaParametros.add((long) filtro.page() * filtro.size());
-        List<ConsultaDTO> items = jdbcTemplate.query(
+        List<ConsultaConLlegada> items = jdbcTemplate.query(
                 HISTORIAL_CTE
                         + """
                         SELECT *
@@ -625,7 +638,7 @@ public class ConsultaRepository {
                 HISTORIAL_ROW_MAPPER,
                 paginaParametros.toArray()
         );
-        return new ConsultaHistorialPageResponse(
+        return new PaginaHistorial(
                 items,
                 filtro.page(),
                 filtro.size(),
@@ -633,7 +646,7 @@ public class ConsultaRepository {
         );
     }
 
-    public Optional<ConsultaDTO> obtenerHistorialDelSocio(
+    public Optional<ConsultaConLlegada> obtenerHistorialDelSocio(
             Long socioId,
             Long consultaId,
             LocalDate hoyUruguay
@@ -713,5 +726,18 @@ public class ConsultaRepository {
     }
 
     public record PaseParaAgendar(Long id, LocalDate venceEl) {
+    }
+
+    /** Una consulta del historial y si el socio registro llegada ese dia; cancelable aun sin calcular. */
+    public record ConsultaConLlegada(ConsultaDTO consulta, boolean llegadaRegistrada) {
+    }
+
+    /** Una pagina del historial con la llegada de cada consulta; el servicio la convierte en la respuesta. */
+    public record PaginaHistorial(
+            List<ConsultaConLlegada> items,
+            int page,
+            int size,
+            long total
+    ) {
     }
 }

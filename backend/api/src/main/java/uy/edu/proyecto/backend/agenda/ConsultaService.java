@@ -2,6 +2,7 @@ package uy.edu.proyecto.backend.agenda;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.time.ZonedDateTime;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
@@ -124,7 +125,14 @@ public class ConsultaService {
                 )
         );
         envios.solicitar(notificacionId, socioId);
-        return consulta;
+        // cancelable: la misma regla que la lectura, con la llegada del socio ese dia.
+        return ReglaCancelableSocio.aplicar(
+                consulta,
+                repository.existeAvisoLlegada(socioId, consulta.fecha()),
+                clock.getZone(),
+                ZonedDateTime.now(clock),
+                parametros.cancelarAnticipacionMinimaHoras()
+        );
     }
 
     private static String mensajeLimiteTotal(int limite) {

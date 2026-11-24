@@ -120,7 +120,8 @@ class ConsultaServiceTest {
     void laLlegadaDeOtroDiaNoAfectaAlCancelableDeLaRespuesta() {
         when(repository.crear(SOCIO_ID, numero(false), null))
                 .thenReturn(Optional.of(consultaEsperada(null)));
-        when(repository.existeAvisoLlegada(SOCIO_ID, LocalDate.of(2026, 11, 4))).thenReturn(true);
+        // Mockito estricto avisa si se llama con otros argumentos; aca eso es justo lo que se prueba.
+        lenient().when(repository.existeAvisoLlegada(SOCIO_ID, LocalDate.of(2026, 11, 4))).thenReturn(true);
         when(repository.crearNotificacionAgenda(9001L, CUERPO_AGENDA)).thenReturn(7001L);
 
         assertEquals(true, service.agendar(SOCIO_ID, SOLICITUD).cancelable());
