@@ -22,12 +22,14 @@ AppNotification _notification(
   String title,
   int? consultaId,
   String content,
-  DateTime createdAt,
-) => AppNotification(
+  DateTime createdAt, {
+  int? atencionId,
+}) => AppNotification(
   id: id,
   type: type,
   title: title,
   consultaId: consultaId,
+  atencionId: atencionId,
   content: content,
   createdAt: createdAt,
 );
@@ -147,6 +149,11 @@ GoRouter _router() => GoRouter(
       path: '/socio/historia',
       builder: (context, state) =>
           const Scaffold(body: Text('Lista de historia clínica')),
+    ),
+    GoRoute(
+      path: '/socio/historia/:id',
+      builder: (context, state) =>
+          Scaffold(body: Text('Atención ${state.pathParameters['id']}')),
     ),
   ],
 );
@@ -564,6 +571,54 @@ void main() {
 
       expect(find.byType(NotificationsScreen), findsOneWidget);
       expect(find.text('Lista de historia clínica'), findsNothing);
+    });
+
+    testWidgets('un aviso de historia actualizada con atencionId 4100 abre el '
+        'detalle de esa atención y no la lista', (tester) async {
+      final historia = _notification(
+        15021,
+        'HISTORIA_ACTUALIZADA',
+        'Historia clínica actualizada',
+        9110,
+        'Tu historia clínica fue actualizada.',
+        createdAt,
+        atencionId: 4100,
+      );
+      final router = _router();
+      await _pump(tester, _one([historia]), router: router);
+
+      await tester.tap(find.byKey(const Key('notification-15021')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Atención 4100'), findsOneWidget);
+      expect(find.text('Lista de historia clínica'), findsNothing);
+      expect(find.text('Detalle 9110'), findsNothing);
+
+      router.pop();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NotificationsScreen), findsOneWidget);
+      expect(find.text('Atención 4100'), findsNothing);
+    });
+
+    testWidgets('un aviso que no es de historia ignora el atencionId y abre la '
+        'consulta', (tester) async {
+      final agenda = _notification(
+        15022,
+        'AGENDA',
+        'Consulta agendada',
+        9105,
+        'Contenido de prueba.',
+        createdAt,
+        atencionId: 4100,
+      );
+      await _pump(tester, _one([agenda]), router: _router());
+
+      await tester.tap(find.byKey(const Key('notification-15022')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Detalle 9105'), findsOneWidget);
+      expect(find.text('Atención 4100'), findsNothing);
     });
 
     for (final (type, title, consultaId) in [
