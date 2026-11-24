@@ -15,6 +15,7 @@ import 'package:agenda_medica/features/notificaciones/providers/notification_lis
 import 'package:agenda_medica/features/notificaciones/providers/push_notification_provider.dart';
 import 'package:agenda_medica/features/notificaciones/repositories/fake_notification_repository.dart';
 import 'package:agenda_medica/features/notificaciones/screens/notifications_screen.dart';
+import 'package:agenda_medica/features/notificaciones/services/push_notification_service.dart';
 import 'package:agenda_medica/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -139,6 +140,42 @@ void main() {
 
     expect(find.byType(NotificationsScreen), findsOneWidget);
     expect(_path(tester), '/socio/avisos');
+  });
+
+  testWidgets('con la app abierta el aviso ofrece Ver y abre el detalle', (
+    tester,
+  ) async {
+    final service = FakePushService();
+    // Los avisos en primer plano se escuchan desde que un socio inicia sesión.
+    final container = await _pumpApp(tester, service: service, loggedIn: false);
+    container
+        .read(sessionProvider.notifier)
+        .setAuthenticated(accessToken: 'access-token', role: UserRole.socio);
+    await _settle(tester);
+
+    service.messages.add(
+      const ForegroundPushMessage(
+        title: 'Historia clínica actualizada',
+        body: 'Tu historia clínica fue actualizada.',
+        tap: _historiaConAtencion,
+      ),
+    );
+    // El aviso entra con una animación: hay que dejarla terminar antes de tocar.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(MedicalHistoryDetailScreen), findsNothing);
+
+    await tester.tap(find.text('Ver'));
+    await _settle(tester);
+
+    expect(find.byType(MedicalHistoryDetailScreen), findsOneWidget);
+    expect(_path(tester), '/socio/historia/12');
+
+    await tester.tap(find.byType(BackButton));
+    await _settle(tester);
+
+    expect(find.byType(NotificationsScreen), findsOneWidget);
   });
 
   testWidgets('un toque de otro tipo abre solo Avisos', (tester) async {

@@ -16,6 +16,7 @@ import 'core/theme/app_scroll_behavior.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/models/user_role.dart';
 import 'features/auth/providers/session_provider.dart';
+import 'features/notificaciones/providers/push_navigation_provider.dart';
 import 'features/notificaciones/providers/push_notification_provider.dart';
 import 'features/notificaciones/providers/push_registration_provider.dart';
 import 'features/notificaciones/services/android_firebase_init.dart';
@@ -53,6 +54,13 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> {
   StreamSubscription<ForegroundPushMessage>? _pushSubscription;
 
+  @override
+  void initState() {
+    super.initState();
+    // Atiende el push que abrió la app y los que se toquen en segundo plano.
+    unawaited(ref.read(pushNavigationControllerProvider).start());
+  }
+
   /// Un socio inició sesión: muestra los avisos que lleguen con la app abierta
   /// y registra el token del dispositivo (RNF-23). Con `USE_FAKES`, en la web
   /// o fuera de Android el servicio no hace nada.
@@ -61,7 +69,15 @@ class _MyAppState extends ConsumerState<MyApp> {
     _pushSubscription?.cancel();
     _pushSubscription = service.foregroundMessages.listen((message) {
       _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text('${message.title}: ${message.body}')),
+        SnackBar(
+          content: Text('${message.title}: ${message.body}'),
+          action: SnackBarAction(
+            label: 'Ver',
+            onPressed: () => unawaited(
+              ref.read(pushNavigationControllerProvider).handleTap(message.tap),
+            ),
+          ),
+        ),
       );
     });
     await ref.read(pushRegistrationControllerProvider).start();
@@ -95,6 +111,8 @@ class _MyAppState extends ConsumerState<MyApp> {
         unawaited(_onAuthenticated());
       }
       if (lostSession) _onSessionEnded();
+      // Un toque de push sin sesión espera a que se autentique un socio.
+      ref.read(pushNavigationControllerProvider).onSessionChanged(next);
     });
     return MaterialApp.router(
       title: kMutualistaName,
