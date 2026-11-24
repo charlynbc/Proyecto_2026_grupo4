@@ -97,7 +97,9 @@ public class ConsultaRepository {
                     (Long) rs.getObject("id_pase"),
                     rs.getObject("agendada_en", OffsetDateTime.class),
                     rs.getObject("cancelada_en", OffsetDateTime.class),
-                    rs.getString("motivo_cancelacion")
+                    rs.getString("motivo_cancelacion"),
+                    // El servicio lo calcula con la regla y el reloj; el mapper no decide nada.
+                    false
             );
 
     private final JdbcTemplate jdbcTemplate;
@@ -365,7 +367,9 @@ public class ConsultaRepository {
                                         "cancelada_en",
                                         OffsetDateTime.class
                                 ),
-                                rs.getString("motivo_cancelacion")
+                                rs.getString("motivo_cancelacion"),
+                                // El servicio lo calcula con la regla y el reloj.
+                                false
                         ),
                         socioId,
                         numero.idNumero(),

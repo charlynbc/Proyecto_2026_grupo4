@@ -262,7 +262,8 @@ class AvisoLlegadaServiceTest {
                 77L,
                 OffsetDateTime.parse("2026-10-14T10:12:45-03:00"),
                 null,
-                null
+                null,
+                false
         );
     }
 

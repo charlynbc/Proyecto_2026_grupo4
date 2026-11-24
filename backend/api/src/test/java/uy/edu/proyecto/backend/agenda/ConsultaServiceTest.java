@@ -477,7 +477,8 @@ class ConsultaServiceTest {
                 paseId,
                 OffsetDateTime.parse("2026-10-21T15:00:00-03:00"),
                 null,
-                null
+                null,
+                false
         );
     }
 }

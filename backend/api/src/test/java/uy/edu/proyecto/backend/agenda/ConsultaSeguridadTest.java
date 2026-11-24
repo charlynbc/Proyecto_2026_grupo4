@@ -259,7 +259,8 @@ class ConsultaSeguridadTest {
                         77L,
                         OffsetDateTime.parse("2026-10-21T15:00:00-03:00"),
                         null,
-                        null
+                        null,
+                        true
                 )
         );
 
@@ -278,7 +279,8 @@ class ConsultaSeguridadTest {
                 .andExpect(jsonPath("$.paseId").value(77))
                 .andExpect(jsonPath("$.medico.nombre").value("Marta"))
                 .andExpect(jsonPath("$.especialidad.requierePase").value(true))
-                .andExpect(jsonPath("$.consultorio.ubicacion").value("Piso 2"));
+                .andExpect(jsonPath("$.consultorio.ubicacion").value("Piso 2"))
+                .andExpect(jsonPath("$.cancelable").value(true));
 
         verify(service).agendar(eq(91L), any(CrearConsultaRequest.class));
     }
@@ -297,7 +299,8 @@ class ConsultaSeguridadTest {
                 null,
                 OffsetDateTime.parse("2026-10-14T10:12:45-03:00"),
                 null,
-                null
+                null,
+                false
         );
     }
 }
