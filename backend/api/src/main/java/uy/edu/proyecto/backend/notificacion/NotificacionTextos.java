@@ -22,7 +22,7 @@ public final class NotificacionTextos {
             "RECORDATORIO", "Recordatorio de consulta"
     );
 
-    /** El aviso de historia clinica nunca lleva datos clinicos (R-MDAT-20). */
+    /** El aviso de historia clinica nunca lleva datos clinicos: es una regla de privacidad. */
     public static final String CUERPO_HISTORIA_ACTUALIZADA =
             "Tu historia clínica fue actualizada.";
 
