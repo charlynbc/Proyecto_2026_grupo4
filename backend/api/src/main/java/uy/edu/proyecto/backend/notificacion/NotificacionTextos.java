@@ -42,6 +42,11 @@ public final class NotificacionTextos {
         return HORA.format(hora);
     }
 
+    /** El nombre del medico en un aviso: nombre y apellido, como en el de agenda. */
+    public static String medico(String nombre, String apellido) {
+        return nombre + " " + apellido;
+    }
+
     /** Cuerpo del aviso de una consulta recien agendada (fecha dd/mm/aaaa y hora de 24 h). */
     public static String cuerpoAgenda(
             String especialidad,
@@ -77,63 +82,57 @@ public final class NotificacionTextos {
     }
 
     /** Cancelacion que hace un funcionario a pedido del socio (RF-19). */
-    public static String cuerpoCancelacionASolicitudDelSocio(LocalDate fecha) {
-        return "Tu consulta del " + fecha(fecha) + " fue cancelada a tu solicitud.";
+    public static String cuerpoCancelacionASolicitudDelSocio(
+            String especialidad,
+            String medico,
+            LocalDate fecha,
+            LocalTime hora
+    ) {
+        return "Tu consulta de " + especialidad + " con " + medico
+                + " del " + fecha(fecha) + " a las " + hora(hora)
+                + " fue cancelada a tu solicitud.";
     }
 
-    /** Cancelacion que hace un funcionario por otro motivo, administrativo u otro (RF-19). */
-    public static String cuerpoCancelacionPorOtroMotivo(LocalDate fecha, String motivo) {
-        return "Tu consulta del " + fecha(fecha)
-                + " fue cancelada por la institución. Motivo: " + motivo;
+    /**
+     * Cancelacion de una consulta por la institucion: la hace un funcionario
+     * por otro motivo (RF-19) o el medico (RF-27). Sin motivo no lleva la
+     * oracion del motivo.
+     */
+    public static String cuerpoCancelacionPorInstitucion(
+            String especialidad,
+            String medico,
+            LocalDate fecha,
+            LocalTime hora,
+            String motivo
+    ) {
+        return "Tu consulta de " + especialidad + " con " + medico
+                + " del " + fecha(fecha) + " a las " + hora(hora)
+                + " fue cancelada por la institución." + oracionMotivo(motivo);
     }
 
-    /** Cancelacion de una consulta por el medico (RF-27). */
-    public static String cuerpoCancelacionPorMedico(LocalDate fecha, String motivo) {
-        return "Tu consulta del " + fecha(fecha)
-                + " fue cancelada por la institución. Motivo: " + motivo;
-    }
-
-    /** Consulta cancelada porque el medico cancelo todo su turno (RF-27). */
-    public static String cuerpoSuspensionPorMedico(
+    /**
+     * Consulta cancelada porque se suspendio el turno completo: lo hace el
+     * medico (RF-27) o un funcionario (RF-14). Sin motivo no lleva la oracion
+     * del motivo.
+     */
+    public static String cuerpoSuspension(
+            String especialidad,
+            String medico,
             LocalDate fecha,
             LocalTime horaInicio,
             LocalTime horaFin,
             int numero,
             String motivo
     ) {
-        return "Tu consulta del " + fecha(fecha)
+        return "Tu consulta de " + especialidad + " con " + medico
+                + " del " + fecha(fecha)
                 + " fue cancelada por la institución. Horario: "
                 + hora(horaInicio) + " a " + hora(horaFin)
-                + " (número " + numero + "). Motivo: " + motivo;
+                + " (número " + numero + ")." + oracionMotivo(motivo);
     }
 
-    /**
-     * Consulta cancelada por la suspension del turno que hace un funcionario
-     * (RF-14). El horario y la observacion son opcionales.
-     */
-    public static String cuerpoSuspensionPorFuncionario(
-            LocalDate fecha,
-            LocalTime horaInicio,
-            LocalTime horaFin,
-            int numero,
-            String observacion
-    ) {
-        StringBuilder cuerpo = new StringBuilder(
-                "Tu consulta del " + fecha(fecha) + " fue cancelada por la institución."
-        );
-        if (horaInicio != null) {
-            cuerpo.append(" Horario: ")
-                    .append(hora(horaInicio))
-                    .append(" a ")
-                    .append(hora(horaFin))
-                    .append(" (número ")
-                    .append(numero)
-                    .append(").");
-        }
-        if (observacion != null) {
-            cuerpo.append(" ").append(observacion);
-        }
-        return cuerpo.toString();
+    private static String oracionMotivo(String motivo) {
+        return motivo == null || motivo.isBlank() ? "" : " Motivo: " + motivo;
     }
 
     public static String titulo(String tipo) {

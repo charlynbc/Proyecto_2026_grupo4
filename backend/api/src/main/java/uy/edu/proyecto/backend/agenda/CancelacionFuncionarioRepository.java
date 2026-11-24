@@ -36,11 +36,20 @@ public class CancelacionFuncionarioRepository {
     public Optional<DatosConsulta> bloquearConsulta(Long consultaId, Long socioId) {
         return jdbcTemplate.query("""
                 SELECT consulta.id_socio, socio.ci, socio.correo,
-                       consulta.estado, turno.fecha, numero.hora_inicio, pase.vence_el
+                       consulta.estado, turno.fecha, numero.hora_inicio, pase.vence_el,
+                       especialidad.nombre AS especialidad_nombre,
+                       persona.nombre AS medico_nombre,
+                       persona.apellido AS medico_apellido
                 FROM public.consulta consulta
                 JOIN public.cuenta socio ON socio.id_cuenta = consulta.id_socio
                 JOIN public.numero numero ON numero.id_numero = consulta.id_numero
                 JOIN public.turno turno ON turno.id_turno = numero.id_turno
+                JOIN public.turno_semanal semanal
+                  ON semanal.id_turno_semanal = turno.id_turno_semanal
+                JOIN public.especialidad especialidad
+                  ON especialidad.id_especialidad = semanal.id_especialidad
+                JOIN public.cuenta medico ON medico.id_cuenta = semanal.id_medico
+                JOIN public.persona persona ON persona.ci = medico.ci
                 LEFT JOIN public.pase pase ON pase.id_pase = consulta.id_pase
                 WHERE consulta.id_consulta = ? AND consulta.id_socio = ?
                 FOR UPDATE OF consulta
@@ -48,7 +57,10 @@ public class CancelacionFuncionarioRepository {
                 rs.getLong("id_socio"), rs.getString("ci"), rs.getString("correo"),
                 rs.getString("estado"), rs.getObject("fecha", LocalDate.class),
                 rs.getObject("hora_inicio", LocalTime.class),
-                rs.getObject("vence_el", LocalDate.class)
+                rs.getObject("vence_el", LocalDate.class),
+                rs.getString("especialidad_nombre"),
+                NotificacionTextos.medico(
+                        rs.getString("medico_nombre"), rs.getString("medico_apellido"))
         ), consultaId, socioId).stream().findFirst();
     }
 
@@ -76,28 +88,19 @@ public class CancelacionFuncionarioRepository {
                 funcionarioId, motivo, consultaId).stream().findFirst();
     }
 
-    public Long crearNotificacion(Long consultaId, LocalDate fecha) {
+    /** Aviso de cancelación (RF-19): el texto lo arma el servicio con NotificacionTextos. */
+    public Long crearNotificacion(Long consultaId, String contenido) {
         return jdbcTemplate.queryForObject("""
                 INSERT INTO public.notificacion (id_consulta, tipo, contenido)
                 VALUES (?, 'CANCELACION', ?)
                 RETURNING id_notificacion
-                """, Long.class, consultaId,
-                NotificacionTextos.cuerpoCancelacionASolicitudDelSocio(fecha));
-    }
-
-    /** Aviso de la cancelación por otro motivo (RF-19): lleva el motivo y no al funcionario. */
-    public Long crearNotificacionPorInstitucion(Long consultaId, LocalDate fecha, String motivo) {
-        return jdbcTemplate.queryForObject("""
-                INSERT INTO public.notificacion (id_consulta, tipo, contenido)
-                VALUES (?, 'CANCELACION', ?)
-                RETURNING id_notificacion
-                """, Long.class, consultaId,
-                NotificacionTextos.cuerpoCancelacionPorOtroMotivo(fecha, motivo));
+                """, Long.class, consultaId, contenido);
     }
 
     public record DatosConsulta(
             Long socioId, String ciSocio, String correo, String estado,
-            LocalDate fecha, LocalTime horaInicio, LocalDate venceElPase
+            LocalDate fecha, LocalTime horaInicio, LocalDate venceElPase,
+            String especialidad, String medico
     ) {
     }
 }

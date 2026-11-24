@@ -10,6 +10,8 @@ import java.util.Optional;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
+
 @Repository
 public class TurnoFechasRepository {
 
@@ -92,11 +94,20 @@ public class TurnoFechasRepository {
                 SELECT consulta.id_consulta, consulta.id_socio,
                        consulta.id_numero, t.id_turno, t.fecha,
                        numero.hora_inicio, numero.hora_fin, numero.numero,
-                       cuenta.correo
+                       cuenta.correo,
+                       especialidad.nombre AS especialidad_nombre,
+                       persona.nombre AS medico_nombre,
+                       persona.apellido AS medico_apellido
                 FROM public.consulta consulta
                 JOIN public.numero numero
                   ON numero.id_numero = consulta.id_numero
                 JOIN public.turno t ON t.id_turno = numero.id_turno
+                JOIN public.turno_semanal semanal
+                  ON semanal.id_turno_semanal = t.id_turno_semanal
+                JOIN public.especialidad especialidad
+                  ON especialidad.id_especialidad = semanal.id_especialidad
+                JOIN public.cuenta medico ON medico.id_cuenta = semanal.id_medico
+                JOIN public.persona persona ON persona.ci = medico.ci
                 JOIN public.cuenta cuenta
                   ON cuenta.id_cuenta = consulta.id_socio
                 WHERE t.id_turno IN (%s)
@@ -114,7 +125,11 @@ public class TurnoFechasRepository {
                         rs.getObject("hora_fin", LocalTime.class),
                         rs.getObject("numero", Integer.class) == null
                                 ? 0 : rs.getInt("numero"),
-                        rs.getString("correo")
+                        rs.getString("correo"),
+                        rs.getString("especialidad_nombre"),
+                        NotificacionTextos.medico(
+                                rs.getString("medico_nombre"),
+                                rs.getString("medico_apellido"))
                 ),
                 ids.toArray()
         );
@@ -532,7 +547,9 @@ public class TurnoFechasRepository {
             LocalTime horaInicio,
             LocalTime horaFin,
             int numero,
-            String correo
+            String correo,
+            String especialidad,
+            String medico
     ) {
     }
 
