@@ -20,6 +20,8 @@ import uy.edu.proyecto.backend.aviso.AvisoLlegadaRepository.Socio;
 import uy.edu.proyecto.backend.consultorio.Consultorio;
 import uy.edu.proyecto.backend.especialidad.Especialidad;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
+import uy.edu.proyecto.backend.parametro.ParametrosDePrueba;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -50,7 +52,7 @@ class AvisoLlegadaServiceTest {
                 Instant.parse("2026-10-21T15:00:00Z"),
                 ZoneId.of("America/Montevideo")
         );
-        service = new AvisoLlegadaService(repository, clock);
+        service = new AvisoLlegadaService(repository, clock, ParametroService.porDefecto());
         lenient().when(repository.buscarFuncionarioActivo(31L))
                 .thenReturn(Optional.of(new Funcionario(
                         31L, "12345678", "Pablo", "Gómez"
@@ -223,6 +225,73 @@ class AvisoLlegadaServiceTest {
                 respuesta.llegada().registradaEn()
         );
         assertEquals("Pablo", respuesta.llegada().registradaPor().nombre());
+    }
+
+    // --- cancelable en las consultas de hoy: ahora es 2026-10-21 12:00 en Montevideo ---
+
+    private ConsultaDTO consultaDeHoyA(long id, String hora) {
+        return new ConsultaDTO(
+                id, "AGENDADA", HOY, 2, hora, "23:00",
+                new ConsultaDTO.MedicoRef(17L, "Marta", "Rodríguez"),
+                new Especialidad(3L, "Cardiología", true),
+                new Consultorio(5L, "Consultorio 5", "Piso 2"),
+                null,
+                OffsetDateTime.parse("2026-10-14T10:12:45-03:00"),
+                null, null, false);
+    }
+
+    private void socioConConsultasDeHoy(boolean conLlegada, ConsultaDTO... consultas) {
+        when(repository.buscarSocioHabilitado(CI_SOCIO))
+                .thenReturn(Optional.of(new Socio(91L, CI_SOCIO, "Lucía", "Fernández")));
+        when(repository.listarConsultasAgendadas(CI_SOCIO, HOY)).thenReturn(List.of(consultas));
+        when(repository.buscarAviso(91L, HOY)).thenReturn(
+                conLlegada ? Optional.of(avisoOriginal()) : Optional.empty());
+    }
+
+    @Test
+    void sinLlegadaCadaConsultaDeHoyEsCancelableSegunElPlazo() {
+        socioConConsultasDeHoy(false,
+                consultaDeHoyA(9001, "15:00"),
+                consultaDeHoyA(9002, "14:00"),
+                consultaDeHoyA(9003, "13:59"),
+                consultaDeHoyA(9004, "09:00"));
+
+        List<ConsultaDTO> items = service.consultasDeHoy(CI_SOCIO).items();
+
+        assertEquals(List.of(true, true, false, false),
+                items.stream().map(ConsultaDTO::cancelable).toList());
+        assertEquals(consultaDeHoyA(9001, "15:00").conCancelable(true), items.get(0));
+    }
+
+    @Test
+    void conLlegadaDeHoyNingunaConsultaEsCancelableAunqueFalteMucho() {
+        socioConConsultasDeHoy(true,
+                consultaDeHoyA(9001, "15:00"),
+                consultaDeHoyA(9002, "20:00"));
+
+        ConsultasDeHoyDTO respuesta = service.consultasDeHoy(CI_SOCIO);
+
+        assertEquals(List.of(false, false),
+                respuesta.items().stream().map(ConsultaDTO::cancelable).toList());
+        assertEquals(
+                new LlegadaDeHoyDTO(
+                        OffsetDateTime.parse("2026-10-21T08:55:12-03:00"),
+                        new AvisoLlegadaDTO.FuncionarioRef(31L, "Pablo", "Gómez")),
+                respuesta.llegada());
+    }
+
+    @Test
+    void consultasDeHoyUsaLasHorasMinimasDelParametro() {
+        AvisoLlegadaService con5Horas = new AvisoLlegadaService(repository,
+                Clock.fixed(Instant.parse("2026-10-21T15:00:00Z"), ZoneId.of("America/Montevideo")),
+                ParametrosDePrueba.nuevo().cancelarHoras(5).construir());
+        socioConConsultasDeHoy(false,
+                consultaDeHoyA(9001, "17:00"),
+                consultaDeHoyA(9002, "16:59"));
+
+        List<ConsultaDTO> items = con5Horas.consultasDeHoy(CI_SOCIO).items();
+
+        assertEquals(List.of(true, false), items.stream().map(ConsultaDTO::cancelable).toList());
     }
 
     @Test
