@@ -1,7 +1,11 @@
 package uy.edu.proyecto.backend.notificacion;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,6 +35,12 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class EnvioNotificacionDispatcherTest {
 
+    /** 03/11/2026 10:00 en Montevideo (UTC-3). */
+    private static final Clock RELOJ = Clock.fixed(
+            Instant.parse("2026-11-03T13:00:00Z"), ZoneId.of("America/Montevideo"));
+    private static final OffsetDateTime AHORA =
+            OffsetDateTime.parse("2026-11-03T10:00:00-03:00");
+
     @Mock
     private TurnoFechasRepository repository;
 
@@ -41,7 +51,7 @@ class EnvioNotificacionDispatcherTest {
     private PushSender pushSender;
 
     private EnvioNotificacionDispatcher dispatcher() {
-        return new EnvioNotificacionDispatcher(repository, correoSender, pushSender);
+        return new EnvioNotificacionDispatcher(repository, correoSender, pushSender, RELOJ);
     }
 
     @Test
@@ -178,7 +188,7 @@ class EnvioNotificacionDispatcherTest {
 
     @Test
     void despachaElSiguientePendienteDeCualquierTipo() {
-        when(repository.bloquearSiguienteEnvioPendiente()).thenReturn(Optional.of(601L));
+        when(repository.bloquearSiguienteEnvioPendiente(AHORA)).thenReturn(Optional.of(601L));
         when(repository.buscarEnvio(601L))
                 .thenReturn(Optional.of(envio("AGENDA", "CORREO", null)));
         when(repository.marcarEnvio(601L, "ENVIADO")).thenReturn(1);
@@ -190,7 +200,7 @@ class EnvioNotificacionDispatcherTest {
 
     @Test
     void sinPendientesNoHaceNada() {
-        when(repository.bloquearSiguienteEnvioPendiente()).thenReturn(Optional.empty());
+        when(repository.bloquearSiguienteEnvioPendiente(AHORA)).thenReturn(Optional.empty());
 
         assertFalse(dispatcher().despacharSiguientePendiente());
 

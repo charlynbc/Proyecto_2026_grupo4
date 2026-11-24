@@ -165,6 +165,30 @@ class NotificacionTextosTest {
     }
 
     @Test
+    void elCuerpoDelRecordatorioLlevaLosCincoDatosYLaUbicacionEntreParentesis() {
+        assertEquals(
+                "Recordatorio de consulta: Cardiología con Marta Rodríguez, "
+                        + "el 03/11/2026 a las 09:05, en Consultorio 3 (Piso 2)",
+                NotificacionTextos.cuerpoRecordatorio(
+                        "Cardiología", "Marta", "Rodríguez", LocalDate.of(2026, 11, 3),
+                        LocalTime.of(9, 5), "Consultorio 3", "Piso 2")
+        );
+    }
+
+    @Test
+    void elRecordatorioSinUbicacionNoDejaParentesisVacios() {
+        String esperado = "Recordatorio de consulta: Pediatría con Ana Pérez, "
+                + "el 15/01/2027 a las 18:30, en Consultorio 1";
+
+        assertEquals(esperado, NotificacionTextos.cuerpoRecordatorio(
+                "Pediatría", "Ana", "Pérez", LocalDate.of(2027, 1, 15),
+                LocalTime.of(18, 30), "Consultorio 1", null));
+        assertEquals(esperado, NotificacionTextos.cuerpoRecordatorio(
+                "Pediatría", "Ana", "Pérez", LocalDate.of(2027, 1, 15),
+                LocalTime.of(18, 30), "Consultorio 1", "  "));
+    }
+
+    @Test
     void elCuerpoDeHistoriaNoLlevaDatosClinicos() {
         assertEquals(
                 "Tu historia clínica fue actualizada.",
