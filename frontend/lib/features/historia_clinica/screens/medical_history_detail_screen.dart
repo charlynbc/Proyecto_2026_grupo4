@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/network/api_exception.dart';
 import '../../../core/utils/ui_date.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../models/medical_history_entry.dart';
 import '../providers/medical_history_provider.dart';
+import '../repositories/medical_history_repository.dart';
+import 'medical_history_screen.dart';
 
 /// Información clínica y pases de una atención del socio.
 class MedicalHistoryDetailScreen extends ConsumerWidget {
@@ -32,11 +35,19 @@ class MedicalHistoryDetailScreen extends ConsumerWidget {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: () =>
-                    ref.invalidate(medicalHistoryDetailProvider(id)),
-                child: const Text('Reintentar'),
-              ),
+              // Una atención que no existe no mejora al reintentar: se ofrece
+              // volver a la lista. Los demás errores sí pueden pasar.
+              if (error is MedicalHistoryNotFoundException)
+                OutlinedButton(
+                  onPressed: () => context.go(kMedicalHistoryPath),
+                  child: const Text('Ir a mi historia clínica'),
+                )
+              else
+                OutlinedButton(
+                  onPressed: () =>
+                      ref.invalidate(medicalHistoryDetailProvider(id)),
+                  child: const Text('Reintentar'),
+                ),
             ],
           ),
           data: (entry) => _details(context, entry),
