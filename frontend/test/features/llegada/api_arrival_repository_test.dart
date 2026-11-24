@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/llegada/repositories/api_arrival_repository.dart';
 import 'package:agenda_medica/features/llegada/repositories/arrival_repository.dart';
 import 'package:dio/dio.dart';
@@ -86,7 +87,8 @@ void main() {
         'items': [_anaAppointment],
       });
 
-      final appointments = await repository.listTodayAppointments('90000046');
+      final result = await repository.listTodayAppointments('90000046');
+      final appointments = result.appointments;
 
       expect(adapter.last!.method, 'GET');
       expect(adapter.last!.path, '/api/avisos-llegada/consultas-hoy');
@@ -96,6 +98,77 @@ void main() {
       expect(appointments.single.doctor.lastName, 'Rivas');
       expect(appointments.single.clinic.name, 'Consultorio 1');
     });
+
+    test('lee la llegada de hoy con la hora y quien la registro', () async {
+      final (repository, _) = _repository(200, {
+        'items': [_anaAppointment],
+        'llegada': {
+          'registradaEn': '2026-10-22T08:55:12-03:00',
+          'registradaPor': {'id': 31, 'nombre': 'Pablo', 'apellido': 'Gómez'},
+        },
+      });
+
+      final result = await repository.listTodayAppointments('90000046');
+
+      expect(result.arrival, isNotNull);
+      expect(result.arrival!.registeredTime, '08:55');
+      expect(result.arrival!.registeredByName, 'Pablo Gómez');
+    });
+
+    test('la hora de la llegada se ve en hora de Uruguay', () async {
+      final (repository, _) = _repository(200, {
+        'items': [_anaAppointment],
+        'llegada': {
+          'registradaEn': '2026-10-22T11:05:00Z',
+          'registradaPor': {'id': 31, 'nombre': 'Pablo', 'apellido': 'Gómez'},
+        },
+      });
+
+      final result = await repository.listTodayAppointments('90000046');
+
+      expect(result.arrival!.registeredTime, '08:05');
+    });
+
+    test('con llegada nula no hay llegada', () async {
+      final (repository, _) = _repository(200, {
+        'items': [_anaAppointment],
+        'llegada': null,
+      });
+
+      final result = await repository.listTodayAppointments('90000046');
+
+      expect(result.arrival, isNull);
+      expect(result.appointments, hasLength(1));
+    });
+
+    test(
+      'si el servidor no manda llegada, no hay llegada y nada se rompe',
+      () async {
+        final (repository, _) = _repository(200, {
+          'items': [_anaAppointment],
+        });
+
+        final result = await repository.listTodayAppointments('90000046');
+
+        expect(result.arrival, isNull);
+        expect(result.appointments, hasLength(1));
+      },
+    );
+
+    test(
+      'la llegada sin quien la registro es una respuesta mal formada',
+      () async {
+        final (repository, _) = _repository(200, {
+          'items': [_anaAppointment],
+          'llegada': {'registradaEn': '2026-10-22T08:55:12-03:00'},
+        });
+
+        await expectLater(
+          repository.listTodayAppointments('90000046'),
+          throwsA(isA<ApiException>()),
+        );
+      },
+    );
 
     test('manda la CI solo con digitos', () async {
       final (repository, adapter) = _repository(200, {'items': <Object>[]});

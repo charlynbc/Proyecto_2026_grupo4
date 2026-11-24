@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/refetch_when_visible_again.dart';
 import '../models/issued_referral.dart';
 import '../models/issued_referral_query.dart';
 import 'issued_referral_repository_provider.dart';
@@ -33,6 +34,7 @@ final issuedReferralFiltersProvider =
 /// (invalidando el provider).
 final issuedReferralsProvider =
     FutureProvider.autoDispose<List<IssuedReferral>>((ref) async {
+      refetchWhenVisibleAgain(ref, ref.invalidateSelf);
       final query = ref.watch(issuedReferralFiltersProvider);
       final repository = await ref.watch(
         issuedReferralRepositoryProvider.future,

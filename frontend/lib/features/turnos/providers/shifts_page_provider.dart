@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/refetch_when_visible_again.dart';
 import '../models/shift_page.dart';
 import 'shift_filters_controller.dart';
 import 'shift_repository_provider.dart';
@@ -10,6 +11,7 @@ import 'shift_repository_provider.dart';
 /// hasta 10 veces, con esperas de 0,2 a 6,4 s, y durante ese tiempo la
 /// pantalla seguiría mostrando el cargando en vez del aviso con "Reintentar".
 final shiftsPageProvider = FutureProvider.autoDispose<ShiftPage>((ref) async {
+  refetchWhenVisibleAgain(ref, ref.invalidateSelf);
   final filters = ref.watch(shiftFiltersControllerProvider);
   final repository = await ref.watch(shiftRepositoryProvider.future);
   return repository.listShifts(filters);

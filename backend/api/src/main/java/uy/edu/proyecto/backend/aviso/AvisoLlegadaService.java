@@ -29,12 +29,21 @@ public class AvisoLlegadaService {
     }
 
     @Transactional(readOnly = true)
-    public List<ConsultaDTO> consultasDeHoy(String ciSolicitada) {
+    public ConsultasDeHoyDTO consultasDeHoy(String ciSolicitada) {
         String ci = normalizarCi(ciSolicitada);
-        if (repository.buscarSocioHabilitado(ci).isEmpty()) {
-            throw noEncontrado("No existe un socio activo con esa CI");
-        }
-        return repository.listarConsultasAgendadas(ci, LocalDate.now(clock));
+        Socio socio = repository.buscarSocioHabilitado(ci)
+                .orElseThrow(() -> noEncontrado(
+                        "No existe un socio activo con esa CI"
+                ));
+        LocalDate hoy = LocalDate.now(clock);
+        List<ConsultaDTO> consultas = repository.listarConsultasAgendadas(ci, hoy);
+        LlegadaDeHoyDTO llegada = repository.buscarAviso(socio.id(), hoy)
+                .map(aviso -> new LlegadaDeHoyDTO(
+                        aviso.registradaEn(),
+                        aviso.registradaPor()
+                ))
+                .orElse(null);
+        return new ConsultasDeHoyDTO(consultas, llegada);
     }
 
     @Transactional

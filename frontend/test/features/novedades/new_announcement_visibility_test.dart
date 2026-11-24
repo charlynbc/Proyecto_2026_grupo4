@@ -1,6 +1,7 @@
 import 'package:agenda_medica/core/config/app_locale.dart';
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/core/theme/app_theme.dart';
+import 'package:agenda_medica/core/widgets/ui_date_field.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
 import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/novedades/models/announcement_draft.dart';
@@ -112,6 +113,8 @@ Future<void> _publish(WidgetTester tester) async {
 }
 
 void main() {
+  setUpAll(loadRoboto);
+
   testWidgets('muestra los cuatro campos y explica que el fin es exclusivo', (
     tester,
   ) async {
@@ -257,6 +260,65 @@ void main() {
 
     expect(repo.drafts, isEmpty);
     expect(find.text('Elegí la hora.'), findsOneWidget);
+  });
+
+  for (final (name, dateLabel, timeLabel, date, autoTime) in [
+    ('inicio', _fromDate, _fromTime, '20/11/2026', '00:00'),
+    ('fin', _untilDate, _untilTime, '25/11/2026', '23:59'),
+  ]) {
+    testWidgets('al borrar la fecha de $name se borra la hora autocompletada', (
+      tester,
+    ) async {
+      await _pump(tester);
+      await tester.enterText(_field(dateLabel), date);
+      await tester.pump();
+      expect(_textOf(tester, timeLabel), autoTime);
+
+      await tester.tap(
+        find.descendant(
+          of: find.ancestor(
+            of: _field(dateLabel),
+            matching: find.byType(UiDateField),
+          ),
+          matching: find.byTooltip('Borrar la fecha'),
+        ),
+      );
+      await tester.pump();
+
+      expect(_textOf(tester, dateLabel), '');
+      expect(_textOf(tester, timeLabel), '');
+    });
+
+    testWidgets('al vaciar a mano la fecha de $name se borra la hora '
+        'autocompletada', (tester) async {
+      await _pump(tester);
+      await tester.enterText(_field(dateLabel), date);
+      await tester.pump();
+
+      await tester.enterText(_field(dateLabel), '');
+      await tester.pump();
+
+      expect(_textOf(tester, timeLabel), '');
+    });
+  }
+
+  testWidgets('al vaciar la fecha conserva una hora escrita a mano y pide la '
+      'fecha al publicar', (tester) async {
+    final repo = await _pump(tester);
+    await _fillContent(tester);
+    await tester.enterText(_field(_untilDate), '25/11/2026');
+    await tester.enterText(_field(_fromTime), '18:30');
+    await tester.enterText(_field(_fromDate), '20/11/2026');
+    await tester.pump();
+    expect(_textOf(tester, _fromTime), '18:30');
+
+    await tester.enterText(_field(_fromDate), '');
+    await tester.pump();
+    expect(_textOf(tester, _fromTime), '18:30');
+
+    await _publish(tester);
+    expect(repo.drafts, isEmpty);
+    expect(find.text('Elegí la fecha.'), findsOneWidget);
   });
 
   testWidgets('si el servidor responde 400 muestra su mensaje', (tester) async {

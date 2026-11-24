@@ -70,7 +70,61 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
   bool _submitting = false;
   String? _imageError;
   String? _visibilityError;
+  // El error del servidor, o el de que no se pudo publicar por otro motivo.
   String? _publishError;
+  // Lo que falta del contenido (texto o imágenes), calculado al tocar Publicar.
+  String? _contentError;
+  (String, String, String) _lastText = ('', '', '');
+
+  @override
+  void initState() {
+    super.initState();
+    _title.addListener(_onEdited);
+    _summary.addListener(_onEdited);
+    _text.addListener(_onEdited);
+  }
+
+  void _onEdited() {
+    final text = (_title.text, _summary.text, _text.text);
+    if (text == _lastText) return;
+    _lastText = text;
+    if (_publishError != null || _contentError != null) {
+      setState(_clearErrors);
+    }
+  }
+
+  /// El error del servidor se va con cualquier cambio. El de contenido se
+  /// vuelve a calcular y se va solo si ya no falta nada: escribir en el
+  /// título o el resumen no lo resuelve.
+  void _clearErrors() {
+    _publishError = null;
+    if (_contentError != null && _buildDraft().validateContent() == null) {
+      _contentError = null;
+    }
+  }
+
+  AnnouncementDraft _buildDraft() {
+    final text = _text.text.trim();
+    final summary = _summary.text.trim();
+    return AnnouncementDraft(
+      title: _title.text.trim(),
+      summary: summary.isEmpty ? null : summary,
+      text: text.isEmpty ? null : text,
+      images: List.unmodifiable(_images),
+      visibleFrom: _visibility.from,
+      visibleUntil: _visibility.until,
+    );
+  }
+
+  /// El error de las fechas de visibilidad, o `null` si no hay o no se puede
+  /// calcular: con una fecha u hora a medias o inválida el campo ya muestra su
+  /// propio mensaje, y repetirlo con el de fin obligatorio sería engañoso.
+  String? _visibilityProblem(AnnouncementDraft draft) {
+    if (_visibility.untilIsEmpty) return AnnouncementDraft.endRequiredMessage;
+    if (draft.visibleUntil == null) return null;
+    if (!_visibility.fromIsEmpty && draft.visibleFrom == null) return null;
+    return draft.validateVisibility(ref.read(announcementClockProvider)());
+  }
 
   @override
   void dispose() {
@@ -102,7 +156,12 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
       final images = await ref.read(announcementImagePickerProvider)(
         _images.length,
       );
-      if (mounted) setState(() => _images.addAll(images));
+      if (mounted && images.isNotEmpty) {
+        setState(() {
+          _images.addAll(images);
+          _clearErrors();
+        });
+      }
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -117,45 +176,30 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
   }
 
   void _moveImage(int from, int to) {
-    setState(() => _images.insert(to, _images.removeAt(from)));
+    setState(() {
+      _images.insert(to, _images.removeAt(from));
+      _clearErrors();
+    });
   }
 
   Future<void> _publish() async {
     if (_submitting || _picking) return;
+    // Una sola pasada: se muestran a la vez todos los problemas que se pueden
+    // calcular, sin cortar en el primero.
     _visibility.validating = true;
-    final valid = _form.currentState!.validate();
+    final formValid = _form.currentState!.validate();
     _visibility.validating = false;
-    if (!valid) return;
-    final text = _text.text.trim();
-    final summary = _summary.text.trim();
-    final draft = AnnouncementDraft(
-      title: _title.text.trim(),
-      summary: summary.isEmpty ? null : summary,
-      text: text.isEmpty ? null : text,
-      images: List.unmodifiable(_images),
-      visibleFrom: _visibility.from,
-      visibleUntil: _visibility.until,
-    );
+    final draft = _buildDraft();
     final contentError = draft.validateContent();
-    if (contentError != null) {
-      setState(() => _publishError = contentError);
-      return;
-    }
-    final visibilityError = draft.validateVisibility(
-      ref.read(announcementClockProvider)(),
-    );
-    if (visibilityError != null) {
-      setState(() {
-        _publishError = null;
-        _visibilityError = visibilityError;
-      });
-      return;
-    }
+    final visibilityError = _visibilityProblem(draft);
     setState(() {
-      _submitting = true;
+      // Un error viejo del servidor ya no corresponde.
       _publishError = null;
-      _visibilityError = null;
+      _contentError = contentError;
+      _visibilityError = visibilityError;
     });
+    if (!formValid || contentError != null || visibilityError != null) return;
+    setState(() => _submitting = true);
     try {
       final repository = await ref.read(announcementsRepositoryProvider.future);
       if (!mounted) return;
@@ -214,6 +258,7 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _title,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       enabled: !_submitting,
                       // Corta al escribir o pegar, con la misma cuenta que
                       // `validateTitle` y el servidor (recortado, UTF-16).
@@ -332,6 +377,7 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
                                   : () => setState(() {
                                       _images.removeAt(index);
                                       _imageError = null;
+                                      _clearErrors();
                                     }),
                               icon: const Icon(Icons.close),
                             ),
@@ -339,12 +385,15 @@ class _NewAnnouncementScreenState extends ConsumerState<NewAnnouncementScreen> {
                         ),
                       ),
                     const SizedBox(height: 24),
-                    if (_publishError != null)
+                    if ((_contentError ?? _publishError) != null)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Semantics(
                           liveRegion: true,
-                          child: Text(_publishError!, style: errorStyle),
+                          child: Text(
+                            (_contentError ?? _publishError)!,
+                            style: errorStyle,
+                          ),
                         ),
                       ),
                     Wrap(
