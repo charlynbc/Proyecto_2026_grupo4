@@ -1,0 +1,212 @@
+package uy.edu.proyecto.backend.integracion;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.junit.jupiter.api.Test;
+
+import tools.jackson.databind.JsonNode;
+
+/**
+ * Campo cancelable de la consulta del socio (JSON real, PostgreSQL real): GET lista, GET detalle, POST y
+ * consultas de hoy. Los horarios estan lejos del borde de las 2 horas (un dia o 30 minutos), porque el IT usa el
+ * reloj real. Los ids de consulta (501 y siguientes) y de aviso (801 y siguientes) no se parecen a los de los
+ * socios, para que un JOIN o un mapeo equivocado no pase por coincidencia.
+ */
+class ConsultasCancelableIT extends BaseIntegracionIT {
+
+    private void separarIds() {
+        jdbc.queryForObject("SELECT setval(pg_get_serial_sequence('consulta', 'id_consulta'), 500)", Long.class);
+        jdbc.queryForObject(
+                "SELECT setval(pg_get_serial_sequence('aviso_llegada', 'id_aviso_llegada'), 800)", Long.class);
+    }
+
+    private long avisoDeLlegada(long socio, LocalDate fecha) {
+        return jdbc.queryForObject(
+                "INSERT INTO aviso_llegada (id_socio, id_funcionario, fecha) VALUES (?, ?, ?)"
+                        + " RETURNING id_aviso_llegada",
+                Long.class, socio, idFuncionario, fecha);
+    }
+
+    /** Numero que empieza dentro de los minutos indicados; la fecha es la que corresponda, incluso si cruza la medianoche. */
+    private long numeroEnMinutos(int minutosDesdeAhora) {
+        LocalDateTime objetivo = LocalDateTime.now(ZONA).plusMinutes(minutosDesdeAhora)
+                .withSecond(0).withNano(0);
+        if (objetivo.getHour() == 23 && objetivo.getMinute() >= 40) {
+            objetivo = objetivo.plusMinutes(30);
+        }
+        objetivo = objetivo.minusMinutes(objetivo.getMinute() % 5);
+        LocalTime inicio = objetivo.toLocalTime();
+        long turno = sembrarTurno(objetivo.toLocalDate(), 0);
+        long semanal = jdbc.queryForObject(
+                "SELECT id_turno_semanal FROM turno WHERE id_turno = ?", Long.class, turno);
+        long patron = jdbc.queryForObject(
+                "INSERT INTO numero_semanal (id_turno_semanal, numero, hora_inicio, hora_fin)"
+                        + " VALUES (?, 1, ?::time, ?::time) RETURNING id_numero_semanal",
+                Long.class, semanal, inicio.toString(), inicio.plusMinutes(20).toString());
+        return jdbc.queryForObject(
+                "INSERT INTO numero (id_turno, id_numero_semanal, numero, hora_inicio, hora_fin)"
+                        + " VALUES (?, ?, 1, ?::time, ?::time) RETURNING id_numero",
+                Long.class, turno, patron, inicio.toString(), inicio.plusMinutes(20).toString());
+    }
+
+    private LocalDate fechaDelNumero(long numero) {
+        return jdbc.queryForObject(
+                "SELECT t.fecha FROM numero n JOIN turno t ON t.id_turno = n.id_turno WHERE n.id_numero = ?",
+                LocalDate.class, numero);
+    }
+
+    private static JsonNode item(JsonNode items, long id) {
+        for (JsonNode item : items) {
+            if (item.path("id").asLong() == id) return item;
+        }
+        throw new AssertionError("No esta la consulta " + id + " en " + items);
+    }
+
+    private static void cancelable(boolean esperado, JsonNode consulta, String motivo) {
+        assertTrue(consulta.has("cancelable"), "El campo cancelable debe estar siempre: " + motivo);
+        assertTrue(consulta.get("cancelable").isBoolean(), "cancelable debe ser booleano: " + motivo);
+        assertEquals(esperado, consulta.get("cancelable").asBoolean(), motivo);
+    }
+
+    @Test
+    void listaYDetalleTraenCancelableSegunLlegadaPlazoYSocio() {
+        separarIds();
+        long c1 = sembrarConsulta(idSocio1, numeroId(sembrarTurno(hoy().plusDays(1), 1), 1));
+        long turnoConLlegada = sembrarTurno(hoy().plusDays(2), 2);
+        long c2 = sembrarConsulta(idSocio1, numeroId(turnoConLlegada, 1));
+        long c3 = sembrarConsulta(idSocio1, numeroId(turnoConLlegada, 2));
+        long c4 = sembrarConsulta(idSocio1, numeroEnMinutos(30));
+        long turnoCompartido = sembrarTurno(hoy().plusDays(3), 2);
+        long c6 = sembrarConsulta(idSocio1, numeroId(turnoCompartido, 1));
+        long c5 = sembrarConsulta(idSocio2, numeroId(turnoCompartido, 2));
+        long avisoSocio1 = avisoDeLlegada(idSocio1, hoy().plusDays(2));
+        long avisoSocio2 = avisoDeLlegada(idSocio2, hoy().plusDays(3));
+
+        Set<Long> ids = new HashSet<>(
+                List.of(c1, c2, c3, c4, c5, c6, avisoSocio1, avisoSocio2, idSocio1, idSocio2));
+        assertEquals(10, ids.size(), "Los ids de consulta, aviso y socio no deben coincidir entre si");
+        assertNotEquals(c1, idSocio1, "El id de la consulta no debe parecerse al del socio");
+        assertNotEquals(avisoSocio1, idSocio1, "El id del aviso no debe parecerse al del socio");
+
+        String socio1 = tokenSocio(ciSocio1);
+        Respuesta lista = get("/api/consultas?size=100", socio1);
+        assertEquals(200, lista.estado(), lista.cuerpo());
+        JsonNode items = lista.json().path("items");
+        assertEquals(5, items.size(), "El socio 1 tiene 5 consultas");
+        cancelable(true, item(items, c1), "lejana, sin llegada ese dia");
+        cancelable(false, item(items, c2), "con llegada ese dia");
+        cancelable(false, item(items, c3), "otra consulta del mismo socio el mismo dia de la llegada");
+        cancelable(false, item(items, c4), "empieza en 30 minutos");
+        cancelable(true, item(items, c6), "la llegada del socio 2 ese dia no le afecta");
+
+        for (long id : new long[] {c1, c2, c3, c4, c6}) {
+            Respuesta detalle = get("/api/consultas/" + id, socio1);
+            assertEquals(200, detalle.estado(), detalle.cuerpo());
+            cancelable(item(items, id).get("cancelable").asBoolean(), detalle.json(), "detalle de " + id);
+        }
+
+        String socio2 = tokenSocio(ciSocio2);
+        JsonNode itemsSocio2 = get("/api/consultas?size=100", socio2).json().path("items");
+        assertEquals(1, itemsSocio2.size());
+        cancelable(false, item(itemsSocio2, c5), "el socio 2 si registro llegada ese dia");
+        cancelable(false, get("/api/consultas/" + c5, socio2).json(), "detalle del socio 2");
+    }
+
+    @Test
+    void lasConsultasPasadasNoSonCancelablesNiConNiSinLlegada() {
+        separarIds();
+        long sinLlegada = sembrarConsulta(idSocio1, numeroId(sembrarTurno(hoy().minusDays(2), 1), 1));
+        long conLlegada = sembrarConsulta(idSocio1, numeroId(sembrarTurno(hoy().minusDays(1), 1), 1));
+        avisoDeLlegada(idSocio1, hoy().minusDays(1));
+
+        JsonNode items = get("/api/consultas?size=100", tokenSocio(ciSocio1)).json().path("items");
+
+        assertEquals("NO_ASISTIO", item(items, sinLlegada).path("estado").asString());
+        cancelable(false, item(items, sinLlegada), "NO_ASISTIO");
+        assertEquals("NO_ATENDIDA", item(items, conLlegada).path("estado").asString());
+        cancelable(false, item(items, conLlegada), "NO_ATENDIDA");
+    }
+
+    @Test
+    void laRespuestaDeAgendarTraeCancelableConLaLlegadaDelSocioEseDia() {
+        separarIds();
+        long turnoManana = sembrarTurno(hoy().plusDays(1), 1);
+        long turnoDia4 = sembrarTurno(hoy().plusDays(4), 2);
+        avisoDeLlegada(idSocio2, hoy().plusDays(4));
+
+        Respuesta sinLlegada = post("/api/consultas", tokenSocio(ciSocio1),
+                "{\"numeroId\":%d}".formatted(numeroId(turnoManana, 1)));
+        assertEquals(201, sinLlegada.estado(), sinLlegada.cuerpo());
+        cancelable(true, sinLlegada.json(), "agendada para manana, sin llegada");
+        assertTrue(sinLlegada.json().path("id").asLong() > 500, "id de consulta esperado: 501 o mas");
+
+        Respuesta conLlegada = post("/api/consultas", tokenSocio(ciSocio2),
+                "{\"numeroId\":%d}".formatted(numeroId(turnoDia4, 1)));
+        assertEquals(201, conLlegada.estado(), conLlegada.cuerpo());
+        cancelable(false, conLlegada.json(), "el socio ya tiene llegada ese dia");
+
+        Respuesta otroSocio = post("/api/consultas", tokenSocio(ciSocio3),
+                "{\"numeroId\":%d}".formatted(numeroId(turnoDia4, 2)));
+        assertEquals(201, otroSocio.estado(), otroSocio.cuerpo());
+        cancelable(true, otroSocio.json(), "la llegada de otro socio ese dia no le afecta");
+    }
+
+    @Test
+    void consultasDeHoyTraeCancelableFalseParaLaQueEmpiezaEn30MinutosAunConLlegada() {
+        separarIds();
+        long numero = numeroEnMinutos(30);
+        assumeTrue(fechaDelNumero(numero).equals(hoy()), "El horario cae despues de la medianoche");
+        long consulta = sembrarConsulta(idSocio1, numero);
+        String funcionario = tokenEmpleado(ciFuncionario);
+
+        Respuesta antes = get("/api/avisos-llegada/consultas-hoy?ci=" + ciSocio1, funcionario);
+        assertEquals(200, antes.estado(), antes.cuerpo());
+        assertEquals(consulta, antes.json().path("items").get(0).path("id").asLong());
+        assertTrue(consulta > 500, "id de consulta esperado: 501 o mas");
+        cancelable(false, antes.json().path("items").get(0), "empieza en 30 minutos");
+        assertTrue(antes.json().get("llegada").isNull());
+
+        Respuesta registro = post("/api/avisos-llegada", funcionario, "{\"ci\":\"%s\"}".formatted(ciSocio1));
+        assertEquals(201, registro.estado(), registro.cuerpo());
+        Respuesta despues = get("/api/avisos-llegada/consultas-hoy?ci=" + ciSocio1, funcionario);
+        cancelable(false, despues.json().path("items").get(0), "con llegada");
+        assertEquals(idFuncionario, despues.json().path("llegada").path("registradaPor").path("id").asLong());
+    }
+
+    @Test
+    void consultasDeHoyDejaDeSerCancelableCuandoSeRegistraLaLlegada() {
+        separarIds();
+        long numero = numeroEnMinutos(200);
+        assumeTrue(fechaDelNumero(numero).equals(hoy()), "El horario cae despues de la medianoche");
+        long consulta = sembrarConsulta(idSocio2, numero);
+        long otraDeSocio1 = sembrarConsulta(idSocio1, numeroId(sembrarTurno(hoy(), 1), 1));
+        assertNotEquals(consulta, otraDeSocio1);
+        String funcionario = tokenEmpleado(ciFuncionario);
+
+        Respuesta antes = get("/api/avisos-llegada/consultas-hoy?ci=" + ciSocio2, funcionario);
+        assertEquals(200, antes.estado(), antes.cuerpo());
+        cancelable(true, antes.json().path("items").get(0), "faltan 200 minutos y no hay llegada");
+
+        // La llegada de otro socio hoy no cambia nada.
+        post("/api/avisos-llegada", funcionario, "{\"ci\":\"%s\"}".formatted(ciSocio1));
+        cancelable(true, get("/api/avisos-llegada/consultas-hoy?ci=" + ciSocio2, funcionario)
+                .json().path("items").get(0), "la llegada de otro socio no afecta");
+
+        Respuesta registro = post("/api/avisos-llegada", funcionario, "{\"ci\":\"%s\"}".formatted(ciSocio2));
+        assertEquals(201, registro.estado(), registro.cuerpo());
+        JsonNode despues = get("/api/avisos-llegada/consultas-hoy?ci=" + ciSocio2, funcionario).json();
+        cancelable(false, despues.path("items").get(0), "con llegada registrada hoy");
+        assertEquals(1, despues.path("items").size());
+        assertEquals(consulta, despues.path("items").get(0).path("id").asLong());
+    }
+}
