@@ -458,6 +458,123 @@ public class ConsultaRepository {
         );
     }
 
+    /** Una consulta que ya corresponde recordar, con los datos del texto. */
+    public record ConsultaParaRecordatorio(
+            Long consultaId,
+            Long socioId,
+            String especialidad,
+            String medicoNombre,
+            String medicoApellido,
+            LocalDate fecha,
+            LocalTime horaInicio,
+            String consultorioNombre,
+            String consultorioUbicacion,
+            OffsetDateTime programadaPara
+    ) {
+    }
+
+    /**
+     * Consultas agendadas que ya entraron en la ventana del recordatorio (RNF-25):
+     * no empezaron, falta la antelacion o menos, se agendaron con esa anticipacion
+     * o mas y todavia no tienen recordatorio. El "ahora" lo manda el llamador (el
+     * reloj de la aplicacion), no la base. Los joins son los de HISTORIAL_CTE, sin
+     * el filtro por socio.
+     */
+    public List<ConsultaParaRecordatorio> buscarConsultasParaRecordatorio(
+            OffsetDateTime ahora,
+            int antelacionHoras
+    ) {
+        return jdbcTemplate.query(
+                """
+                SELECT consulta.id_consulta,
+                       consulta.id_socio,
+                       especialidad.nombre AS especialidad_nombre,
+                       persona.nombre AS medico_nombre,
+                       persona.apellido AS medico_apellido,
+                       turno.fecha,
+                       numero.hora_inicio,
+                       consultorio.nombre AS consultorio_nombre,
+                       consultorio.ubicacion AS consultorio_ubicacion,
+                       horario.programada_para
+                FROM public.consulta consulta
+                JOIN public.numero numero
+                  ON numero.id_numero = consulta.id_numero
+                JOIN public.turno turno
+                  ON turno.id_turno = numero.id_turno
+                JOIN public.turno_semanal semanal
+                  ON semanal.id_turno_semanal = turno.id_turno_semanal
+                JOIN public.cuenta medico
+                  ON medico.id_cuenta = semanal.id_medico
+                JOIN public.persona persona
+                  ON persona.ci = medico.ci
+                JOIN public.especialidad especialidad
+                  ON especialidad.id_especialidad = semanal.id_especialidad
+                JOIN public.consultorio consultorio
+                  ON consultorio.id_consultorio = turno.id_consultorio
+                CROSS JOIN LATERAL (
+                    SELECT ((turno.fecha + numero.hora_inicio)
+                                AT TIME ZONE 'America/Montevideo') AS inicio,
+                           ((turno.fecha + numero.hora_inicio)
+                                AT TIME ZONE 'America/Montevideo')
+                               - make_interval(hours => ?) AS programada_para
+                ) horario
+                WHERE consulta.estado = 'AGENDADA'
+                  AND horario.inicio > ?
+                  AND horario.programada_para <= ?
+                  AND consulta.agendada_en <= horario.programada_para
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM public.notificacion notificacion
+                      WHERE notificacion.id_consulta = consulta.id_consulta
+                        AND notificacion.tipo = 'RECORDATORIO'
+                  )
+                ORDER BY horario.inicio, consulta.id_consulta
+                """,
+                (rs, rowNum) -> new ConsultaParaRecordatorio(
+                        rs.getLong("id_consulta"),
+                        rs.getLong("id_socio"),
+                        rs.getString("especialidad_nombre"),
+                        rs.getString("medico_nombre"),
+                        rs.getString("medico_apellido"),
+                        rs.getObject("fecha", LocalDate.class),
+                        rs.getObject("hora_inicio", LocalTime.class),
+                        rs.getString("consultorio_nombre"),
+                        rs.getString("consultorio_ubicacion"),
+                        rs.getObject("programada_para", OffsetDateTime.class)
+                ),
+                antelacionHoras,
+                ahora,
+                ahora
+        );
+    }
+
+    /**
+     * Guarda el recordatorio de la consulta. Si ya habia uno (indice unico
+     * uq_notificacion_recordatorio, por ejemplo otra instancia que corrio a la
+     * vez) no inserta y devuelve vacio.
+     */
+    public Optional<Long> crearNotificacionRecordatorio(
+            Long consultaId,
+            String contenido,
+            OffsetDateTime programadaPara
+    ) {
+        return jdbcTemplate.query(
+                        """
+                        INSERT INTO public.notificacion
+                            (id_consulta, tipo, contenido, programada_para)
+                        VALUES (?, 'RECORDATORIO', ?, ?)
+                        ON CONFLICT (id_consulta) WHERE tipo = 'RECORDATORIO' DO NOTHING
+                        RETURNING id_notificacion
+                        """,
+                        (rs, rowNum) -> rs.getLong("id_notificacion"),
+                        consultaId,
+                        contenido,
+                        programadaPara
+                )
+                .stream()
+                .findFirst();
+    }
+
     public ConsultaHistorialPageResponse listarHistorial(
             Long socioId,
             ConsultaHistorialFiltro filtro,

@@ -3,6 +3,7 @@ package uy.edu.proyecto.backend.turno;
 import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -90,18 +91,42 @@ class TurnoFechasRepositoryTest {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         when(jdbc.query(
                 anyString(),
-                org.mockito.ArgumentMatchers.<RowMapper<Long>>any()
+                org.mockito.ArgumentMatchers.<RowMapper<Long>>any(),
+                any(Object[].class)
         )).thenReturn(List.of());
         TurnoFechasRepository repository = new TurnoFechasRepository(jdbc);
+        OffsetDateTime ahora = OffsetDateTime.parse("2026-11-03T10:00:00-03:00");
 
-        repository.bloquearSiguienteEnvioPendiente();
+        repository.bloquearSiguienteEnvioPendiente(ahora);
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(jdbc).query(sql.capture(), any(RowMapper.class));
+        verify(jdbc).query(sql.capture(), any(RowMapper.class), eq(ahora));
         assertTrue(sql.getValue().contains("envio.estado = 'PENDIENTE'"));
         assertFalse(sql.getValue().contains("SUSPENSION"));
         assertFalse(sql.getValue().contains("notificacion.tipo"));
         assertTrue(sql.getValue().contains("FOR UPDATE OF envio SKIP LOCKED"));
+    }
+
+    @Test
+    void dispatcherNoTomaEnviosProgramadosParaMasTarde() {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        when(jdbc.query(
+                anyString(),
+                org.mockito.ArgumentMatchers.<RowMapper<Long>>any(),
+                any(Object[].class)
+        )).thenReturn(List.of());
+        TurnoFechasRepository repository = new TurnoFechasRepository(jdbc);
+
+        repository.bloquearSiguienteEnvioPendiente(
+                OffsetDateTime.parse("2026-11-03T10:00:00-03:00"));
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbc).query(sql.capture(), any(RowMapper.class), any(Object[].class));
+        assertTrue(sql.getValue().contains(
+                "JOIN public.notificacion notificacion"));
+        assertTrue(sql.getValue().contains(
+                "(notificacion.programada_para IS NULL OR notificacion.programada_para <= ?)"));
+        assertFalse(sql.getValue().contains("CURRENT_TIMESTAMP"));
     }
 
     @Test

@@ -1,5 +1,7 @@
 package uy.edu.proyecto.backend.notificacion;
 
+import java.time.Clock;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -22,12 +24,15 @@ public class EnvioNotificacionDispatcher {
     private final TurnoFechasRepository repository;
     private final CorreoSender correoSender;
     private final PushSender pushSender;
+    private final Clock clock;
 
     public EnvioNotificacionDispatcher(
             TurnoFechasRepository repository,
             CorreoSender correoSender,
-            PushSender pushSender
+            PushSender pushSender,
+            Clock clock
     ) {
+        this.clock = clock;
         this.repository = repository;
         this.correoSender = correoSender;
         this.pushSender = pushSender;
@@ -47,7 +52,7 @@ public class EnvioNotificacionDispatcher {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean despacharSiguientePendiente() {
-        return repository.bloquearSiguienteEnvioPendiente()
+        return repository.bloquearSiguienteEnvioPendiente(OffsetDateTime.now(clock))
                 .flatMap(repository::buscarEnvio)
                 .map(envio -> {
                     enviar(envio);

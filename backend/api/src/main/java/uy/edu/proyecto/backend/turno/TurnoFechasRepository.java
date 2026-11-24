@@ -413,17 +413,26 @@ public class TurnoFechasRepository {
                 .findFirst();
     }
 
-    public Optional<Long> bloquearSiguienteEnvioPendiente() {
+    /**
+     * El siguiente envio pendiente que ya corresponde despachar: los de una
+     * notificacion programada (recordatorios) esperan a su programada_para. El
+     * "ahora" lo manda el llamador (el reloj de la aplicacion), no la base.
+     */
+    public Optional<Long> bloquearSiguienteEnvioPendiente(OffsetDateTime ahora) {
         return jdbcTemplate.query(
                         """
-                        SELECT id_envio
+                        SELECT envio.id_envio
                         FROM public.envio_notificacion envio
+                        JOIN public.notificacion notificacion
+                          ON notificacion.id_notificacion = envio.id_notificacion
                         WHERE envio.estado = 'PENDIENTE'
+                          AND (notificacion.programada_para IS NULL OR notificacion.programada_para <= ?)
                         ORDER BY envio.id_envio
                         LIMIT 1
                         FOR UPDATE OF envio SKIP LOCKED
                         """,
-                        (rs, rowNum) -> rs.getLong("id_envio")
+                        (rs, rowNum) -> rs.getLong("id_envio"),
+                        ahora
                 )
                 .stream()
                 .findFirst();
