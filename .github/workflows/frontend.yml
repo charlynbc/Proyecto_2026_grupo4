@@ -45,5 +45,11 @@ jobs:
       - name: Correr los tests
         run: flutter test
 
+      # El script de web/index.html que pasa los enlaces viejos con # a rutas
+      # sin # es JavaScript: lo prueba Node, que ya viene en el runner. Con el
+      # comodin, porque `node --test <carpeta>` no corre los archivos de la carpeta.
+      - name: Probar el script de enlaces viejos con # (Node)
+        run: node --test test_web/*.test.mjs
+
       - name: Compilar Flutter web
         run: flutter build web --release
