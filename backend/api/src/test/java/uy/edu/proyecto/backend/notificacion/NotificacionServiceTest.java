@@ -29,7 +29,13 @@ class NotificacionServiceTest {
     private final NotificacionService service = new NotificacionService(repository, RELOJ);
 
     private static NotificacionRepository.Fila fila(long id, String tipo, String creadaEn, long consulta) {
-        return new NotificacionRepository.Fila(id, tipo, "Contenido " + id, OffsetDateTime.parse(creadaEn), consulta);
+        return fila(id, tipo, creadaEn, consulta, null);
+    }
+
+    private static NotificacionRepository.Fila fila(long id, String tipo, String creadaEn, long consulta,
+            Long atencion) {
+        return new NotificacionRepository.Fila(id, tipo, "Contenido " + id, OffsetDateTime.parse(creadaEn), consulta,
+                atencion);
     }
 
     private ApiException rechaza(Long socio, String page, String size) {
@@ -163,6 +169,21 @@ class NotificacionServiceTest {
         assertEquals(9002L, items.get(0).consultaId());
         assertEquals(15001L, items.get(1).id());
         assertEquals(9001L, items.get(1).consultaId());
+    }
+
+    @Test
+    void elAtencionIdDeLaFilaLlegaAlItemYUnaFilaSinAtencionLoDejaNulo() {
+        when(repository.listar(7L, AHORA, 0, 20)).thenReturn(List.of(
+                fila(15002, "HISTORIA_ACTUALIZADA", "2026-10-16T14:20:00Z", 9002, 4100L),
+                fila(15001, "HISTORIA_ACTUALIZADA", "2026-10-16T11:20:00-03:00", 9001, null),
+                fila(15000, "AGENDA", "2026-10-16T10:20:00-03:00", 9000, null)));
+        when(repository.total(7L, AHORA)).thenReturn(3L);
+
+        var items = service.listar(7L, null, null).items();
+
+        assertEquals(4100L, items.get(0).atencionId());
+        assertEquals(null, items.get(1).atencionId());
+        assertEquals(null, items.get(2).atencionId());
     }
 
     @Test

@@ -17,6 +17,7 @@ import uy.edu.proyecto.backend.config.SecurityConfig;
 import uy.edu.proyecto.backend.config.SecurityErrorHandler;
 import uy.edu.proyecto.backend.exception.ApiException;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -86,7 +87,9 @@ class NotificacionControllerTest {
     void respondeConLosCamposExactosDelContrato() throws Exception {
         when(service.listar(any(), any(), any())).thenReturn(new NotificacionPageResponse(List.of(
                 new NotificacionDTO(15001, "SUSPENSION", "Turno suspendido", "Se suspendió el turno",
-                        OffsetDateTime.parse("2026-10-16T11:20:00-03:00"), 9001)), 0, 20, 1));
+                        OffsetDateTime.parse("2026-10-16T11:20:00-03:00"), 9001, null),
+                new NotificacionDTO(15002, "HISTORIA_ACTUALIZADA", "Historia clínica actualizada", "Se registró",
+                        OffsetDateTime.parse("2026-10-15T09:40:00-03:00"), 9000, 4100L)), 0, 20, 2));
 
         mvc.perform(get(RUTA).with(rol("SOCIO", "77")))
                 .andExpect(status().isOk())
@@ -96,10 +99,14 @@ class NotificacionControllerTest {
                 .andExpect(jsonPath("$.items[0].contenido").value("Se suspendió el turno"))
                 .andExpect(jsonPath("$.items[0].creadaEn").value("2026-10-16T11:20:00-03:00"))
                 .andExpect(jsonPath("$.items[0].consultaId").value(9001))
-                .andExpect(jsonPath("$.items[0].length()").value(6))
+                // Sin valor, atencionId viaja como null: la clave no se omite (7 campos siempre).
+                .andExpect(jsonPath("$.items[0].atencionId").value(nullValue()))
+                .andExpect(jsonPath("$.items[0].length()").value(7))
+                .andExpect(jsonPath("$.items[1].atencionId").value(4100))
+                .andExpect(jsonPath("$.items[1].length()").value(7))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))
-                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.total").value(2))
                 .andExpect(jsonPath("$.length()").value(4));
     }
 
