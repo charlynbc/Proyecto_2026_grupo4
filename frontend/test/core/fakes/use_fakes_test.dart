@@ -28,10 +28,14 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/fake_database_without_demo.dart';
+
 ProviderContainer _container({required bool useFakes}) {
   final container = ProviderContainer(
     overrides: [
       useFakesProvider.overrideWithValue(useFakes),
+      // La semilla de tres consultas, sin las de demostración de cancelable.
+      fakeDatabaseWithoutDemo,
       // Un Dio liso: el real configura cookies con path_provider, que no
       // existe en el entorno de test.
       dioProvider.overrideWith((ref) async => Dio()),
@@ -63,12 +67,15 @@ void main() {
         expect(repo, isA<FakeAppointmentHistoryRepository>());
       });
 
-      test('el historial falso trae las tres consultas de la semilla', () async {
-        final repo = await _container(useFakes: true)
-            .read(appointmentHistoryRepositoryProvider.future);
-        final page = await repo.list(const AppointmentHistoryQuery());
-        expect(page.total, 3);
-      });
+      test(
+        'el historial falso trae las tres consultas de la semilla',
+        () async {
+          final repo = await _container(useFakes: true)
+              .read(appointmentHistoryRepositoryProvider.future);
+          final page = await repo.list(const AppointmentHistoryQuery());
+          expect(page.total, 3);
+        },
+      );
 
       test('turnos', () async {
         final repo = await _container(useFakes: true)
@@ -206,37 +213,36 @@ void main() {
   });
 
   group('agenda falsa', () {
-    test('reservar quita el número de la disponibilidad y no se repite', () async {
-      final db = FakeDatabase(today: UruguayTime.today());
-      final admin = FakeAdminDatabase();
-      final agenda = FakeAgendaRepository(
-        db,
-        admin,
-        latency: Duration.zero,
-      );
-      final specialty = admin.specialties.firstWhere(
-        (s) => !s.requiresReferral,
-      );
-      final query = AvailabilityQuery(specialtyId: specialty.id);
-      final items = await agenda.listAvailability(query);
-      expect(items, isNotEmpty);
+    test(
+      'reservar quita el número de la disponibilidad y no se repite',
+      () async {
+        final db = FakeDatabase(today: UruguayTime.today());
+        final admin = FakeAdminDatabase();
+        final agenda = FakeAgendaRepository(db, admin, latency: Duration.zero);
+        final specialty = admin.specialties.firstWhere(
+          (s) => !s.requiresReferral,
+        );
+        final query = AvailabilityQuery(specialtyId: specialty.id);
+        final items = await agenda.listAvailability(query);
+        expect(items, isNotEmpty);
 
-      final appointment = await agenda.book(numberId: items.last.numberId);
-      expect(appointment.status, 'AGENDADA');
-      expect(appointment.specialty.id, specialty.id);
+        final appointment = await agenda.book(numberId: items.last.numberId);
+        expect(appointment.status, 'AGENDADA');
+        expect(appointment.specialty.id, specialty.id);
 
-      await expectLater(
-        agenda.book(numberId: items.last.numberId),
-        throwsA(
-          isA<BookingException>().having(
-            (e) => e.failure,
-            'failure',
-            BookingFailure.numberUnavailable,
+        await expectLater(
+          agenda.book(numberId: items.last.numberId),
+          throwsA(
+            isA<BookingException>().having(
+              (e) => e.failure,
+              'failure',
+              BookingFailure.numberUnavailable,
+            ),
           ),
-        ),
-      );
-      final after = await agenda.listAvailability(query);
-      expect(after.any((n) => n.numberId == items.last.numberId), isFalse);
-    });
+        );
+        final after = await agenda.listAvailability(query);
+        expect(after.any((n) => n.numberId == items.last.numberId), isFalse);
+      },
+    );
   });
 }

@@ -1,3 +1,4 @@
+import '../../../core/fakes/fake_cancelable.dart';
 import '../../../core/fakes/fake_database.dart';
 import '../models/appointment.dart';
 import '../models/appointment_history_page.dart';
@@ -13,10 +14,19 @@ class FakeAppointmentHistoryRepository implements AppointmentHistoryRepository {
   FakeAppointmentHistoryRepository(
     this._db, {
     this.latency = const Duration(milliseconds: 300),
-  });
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
 
   final FakeDatabase _db;
   final Duration latency;
+  final DateTime Function() _clock;
+
+  /// La consulta tal como la devolvería el servidor: con `cancelable` según la
+  /// misma regla (`fakeCancelable`) y el reloj de este repositorio.
+  Appointment _served(Appointment appointment) => fakeWithCancelable(
+    appointment,
+    fakeCancelable(_db, appointment, _clock()),
+  );
 
   @override
   Future<AppointmentHistoryPage> list(AppointmentHistoryQuery query) async {
@@ -54,7 +64,10 @@ class FakeAppointmentHistoryRepository implements AppointmentHistoryRepository {
         : matches.reversed.toList();
 
     return AppointmentHistoryPage(
-      items: ordered.skip(query.page * query.size).take(query.size).toList(),
+      items: [
+        for (final a in ordered.skip(query.page * query.size).take(query.size))
+          _served(a),
+      ],
       page: query.page,
       size: query.size,
       total: ordered.length,
@@ -65,7 +78,7 @@ class FakeAppointmentHistoryRepository implements AppointmentHistoryRepository {
   Future<Appointment> get(int id) async {
     await Future<void>.delayed(latency);
     for (final appointment in _db.appointments) {
-      if (appointment.id == id) return appointment;
+      if (appointment.id == id) return _served(appointment);
     }
     throw const AppointmentHistoryException(
       AppointmentHistoryFailure.notFound,

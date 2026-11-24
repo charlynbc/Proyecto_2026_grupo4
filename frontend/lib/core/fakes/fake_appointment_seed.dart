@@ -1,6 +1,7 @@
 import '../../features/agenda/models/appointment.dart';
 import '../../features/agenda/models/available_number.dart';
 import '../../features/agenda/models/referral.dart';
+import '../utils/uruguay_time.dart';
 import 'datos_prueba.dart';
 import 'fake_admin_database.dart';
 
@@ -83,6 +84,81 @@ List<Appointment> seedMemberAppointments({
       clinic: clinic3,
       referralId: null,
       bookedAt: noon(-40),
+      cancelledAt: null,
+      cancellationReason: null,
+    ),
+  ];
+}
+
+/// El id de la consulta de demostración que sí se puede cancelar.
+const int kDemoCancelableAppointmentId = 101;
+
+/// El id de la consulta de demostración que empieza dentro del plazo.
+const int kDemoOutsideWindowAppointmentId = 102;
+
+/// Dos consultas `AGENDADA` más para ver `cancelable` con `USE_FAKES=true`,
+/// con ids fijos altos (no salen de `newId`, así la siguiente que se agende
+/// sigue siendo la 4):
+///
+/// - la 101, dentro de 20 días a las 11:00, de Medicina General con el mismo
+///   médico que las consultas 2 y 3, sin llegada ese día: se puede cancelar;
+/// - la 102, que empieza 90 minutos después de [now] (si eso cruza la
+///   medianoche, cae mañana), sin llegada: queda dentro del plazo de 2 horas y
+///   no se puede cancelar.
+///
+/// Con ellas la socia pasa a tener tres consultas agendadas: hasta que cancele
+/// una, el Fake de agenda responde que llegó al máximo.
+List<Appointment> seedDemoCancelableAppointments({
+  required DateTime today,
+  required DateTime now,
+  required FakeAdminDatabase admin,
+}) {
+  final dermatology = admin.specialties.firstWhere(
+    (s) =>
+        FakeAdminDatabase.normalize(s.name) ==
+        FakeAdminDatabase.normalize('Dermatología'),
+  );
+  final general = admin.specialties.firstWhere(
+    (s) =>
+        FakeAdminDatabase.normalize(s.name) ==
+        FakeAdminDatabase.normalize('Medicina General'),
+  );
+  final clinic12 = admin.clinics.firstWhere((c) => c.name == 'Consultorio 12');
+  final clinic3 = admin.clinics.firstWhere((c) => c.name == 'Consultorio 3');
+
+  final soon = UruguayTime.toUruguay(now).add(const Duration(minutes: 90));
+  final soonDay = DateTime.utc(soon.year, soon.month, soon.day);
+  final soonMinutes = soon.hour * 60 + soon.minute;
+  final bookedAt = today.add(const Duration(days: -2, hours: 12));
+
+  return [
+    Appointment(
+      id: kDemoCancelableAppointmentId,
+      status: 'AGENDADA',
+      date: today.add(const Duration(days: 20)),
+      number: 5,
+      startMinutes: 11 * 60,
+      endMinutes: 11 * 60 + 30,
+      doctor: _doctorRef(1),
+      specialty: general,
+      clinic: clinic3,
+      referralId: null,
+      bookedAt: bookedAt,
+      cancelledAt: null,
+      cancellationReason: null,
+    ),
+    Appointment(
+      id: kDemoOutsideWindowAppointmentId,
+      status: 'AGENDADA',
+      date: soonDay,
+      number: 1,
+      startMinutes: soonMinutes,
+      endMinutes: soonMinutes + 30,
+      doctor: _doctorRef(3),
+      specialty: dermatology,
+      clinic: clinic12,
+      referralId: null,
+      bookedAt: bookedAt,
       cancelledAt: null,
       cancellationReason: null,
     ),

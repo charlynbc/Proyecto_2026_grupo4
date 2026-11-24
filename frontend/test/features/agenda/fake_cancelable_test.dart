@@ -152,7 +152,9 @@ void main() {
       () async {
         final page = await history.list(const AppointmentHistoryQuery());
 
-        expect([for (final a in page.items) a.id], [3, 2, 1]);
+        // El orden por defecto es por fecha, la más reciente primero: la 1
+        // (dentro de 12 días), la 2 (hace 11) y la 3 (hace 31).
+        expect([for (final a in page.items) a.id], [1, 2, 3]);
         expect(
           [for (final a in page.items) a.cancelable],
           [false, false, false],
