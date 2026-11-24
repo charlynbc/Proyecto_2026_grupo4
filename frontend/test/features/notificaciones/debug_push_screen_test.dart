@@ -48,6 +48,12 @@ List<Override> _overrides({required bool useFakes}) => [
   ),
 ];
 
+/// Solo la pantalla de Avisos, sin router ni el resto de la app.
+Widget _avisosSolos({required bool useFakes}) => ProviderScope(
+  overrides: _overrides(useFakes: useFakes),
+  child: const MaterialApp(home: NotificationsScreen()),
+);
+
 void main() {
   testWidgets('con USE_FAKES la pantalla de prueba simula el toque de un push '
       'de historia', (tester) async {
@@ -105,6 +111,56 @@ void main() {
 
     expect(find.byType(NotificationsScreen), findsOneWidget);
     expect(find.byType(MedicalHistoryDetailScreen), findsNothing);
+  });
+
+  testWidgets('con USE_FAKES Avisos ofrece el acceso a la pantalla de prueba y '
+      'se puede volver', (tester) async {
+    tester.view.physicalSize = const Size(1100, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: _overrides(useFakes: true),
+        child: const MyApp(),
+      ),
+    );
+    await _settle(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MyApp)),
+    );
+    container.read(goRouterProvider).go(kNotificationsPath);
+    await _settle(tester);
+
+    await tester.tap(find.text('Debug: simular push'));
+    await _settle(tester);
+
+    expect(find.byType(DebugPushScreen), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await _settle(tester);
+
+    expect(find.byType(DebugPushScreen), findsNothing);
+    expect(find.byType(NotificationsScreen), findsOneWidget);
+  });
+
+  testWidgets(
+    'con USE_FAKES la pantalla de Avisos muestra el acceso de prueba',
+    (tester) async {
+      await tester.pumpWidget(_avisosSolos(useFakes: true));
+      await _settle(tester);
+
+      expect(find.text('Debug: simular push'), findsOneWidget);
+    },
+  );
+
+  testWidgets('sin USE_FAKES la pantalla de Avisos no muestra el acceso de '
+      'prueba', (tester) async {
+    await tester.pumpWidget(_avisosSolos(useFakes: false));
+    await _settle(tester);
+
+    expect(find.byType(NotificationsScreen), findsOneWidget);
+    expect(find.text('Debug: simular push'), findsNothing);
+    expect(find.textContaining('Debug'), findsNothing);
   });
 
   test('sin USE_FAKES la ruta de prueba no existe', () {
