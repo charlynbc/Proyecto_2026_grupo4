@@ -39,7 +39,7 @@ respondiendo 404 fuera de vigencia y no cambia). Solo `ADMINISTRADOR`. Responde
   "vigenteHasta": "2026-11-10T00:00:00-03:00",
   "estado": "VENCIDO",
   "posicion": null,
-  "imagenes": [{ "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/3f2b.png", "urlMiniatura": "https://.../storage/v1/object/sign/anuncios/mini/3f2b.jpg" }]
+  "imagenes": [{ "id": 101, "orden": 0, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/3f2b.png?token=abc", "urlMiniatura": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/mini/3f2b.jpg?token=abc" }]
 }
 ```
 

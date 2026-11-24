@@ -2743,8 +2743,8 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
   "texto": "**Vacunarse** ayuda a prevenir la gripe.",
   "publicadoEn": "2026-11-03T12:00:00Z",
   "imagenes": [
-    { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/3f2b.png", "urlMiniatura": "https://.../storage/v1/object/sign/anuncios/mini/3f2b.jpg" },
-    { "id": 102, "orden": 1, "url": "https://.../storage/v1/object/sign/anuncios/9a7c.jpg", "urlMiniatura": null }
+    { "id": 101, "orden": 0, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/3f2b.png?token=abc", "urlMiniatura": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/mini/3f2b.jpg?token=abc" },
+    { "id": 102, "orden": 1, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/9a7c.jpg?token=abc", "urlMiniatura": null }
   ]
 }
 ```
@@ -2768,7 +2768,7 @@ Al publicar, el servidor genera además la miniatura de cada imagen y la guarda 
       "titulo": "Campaña de vacunación",
       "resumen": "Comienza el lunes",
       "publicadoEn": "2026-11-03T12:00:00Z",
-      "imagenPortada": { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/3f2b.png", "urlMiniatura": "https://.../storage/v1/object/sign/anuncios/mini/3f2b.jpg" }
+      "imagenPortada": { "id": 101, "orden": 0, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/3f2b.png?token=abc", "urlMiniatura": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/mini/3f2b.jpg?token=abc" }
     }
   ],
   "page": 0,
