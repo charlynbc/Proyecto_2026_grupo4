@@ -30,6 +30,11 @@ import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolici
 /** RF-19: el funcionario cancela a pedido del socio o por otro motivo, con motivo. */
 class CancelacionFuncionarioMotivoTest {
     private static final LocalDate FECHA = LocalDate.of(2026, 11, 1);
+    private static final String A_SOLICITUD = "Tu consulta de Cardiología con "
+            + "Marta Rodríguez del 01/11/2026 a las 12:00 fue cancelada a tu solicitud.";
+    private static final String POR_GUARDIA = "Tu consulta de Cardiología con "
+            + "Marta Rodríguez del 01/11/2026 a las 12:00 fue cancelada por la "
+            + "institución. Motivo: Guardia";
 
     private CancelacionFuncionarioRepository repository;
     private ConsultaRepository consultaRepository;
@@ -53,10 +58,11 @@ class CancelacionFuncionarioMotivoTest {
         when(consultaRepository.bloquearSocioHabilitado(7L)).thenReturn(true);
         when(repository.bloquearConsulta(12L, 7L)).thenReturn(Optional.of(
                 new DatosConsulta(7L, "12345678", "socio@example.com", "AGENDADA",
-                        FECHA, LocalTime.NOON, LocalDate.of(2026, 12, 15))));
+                        FECHA, LocalTime.NOON, LocalDate.of(2026, 12, 15),
+                        "Cardiología", "Marta Rodríguez")));
         when(repository.cancelar(12L, 5L)).thenReturn(
                 Optional.of(OffsetDateTime.parse("2026-10-30T09:01:00-03:00")));
-        when(repository.crearNotificacion(12L, FECHA)).thenReturn(90L);
+        when(repository.crearNotificacion(12L, A_SOLICITUD)).thenReturn(90L);
         when(notificaciones.registrarEnviosNotificacion(90L, 7L, "socio@example.com"))
                 .thenReturn(List.of(91L));
     }
@@ -188,7 +194,8 @@ class CancelacionFuncionarioMotivoTest {
     void otroMotivoSobreUnaConsultaYaCanceladaDa409SinTocarNada() {
         when(repository.bloquearConsulta(12L, 7L)).thenReturn(Optional.of(
                 new DatosConsulta(7L, "12345678", "socio@example.com", "CANCELADA_SOCIO",
-                        FECHA, LocalTime.NOON, LocalDate.of(2026, 12, 15))));
+                        FECHA, LocalTime.NOON, LocalDate.of(2026, 12, 15),
+                        "Cardiología", "Marta Rodríguez")));
 
         ApiException error = rechazo(new CancelacionFuncionarioRequest(false, "Guardia"));
 
@@ -196,14 +203,15 @@ class CancelacionFuncionarioMotivoTest {
         assertEquals("CONSULTA_NO_AGENDADA", error.getCode());
         assertEquals("Solo se puede cancelar una consulta agendada", error.getMessage());
         verify(repository, never()).cancelarPorInstitucion(any(), any(), any());
-        verify(repository, never()).crearNotificacionPorInstitucion(any(), any(), any());
+        verify(repository, never()).crearNotificacion(any(), any());
     }
 
     @Test
     void otroMotivoRespetaElPlazoDeDosHoras() {
         when(repository.bloquearConsulta(12L, 7L)).thenReturn(Optional.of(
                 new DatosConsulta(7L, "12345678", "socio@example.com", "AGENDADA",
-                        LocalDate.of(2026, 10, 30), LocalTime.of(10, 0), null)));
+                        LocalDate.of(2026, 10, 30), LocalTime.of(10, 0), null,
+                        "Cardiología", "Marta Rodríguez")));
 
         ApiException error = rechazo(new CancelacionFuncionarioRequest(false, "Guardia"));
 
@@ -215,7 +223,8 @@ class CancelacionFuncionarioMotivoTest {
     void otroMotivoRespetaElConflictoDeInteres() {
         when(repository.bloquearConsulta(12L, 7L)).thenReturn(Optional.of(
                 new DatosConsulta(7L, "87654321", "socio@example.com", "AGENDADA",
-                        FECHA, LocalTime.NOON, null)));
+                        FECHA, LocalTime.NOON, null,
+                        "Cardiología", "Marta Rodríguez")));
 
         ApiException error = rechazo(new CancelacionFuncionarioRequest(false, "Guardia"));
 
@@ -229,15 +238,14 @@ class CancelacionFuncionarioMotivoTest {
     @Test
     void otroMotivoCreaLaNotificacionConElMotivoRecortado() {
         preparaCancelacionInstitucional("Guardia");
-        when(repository.crearNotificacionPorInstitucion(12L, FECHA, "Guardia"))
-                .thenReturn(92L);
+        when(repository.crearNotificacion(12L, POR_GUARDIA)).thenReturn(92L);
         when(notificaciones.registrarEnviosNotificacion(92L, 7L, "socio@example.com"))
                 .thenReturn(List.of(93L));
 
         service.cancelar(5L, "12", new CancelacionFuncionarioRequest(false, "  Guardia "));
 
-        verify(repository).crearNotificacionPorInstitucion(12L, FECHA, "Guardia");
-        verify(repository, never()).crearNotificacion(any(), any());
+        verify(repository).crearNotificacion(12L, POR_GUARDIA);
+        verify(repository, never()).crearNotificacion(12L, A_SOLICITUD);
         verify(notificaciones).registrarEnviosNotificacion(92L, 7L, "socio@example.com");
         // El mismo despacho generico que el resto de las cancelaciones.
         verify(events).publishEvent(new EnviosNotificacionSolicitados(List.of(93L)));
@@ -246,7 +254,7 @@ class CancelacionFuncionarioMotivoTest {
     @Test
     void sinEnviosNoSePideDespacho() {
         preparaCancelacionInstitucional("Guardia");
-        when(repository.crearNotificacionPorInstitucion(12L, FECHA, "Guardia")).thenReturn(92L);
+        when(repository.crearNotificacion(12L, POR_GUARDIA)).thenReturn(92L);
         when(notificaciones.registrarEnviosNotificacion(92L, 7L, "socio@example.com"))
                 .thenReturn(List.of());
 
@@ -259,8 +267,8 @@ class CancelacionFuncionarioMotivoTest {
     void aPedidoDelSocioConservaLaNotificacionDeSiempre() {
         service.cancelar(5L, "12", new CancelacionFuncionarioRequest(true, "No va"));
 
-        verify(repository).crearNotificacion(12L, FECHA);
-        verify(repository, never()).crearNotificacionPorInstitucion(any(), any(), any());
+        verify(repository).crearNotificacion(12L, A_SOLICITUD);
+        verify(repository, never()).crearNotificacion(12L, POR_GUARDIA);
         verify(events).publishEvent(new EnviosNotificacionSolicitados(List.of(91L)));
     }
 

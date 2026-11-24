@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
 import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasService.EnviosNotificacionSolicitados;
@@ -95,9 +96,14 @@ public class CancelacionFuncionarioService {
         OffsetDateTime canceladaEn = cancelada
                 .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT,
                         "CONSULTA_NO_AGENDADA", "La consulta ya no está agendada"));
-        Long notificacionId = aPedidoDelSocio
-                ? repository.crearNotificacion(consultaId, consulta.fecha())
-                : repository.crearNotificacionPorInstitucion(consultaId, consulta.fecha(), motivo);
+        String contenido = aPedidoDelSocio
+                ? NotificacionTextos.cuerpoCancelacionASolicitudDelSocio(
+                        consulta.especialidad(), consulta.medico(), consulta.fecha(),
+                        consulta.horaInicio())
+                : NotificacionTextos.cuerpoCancelacionPorInstitucion(
+                        consulta.especialidad(), consulta.medico(), consulta.fecha(),
+                        consulta.horaInicio(), motivo);
+        Long notificacionId = repository.crearNotificacion(consultaId, contenido);
         List<Long> envios = notificaciones.registrarEnviosNotificacion(
                 notificacionId, consulta.socioId(), consulta.correo());
         if (!envios.isEmpty()) {

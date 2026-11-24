@@ -134,7 +134,8 @@ class NotificacionesEnvioIT extends BaseIntegracionIT {
         verify(correoSender).enviar(new CorreoMensaje(
                 correoDe(ciSocio1),
                 "Consulta cancelada",
-                "Tu consulta del " + fechaUruguaya(fecha) + " fue cancelada a tu solicitud."));
+                "Tu consulta de Medicina General con Mario Medina del " + fechaUruguaya(fecha)
+                        + " a las 10:00 fue cancelada a tu solicitud."));
     }
 
     @Test

@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -155,8 +156,10 @@ class CancelacionMedicoIT extends BaseIntegracionIT {
         String contenido = jdbc.queryForObject(
                 "SELECT n.contenido FROM notificacion n WHERE n.id_consulta = ?"
                         + " AND n.tipo = 'CANCELACION'", String.class, consulta);
-        assertNotNull(contenido);
-        assertTrue(contenido.contains("Imprevisto"), contenido);
+        LocalDate dia = hoy().plusDays(7);
+        assertEquals("Tu consulta de Medicina General con Mario Medina del "
+                + "%02d/%02d/%04d".formatted(dia.getDayOfMonth(), dia.getMonthValue(), dia.getYear())
+                + " a las 10:00 fue cancelada por la institución. Motivo: Imprevisto", contenido);
         assertEquals(1, jdbc.queryForObject(
                 "SELECT count(*) FROM envio_notificacion e JOIN notificacion n"
                         + " ON n.id_notificacion = e.id_notificacion"
@@ -314,6 +317,11 @@ class CancelacionMedicoIT extends BaseIntegracionIT {
 
         assertEquals("SUSPENDIDO", jdbc.queryForObject(
                 "SELECT estado FROM turno WHERE id_turno = ?", String.class, turno));
+        LocalDate dia = hoy().plusDays(7);
+        String fechaTexto = "%02d/%02d/%04d".formatted(
+                dia.getDayOfMonth(), dia.getMonthValue(), dia.getYear());
+        Map<Long, String> horarios = Map.of(
+                c1, "10:00 a 10:20 (número 1)", c2, "10:20 a 10:40 (número 2)");
         for (long c : List.of(c1, c2)) {
             assertEquals("CANCELADA_INSTITUCION", estadoConsulta(c));
             assertEquals(idMedico, jdbc.queryForObject(
@@ -328,7 +336,9 @@ class CancelacionMedicoIT extends BaseIntegracionIT {
             String contenido = jdbc.queryForObject(
                     "SELECT contenido FROM notificacion WHERE id_consulta = ?"
                             + " AND tipo = 'SUSPENSION'", String.class, c);
-            assertTrue(contenido.contains("Guardia"), contenido);
+            assertEquals("Tu consulta de Medicina General con Mario Medina del " + fechaTexto
+                    + " fue cancelada por la institución. Horario: " + horarios.get(c)
+                    + ". Motivo: Guardia", contenido);
         }
         assertEquals(1, jdbc.queryForObject(
                 "SELECT count(*) FROM turno_evento WHERE id_turno = ? AND tipo = 'SUSPENSION'"

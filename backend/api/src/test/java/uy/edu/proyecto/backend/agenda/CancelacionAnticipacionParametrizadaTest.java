@@ -129,7 +129,8 @@ class CancelacionAnticipacionParametrizadaTest {
         when(consultaRepository.bloquearSocioHabilitado(7L)).thenReturn(true);
         when(repository.bloquearConsultaDelMedico(12L, 7L, 5L)).thenReturn(Optional.of(
                 new CancelacionMedicoRepository.DatosConsulta(7L, "20000012",
-                        "socio@example.com", "AGENDADA", HOY, hora, LocalDate.of(2026, 12, 15))));
+                        "socio@example.com", "AGENDADA", HOY, hora, LocalDate.of(2026, 12, 15),
+                        "Cardiología", "Marta Rodríguez")));
         when(repository.cancelarConsulta(12L, 5L, "Imprevisto"))
                 .thenReturn(Optional.of(CANCELADA));
         when(repository.crearNotificacionCancelacion(eq(12L), anyString())).thenReturn(90L);
@@ -202,7 +203,7 @@ class CancelacionAnticipacionParametrizadaTest {
             long id, long socioId, LocalTime inicio) {
         return new TurnoFechasRepository.ConsultaParaCancelar(
                 id, socioId, 100L + id, 30L, HOY, inicio, inicio.plusMinutes(20), (int) id,
-                "socio" + id + "@example.com");
+                "socio" + id + "@example.com", "Cardiología", "Marta Rodríguez");
     }
 
     @Test
@@ -237,9 +238,9 @@ class CancelacionAnticipacionParametrizadaTest {
         when(consultaRepository.bloquearSocioHabilitado(7L)).thenReturn(true);
         when(repository.bloquearConsulta(12L, 7L)).thenReturn(Optional.of(new DatosConsulta(
                 7L, "12345678", "socio@example.com", "AGENDADA", HOY, hora,
-                LocalDate.of(2026, 12, 15))));
+                LocalDate.of(2026, 12, 15), "Cardiología", "Marta Rodríguez")));
         when(repository.cancelar(12L, 5L)).thenReturn(Optional.of(CANCELADA));
-        when(repository.crearNotificacion(12L, HOY)).thenReturn(90L);
+        when(repository.crearNotificacion(eq(12L), anyString())).thenReturn(90L);
         when(notificaciones.registrarEnviosNotificacion(90L, 7L, "socio@example.com"))
                 .thenReturn(List.of(91L));
         return new CancelacionFuncionarioService(repository, consultaRepository,
