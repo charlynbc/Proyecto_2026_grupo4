@@ -70,4 +70,60 @@ void main() {
       });
     }
   });
+
+  group('Appointment.fromJson: cancelable', () {
+    test('si el servidor no lo manda (backend viejo) queda en null', () {
+      final appointment = Appointment.fromJson(_json());
+
+      expect(_json().containsKey('cancelable'), isFalse);
+      expect(appointment.cancelable, isNull);
+    });
+
+    test('true se conserva', () {
+      final json = _json()..['cancelable'] = true;
+
+      expect(Appointment.fromJson(json).cancelable, isTrue);
+    });
+
+    test('false se conserva', () {
+      final json = _json()..['cancelable'] = false;
+
+      expect(Appointment.fromJson(json).cancelable, isFalse);
+    });
+
+    test('un null explicito tambien es null', () {
+      final json = _json()..['cancelable'] = null;
+
+      expect(Appointment.fromJson(json).cancelable, isNull);
+    });
+
+    for (final value in <Object>['si', 'true', 1, 0]) {
+      test('el valor $value no es booleano y la respuesta es malformada', () {
+        final json = _json()..['cancelable'] = value;
+
+        expect(() => Appointment.fromJson(json), throwsA(isA<TypeError>()));
+      });
+    }
+
+    test('los constructores existentes no piden el campo', () {
+      final appointment = Appointment.fromJson(_json());
+      final rebuilt = Appointment(
+        id: appointment.id,
+        status: appointment.status,
+        date: appointment.date,
+        number: appointment.number,
+        startMinutes: appointment.startMinutes,
+        endMinutes: appointment.endMinutes,
+        doctor: appointment.doctor,
+        specialty: appointment.specialty,
+        clinic: appointment.clinic,
+        referralId: appointment.referralId,
+        bookedAt: appointment.bookedAt,
+        cancelledAt: appointment.cancelledAt,
+        cancellationReason: appointment.cancellationReason,
+      );
+
+      expect(rebuilt.cancelable, isNull);
+    });
+  });
 }

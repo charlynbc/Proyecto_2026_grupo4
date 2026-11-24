@@ -229,4 +229,61 @@ void main() {
       ),
     );
   });
+
+  group('cancelable', () {
+    test('la lista conserva el campo de cada consulta', () async {
+      final (repository, _) = _repository(200, {
+        'items': [
+          {..._appointment(), 'id': 9001, 'cancelable': true},
+          {..._appointment(), 'id': 9002, 'cancelable': false},
+          {..._appointment(), 'id': 9003},
+        ],
+        'page': 0,
+        'size': 20,
+        'total': 3,
+      });
+
+      final items = (await repository.list(const AppointmentHistoryQuery()))
+          .items;
+
+      expect([for (final a in items) a.cancelable], [true, false, null]);
+    });
+
+    test('el detalle conserva el campo', () async {
+      final (conTrue, _) = _repository(200, {
+        ..._appointment(),
+        'cancelable': true,
+      });
+      final (conFalse, _) = _repository(200, {
+        ..._appointment(),
+        'cancelable': false,
+      });
+      final (sinCampo, _) = _repository(200, _appointment());
+
+      expect((await conTrue.get(9001)).cancelable, isTrue);
+      expect((await conFalse.get(9001)).cancelable, isFalse);
+      expect((await sinCampo.get(9001)).cancelable, isNull);
+    });
+
+    test('un valor que no es booleano da el error generico', () async {
+      final (lista, _) = _repository(200, {
+        'items': [
+          {..._appointment(), 'cancelable': 'si'},
+        ],
+        'page': 0,
+        'size': 20,
+        'total': 1,
+      });
+      final (detalle, _) = _repository(200, {
+        ..._appointment(),
+        'cancelable': 1,
+      });
+
+      await expectLater(
+        lista.list(const AppointmentHistoryQuery()),
+        throwsA(isA<ApiException>()),
+      );
+      await expectLater(detalle.get(9001), throwsA(isA<ApiException>()));
+    });
+  });
 }
