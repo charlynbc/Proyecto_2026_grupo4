@@ -14,6 +14,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/load_roboto.dart';
+
 /// El texto exacto que ve el socio cuando el servidor dice cancelable: false.
 const String kUnavailableText =
     'Esta consulta ya no se puede cancelar desde la aplicación. '
@@ -162,5 +164,46 @@ void main() {
         });
       }
     }
+  });
+
+  // Va al final: Roboto se carga una sola vez por archivo y los tests que
+  // vinieran después dejarían de usar la fuente de prueba.
+  group('a 320 px con Roboto y el texto al doble', () {
+    setUpAll(loadRoboto);
+
+    testWidgets('el texto de no cancelable se lee entero y no desborda', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pump(
+        tester,
+        _appointment(status: 'AGENDADA', cancelable: false),
+        size: const Size(320, 2400),
+      );
+
+      expect(
+        MediaQuery.of(tester.element(_unavailable)).textScaler.scale(10),
+        20,
+      );
+      expect(tester.widget<Text>(_unavailable).data, kUnavailableText);
+      expect(_button, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('con el botón también cabe a 320 px con el texto al doble', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pump(
+        tester,
+        _appointment(status: 'AGENDADA', cancelable: true),
+        size: const Size(320, 2400),
+      );
+
+      expect(_button, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }
