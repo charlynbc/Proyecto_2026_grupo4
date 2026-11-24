@@ -28,14 +28,15 @@ void main() {
     expect(fin, lessThan(bootstrap));
   });
 
-  test('el script es síncrono: no es async ni defer ni un archivo aparte', () {
+  test('el script es síncrono: sin async, defer ni src (va en línea)', () {
     final inicio = html.indexOf('<!-- legacy-hash:inicio -->');
     final fin = html.indexOf('<!-- legacy-hash:fin -->');
-    final bloque = html.substring(inicio, fin);
+    final etiqueta = RegExp(r'<script([^>]*)>')
+        .firstMatch(html.substring(inicio, fin));
 
-    expect(bloque, isNot(contains('async')));
-    expect(bloque, isNot(contains('defer')));
-    expect(bloque, isNot(contains('src=')));
+    expect(etiqueta, isNotNull);
+    // Una etiqueta <script> pelada: cualquier atributo la haría asíncrona o externa.
+    expect(etiqueta!.group(1)!.trim(), isEmpty);
   });
 
   test('el <base href> sigue ahí', () {
