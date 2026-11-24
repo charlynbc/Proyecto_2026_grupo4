@@ -22,7 +22,7 @@ public class PrimerIngresoMailListener {
 
     public PrimerIngresoMailListener(
             CorreoSender correoSender,
-            @Value("${app.email.first-login-url:http://localhost:5173/#/primer-ingreso}")
+            @Value("${app.email.first-login-url:http://localhost:5173/primer-ingreso}")
             String activationUrl
     ) {
         this.correoSender = correoSender;
