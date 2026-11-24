@@ -45,8 +45,8 @@ PostgreSQL.
 
 | # | Método y ruta | Roles | RF | Pantalla del front | Estado | Usada por el front | Campos y errores |
 |---|---|---|---|---|---|---|---|
-| 18 | `GET /api/consultas` | SOCIO | 11 | Mis consultas | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026; feat/front-fechas-consultas-atenciones 13/11/2026 | [contrato #18](contrato-v1.md#e18) |
-| 19 | `GET /api/consultas/{id}` | SOCIO | 11 | Detalle de consulta | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026 | [contrato #19](contrato-v1.md#e19) |
+| 18 | `GET /api/consultas` | SOCIO | 11 | Mis consultas | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026; feat/front-fechas-consultas-atenciones 13/11/2026; feat/front-consultas-cancelable 24/11/2026 | [contrato #18](contrato-v1.md#e18) |
+| 19 | `GET /api/consultas/{id}` | SOCIO | 11 | Detalle de consulta | CONFIRMADA | integracion/proyecto-2026-avances 22/10/2026; feat/front-consultas-cancelable 24/11/2026 | [contrato #19](contrato-v1.md#e19) |
 | 20 | `POST /api/consultas/{id}/cancelar` | SOCIO | 10 | Cancelar consulta | CONFIRMADA | rama feat/cierre-cancelaciones-pases | [contrato #20](contrato-v1.md#e20) |
 | 21 | `GET /api/historia-clinica` | SOCIO (solo propias) | 12 | Historia clínica | CONFIRMADA | feat/front-historia-clinica 29/10/2026 | [contrato #21](contrato-v1.md#e21) |
 | 22 | `GET /api/historia-clinica/{idAtencion}` | SOCIO (solo propias) | 12 | Detalle de atención | CONFIRMADA | feat/front-historia-clinica 29/10/2026 | [contrato #22](contrato-v1.md#e22) |
@@ -139,6 +139,8 @@ clínicos permitidos (decisión documentada en contrato #21: RF-12 no exige pagi
 arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
+
+- 24/11/2026, filas 17, 18, 19 y 26 (rama feat/front-consultas-cancelable): cada consulta del socio de `POST /api/consultas` (fila 17), `GET /api/consultas` (fila 18), `GET /api/consultas/{id}` (fila 19) y de los `items` de `GET /api/avisos-llegada/consultas-hoy` (fila 26) trae `cancelable` (booleano, último campo, siempre presente en un servidor que lo manda). Es `true` solo si el estado que se presenta es `AGENDADA`, el socio no tiene aviso de llegada ese día y el inicio no cae antes de ahora más la anticipación mínima de cancelación del servidor (2 horas por defecto, con el límite exacto cancelable); la llegada se evalúa por socio y día. El frontend ya lo lee: `Appointment` lo guarda como `bool?` (`null` si el servidor no lo manda) y el detalle de Mis consultas (fila 19) ofrece "Cancelar consulta" si el estado es `AGENDADA` y `cancelable` no es `false`. Con `false` muestra en su lugar el texto "Esta consulta ya no se puede cancelar desde la aplicación. Si no vas a poder asistir, comunicate con la institución."; el cliente no recalcula la regla ni distingue el motivo. Con `null` (servidor anterior) conserva el comportamiento de antes: ofrece cancelar y el `409` de la fila 20 (`LLEGADA_YA_REGISTRADA`, `CANCELACION_FUERA_DE_PLAZO`) sigue protegiendo, con sus textos de siempre en el diálogo. Un valor que no es booleano se trata como respuesta malformada (error genérico). Las pantallas de agendar y de llegada del funcionario leen el campo pero no lo usan. Con `USE_FAKES` los datos falsos aplican la misma regla con reloj y suman dos consultas de demostración (una cancelable y una dentro del plazo).
 
 - 20/11/2026, fila 26 (rama feat/llegada-estado-al-buscar): la respuesta de `GET /api/avisos-llegada/consultas-hoy` agrega `llegada`: objeto `{registradaEn, registradaPor:{id, nombre, apellido}}`, con la misma forma que esos campos en el cuerpo del POST de la fila 27, o `null` si el socio no tiene llegada de hoy. `items` no cambia. Se devuelve también si `items` está vacío. El frontend lo trata como opcional: si falta o es `null`, la pantalla Llegada se comporta como antes y deja registrar. Si viene, muestra el botón deshabilitado con la hora (hora de Uruguay) y quién la registró.
 
