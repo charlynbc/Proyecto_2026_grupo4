@@ -102,7 +102,7 @@ El archivo `.env` no se sube al repositorio.
 ```powershell
 docker run -d --name mailpit -p 8025:8025 -p 1025:1025 axllent/mailpit
 # Variables: MAIL_PROVIDER=smtp MAIL_HOST=localhost MAIL_PORT=1025 MAIL_FROM=no-reply@mailpit.local
-#            FIRST_LOGIN_URL=http://localhost:5173/#/primer-ingreso
+#            FIRST_LOGIN_URL=http://localhost:5173/primer-ingreso
 ```
 
 Bandeja: <http://localhost:8025>. Cargar las cuentas ficticias pendientes (solo `INSERT`,
@@ -116,7 +116,7 @@ powershell -ExecutionPolicy Bypass -File scripts/probar-primer-ingreso-mailpit.p
 ```
 
 El script pide el enlace (202), espera el correo en Mailpit, comprueba que el enlace tenga
-la forma `/#/primer-ingreso?token=…`, activa la cuenta, comprueba que el enlace no se
+la forma `/primer-ingreso?token=…`, activa la cuenta, comprueba que el enlace no se
 reutiliza y ejecuta el login. Manualmente: `POST /api/auth/primer-ingreso/solicitar`, abrir
 el enlace del correo, `POST /api/auth/primer-ingreso/completar`, y `POST /api/auth/login`
 (los empleados envían además `"plataforma":"WEB"`). Para Railway y Resend ver
