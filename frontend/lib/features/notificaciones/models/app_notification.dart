@@ -19,7 +19,10 @@ DateTime _parseInstant(String value) {
 /// informado (todo aviso cuelga de una consulta), pero el contrato pide
 /// tolerar `null` o la ausencia de la clave: un aviso sin consulta se muestra
 /// igual y no se puede abrir. [createdAt] es un instante: para mostrarlo se
-/// pasa por `UruguayTime.toUruguay`.
+/// pasa por `UruguayTime.toUruguay`. [atencionId] es el id de la atención
+/// (el mismo de `GET /api/historia-clinica/{idAtencion}`): solo lo trae un
+/// aviso `HISTORIA_ACTUALIZADA` con atención. En el resto es `null`, y un
+/// servidor que todavía no manda la clave también se lee como `null`.
 class AppNotification {
   const AppNotification({
     required this.id,
@@ -28,6 +31,7 @@ class AppNotification {
     required this.consultaId,
     required this.content,
     required this.createdAt,
+    this.atencionId,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) =>
@@ -38,12 +42,14 @@ class AppNotification {
         consultaId: json['consultaId'] as int?,
         content: json['contenido'] as String,
         createdAt: _parseInstant(json['creadaEn'] as String),
+        atencionId: json['atencionId'] as int?,
       );
 
   final int id;
   final String type;
   final String title;
   final int? consultaId;
+  final int? atencionId;
   final String content;
   final DateTime createdAt;
 }
