@@ -6,6 +6,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/branding.dart';
@@ -24,6 +25,9 @@ import 'firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Rutas sin # en la web (/primer-ingreso?token=X). Fuera de la web no hace
+  // nada. El servidor responde el index.html en las rutas de la app.
+  usePathUrlStrategy();
   await initializeDateFormatting('es');
   if (kIsWeb) {
     await Firebase.initializeApp(
