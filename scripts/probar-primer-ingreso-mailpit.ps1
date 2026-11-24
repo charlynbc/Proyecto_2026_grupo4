@@ -5,7 +5,7 @@
 .DESCRIPTION
   1. POST /solicitar (HTTP aceptado).
   2. Espera el correo en Mailpit (proveedor SMTP acepto y entrego a la bandeja simulada).
-  3. Verifica que el enlace tenga la forma <FIRST_LOGIN_URL>?token=... (Flutter web, con #/).
+  3. Verifica que el enlace tenga la forma <FIRST_LOGIN_URL>?token=... (Flutter web, rutas sin #).
   4. POST /completar con el token del correo (cuenta activada).
   5. POST /login con la contrasena nueva (login satisfactorio).
 
@@ -19,7 +19,7 @@ param(
     [string]$Ci = '40000018',
     [ValidateSet('SOCIO', 'EMPLEADO')][string]$Acceso = 'SOCIO',
     [string]$Password = 'Clave-Local-Mailpit-1',
-    [string]$EnlaceEsperado = '#/primer-ingreso?token='
+    [string]$EnlaceEsperado = '/primer-ingreso?token='
 )
 
 $ErrorActionPreference = 'Stop'
