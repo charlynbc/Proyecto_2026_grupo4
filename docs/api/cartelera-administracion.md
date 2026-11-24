@@ -39,14 +39,17 @@ respondiendo 404 fuera de vigencia y no cambia). Solo `ADMINISTRADOR`. Responde
   "vigenteHasta": "2026-11-10T00:00:00-03:00",
   "estado": "VENCIDO",
   "posicion": null,
-  "imagenes": [{ "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." }]
+  "imagenes": [{ "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/3f2b.png", "urlMiniatura": "https://.../storage/v1/object/sign/anuncios/mini/3f2b.jpg" }]
 }
 ```
 
 `estado` y `posicion` se calculan igual que en el listado
 (`GET /api/admin/anuncios`); `resumen`, `texto` y `vigenteDesde` pueden ser
 `null`. Las `url` de las imágenes son enlaces temporales de Storage válidos por
-una hora, como en el detalle público. Si el anuncio no existe responde
+una hora, como en el detalle público. `urlMiniatura` es la copia reducida de
+la imagen, con las mismas reglas que en el contrato de la consulta de
+novedades: siempre figura y es `null` si no hay miniatura o no se pudo firmar.
+Si el anuncio no existe responde
 `404 NO_ENCONTRADO` con el formato de error habitual (`{"code","message"}`);
 sin sesión responde 401 y con otro rol 403.
 
