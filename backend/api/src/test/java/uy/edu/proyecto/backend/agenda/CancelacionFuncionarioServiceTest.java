@@ -47,7 +47,7 @@ class CancelacionFuncionarioServiceTest {
 
     private DatosConsulta datos(String ci, LocalDate fecha, LocalTime hora) {
         return new DatosConsulta(7L, ci, "socio@example.com", "AGENDADA",
-                fecha, hora, LocalDate.of(2026, 12, 15));
+                fecha, hora, LocalDate.of(2026, 12, 15), "Cardiología", "Marta Rodríguez");
     }
 
     @Test
@@ -56,8 +56,9 @@ class CancelacionFuncionarioServiceTest {
                 Optional.of(datos("12345678", LocalDate.of(2026, 11, 1), LocalTime.NOON)));
         when(repository.cancelar(12L, 5L)).thenReturn(
                 Optional.of(OffsetDateTime.parse("2026-10-30T09:01:00-03:00")));
-        when(repository.crearNotificacion(12L, LocalDate.of(2026, 11, 1)))
-                .thenReturn(90L);
+        when(repository.crearNotificacion(12L,
+                "Tu consulta de Cardiología con Marta Rodríguez del 01/11/2026 "
+                        + "a las 12:00 fue cancelada a tu solicitud.")).thenReturn(90L);
         when(notificaciones.registrarEnviosNotificacion(90L, 7L, "socio@example.com"))
                 .thenReturn(List.of(91L));
 
