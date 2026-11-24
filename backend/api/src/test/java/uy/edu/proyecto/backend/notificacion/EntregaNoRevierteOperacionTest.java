@@ -71,7 +71,8 @@ class EntregaNoRevierteOperacionTest {
                 java.time.LocalTime.of(9, 0),
                 java.time.LocalTime.of(9, 20),
                 "Cardiología",
-                "Socio"
+                "Socio",
+                null
         );
     }
 

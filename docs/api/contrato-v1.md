@@ -1761,6 +1761,25 @@ El cliente lo llama **antes** de cerrar sesión (#3), porque `POST /api/auth/log
 
 `401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican como a todo endpoint protegido y no se repiten. Preguntas relacionadas: P-14 (resuelta, sección 7.1).
 
+<a id="push-datos"></a>
+#### Datos del mensaje push
+
+- **Roles:** SOCIO (Android). **RF:** RNF-23. **Estado:** el backend los envía desde la rama `feat/back-push-atencion-id`; sin endpoint propio: es lo que el servidor manda por Firebase Cloud Messaging a cada dispositivo habilitado del socio (#33), después de guardar el aviso que lista #32.
+
+El mensaje lleva el título y el cuerpo del aviso (los mismos de la notificación y del correo) y un mapa `data` con **valores de texto**, porque Firebase no admite otro tipo:
+
+| Clave en `data` | Cuándo viene | Valor |
+|---|---|---|
+| `tipo` | siempre | El `tipo` del aviso: `AGENDA`, `CANCELACION`, `SUSPENSION`, `HISTORIA_ACTUALIZADA` o `RECORDATORIO`. |
+| `notificacionId` | siempre | El `id` del aviso (el de #32), como texto: `"15002"`. |
+| `atencionId` | solo en `HISTORIA_ACTUALIZADA` y solo si la consulta tiene atención | El id de la atención registrada, como texto: `"4100"`. Es el mismo que trae `atencionId` en #32 y el que usa #22 (`GET /api/historia-clinica/{idAtencion}`). En cualquier otro tipo la clave **no existe** (no viaja `null`). |
+
+```json
+{ "tipo": "HISTORIA_ACTUALIZADA", "notificacionId": "15002", "atencionId": "4100" }
+```
+
+El cliente tiene que tolerar la ausencia de `atencionId` (un servidor viejo no la manda) y convertirla a número: si falta o no es un entero positivo, abre Avisos.
+
 ### 3.9 Estadísticas (administrador)
 
 RF-39 a RF-44 usan el mismo criterio de período, enviado en la query:
@@ -1965,7 +1984,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 { "aPedidoDelSocio": false, "motivo": "Se rompió el equipo del consultorio" }
 ```
 
-- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio (el cliente puede apoyarse en el campo `cancelable` de la fila 28 para no ofrecer la acción cuando ya no corresponde; el `409` de esta fila sigue siendo la protección final, porque la hora pasa entre la consulta y el pedido); la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`, que se entrega por el despacho genérico (correo y push, RNF-24) con la fecha de la consulta en formato `dd/mm/aaaa` (RNF-20) en los dos casos: a pedido del socio, `Tu consulta del 20/10/2026 fue cancelada a tu solicitud.`; por otro motivo, `Tu consulta del 20/10/2026 fue cancelada por la institución. Motivo: {motivo}`, sin nombrar al funcionario. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
+- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio (el cliente puede apoyarse en el campo `cancelable` de la fila 28 para no ofrecer la acción cuando ya no corresponde; el `409` de esta fila sigue siendo la protección final, porque la hora pasa entre la consulta y el pedido); la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`, que se entrega por el despacho genérico (correo y push, RNF-24) con la especialidad, el médico, la fecha en formato `dd/mm/aaaa` (RNF-20) y la hora de 24 h de la consulta en los dos casos: a pedido del socio, `Tu consulta de Cardiología con Marta Rodríguez del 20/10/2026 a las 09:00 fue cancelada a tu solicitud.`; por otro motivo, `Tu consulta de Cardiología con Marta Rodríguez del 20/10/2026 a las 09:00 fue cancelada por la institución. Motivo: {motivo}`, sin nombrar al funcionario. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
 
 **Respuesta 200** (`estado` es el estado que quedó guardado: `CANCELADA_SOCIO` o `CANCELADA_INSTITUCION`)
 
