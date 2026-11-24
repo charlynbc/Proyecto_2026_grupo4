@@ -32,7 +32,7 @@ class _Harness {
   _Harness({this.session = _socio}) {
     controller = PushNavigationController(
       service: service,
-      session: () => this.session,
+      session: () => session,
       navigate: (routes) async => navigations.add(routes),
       refreshNotifications: () => refreshes++,
     );
