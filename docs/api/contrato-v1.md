@@ -1761,6 +1761,25 @@ El cliente lo llama **antes** de cerrar sesión (#3), porque `POST /api/auth/log
 
 `401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican como a todo endpoint protegido y no se repiten. Preguntas relacionadas: P-14 (resuelta, sección 7.1).
 
+<a id="push-datos"></a>
+#### Datos del mensaje push
+
+- **Roles:** SOCIO (Android). **RF:** RNF-23. **Estado:** el backend los envía desde la rama `feat/back-push-atencion-id`; sin endpoint propio: es lo que el servidor manda por Firebase Cloud Messaging a cada dispositivo habilitado del socio (#33), después de guardar el aviso que lista #32.
+
+El mensaje lleva el título y el cuerpo del aviso (los mismos de la notificación y del correo) y un mapa `data` con **valores de texto**, porque Firebase no admite otro tipo:
+
+| Clave en `data` | Cuándo viene | Valor |
+|---|---|---|
+| `tipo` | siempre | El `tipo` del aviso: `AGENDA`, `CANCELACION`, `SUSPENSION`, `HISTORIA_ACTUALIZADA` o `RECORDATORIO`. |
+| `notificacionId` | siempre | El `id` del aviso (el de #32), como texto: `"15002"`. |
+| `atencionId` | solo en `HISTORIA_ACTUALIZADA` y solo si la consulta tiene atención | El id de la atención registrada, como texto: `"4100"`. Es el mismo que trae `atencionId` en #32 y el que usa #22 (`GET /api/historia-clinica/{idAtencion}`). En cualquier otro tipo la clave **no existe** (no viaja `null`). |
+
+```json
+{ "tipo": "HISTORIA_ACTUALIZADA", "notificacionId": "15002", "atencionId": "4100" }
+```
+
+El cliente tiene que tolerar la ausencia de `atencionId` (un servidor viejo no la manda) y convertirla a número: si falta o no es un entero positivo, abre Avisos.
+
 ### 3.9 Estadísticas (administrador)
 
 RF-39 a RF-44 usan el mismo criterio de período, enviado en la query:
