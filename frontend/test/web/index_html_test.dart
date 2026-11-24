@@ -21,7 +21,8 @@ void main() {
 
   test('el script corre antes de flutter_bootstrap.js', () {
     final fin = html.indexOf('<!-- legacy-hash:fin -->');
-    final bootstrap = html.indexOf('flutter_bootstrap.js');
+    // La etiqueta real, no el comentario que nombra el archivo.
+    final bootstrap = html.indexOf('<script src="flutter_bootstrap.js"');
 
     expect(fin, isNonNegative);
     expect(bootstrap, isNonNegative);
