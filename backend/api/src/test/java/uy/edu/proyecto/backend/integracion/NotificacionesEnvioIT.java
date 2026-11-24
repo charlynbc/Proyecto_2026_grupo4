@@ -1,6 +1,7 @@
 package uy.edu.proyecto.backend.integracion;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -90,9 +91,16 @@ class NotificacionesEnvioIT extends BaseIntegracionIT {
     }
 
     @Test
-    void elResultadoDelMedicoCreaElAvisoDeHistoriaSinDatosClinicos() {
-        long numero = numeroId(sembrarTurno(hoy(), 1), 1);
-        sembrarConsulta(idSocio1, numero);
+    void elResultadoDelMedicoCreaElAvisoDeHistoriaSinDatosClinicosYElPushLlevaLaAtencion() {
+        jdbc.update("INSERT INTO dispositivo_push (id_socio, token) VALUES (?, ?)",
+                idSocio1, "token-a");
+        long turno = sembrarTurno(hoy(), 4);
+        // Dos atenciones previas de otras consultas, sin aviso, y una consulta sin atencion: asi el
+        // id de la atencion de la consulta del socio no coincide con el del aviso ni con el de la consulta.
+        sembrarAtencion(sembrarConsulta(idSocio2, numeroId(turno, 2)));
+        sembrarAtencion(sembrarConsulta(idSocio3, numeroId(turno, 3)));
+        sembrarConsulta(idSocio4, numeroId(turno, 4));
+        sembrarConsulta(idSocio1, numeroId(turno, 1));
         jdbc.update("INSERT INTO aviso_llegada (id_socio, id_funcionario, fecha) VALUES (?, ?, ?)",
                 idSocio1, idFuncionario, hoy());
         long consulta = jdbc.queryForObject(
@@ -105,16 +113,83 @@ class NotificacionesEnvioIT extends BaseIntegracionIT {
 
         assertEquals(200, r.estado(), r.cuerpo());
         long notificacion = unicaNotificacion("HISTORIA_ACTUALIZADA");
+        long atencion = jdbc.queryForObject(
+                "SELECT id_atencion FROM atencion WHERE id_consulta = ?", Long.class, consulta);
+        assertNotEquals(atencion, notificacion,
+                "El id de la atencion y el del aviso no pueden coincidir: un JOIN por el id equivocado "
+                        + "pasaria por casualidad");
+        assertNotEquals(atencion, consulta,
+                "El id de la atencion y el de la consulta no pueden coincidir");
         assertEquals("Tu historia clínica fue actualizada.", jdbc.queryForObject(
                 "SELECT contenido FROM notificacion WHERE id_notificacion = ?",
                 String.class, notificacion));
         List<Map<String, Object>> filas = envios(notificacion);
-        assertEquals(1, filas.size());
-        assertEquals("ENVIADO", filas.getFirst().get("estado"));
+        assertEquals(2, filas.size());
+        assertEquals("CORREO", filas.get(0).get("canal"));
+        assertEquals("ENVIADO", filas.get(0).get("estado"));
+        assertEquals("PUSH", filas.get(1).get("canal"));
+        assertEquals("ENVIADO", filas.get(1).get("estado"));
         verify(correoSender).enviar(new CorreoMensaje(
                 correoDe(ciSocio1),
                 "Historia clínica actualizada",
                 "Tu historia clínica fue actualizada."));
+        verify(pushSender).enviar(
+                eq("token-a"),
+                eq("Historia clínica actualizada"),
+                eq("Tu historia clínica fue actualizada."),
+                eq(Map.of(
+                        "tipo", "HISTORIA_ACTUALIZADA",
+                        "notificacionId", String.valueOf(notificacion),
+                        "atencionId", String.valueOf(atencion))));
+    }
+
+    @Test
+    void soloElPushDeHistoriaLlevaElAtencionIdAunqueLaConsultaTengaAtencion() {
+        long dispositivo = jdbc.queryForObject(
+                "INSERT INTO dispositivo_push (id_socio, token) VALUES (?, ?) RETURNING id_dispositivo",
+                Long.class, idSocio1, "token-a");
+        long turno = sembrarTurno(hoy().plusDays(3), 3);
+        // Una atencion previa de otra consulta y una consulta sin atencion: los ids de la atencion,
+        // la consulta y los avisos quedan distintos entre si.
+        sembrarAtencion(sembrarConsulta(idSocio2, numeroId(turno, 2)));
+        sembrarConsulta(idSocio3, numeroId(turno, 3));
+        long consulta = sembrarConsulta(idSocio1, numeroId(turno, 1));
+        long atencion = sembrarAtencion(consulta);
+        String[][] avisos = {
+                {"AGENDA", "Consulta agendada"},
+                {"CANCELACION", "Consulta cancelada"},
+                {"SUSPENSION", "Turno suspendido"},
+                {"HISTORIA_ACTUALIZADA", "Historia clínica actualizada"},
+                {"RECORDATORIO", "Recordatorio de consulta"},
+        };
+        Map<String, Long> notificaciones = new java.util.HashMap<>();
+        for (String[] aviso : avisos) {
+            long id = jdbc.queryForObject(
+                    "INSERT INTO notificacion (id_consulta, tipo, contenido, programada_para)"
+                            + " VALUES (?, ?, ?, CASE WHEN ? = 'RECORDATORIO'"
+                            + " THEN CURRENT_TIMESTAMP ELSE NULL END) RETURNING id_notificacion",
+                    Long.class, consulta, aviso[0], "Cuerpo de " + aviso[0], aviso[0]);
+            notificaciones.put(aviso[0], id);
+            jdbc.update("INSERT INTO envio_notificacion (id_notificacion, canal, id_dispositivo)"
+                    + " VALUES (?, 'PUSH', ?)", id, dispositivo);
+        }
+        assertNotEquals(atencion, notificaciones.get("HISTORIA_ACTUALIZADA"),
+                "El id de la atencion y el del aviso de historia no pueden coincidir");
+        assertNotEquals(atencion, consulta,
+                "El id de la atencion y el de la consulta no pueden coincidir");
+
+        poller.despacharPendientes();
+
+        for (String[] aviso : avisos) {
+            Map<String, String> datos = new java.util.HashMap<>(Map.of(
+                    "tipo", aviso[0],
+                    "notificacionId", String.valueOf(notificaciones.get(aviso[0]))));
+            if (aviso[0].equals("HISTORIA_ACTUALIZADA")) {
+                datos.put("atencionId", String.valueOf(atencion));
+            }
+            verify(pushSender).enviar(
+                    eq("token-a"), eq(aviso[1]), eq("Cuerpo de " + aviso[0]), eq(datos));
+        }
     }
 
     @Test
@@ -134,7 +209,8 @@ class NotificacionesEnvioIT extends BaseIntegracionIT {
         verify(correoSender).enviar(new CorreoMensaje(
                 correoDe(ciSocio1),
                 "Consulta cancelada",
-                "Tu consulta del " + fechaUruguaya(fecha) + " fue cancelada a tu solicitud."));
+                "Tu consulta de Medicina General con Mario Medina del " + fechaUruguaya(fecha)
+                        + " a las 10:00 fue cancelada a tu solicitud."));
     }
 
     @Test

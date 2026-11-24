@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import uy.edu.proyecto.backend.notificacion.NotificacionTextos;
+
 @Repository
 public class CancelacionMedicoRepository {
 
@@ -45,13 +47,20 @@ public class CancelacionMedicoRepository {
             Long consultaId, Long socioId, Long medicoId) {
         return jdbcTemplate.query("""
                 SELECT consulta.id_socio, socio.ci, socio.correo,
-                       consulta.estado, turno.fecha, numero.hora_inicio, pase.vence_el
+                       consulta.estado, turno.fecha, numero.hora_inicio, pase.vence_el,
+                       especialidad.nombre AS especialidad_nombre,
+                       persona.nombre AS medico_nombre,
+                       persona.apellido AS medico_apellido
                 FROM public.consulta consulta
                 JOIN public.cuenta socio ON socio.id_cuenta = consulta.id_socio
                 JOIN public.numero numero ON numero.id_numero = consulta.id_numero
                 JOIN public.turno turno ON turno.id_turno = numero.id_turno
                 JOIN public.turno_semanal semanal
                   ON semanal.id_turno_semanal = turno.id_turno_semanal
+                JOIN public.especialidad especialidad
+                  ON especialidad.id_especialidad = semanal.id_especialidad
+                JOIN public.cuenta medico ON medico.id_cuenta = semanal.id_medico
+                JOIN public.persona persona ON persona.ci = medico.ci
                 LEFT JOIN public.pase pase ON pase.id_pase = consulta.id_pase
                 WHERE consulta.id_consulta = ? AND consulta.id_socio = ?
                   AND semanal.id_medico = ?
@@ -60,7 +69,10 @@ public class CancelacionMedicoRepository {
                 rs.getLong("id_socio"), rs.getString("ci"), rs.getString("correo"),
                 rs.getString("estado"), rs.getObject("fecha", LocalDate.class),
                 rs.getObject("hora_inicio", LocalTime.class),
-                rs.getObject("vence_el", LocalDate.class)
+                rs.getObject("vence_el", LocalDate.class),
+                rs.getString("especialidad_nombre"),
+                NotificacionTextos.medico(
+                        rs.getString("medico_nombre"), rs.getString("medico_apellido"))
         ), consultaId, socioId, medicoId).stream().findFirst();
     }
 
@@ -110,7 +122,8 @@ public class CancelacionMedicoRepository {
 
     public record DatosConsulta(
             Long socioId, String ciSocio, String correo, String estado,
-            LocalDate fecha, LocalTime horaInicio, LocalDate venceElPase
+            LocalDate fecha, LocalTime horaInicio, LocalDate venceElPase,
+            String especialidad, String medico
     ) {
     }
 

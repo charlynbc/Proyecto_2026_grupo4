@@ -140,6 +140,8 @@ arriba para el contrato real y ejemplos.
 
 ## Cambios de campos acordados con el backend
 
+- 23/11/2026, fila 33 (rama feat/back-push-atencion-id; sin llamada nueva del cliente): el mensaje push de un `HISTORIA_ACTUALIZADA` agrega la clave `atencionId` (texto, solo si la consulta tiene atención) a las que ya llevaba, `tipo` y `notificacionId`. El cliente la usa para abrir el detalle de esa atención al tocar el aviso. Ver [datos del mensaje push](contrato-v1.md#push-datos).
+
 - 20/11/2026, fila 26 (rama feat/llegada-estado-al-buscar): la respuesta de `GET /api/avisos-llegada/consultas-hoy` agrega `llegada`: objeto `{registradaEn, registradaPor:{id, nombre, apellido}}`, con la misma forma que esos campos en el cuerpo del POST de la fila 27, o `null` si el socio no tiene llegada de hoy. `items` no cambia. Se devuelve también si `items` está vacío. El frontend lo trata como opcional: si falta o es `null`, la pantalla Llegada se comporta como antes y deja registrar. Si viene, muestra el botón deshabilitado con la hora (hora de Uruguay) y quién la registró.
 
 - 18/11/2026, fila 15 (rama feat/front-rf20-consultorio-por-fecha): sin campos nuevos. El detalle de un turno semanal cuyo consultorio varía por fecha usa `GET /api/turnos` para mostrar cuántas fechas hay en cada consultorio. Como el listado no filtra por turno semanal, el cliente lo pide con `medicoId`, `especialidadId`, `diaSemana`, `fechaDesde` y `fechaHasta` del patrón, `size=100`, recorre todas las páginas y se queda con las filas cuyo `turnoSemanalId` es el del patrón. Lee `fecha`, `estado` y `consultorio` (`id`, `nombre`, `ubicacion`). Si el backend agregara un filtro por `turnoSemanalId`, el cliente podría pedir solo esas filas.

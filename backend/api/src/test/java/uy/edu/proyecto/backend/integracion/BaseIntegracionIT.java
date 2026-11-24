@@ -379,7 +379,7 @@ abstract class BaseIntegracionIT {
                         + " RETURNING id_consultorio", Long.class);
     }
 
-    private long cuenta(String ci, String nombre, String apellido, String rol, boolean activa) {
+    long cuenta(String ci, String nombre, String apellido, String rol, boolean activa) {
         jdbc.update("INSERT INTO persona VALUES (?, ?, ?, DATE '1985-05-05')", ci, nombre, apellido);
         return jdbc.queryForObject(
                 "INSERT INTO cuenta (ci, rol, correo, telefono_1, direccion, contrasena_hash,"

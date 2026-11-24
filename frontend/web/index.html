@@ -31,6 +31,28 @@
 
   <title>Médica Oriental</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- legacy-hash:inicio -->
+  <script>
+    // Compatibilidad con los enlaces viejos de los correos, que llevaban #:
+    // /#/primer-ingreso?token=X pasa a /primer-ingreso?token=X. Tiene que
+    // correr antes de que Flutter lea la URL, así que va en línea y sin async.
+    // Solo actúa en la raíz, y no acepta #//host ni #/\host (saldrían del sitio).
+    (function () {
+      try {
+        var ubicacion = window.location;
+        if (ubicacion.pathname !== '/') return;
+        var hash = ubicacion.hash;
+        if (hash.charAt(0) !== '#' || hash.charAt(1) !== '/') return;
+        var siguiente = hash.charAt(2);
+        if (siguiente === '/' || siguiente === '\\') return;
+        window.history.replaceState(null, '', hash.substring(1));
+      } catch (e) {
+        // Sin el cambio la app abre igual, solo que en la ruta de inicio.
+      }
+    })();
+  </script>
+  <!-- legacy-hash:fin -->
 </head>
 <body>
   <!--
