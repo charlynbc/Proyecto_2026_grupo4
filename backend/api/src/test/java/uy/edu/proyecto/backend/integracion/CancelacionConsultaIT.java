@@ -458,7 +458,8 @@ class CancelacionConsultaIT extends BaseIntegracionIT {
                 "SELECT contenido FROM notificacion WHERE id_consulta = ? AND tipo = 'CANCELACION'",
                 String.class, consulta);
         var dia = hoy().plusDays(7);
-        assertEquals(String.format("Tu consulta del %02d/%02d/%04d fue cancelada por la institución. "
+        assertEquals(String.format("Tu consulta de Medicina General con Mario Medina del "
+                + "%02d/%02d/%04d a las 10:00 fue cancelada por la institución. "
                 + "Motivo: Se rompio el equipo", dia.getDayOfMonth(), dia.getMonthValue(), dia.getYear()), aviso);
 
         // El numero vuelve a ofrecerse a otro socio.

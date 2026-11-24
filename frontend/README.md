@@ -36,7 +36,7 @@ entra por "Socio" y los demás por "Empleado" (solo web, en `/login?acceso=emple
 por el acceso equivocado el error es el mismo.
 
 **Primer ingreso con datos de prueba.** El pedido de enlace siempre responde lo
-mismo. Para activar una cuenta abrí `/#/primer-ingreso?token=cualquiera`; los
+mismo. Para activar una cuenta abrí `/primer-ingreso?token=cualquiera`; los
 tokens `vencido` y `usado` simulan un enlace que ya no sirve.
 
 **Errores para ver en pantalla.** Los fakes devuelven los mismos errores que la

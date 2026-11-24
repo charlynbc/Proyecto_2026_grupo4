@@ -387,7 +387,9 @@ public class TurnoFechasService {
             TurnoFecha turno,
             String observacion
     ) {
-        return NotificacionTextos.cuerpoSuspensionPorFuncionario(
+        return NotificacionTextos.cuerpoSuspension(
+                consulta.especialidad(),
+                consulta.medico(),
                 turno.fecha(),
                 consulta.horaInicio(),
                 consulta.horaFin(),
