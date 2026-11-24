@@ -29,7 +29,7 @@ const _agenda = PushTap(type: 'AGENDA', notificationId: 15001);
 /// El controlador con una sesión que el test cambia a mano, y anotando a dónde
 /// navega y cuántas veces refresca Avisos.
 class _Harness {
-  _Harness({SessionState session = _socio}) : session = session {
+  _Harness({this.session = _socio}) {
     controller = PushNavigationController(
       service: service,
       session: () => this.session,
