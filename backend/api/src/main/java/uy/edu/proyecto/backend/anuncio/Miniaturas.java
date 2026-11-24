@@ -7,6 +7,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Optional;
 import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
@@ -38,6 +39,32 @@ final class Miniaturas {
         int punto = referenciaOriginal.lastIndexOf('.');
         String base = punto < 0 ? referenciaOriginal : referenciaOriginal.substring(0, punto);
         return PREFIJO + base + ".jpg";
+    }
+
+    /**
+     * Genera y sube la miniatura de un original que ya esta en Storage. Anota la referencia en {@code subidas}
+     * antes de subirla, para que la limpieza por un fallo posterior la incluya. Si no se puede generar o subir, el
+     * original queda sin miniatura y no se lanza nada.
+     */
+    static void subir(AlmacenImagenes almacen, String referenciaOriginal, byte[] original, Collection<String> subidas) {
+        Optional<byte[]> miniatura = generar(original);
+        if (miniatura.isEmpty()) return;
+        String referencia = referencia(referenciaOriginal);
+        subidas.add(referencia);
+        try {
+            almacen.guardar(referencia, miniatura.get(), "image/jpeg");
+        } catch (RuntimeException error) {
+            LOG.warn("No se pudo subir la miniatura de una imagen ({})", error.getClass().getSimpleName());
+        }
+    }
+
+    /** Borra la miniatura de un original, de mejor esfuerzo: si falla se registra y no se lanza nada. */
+    static void borrar(AlmacenImagenes almacen, String referenciaOriginal) {
+        try {
+            almacen.borrar(referencia(referenciaOriginal));
+        } catch (RuntimeException error) {
+            LOG.warn("No se pudo borrar la miniatura de una imagen ({})", error.getClass().getSimpleName());
+        }
     }
 
     /** La miniatura JPEG del original, o vacio si la imagen no se puede procesar. Nunca lanza. */

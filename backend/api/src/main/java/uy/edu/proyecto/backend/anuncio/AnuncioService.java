@@ -43,17 +43,21 @@ public class AnuncioService {
             throw validacion("El anuncio admite hasta 5 imágenes");
         }
         List<ValidadorImagen.Contenido> contenidos = imagenes.stream().map(ValidadorImagen::validar).toList();
+        // Los originales van a la base; subidas suma las miniaturas para limpiar todo si algo falla.
         List<String> cargadas = new ArrayList<>();
+        List<String> subidas = new ArrayList<>();
         boolean limpiezaRegistrada = false;
         try {
             for (ValidadorImagen.Contenido contenido : contenidos) {
                 String referencia = UUID.randomUUID() + contenido.extension();
                 cargadas.add(referencia);
+                subidas.add(referencia);
                 almacen.guardar(referencia, contenido.bytes(), contenido.tipo());
+                Miniaturas.subir(almacen, referencia, contenido.bytes(), subidas);
             }
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override public void afterCompletion(int estado) {
-                    if (estado != STATUS_COMMITTED) limpiar(cargadas);
+                    if (estado != STATUS_COMMITTED) limpiar(subidas);
                 }
             });
             limpiezaRegistrada = true;
@@ -61,7 +65,7 @@ public class AnuncioService {
             for (int i = 0; i < cargadas.size(); i++) repository.agregarImagen(id, cargadas.get(i), i);
             return detalleInterno(id, false);
         } catch (RuntimeException error) {
-            if (!limpiezaRegistrada) limpiar(cargadas);
+            if (!limpiezaRegistrada) limpiar(subidas);
             throw error;
         }
     }
