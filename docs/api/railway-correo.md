@@ -43,17 +43,39 @@ de la cuenta) y el fallo queda en el log.
 
 ### Enlace y ruta de Flutter
 
-El correo contiene `FIRST_LOGIN_URL + "?token=<token>"`. Flutter web usa la
-estrategia de URL con `#`, y la pantalla está en `/primer-ingreso?token=`, por
-lo que el valor correcto es `https://<host-del-frontend>/#/primer-ingreso`.
-Si el equipo cambia a URLs sin `#`, quitar el `#/`.
+El correo contiene `FIRST_LOGIN_URL + "?token=<token>"`. Flutter web usa rutas
+sin `#` y la pantalla está en `/primer-ingreso?token=`, por lo que el valor
+correcto es `https://<host-del-frontend>/primer-ingreso`. El servidor Spring
+responde el `index.html` en las rutas de la app (login, primer ingreso,
+recuperación, cambio de correo, cuenta y los prefijos de cada rol: `/socio`,
+`/funcionario`, `/medico` y `/admin`) sin pedir sesión; lo demás, por ejemplo
+`/api/**`, no cambia.
+
+### Orden de despliegue
+
+Los tres enlaces de los correos (`FIRST_LOGIN_URL`, `RECOVERY_URL` y
+`CHANGE_EMAIL_URL`) pasan de `…/#/ruta` a `…/ruta`. Para que ningún enlace
+quede roto en el medio, el orden es este:
+
+1. **Primero el backend con el fallback.** Con esa versión las rutas sin `#`
+   ya responden el `index.html`. Las tres variables siguen con `#/` y los
+   enlaces siguen funcionando con el frontend viejo.
+2. **Después el frontend** con rutas sin `#`.
+3. **Recién entonces, en Railway, cambiar las tres variables** a la forma sin
+   `#/` (`https://<dominio-de-railway>/primer-ingreso`, `/recuperacion` y
+   `/cambio-correo`) y reiniciar el servicio.
+
+Los correos que ya salieron con `#/` valen hasta 24 horas (el vencimiento del
+enlace). Con el frontend nuevo esos enlaces abren la pantalla de inicio de
+sesión en vez de la que corresponde; conviene hacer el cambio en un momento de
+poco movimiento o pedir un enlace nuevo si hace falta.
 
 ### Local con Mailpit
 
 ```bash
 docker run -d --name mailpit -p 8025:8025 -p 1025:1025 axllent/mailpit
 # .env: MAIL_PROVIDER=smtp  MAIL_HOST=localhost  MAIL_PORT=1025  MAIL_FROM=no-reply@mailpit.local
-#       FIRST_LOGIN_URL=http://localhost:5173/#/primer-ingreso
+#       FIRST_LOGIN_URL=http://localhost:5173/primer-ingreso
 ```
 
 La bandeja se ve en <http://localhost:8025>. Mailpit acepta cualquier destinatario y
@@ -71,10 +93,10 @@ powershell -ExecutionPolicy Bypass -File scripts/probar-primer-ingreso-mailpit.p
 ```
 
 El script distingue cada etapa: solicitud HTTP aceptada (202), correo recibido en
-Mailpit, enlace con la forma `…/#/primer-ingreso?token=…`, cuenta activada, enlace
+Mailpit, enlace con la forma `…/primer-ingreso?token=…`, cuenta activada, enlace
 reutilizado rechazado y login satisfactorio. Nunca imprime el token completo.
 Para hacerlo desde la interfaz: abrir el enlace del correo en Flutter web
-(`/#/primer-ingreso?token=…`), completar el formulario y entrar por el login.
+(`/primer-ingreso?token=…`), completar el formulario y entrar por el login.
 
 ## Railway (desarrollo)
 
@@ -98,9 +120,9 @@ Variables (los valores secretos se cargan en el panel de Railway, nunca en Git):
 | `MAIL_PROVIDER` | sí | `resend`. |
 | `RESEND_API_KEY` | sí | Clave de la cuenta de Resend. |
 | `MAIL_FROM` | sí | Remitente verificado en Resend (por ejemplo `Clínica <no-reply@dominio>`). |
-| `FIRST_LOGIN_URL` | sí | `https://<dominio-de-railway>/#/primer-ingreso` (sin `?token=`). |
-| `RECOVERY_URL` | sí | `https://<dominio-de-railway>/#/recuperacion` (sin `?token=`). |
-| `CHANGE_EMAIL_URL` | sí | `https://<dominio-de-railway>/#/cambio-correo` (sin `?token=`). |
+| `FIRST_LOGIN_URL` | sí | `https://<dominio-de-railway>/primer-ingreso` (sin `?token=`). Cambiarla después de desplegar backend y frontend nuevos (ver "Orden de despliegue"). |
+| `RECOVERY_URL` | sí | `https://<dominio-de-railway>/recuperacion` (sin `?token=`). Mismo orden de despliegue. |
+| `CHANGE_EMAIL_URL` | sí | `https://<dominio-de-railway>/cambio-correo` (sin `?token=`). Mismo orden de despliegue. |
 
 Clave de Firebase para los avisos push. Se descarga de la consola de Firebase (configuración del
 proyecto, cuentas de servicio, generar clave privada). Es secreta: nunca va al repositorio ni a una
@@ -215,7 +237,7 @@ real**: falta la misma configuración de Resend descrita arriba.
 | Log: `Resend respondio HTTP 422` | `MAIL_FROM` con formato inválido o destinatario inválido. |
 | Log: `Resend respondio HTTP 401` | `RESEND_API_KEY` incorrecta o revocada. |
 | Log: `Fallo el envio SMTP` en Railway | SMTP saliente bloqueado: usar `resend`. |
-| El enlace abre la pantalla de login o de solicitud | `FIRST_LOGIN_URL` sin `#/` o apuntando a otra ruta. |
+| El enlace abre la pantalla de login o de solicitud | `FIRST_LOGIN_URL` apuntando a otra ruta, o con `#/` cuando el frontend ya usa rutas sin `#` (o al revés, sin `#/` con el frontend viejo). |
 | El login falla con «Invalid CORS request» | `CORS_ALLOWED_ORIGIN` no coincide exactamente con el origen del navegador. |
 | La sesión no se mantiene en HTTPS | `COOKIE_SECURE=false` o `COOKIE_SAME_SITE` inadecuado. |
 | «El enlace ya no es válido» | Venció (24 h), ya se usó, se pidió uno más nuevo o la cuenta fue inactivada. |

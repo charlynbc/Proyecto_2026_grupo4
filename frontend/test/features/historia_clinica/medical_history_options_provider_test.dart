@@ -122,11 +122,12 @@ void main() {
       );
 
       expect(options.doctors, {
+        1: 'Carla Méndez',
         4: 'Diego Viera',
         8: 'Laura Pérez',
         9: 'Ana Silva',
       });
-      expect(options.doctors, hasLength(3));
+      expect(options.doctors, hasLength(4));
       expect(history.queries, hasLength(1));
     },
   );
@@ -145,9 +146,14 @@ void main() {
           for (final specialty in options.specialties)
             specialty.id: specialty.name,
         },
-        {3: 'Cardiología', 5: 'Traumatología', 6: 'Dermatología'},
+        {
+          1: 'Medicina General',
+          3: 'Cardiología',
+          5: 'Traumatología',
+          6: 'Dermatología',
+        },
       );
-      expect(options.specialties, hasLength(3));
+      expect(options.specialties, hasLength(4));
       expect(catalogEvaluations, 0);
       expect(catalog.listCalls, 0);
     },
@@ -171,6 +177,7 @@ void main() {
       );
       expect(options.specialties, hasLength(2));
       expect(options.doctors, {
+        1: 'Carla Méndez',
         4: 'Diego Viera',
         8: 'Laura Pérez',
         9: 'Ana Silva',
@@ -193,8 +200,8 @@ void main() {
         medicalHistoryOptionsProvider.future,
       );
 
-      expect(initial.doctors, hasLength(3));
-      expect(initial.specialties, hasLength(3));
+      expect(initial.doctors, hasLength(4));
+      expect(initial.specialties, hasLength(4));
       final query = history.queries.single;
       expect(query.from, isNull);
       expect(query.to, isNull);
@@ -213,13 +220,14 @@ void main() {
       );
 
       expect(updated.doctors, {
+        1: 'Carla Méndez',
         4: 'Diego Viera',
         8: 'Laura Pérez',
         9: 'Ana Silva',
       });
       expect(
         updated.specialties.map((specialty) => specialty.id),
-        unorderedEquals([3, 5, 6]),
+        unorderedEquals([1, 3, 5, 6]),
       );
       expect(history.queries, hasLength(1));
     },
@@ -254,7 +262,7 @@ void main() {
   test('cerrar sesión retira las opciones ya cargadas', () async {
     mount();
     final initial = await container.read(medicalHistoryOptionsProvider.future);
-    expect(initial.doctors, hasLength(3));
+    expect(initial.doctors, hasLength(4));
 
     session.clear();
     await settleProviders();

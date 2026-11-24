@@ -181,11 +181,13 @@ class TurnoFechasServiceTest {
         verify(repository).actualizarEstadoTurno(301L, "SUSPENDIDO");
         verify(repository).actualizarEstadoTurno(308L, "SUSPENDIDO");
         verify(repository).crearNotificacionSuspension(900L,
-                "Tu consulta del 21/10/2026 fue cancelada por la institución. "
-                        + "Horario: 09:00 a 09:20 (número 1). Aviso");
+                "Tu consulta de Cardiología con Marta Rodríguez del 21/10/2026 "
+                        + "fue cancelada por la institución. "
+                        + "Horario: 09:00 a 09:20 (número 1). Motivo: Aviso");
         verify(repository).crearNotificacionSuspension(901L,
-                "Tu consulta del 28/10/2026 fue cancelada por la institución. "
-                        + "Horario: 09:00 a 09:20 (número 1). Aviso");
+                "Tu consulta de Pediatría con Jorge Pereira del 28/10/2026 "
+                        + "fue cancelada por la institución. "
+                        + "Horario: 09:00 a 09:20 (número 1). Motivo: Aviso");
         verify(eventPublisher).publishEvent(
                 new TurnoFechasService.EnviosNotificacionSolicitados(
                         List.of(6001L, 6002L)
@@ -346,7 +348,9 @@ class TurnoFechasServiceTest {
         return new ConsultaParaCancelar(
                 id, id - 399, id + 100, turnoId, HOY,
                 LocalTime.of(9, 0), LocalTime.of(9, 20), 1,
-                id == 900L ? "socio@example.com" : "socia@example.com"
+                id == 900L ? "socio@example.com" : "socia@example.com",
+                id == 900L ? "Cardiología" : "Pediatría",
+                id == 900L ? "Marta Rodríguez" : "Jorge Pereira"
         );
     }
 

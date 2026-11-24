@@ -12,12 +12,12 @@ void main() {
   });
 
   group('datos propios del fake', () {
-    test('contiene las cuatro atenciones acordadas', () async {
+    test('contiene las cinco atenciones acordadas', () async {
       final entries = await repository.list(const MedicalHistoryQuery());
       final byId = {for (final entry in entries) entry.id: entry};
 
-      expect(entries, hasLength(4));
-      expect(byId.keys, unorderedEquals([10, 11, 12, 13]));
+      expect(entries, hasLength(5));
+      expect(byId.keys, unorderedEquals([10, 11, 12, 13, 14]));
 
       expect(formatUiDate(byId[10]!.attendedOn), '24/09/2026');
       expect(byId[10]!.doctorFullName, 'Diego Viera');
@@ -49,6 +49,20 @@ void main() {
       expect(byId[13]!.treatment, 'Crema por la noche');
       expect(byId[13]!.observations, 'Reposo mencionado en observaciones');
       expect(byId[13]!.referrals, isEmpty);
+    });
+
+    test('la atención 14 es de Medicina General y es la más antigua', () async {
+      final entry = await repository.get(14);
+
+      expect(formatUiDate(entry.attendedOn), '05/08/2026');
+      expect(entry.doctorFullName, 'Carla Méndez');
+      expect(entry.specialty.name, 'Medicina General');
+      expect(entry.condition, 'Control general');
+      expect(entry.treatment, 'Hidratación abundante');
+      expect(entry.observations, 'Control en seis meses');
+      expect(entry.referrals, isEmpty);
+      final entries = await repository.list(const MedicalHistoryQuery());
+      expect(entries.last.id, 14);
     });
 
     test('la atención 12 contiene los dos pases acordados', () async {
@@ -86,7 +100,7 @@ void main() {
         MedicalHistoryQuery(to: DateTime.utc(2026, 9, 10)),
       );
 
-      expect(entries.map((entry) => entry.id), [11, 13]);
+      expect(entries.map((entry) => entry.id), [11, 13, 14]);
     });
 
     test('combina los dos límites de fecha de forma inclusiva', () async {
@@ -130,7 +144,7 @@ void main() {
         const MedicalHistoryQuery(text: '   '),
       );
 
-      expect(entries.map((entry) => entry.id), [12, 10, 11, 13]);
+      expect(entries.map((entry) => entry.id), [12, 10, 11, 13, 14]);
     });
 
     test('combina todos los filtros mediante AND', () async {
@@ -168,7 +182,7 @@ void main() {
     test('por defecto ordena por fecha descendente', () async {
       final entries = await repository.list(const MedicalHistoryQuery());
 
-      expect(entries.map((entry) => entry.id), [12, 10, 11, 13]);
+      expect(entries.map((entry) => entry.id), [12, 10, 11, 13, 14]);
     });
 
     test('permite ordenar por fecha ascendente', () async {
@@ -176,7 +190,7 @@ void main() {
         const MedicalHistoryQuery(direction: MedicalHistoryDirection.ascending),
       );
 
-      expect(entries.map((entry) => entry.id), [13, 11, 10, 12]);
+      expect(entries.map((entry) => entry.id), [14, 13, 11, 10, 12]);
     });
 
     // El backend desempata por id_atencion en el mismo sentido del orden.
@@ -188,7 +202,7 @@ void main() {
         ),
       );
 
-      expect(entries.map((entry) => entry.id), [10, 12, 13, 11]);
+      expect(entries.map((entry) => entry.id), [10, 12, 13, 14, 11]);
     });
 
     test('ordena por especialidad descendente', () async {
@@ -199,7 +213,7 @@ void main() {
         ),
       );
 
-      expect(entries.map((entry) => entry.id), [11, 13, 12, 10]);
+      expect(entries.map((entry) => entry.id), [11, 14, 13, 12, 10]);
     });
   });
 
@@ -242,7 +256,7 @@ void main() {
 
       final entries = await repository.list(const MedicalHistoryQuery());
 
-      expect(entries.map((entry) => entry.id), [12, 10, 11, 13]);
+      expect(entries.map((entry) => entry.id), [12, 10, 11, 13, 14]);
     },
   );
 }

@@ -26,7 +26,7 @@ public class RecuperacionMailListener {
 
     public RecuperacionMailListener(
             CorreoSender correoSender,
-            @Value("${app.email.recovery-url:http://localhost:5173/#/recuperacion}")
+            @Value("${app.email.recovery-url:http://localhost:5173/recuperacion}")
             String recuperacionUrl
     ) {
         this.correoSender = correoSender;
