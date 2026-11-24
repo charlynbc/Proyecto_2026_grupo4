@@ -127,7 +127,10 @@ public class AnuncioService {
     }
 
     private AnuncioDTO.Imagen imagen(AnuncioRepository.ImagenFila fila) {
-        return new AnuncioDTO.Imagen(fila.id(), fila.orden(), almacen.enlaceTemporal(fila.referencia()));
+        // Si falla la firma del original es el error de siempre; la de la miniatura nunca rompe la respuesta.
+        String url = almacen.enlaceTemporal(fila.referencia());
+        return new AnuncioDTO.Imagen(fila.id(), fila.orden(), url,
+                Miniaturas.enlace(almacen, fila.referencia()));
     }
 
     private void limpiar(List<String> referencias) {

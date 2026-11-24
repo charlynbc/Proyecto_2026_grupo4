@@ -58,6 +58,19 @@ final class Miniaturas {
         }
     }
 
+    /**
+     * El enlace temporal de la miniatura de un original, o null si no se pudo firmar por el motivo que sea (por
+     * ejemplo una novedad vieja que todavia no tiene miniatura). Nunca lanza.
+     */
+    static String enlace(AlmacenImagenes almacen, String referenciaOriginal) {
+        try {
+            return almacen.enlaceTemporal(referencia(referenciaOriginal));
+        } catch (RuntimeException error) {
+            LOG.debug("No se pudo firmar la miniatura de una imagen ({})", error.getClass().getSimpleName());
+            return null;
+        }
+    }
+
     /** Borra la miniatura de un original, de mejor esfuerzo: si falla se registra y no se lanza nada. */
     static void borrar(AlmacenImagenes almacen, String referenciaOriginal) {
         try {
