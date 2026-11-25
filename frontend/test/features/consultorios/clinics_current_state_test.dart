@@ -549,26 +549,30 @@ void main() {
     ]);
   });
 
-  testWidgets('con Corregir apilado, Volver sin guardar no refresca la lista', (
-    tester,
-  ) async {
+  testWidgets('abrir Corregir refresca la lista una vez y Volver sin guardar '
+      'no pide de nuevo', (tester) async {
     final harness = await _pump(tester);
     _addOtherAdminClinic(harness);
 
     await tester.tap(find.byKey(const Key('clinic-edit-5')));
     await _settle(tester);
     expect(find.text('Corregir consultorio'), findsOneWidget);
+    // La lista queda tapada y la pantalla de Corregir toma el provider: ese
+    // cambio cuenta como "volver a verse" y pide una vez, en segundo plano.
+    // Cuenta la carga inicial y ese pedido.
+    expect(harness.search.calls, 2);
+
     await tester.tap(find.byTooltip('Volver'));
     await _settle(tester);
 
-    // Limitación conocida: la pantalla de Corregir mantiene vivo el
-    // provider, así que volver a la lista no cuenta como "volver a verse".
+    // Volver sin guardar no pide nada más: lo que se ve es lo pedido al abrir.
     expect(find.byType(ClinicsScreen), findsOneWidget);
-    expect(harness.search.calls, 1);
+    expect(harness.search.calls, 2);
     expect(_names(tester), [
       'Consultorio 5',
       'Consultorio 6',
       'Consultorio 12',
+      'Consultorio 20',
     ]);
   });
 
@@ -589,7 +593,8 @@ void main() {
     await _settle(tester);
 
     expect(find.byType(ClinicsScreen), findsOneWidget);
-    expect(harness.search.calls, 2);
+    // La carga inicial, el pedido al abrir Corregir y el que invalida Guardar.
+    expect(harness.search.calls, 3);
     expect(find.text('Piso 7'), findsOneWidget);
   });
 
