@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:agenda_medica/features/notificaciones/models/device_registration.dart';
+import 'package:agenda_medica/features/notificaciones/models/push_tap.dart';
 import 'package:agenda_medica/features/notificaciones/repositories/device_repository.dart';
 import 'package:agenda_medica/features/notificaciones/services/push_notification_service.dart';
 
@@ -16,6 +17,11 @@ class FakePushService implements PushNotificationService {
       StreamController<String>.broadcast();
   final StreamController<ForegroundPushMessage> messages =
       StreamController<ForegroundPushMessage>.broadcast();
+  final StreamController<PushTap> tapEvents =
+      StreamController<PushTap>.broadcast();
+
+  /// El toque con el que "se abrió la app" (se entrega una sola vez).
+  PushTap? initialTap;
 
   @override
   Future<String?> requestToken() {
@@ -28,6 +34,16 @@ class FakePushService implements PushNotificationService {
 
   @override
   Stream<ForegroundPushMessage> get foregroundMessages => messages.stream;
+
+  @override
+  Future<PushTap?> getInitialTap() async {
+    final tap = initialTap;
+    initialTap = null;
+    return tap;
+  }
+
+  @override
+  Stream<PushTap> get taps => tapEvents.stream;
 }
 
 /// Un repositorio que anota cada llamada, en orden, en [events] (que se puede
