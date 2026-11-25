@@ -11,6 +11,12 @@ const String kFakeMemberCi = '12345672';
 /// Otro socio, para probar que el servidor solo lista los avisos propios.
 const String kFakeOtherMemberCi = '90000046';
 
+/// El id de la atención (de la historia clínica falsa) de la consulta atendida
+/// de la socia de prueba: los avisos de historia actualizada la llevan como
+/// `atencionId`. Es la atención 14 de `FakeMedicalHistoryRepository`, de
+/// Medicina General como esa consulta.
+const int kFakeAttendedAtencionId = 14;
+
 /// Un aviso guardado en el Fake: a quién le pertenece ([ownerCi]) y, si es un
 /// recordatorio diferido, cuándo le toca aparecer ([scheduledFor]). Como el
 /// servidor, solo se lista a su dueño y recién desde [scheduledFor].
@@ -131,6 +137,9 @@ AppNotification _n(
     type: type,
     title: _titles[type]!,
     consultaId: appointment?.id,
+    atencionId: type == 'HISTORIA_ACTUALIZADA' && appointment != null
+        ? kFakeAttendedAtencionId
+        : null,
     content: _content(type, appointment),
     createdAt: createdAt,
   );

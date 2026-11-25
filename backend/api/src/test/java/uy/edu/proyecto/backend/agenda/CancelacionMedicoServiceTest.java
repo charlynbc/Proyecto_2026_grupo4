@@ -63,7 +63,7 @@ class CancelacionMedicoServiceTest {
 
     private DatosConsulta datos(String ciSocio, LocalDate fecha, LocalTime hora) {
         return new DatosConsulta(7L, ciSocio, "socio@example.com", "AGENDADA",
-                fecha, hora, LocalDate.of(2026, 12, 15));
+                fecha, hora, LocalDate.of(2026, 12, 15), "Cardiología", "Marta Rodríguez");
     }
 
     private void consultaAgendadaDelMedico(DatosConsulta datos) {
@@ -90,7 +90,8 @@ class CancelacionMedicoServiceTest {
         assertTrue(respuesta.paseDevuelto());
         verify(repository).cancelarConsulta(12L, 5L, "Imprevisto");
         verify(repository).crearNotificacionCancelacion(12L,
-                "Tu consulta del 30/10/2026 fue cancelada por la institución. "
+                "Tu consulta de Cardiología con Marta Rodríguez del 30/10/2026 "
+                        + "a las 12:00 fue cancelada por la institución. "
                         + "Motivo: Imprevisto");
         verify(events).publishEvent(any(EnviosNotificacionSolicitados.class));
     }
@@ -126,7 +127,8 @@ class CancelacionMedicoServiceTest {
     void consultaYaCanceladaDevuelve409() {
         DatosConsulta datos = datos("20000012", HOY, LocalTime.NOON);
         consultaAgendadaDelMedico(new DatosConsulta(7L, "20000012", "socio@example.com",
-                "CANCELADA_SOCIO", datos.fecha(), datos.horaInicio(), datos.venceElPase()));
+                "CANCELADA_SOCIO", datos.fecha(), datos.horaInicio(), datos.venceElPase(),
+                datos.especialidad(), datos.medico()));
         ApiException error = assertThrows(ApiException.class,
                 () -> service.cancelarConsulta(5L, "12", "Motivo"));
         assertEquals("CONSULTA_NO_AGENDADA", error.getCode());
@@ -176,7 +178,7 @@ class CancelacionMedicoServiceTest {
     @Test
     void paseVencidoNoSeDevuelve() {
         DatosConsulta datos = new DatosConsulta(7L, "20000012", "socio@example.com",
-                "AGENDADA", HOY, LocalTime.NOON, HOY.minusDays(1));
+                "AGENDADA", HOY, LocalTime.NOON, HOY.minusDays(1), "Cardiología", "Marta Rodríguez");
         consultaAgendadaDelMedico(datos);
         when(repository.cancelarConsulta(eq(12L), eq(5L), anyString()))
                 .thenReturn(Optional.of(OffsetDateTime.parse("2026-10-30T09:00:00-03:00")));
@@ -198,7 +200,8 @@ class CancelacionMedicoServiceTest {
     private ConsultaParaCancelar consultaDeTurno(long id, long socioId, LocalDate fecha,
             LocalTime inicio) {
         return new ConsultaParaCancelar(id, socioId, 100L + id, 30L, fecha,
-                inicio, inicio.plusMinutes(20), (int) id, "socio" + id + "@example.com");
+                inicio, inicio.plusMinutes(20), (int) id, "socio" + id + "@example.com",
+                "Cardiología", "Marta Rodríguez");
     }
 
     private void turnoDelMedicoConConsultas(TurnoFecha turno,
@@ -232,10 +235,12 @@ class CancelacionMedicoServiceTest {
         assertEquals(1, respuesta.pasesDevueltos());
         verify(turnoFechas).actualizarEstadoTurno(30L, "SUSPENDIDO");
         verify(turnoFechas).crearNotificacionSuspension(1L,
-                "Tu consulta del 30/10/2026 fue cancelada por la institución. "
+                "Tu consulta de Cardiología con Marta Rodríguez del 30/10/2026 "
+                        + "fue cancelada por la institución. "
                         + "Horario: 12:00 a 12:20 (número 1). Motivo: Imprevisto");
         verify(turnoFechas).crearNotificacionSuspension(2L,
-                "Tu consulta del 30/10/2026 fue cancelada por la institución. "
+                "Tu consulta de Cardiología con Marta Rodríguez del 30/10/2026 "
+                        + "fue cancelada por la institución. "
                         + "Horario: 12:20 a 12:40 (número 2). Motivo: Imprevisto");
         verify(events).publishEvent(any(EnviosNotificacionSolicitados.class));
     }

@@ -26,7 +26,7 @@ public class CambioCorreoMailListener {
 
     public CambioCorreoMailListener(
             CorreoSender correoSender,
-            @Value("${app.email.change-email-url:http://localhost:5173/#/cambio-correo}")
+            @Value("${app.email.change-email-url:http://localhost:5173/cambio-correo}")
             String cambioCorreoUrl
     ) {
         this.correoSender = correoSender;

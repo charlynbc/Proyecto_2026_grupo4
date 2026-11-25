@@ -442,6 +442,13 @@ public class SecurityConfig {
                                         )
                                         .permitAll()
 
+                                        // Rutas de la app web (sin #): se responden con el index.html.
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                SpaFallbackConfig.RUTAS_DE_LA_APP
+                                        )
+                                        .permitAll()
+
                                         .anyRequest()
                                         .authenticated()
                 )

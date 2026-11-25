@@ -2,6 +2,7 @@ package uy.edu.proyecto.backend.notificacion;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -112,14 +113,19 @@ public class EnvioNotificacionDispatcher {
         if (envio.token() == null || envio.token().isBlank()) {
             throw new IllegalStateException("El dispositivo no tiene un token push");
         }
+        Map<String, String> datos = new HashMap<>();
+        datos.put("tipo", envio.tipo());
+        datos.put("notificacionId", envio.notificacionId().toString());
+        // Solo el aviso de historia lleva la atencion, y solo si existe. Firebase
+        // exige valores de texto y no admite nulos.
+        if ("HISTORIA_ACTUALIZADA".equals(envio.tipo()) && envio.atencionId() != null) {
+            datos.put("atencionId", envio.atencionId().toString());
+        }
         pushSender.enviar(
                 envio.token(),
                 NotificacionTextos.titulo(envio.tipo()),
                 envio.contenido(),
-                Map.of(
-                        "tipo", envio.tipo(),
-                        "notificacionId", envio.notificacionId().toString()
-                )
+                datos
         );
     }
 

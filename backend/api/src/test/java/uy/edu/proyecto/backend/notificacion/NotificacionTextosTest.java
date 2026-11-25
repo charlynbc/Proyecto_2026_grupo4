@@ -8,7 +8,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NotificacionTextosTest {
 
@@ -61,107 +60,110 @@ class NotificacionTextosTest {
     }
 
     @Test
-    void elCuerpoDeCancelacionASolicitudDelSocioUsaFechaDiaMesAnio() {
+    void elCuerpoDeCancelacionASolicitudDelSocioDiceEspecialidadMedicoFechaYHora() {
         assertEquals(
-                "Tu consulta del 20/10/2026 fue cancelada a tu solicitud.",
+                "Tu consulta de Cardiología con Marta Rodríguez del 20/10/2026 "
+                        + "a las 09:00 fue cancelada a tu solicitud.",
                 NotificacionTextos.cuerpoCancelacionASolicitudDelSocio(
-                        LocalDate.of(2026, 10, 20))
+                        "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 10, 20),
+                        LocalTime.of(9, 0))
         );
     }
 
     @Test
-    void elCuerpoDeCancelacionDelMedicoUsaFechaDiaMesAnioYElMotivo() {
+    void laCancelacionASolicitudDelSocioUsaFechaDiaMesAnioYHoraDe24Horas() {
         assertEquals(
-                "Tu consulta del 20/10/2026 fue cancelada por la institución. "
+                "Tu consulta de Pediatría con Jorge Pereira del 05/01/2027 "
+                        + "a las 14:05 fue cancelada a tu solicitud.",
+                NotificacionTextos.cuerpoCancelacionASolicitudDelSocio(
+                        "Pediatría", "Jorge Pereira", LocalDate.of(2027, 1, 5),
+                        LocalTime.of(14, 5, 30))
+        );
+    }
+
+    @Test
+    void elCuerpoDeCancelacionPorLaInstitucionDiceEspecialidadMedicoFechaHoraYMotivo() {
+        assertEquals(
+                "Tu consulta de Cardiología con Marta Rodríguez del 20/10/2026 "
+                        + "a las 09:00 fue cancelada por la institución. "
                         + "Motivo: Imprevisto",
-                NotificacionTextos.cuerpoCancelacionPorMedico(
-                        LocalDate.of(2026, 10, 20), "Imprevisto")
+                NotificacionTextos.cuerpoCancelacionPorInstitucion(
+                        "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 10, 20),
+                        LocalTime.of(9, 0), "Imprevisto")
         );
     }
 
     @Test
-    void elCuerpoDeCancelacionPorOtroMotivoUsaFechaDiaMesAnioYElMotivo() {
+    void laCancelacionPorLaInstitucionCompletaConCeroElDiaElMesYLaHora() {
         assertEquals(
-                "Tu consulta del 20/10/2026 fue cancelada por la institución. "
-                        + "Motivo: Se rompio el equipo",
-                NotificacionTextos.cuerpoCancelacionPorOtroMotivo(
-                        LocalDate.of(2026, 10, 20), "Se rompio el equipo")
+                "Tu consulta de Pediatría con Jorge Pereira del 05/01/2026 "
+                        + "a las 08:05 fue cancelada por la institución. Motivo: Feriado",
+                NotificacionTextos.cuerpoCancelacionPorInstitucion(
+                        "Pediatría", "Jorge Pereira", LocalDate.of(2026, 1, 5),
+                        LocalTime.of(8, 5), "Feriado")
         );
     }
 
     @Test
-    void elCuerpoDeCancelacionPorOtroMotivoCompletaConCeroElDiaYElMes() {
+    void laCancelacionPorLaInstitucionCopiaElMotivoTalCual() {
         assertEquals(
-                "Tu consulta del 05/01/2026 fue cancelada por la institución. Motivo: Feriado",
-                NotificacionTextos.cuerpoCancelacionPorOtroMotivo(
-                        LocalDate.of(2026, 1, 5), "Feriado")
-        );
-    }
-
-    @Test
-    void elCuerpoDeCancelacionPorOtroMotivoCopiaElMotivoTalCual() {
-        assertEquals(
-                "Tu consulta del 31/12/2026 fue cancelada por la institución. "
+                "Tu consulta de Cardiología con Marta Rodríguez del 31/12/2026 "
+                        + "a las 10:30 fue cancelada por la institución. "
                         + "Motivo: Corte de luz: se reprograma (ver 5/1).",
-                NotificacionTextos.cuerpoCancelacionPorOtroMotivo(
-                        LocalDate.of(2026, 12, 31), "Corte de luz: se reprograma (ver 5/1).")
+                NotificacionTextos.cuerpoCancelacionPorInstitucion(
+                        "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 12, 31),
+                        LocalTime.of(10, 30), "Corte de luz: se reprograma (ver 5/1).")
         );
     }
 
     @Test
-    void elCuerpoPorOtroMotivoYElDeASolicitudDelSocioUsanElMismoFormatoDeFecha() {
-        LocalDate fecha = LocalDate.of(2026, 3, 9);
-        assertTrue(NotificacionTextos.cuerpoCancelacionASolicitudDelSocio(fecha)
-                .contains("09/03/2026"));
-        assertTrue(NotificacionTextos.cuerpoCancelacionPorOtroMotivo(fecha, "x")
-                .contains("09/03/2026"));
+    void laCancelacionPorLaInstitucionSinMotivoNoLlevaLaOracionDelMotivo() {
+        String esperado = "Tu consulta de Cardiología con Marta Rodríguez del 20/10/2026 "
+                + "a las 09:00 fue cancelada por la institución.";
+
+        assertEquals(esperado, NotificacionTextos.cuerpoCancelacionPorInstitucion(
+                "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 10, 20),
+                LocalTime.of(9, 0), null));
+        assertEquals(esperado, NotificacionTextos.cuerpoCancelacionPorInstitucion(
+                "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 10, 20),
+                LocalTime.of(9, 0), "   "));
     }
 
     @Test
-    void elCuerpoDeSuspensionPorElMedicoLlevaFechaHorarioNumeroYMotivo() {
+    void elCuerpoDeSuspensionDiceEspecialidadMedicoFechaHorarioNumeroYMotivo() {
         assertEquals(
-                "Tu consulta del 20/10/2026 fue cancelada por la institución. "
+                "Tu consulta de Cardiología con Marta Rodríguez del 20/10/2026 "
+                        + "fue cancelada por la institución. "
                         + "Horario: 09:00 a 09:20 (número 3). Motivo: Imprevisto",
-                NotificacionTextos.cuerpoSuspensionPorMedico(
-                        LocalDate.of(2026, 10, 20),
+                NotificacionTextos.cuerpoSuspension(
+                        "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 10, 20),
                         LocalTime.of(9, 0), LocalTime.of(9, 20), 3, "Imprevisto")
         );
     }
 
     @Test
-    void elCuerpoDeSuspensionDelFuncionarioLlevaFechaHorarioNumeroYObservacion() {
+    void laSuspensionAnteponeLaPalabraMotivoALaObservacionDelFuncionario() {
         assertEquals(
-                "Tu consulta del 20/10/2026 fue cancelada por la institución. "
-                        + "Horario: 09:00 a 09:20 (número 3). Aviso a los socios",
-                NotificacionTextos.cuerpoSuspensionPorFuncionario(
-                        LocalDate.of(2026, 10, 20),
-                        LocalTime.of(9, 0), LocalTime.of(9, 20), 3, "Aviso a los socios")
+                "Tu consulta de Pediatría con Jorge Pereira del 05/01/2027 "
+                        + "fue cancelada por la institución. "
+                        + "Horario: 08:05 a 08:25 (número 1). Motivo: Aviso a los socios",
+                NotificacionTextos.cuerpoSuspension(
+                        "Pediatría", "Jorge Pereira", LocalDate.of(2027, 1, 5),
+                        LocalTime.of(8, 5), LocalTime.of(8, 25), 1, "Aviso a los socios")
         );
     }
 
     @Test
-    void laSuspensionDelFuncionarioSinObservacionTerminaEnElNumero() {
-        assertEquals(
-                "Tu consulta del 20/10/2026 fue cancelada por la institución. "
-                        + "Horario: 09:00 a 09:20 (número 3).",
-                NotificacionTextos.cuerpoSuspensionPorFuncionario(
-                        LocalDate.of(2026, 10, 20),
-                        LocalTime.of(9, 0), LocalTime.of(9, 20), 3, null)
-        );
-    }
+    void laSuspensionSinMotivoTerminaEnElNumero() {
+        String esperado = "Tu consulta de Cardiología con Marta Rodríguez del 20/10/2026 "
+                + "fue cancelada por la institución. Horario: 09:00 a 09:20 (número 3).";
 
-    @Test
-    void laSuspensionDelFuncionarioSinHorarioNoInventaUno() {
-        assertEquals(
-                "Tu consulta del 20/10/2026 fue cancelada por la institución. Aviso",
-                NotificacionTextos.cuerpoSuspensionPorFuncionario(
-                        LocalDate.of(2026, 10, 20), null, null, 3, "Aviso")
-        );
-        assertEquals(
-                "Tu consulta del 20/10/2026 fue cancelada por la institución.",
-                NotificacionTextos.cuerpoSuspensionPorFuncionario(
-                        LocalDate.of(2026, 10, 20), null, null, 3, null)
-        );
+        assertEquals(esperado, NotificacionTextos.cuerpoSuspension(
+                "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 10, 20),
+                LocalTime.of(9, 0), LocalTime.of(9, 20), 3, null));
+        assertEquals(esperado, NotificacionTextos.cuerpoSuspension(
+                "Cardiología", "Marta Rodríguez", LocalDate.of(2026, 10, 20),
+                LocalTime.of(9, 0), LocalTime.of(9, 20), 3, ""));
     }
 
     @Test

@@ -13,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/load_roboto.dart';
+
 /// Sesión de prueba sin login, renovación ni bootstrap.
 class _TestSession extends SessionNotifier {
   @override
@@ -89,8 +91,10 @@ Future<_TestSession> _pump(
   WidgetTester tester,
   _DetailRepository repository, {
   bool settle = true,
+  Size size = const Size(1000, 900),
+  double textScale = 1,
 }) async {
-  tester.view.physicalSize = const Size(1000, 900);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
@@ -116,6 +120,11 @@ Future<_TestSession> _pump(
       container: container,
       child: MaterialApp(
         theme: appTheme,
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child!,
+        ),
         home: const MedicalHistoryDetailScreen(id: 10),
       ),
     ),
@@ -281,6 +290,7 @@ void main() {
     expect(find.text('No pudimos cargar esta atención.'), findsOneWidget);
     expect(find.text('gripe'), findsNothing);
     expect(repository.requestedIds, [10]);
+    expect(find.text('Ir a mi historia clínica'), findsNothing);
 
     repository.response = (_) async => _entry();
     await _retry(tester);
@@ -308,6 +318,73 @@ void main() {
     expect(find.text('gripe'), findsNothing);
     expect(find.text('Diego Viera'), findsNothing);
     expect(find.text('Reposo durante tres días'), findsNothing);
+  });
+
+  testWidgets('un 404 muestra "Ir a mi historia clínica" y no "Reintentar"', (
+    tester,
+  ) async {
+    final repository = _DetailRepository(
+      (_) async => throw const MedicalHistoryNotFoundException(),
+    );
+
+    await _pump(tester, repository);
+
+    expect(
+      find.widgetWithText(OutlinedButton, 'Ir a mi historia clínica'),
+      findsOneWidget,
+    );
+    expect(find.text('Reintentar'), findsNothing);
+    expect(repository.requestedIds, [10]);
+  });
+
+  testWidgets('un error de red conserva "Reintentar" y no muestra el botón', (
+    tester,
+  ) async {
+    final repository = _DetailRepository(
+      (_) async => throw const ApiException(kApiNoConnectionMessage),
+    );
+
+    await _pump(tester, repository);
+
+    expect(find.text(kApiNoConnectionMessage), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Reintentar'), findsOneWidget);
+    expect(find.text('Ir a mi historia clínica'), findsNothing);
+  });
+
+  group('a 320 px de ancho (con Roboto)', () {
+    setUpAll(loadRoboto);
+
+    for (final (name, error) in [
+      ('el 404 con el botón', const MedicalHistoryNotFoundException()),
+      (
+        'el error de red con Reintentar',
+        const ApiException(kApiNoConnectionMessage),
+      ),
+    ]) {
+      testWidgets('con texto al doble $name no desborda y entra', (
+        tester,
+      ) async {
+        final repository = _DetailRepository((_) async => throw error);
+
+        await _pump(
+          tester,
+          repository,
+          size: const Size(320, 2400),
+          textScale: 2,
+        );
+
+        final message = find.text(error.message);
+        expect(message, findsOneWidget);
+        expect(MediaQuery.textScalerOf(tester.element(message)).scale(10), 20);
+        expect(tester.getSize(message).height, greaterThan(60));
+        final button = find.byType(OutlinedButton);
+        expect(button, findsOneWidget);
+        final rect = tester.getRect(button);
+        expect(rect.left, greaterThanOrEqualTo(0));
+        expect(rect.right, lessThanOrEqualTo(320));
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   testWidgets('retira los datos anteriores mientras cambia la sesión', (

@@ -94,12 +94,12 @@ class EnvioNotificacionDispatcherTest {
             "AGENDA,Consulta agendada",
             "CANCELACION,Consulta cancelada",
             "SUSPENSION,Turno suspendido",
-            "HISTORIA_ACTUALIZADA,Historia clínica actualizada",
             "RECORDATORIO,Recordatorio de consulta"
     })
-    void elPushLlevaElTituloYElTipoRealDelAviso(String tipo, String titulo) {
+    void elPushDeLosOtrosTiposLlevaSoloTipoYNotificacionId(String tipo, String titulo) {
+        // Aunque el envio traiga un atencionId, fuera de HISTORIA_ACTUALIZADA no viaja.
         when(repository.buscarEnvio(601L))
-                .thenReturn(Optional.of(envio(tipo, "PUSH", "token-1")));
+                .thenReturn(Optional.of(envio(tipo, "PUSH", "token-1", 12L)));
         when(repository.marcarEnvio(601L, "ENVIADO")).thenReturn(1);
 
         dispatcher().despachar(601L);
@@ -111,6 +111,54 @@ class EnvioNotificacionDispatcherTest {
                 Map.of("tipo", tipo, "notificacionId", "701")
         );
         verify(repository).marcarEnvio(601L, "ENVIADO");
+    }
+
+    @Test
+    void elPushDeHistoriaActualizadaLlevaElAtencionIdComoTexto() {
+        when(repository.buscarEnvio(601L))
+                .thenReturn(Optional.of(envio("HISTORIA_ACTUALIZADA", "PUSH", "token-1", 12L)));
+        when(repository.marcarEnvio(601L, "ENVIADO")).thenReturn(1);
+
+        dispatcher().despachar(601L);
+
+        verify(pushSender).enviar(
+                "token-1",
+                "Historia clínica actualizada",
+                "Contenido de prueba",
+                Map.of("tipo", "HISTORIA_ACTUALIZADA", "notificacionId", "701",
+                        "atencionId", "12")
+        );
+        verify(repository).marcarEnvio(601L, "ENVIADO");
+    }
+
+    @Test
+    void elPushDeHistoriaActualizadaSinAtencionNoLlevaLaClave() {
+        when(repository.buscarEnvio(601L))
+                .thenReturn(Optional.of(envio("HISTORIA_ACTUALIZADA", "PUSH", "token-1", null)));
+        when(repository.marcarEnvio(601L, "ENVIADO")).thenReturn(1);
+
+        dispatcher().despachar(601L);
+
+        verify(pushSender).enviar(
+                "token-1",
+                "Historia clínica actualizada",
+                "Contenido de prueba",
+                Map.of("tipo", "HISTORIA_ACTUALIZADA", "notificacionId", "701")
+        );
+        verify(repository).marcarEnvio(601L, "ENVIADO");
+    }
+
+    @Test
+    void elCorreoDeHistoriaActualizadaNoCambiaConElAtencionId() {
+        when(repository.buscarEnvio(601L))
+                .thenReturn(Optional.of(envio("HISTORIA_ACTUALIZADA", "CORREO", null, 12L)));
+        when(repository.marcarEnvio(601L, "ENVIADO")).thenReturn(1);
+
+        dispatcher().despachar(601L);
+
+        verify(correoSender).enviar(new CorreoMensaje(
+                "socio@example.com", "Historia clínica actualizada", "Contenido de prueba"));
+        verifyNoInteractions(pushSender);
     }
 
     @Test
@@ -208,6 +256,10 @@ class EnvioNotificacionDispatcherTest {
     }
 
     private EnvioNotificacion envio(String tipo, String canal, String token) {
+        return envio(tipo, canal, token, null);
+    }
+
+    private EnvioNotificacion envio(String tipo, String canal, String token, Long atencionId) {
         return new EnvioNotificacion(
                 601L, 701L, tipo, canal, "socio@example.com", token,
                 "Contenido de prueba",
@@ -215,7 +267,8 @@ class EnvioNotificacionDispatcherTest {
                 LocalTime.of(9, 0),
                 LocalTime.of(9, 20),
                 "Cardiología",
-                "Socio"
+                "Socio",
+                atencionId
         );
     }
 }

@@ -147,12 +147,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     );
   }
 
-  /// A dónde lleva un aviso: el de historia actualizada, a la historia clínica
-  /// (el aviso no trae el id de la atención, así que va a la lista); los
-  /// demás, al detalle de la consulta a la que se refieren. Un aviso sin
-  /// consulta no lleva a ningún lado (`null`) y no se puede tocar.
+  /// A dónde lleva un aviso: el de historia actualizada, al detalle de esa
+  /// atención si el aviso trae su id y, si no, a la lista de la historia
+  /// clínica; los demás, al detalle de la consulta a la que se refieren. Un
+  /// aviso sin consulta no lleva a ningún lado (`null`) y no se puede tocar.
   String? _destination(AppNotification notification) {
-    if (notification.type == 'HISTORIA_ACTUALIZADA') return kMedicalHistoryPath;
+    if (notification.type == 'HISTORIA_ACTUALIZADA') {
+      final atencionId = notification.atencionId;
+      return atencionId == null
+          ? kMedicalHistoryPath
+          : '$kMedicalHistoryPath/$atencionId';
+    }
     final consultaId = notification.consultaId;
     return consultaId == null ? null : '$kAppointmentsPath/$consultaId';
   }
