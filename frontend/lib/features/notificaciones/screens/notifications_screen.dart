@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../../../core/widgets/pagination_bar.dart';
@@ -12,6 +13,7 @@ import '../models/app_notification.dart';
 import '../models/app_notification_page.dart';
 import '../models/notification_query.dart';
 import '../providers/notification_list_provider.dart';
+import 'debug_push_screen.dart';
 import '../repositories/notification_repository.dart';
 import '../widgets/notification_card.dart';
 
@@ -44,7 +46,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Avisos'),
-        actions: const [LogoutButton()],
+        actions: [
+          // Solo con USE_FAKES: abre la pantalla que simula un push.
+          if (ref.watch(useFakesProvider))
+            TextButton.icon(
+              onPressed: () => context.push(kDebugPushPath),
+              icon: const Icon(Icons.bug_report_outlined),
+              label: const Text('Debug: simular push'),
+            ),
+          const LogoutButton(),
+        ],
       ),
       body: CenteredContent(
         maxWidth: 700,

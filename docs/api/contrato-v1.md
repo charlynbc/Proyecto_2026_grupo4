@@ -133,7 +133,8 @@ Los filtros son parámetros de query, opcionales salvo que se indique. Un filtro
   "paseId": 77,
   "agendadaEn": "2026-10-14T10:12:45-03:00",
   "canceladaEn": null,
-  "motivoCancelacion": null
+  "motivoCancelacion": null,
+  "cancelable": true
 }
 ```
 
@@ -147,6 +148,7 @@ Los filtros son parámetros de query, opcionales salvo que se indique. Un filtro
 | `paseId` | entero o `null` | Pase usado al agendar. Se conserva aunque la consulta se cancele (diseño 2.2.4). |
 | `agendadaEn` | instante | |
 | `canceladaEn`, `motivoCancelacion` | instante o `null`, texto o `null` | Solo con estados cancelados. El motivo existe en las cancelaciones institucionales (modelo de datos, `motivo_cancelacion`): las del médico (#38, #39), las de la suspensión del funcionario (#24) y las que hace el funcionario por otro motivo (#44). En `CANCELADA_SOCIO` es `null`. |
+| `cancelable` | booleano | Último campo. Siempre figura en el JSON. Es `true` solo si el estado que se presenta es `AGENDADA`, el socio no tiene aviso de llegada registrado ese día y el inicio de la consulta no cae antes de ahora más la anticipación mínima de cancelación (2 horas por defecto, parámetro del servidor `PARAM_CANCELAR_ANTICIPACION_MINIMA_HORAS`). Es la misma comparación que hace la cancelación del socio (fila 20): da `false` exactamente cuando esa cancelación respondería `409` por `CONSULTA_NO_AGENDADA`, `LLEGADA_YA_REGISTRADA` o `CANCELACION_FUERA_DE_PLAZO`, con la hora del servidor en America/Montevideo; un inicio justo en el límite es cancelable. La llegada se evalúa hoy por socio y día (RF-10), no por consulta: si el socio registró su llegada ese día, ninguna de sus consultas de ese día es cancelable. Los estados `NO_ASISTIO` y `NO_ATENDIDA` (fechas pasadas) nunca son cancelables. No cubre las demás causas de rechazo de la cancelación, como la cuenta no habilitada (`404`) ni una cancelación simultánea que gane de mano. Es opcional para los clientes: un servidor anterior a este campo no lo envía, y en ese caso el cliente conserva su comportamiento anterior (ofrece Cancelar y el `409` de la fila 20 sigue protegiendo). Se calcula con el mismo valor en el alta, el detalle, el histórico y las consultas de hoy. |
 
 ## 2. Correspondencia con el Diseño 2.1 a 2.7 (figuras 1 a 7)
 
@@ -958,9 +960,12 @@ El `socioId` sale del token. Toda la validación y la inserción ocurren en una 
   "paseId": 77,
   "agendadaEn": "2026-10-14T10:12:45-03:00",
   "canceladaEn": null,
-  "motivoCancelacion": null
+  "motivoCancelacion": null,
+  "cancelable": true
 }
 ```
+
+`cancelable` sale con el mismo cálculo que en el detalle (sección 1.9). En el comprobante vale `false` si el socio ya tenía aviso de llegada ese día, aunque la consulta recién se haya agendado.
 
 **Errores** (todos con mensaje que indica qué regla falló, RNF-22)
 
@@ -1013,7 +1018,8 @@ Incluye las canceladas. Los estados calculados `NO_ASISTIO` y `NO_ATENDIDA` se r
       "paseId": 77,
       "agendadaEn": "2026-10-14T10:12:45-03:00",
       "canceladaEn": null,
-      "motivoCancelacion": null
+      "motivoCancelacion": null,
+      "cancelable": true
     },
     {
       "id": 8120,
@@ -1028,7 +1034,8 @@ Incluye las canceladas. Los estados calculados `NO_ASISTIO` y `NO_ATENDIDA` se r
       "paseId": null,
       "agendadaEn": "2026-09-25T16:40:02-03:00",
       "canceladaEn": null,
-      "motivoCancelacion": null
+      "motivoCancelacion": null,
+      "cancelable": false
     }
   ],
   "page": 0,
@@ -1329,7 +1336,8 @@ Devuelve las consultas **en `AGENDADA` de hoy** del socio con esa CI (mismo crit
       "paseId": 77,
       "agendadaEn": "2026-10-14T10:12:45-03:00",
       "canceladaEn": null,
-      "motivoCancelacion": null
+      "motivoCancelacion": null,
+      "cancelable": false
     }
   ],
   "llegada": {
@@ -1340,6 +1348,8 @@ Devuelve las consultas **en `AGENDADA` de hoy** del socio con esa CI (mismo crit
 ```
 
 `llegada` es un objeto con `registradaEn` y `registradaPor` `{id, nombre, apellido}`, con la misma forma que esos campos en el cuerpo del `POST` de la fila 27 (#27), o `null` si el socio no tiene llegada registrada hoy. Se devuelve aunque `items` esté vacío (por ejemplo, si la consulta ya no está `AGENDADA`). El día es el de hoy según el servidor, en America/Montevideo. Un cliente que no lo conozca puede ignorarlo: el resto de la respuesta no cambia.
+
+`cancelable` de cada elemento de `items` usa la misma regla de la sección 1.9 con la llegada que esta misma respuesta informa: si `llegada` no es `null`, todas las consultas traen `false`; si es `null`, depende solo del plazo (por ejemplo, una consulta que empieza en 30 minutos trae `false` y una que empieza en 5 horas trae `true`).
 
 Sin consultas hoy: `200` con `{ "items": [], "llegada": null }` (o con `llegada` si ya la había); el cliente muestra "El socio no posee consultas agendadas para el día de hoy" (CU 3.3.4, 3.A.2).
 

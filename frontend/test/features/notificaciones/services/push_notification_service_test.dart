@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:agenda_medica/features/notificaciones/models/push_tap.dart';
 import 'package:agenda_medica/features/notificaciones/services/push_notification_service.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -80,6 +81,60 @@ void main() {
     test('los streams de renovación y de primer plano están vacíos', () async {
       expect(await service.tokenRefreshes.isEmpty, isTrue);
       expect(await service.foregroundMessages.isEmpty, isTrue);
+    });
+
+    test('no hay toque inicial ni toques en segundo plano', () async {
+      expect(await service.getInitialTap(), isNull);
+      expect(await service.taps.isEmpty, isTrue);
+    });
+  });
+
+  group('SimulatedPushNotificationService (USE_FAKES)', () {
+    test('simulateTap emite el toque en taps', () async {
+      final service = SimulatedPushNotificationService();
+      final received = <PushTap>[];
+      final subscription = service.taps.listen(received.add);
+
+      service.simulateTap(
+        const PushTap(
+          type: 'HISTORIA_ACTUALIZADA',
+          notificationId: 15002,
+          atencionId: 4100,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await subscription.cancel();
+
+      expect(received, [
+        const PushTap(
+          type: 'HISTORIA_ACTUALIZADA',
+          notificationId: 15002,
+          atencionId: 4100,
+        ),
+      ]);
+    });
+
+    test('un toque inicial se entrega una sola vez', () async {
+      final service = SimulatedPushNotificationService();
+      service.queueInitialTap(const PushTap(type: 'AGENDA'));
+
+      expect(await service.getInitialTap(), const PushTap(type: 'AGENDA'));
+      expect(await service.getInitialTap(), isNull);
+    });
+
+    test('simulateForeground emite el mensaje en primer plano', () async {
+      final service = SimulatedPushNotificationService();
+      final received = <ForegroundPushMessage>[];
+      final subscription = service.foregroundMessages.listen(received.add);
+
+      service.simulateForeground(
+        const ForegroundPushMessage(title: 'Titulo', body: 'Cuerpo'),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await subscription.cancel();
+
+      expect(received.single.title, 'Titulo');
+      expect(received.single.body, 'Cuerpo');
     });
   });
 
@@ -172,6 +227,120 @@ void main() {
       expect(received.map((m) => m.body), [
         'Se suspendió el turno del 20/10/2026.',
         '',
+      ]);
+    });
+
+    test('foregroundMessages lleva el destino que dicen los data', () async {
+      final messages = StreamController<RemoteMessage>();
+      final service = FirebasePushNotificationService(
+        messaging: _FakeMessaging(),
+        onMessage: messages.stream,
+      );
+      final received = <ForegroundPushMessage>[];
+      final subscription = service.foregroundMessages.listen(received.add);
+
+      messages
+        ..add(
+          const RemoteMessage(
+            notification: RemoteNotification(title: 'Historia', body: 'x'),
+            data: {
+              'tipo': 'HISTORIA_ACTUALIZADA',
+              'notificacionId': '15002',
+              'atencionId': '4100',
+            },
+          ),
+        )
+        ..add(const RemoteMessage());
+      await Future<void>.delayed(Duration.zero);
+      await subscription.cancel();
+      await messages.close();
+
+      expect(
+        received[0].tap,
+        const PushTap(
+          type: 'HISTORIA_ACTUALIZADA',
+          notificationId: 15002,
+          atencionId: 4100,
+        ),
+      );
+      expect(received[1].tap, const PushTap(type: ''));
+    });
+
+    test(
+      'getInitialTap convierte el mensaje con el que se abrió la app',
+      () async {
+        final service = FirebasePushNotificationService(
+          messaging: _FakeMessaging(),
+          initialMessage: () async => const RemoteMessage(
+            data: {
+              'tipo': 'HISTORIA_ACTUALIZADA',
+              'notificacionId': '15002',
+              'atencionId': '4100',
+            },
+          ),
+        );
+
+        expect(
+          await service.getInitialTap(),
+          const PushTap(
+            type: 'HISTORIA_ACTUALIZADA',
+            notificationId: 15002,
+            atencionId: 4100,
+          ),
+        );
+      },
+    );
+
+    test(
+      'getInitialTap devuelve null si la app no se abrió con un push',
+      () async {
+        final service = FirebasePushNotificationService(
+          messaging: _FakeMessaging(),
+          initialMessage: () async => null,
+        );
+
+        expect(await service.getInitialTap(), isNull);
+      },
+    );
+
+    test('si getInitialMessage falla, getInitialTap devuelve null', () async {
+      final service = FirebasePushNotificationService(
+        messaging: _FakeMessaging(),
+        initialMessage: () async => throw StateError('sin Firebase'),
+      );
+
+      expect(await service.getInitialTap(), isNull);
+    });
+
+    test('taps entrega cada mensaje abierto desde segundo plano', () async {
+      final opened = StreamController<RemoteMessage>();
+      final service = FirebasePushNotificationService(
+        messaging: _FakeMessaging(),
+        onMessageOpenedApp: opened.stream,
+      );
+      final received = <PushTap>[];
+      final subscription = service.taps.listen(received.add);
+
+      opened
+        ..add(
+          const RemoteMessage(data: {'tipo': 'AGENDA', 'notificacionId': '9'}),
+        )
+        ..add(
+          const RemoteMessage(
+            data: {
+              'tipo': 'HISTORIA_ACTUALIZADA',
+              'notificacionId': '10',
+              'atencionId': 'abc',
+            },
+          ),
+        );
+      await Future<void>.delayed(Duration.zero);
+      await subscription.cancel();
+      await opened.close();
+
+      expect(received, [
+        const PushTap(type: 'AGENDA', notificationId: 9),
+        const PushTap(type: 'HISTORIA_ACTUALIZADA', notificationId: 10),
       ]);
     });
   });
