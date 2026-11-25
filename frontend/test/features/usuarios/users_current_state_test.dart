@@ -110,13 +110,15 @@ Future<_Harness> _pump(
   WidgetTester tester, {
   Size size = const Size(1600, 1800),
   double textScale = 1,
+  bool failFirstList = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
 
   final database = FakeAdminDatabase();
-  final repository = _ControlledUserRepository(database);
+  final repository = _ControlledUserRepository(database)
+    ..failNextList = failFirstList;
   final container = ProviderContainer(
     overrides: [
       useFakesProvider.overrideWithValue(true),
@@ -338,6 +340,24 @@ void main() {
     await _settle(tester);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(_names(tester).first, 'Abreu, Rocío');
+  });
+
+  testWidgets('si falla la carga inicial el aviso aparece enseguida y con un '
+      'solo pedido', (tester) async {
+    final harness = await _pump(tester, failFirstList: true);
+
+    // Sin reintento automático: un pedido, y el aviso ya está a la vista.
+    expect(harness.repository.listCalls, 1);
+    expect(find.text(_visibleListError), findsOneWidget);
+    final retry = find.widgetWithText(OutlinedButton, 'Reintentar');
+    expect(retry, findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    await tester.tap(retry);
+    await _settle(tester);
+    expect(harness.repository.listCalls, 2);
+    expect(find.text(_visibleListError), findsNothing);
+    expect(_names(tester).first, 'Acosta, Florencia');
   });
 
   testWidgets('al volver conserva rol, estado y texto aplicados', (
