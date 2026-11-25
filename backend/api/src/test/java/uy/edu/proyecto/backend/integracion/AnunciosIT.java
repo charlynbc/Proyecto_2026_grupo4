@@ -8,6 +8,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -20,7 +21,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -77,6 +81,74 @@ class AnunciosIT extends BaseIntegracionIT {
         assertEquals("**Comienza** el lunes", detalle.json().path("texto").asString());
         assertNotNull(detalle.json().path("publicadoEn").asString());
         assertEquals(2, detalle.json().path("imagenes").size());
+    }
+
+    @Test
+    void publicarSubeLaMiniaturaYLaListaYElDetalleTraenSuUrlFirmada() throws Exception {
+        desplazarIdsDeAnuncios();
+        String socio = tokenSocio(ciSocio1);
+
+        Respuesta publicada = publicar(tokenEmpleado(ciAdmin), DATOS_TEXTO, PNG, PNG);
+        assertEquals(201, publicada.estado(), publicada.cuerpo());
+        long id = publicada.json().path("id").asLong();
+        assertEquals(41, id);
+        var imagenIds = jdbc.queryForList(
+                "SELECT id_imagen FROM imagen_anuncio WHERE id_anuncio = ? ORDER BY orden", Long.class, id);
+        assertEquals(List.of(701L, 702L), imagenIds);
+        var referencias = jdbc.queryForList(
+                "SELECT referencia_archivo FROM imagen_anuncio WHERE id_anuncio = ? ORDER BY orden", String.class, id);
+        String mini0 = miniatura(referencias.get(0));
+        String mini1 = miniatura(referencias.get(1));
+        verify(almacen).guardar(eq(mini0), any(), eq("image/jpeg"));
+        verify(almacen).guardar(eq(mini1), any(), eq("image/jpeg"));
+        // En la base solo estan los originales.
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT count(*) FROM imagen_anuncio WHERE referencia_archivo LIKE 'mini/%'", Integer.class));
+
+        var imagenPublicada = publicada.json().path("imagenes").get(0);
+        assertEquals("https://imagenes.test/" + mini0, imagenPublicada.path("urlMiniatura").asString());
+
+        var portada = get("/api/anuncios?size=5", socio).json().path("items").get(0).path("imagenPortada");
+        assertEquals(701, portada.path("id").asLong());
+        assertEquals("https://imagenes.test/" + referencias.get(0), portada.path("url").asString());
+        assertTrue(portada.has("urlMiniatura"));
+        assertEquals("https://imagenes.test/" + mini0, portada.path("urlMiniatura").asString());
+
+        var imagenes = get("/api/anuncios/" + id, socio).json().path("imagenes");
+        assertEquals(2, imagenes.size());
+        assertEquals(702, imagenes.get(1).path("id").asLong());
+        assertEquals("https://imagenes.test/" + referencias.get(1), imagenes.get(1).path("url").asString());
+        assertEquals("https://imagenes.test/" + mini1, imagenes.get(1).path("urlMiniatura").asString());
+    }
+
+    @Test
+    void siNoSeFirmaLaMiniaturaUrlMiniaturaEsNulaPeroFiguraYTodoResponde200() throws Exception {
+        desplazarIdsDeAnuncios();
+        String socio = tokenSocio(ciSocio1);
+        when(almacen.enlaceTemporal(startsWith("mini/"))).thenThrow(new ApiException(
+                HttpStatus.SERVICE_UNAVAILABLE, "ALMACENAMIENTO_NO_DISPONIBLE", "No se pudo acceder a las imágenes"));
+
+        Respuesta publicada = publicar(tokenEmpleado(ciAdmin), DATOS_TEXTO, PNG);
+        assertEquals(201, publicada.estado(), publicada.cuerpo());
+        long id = publicada.json().path("id").asLong();
+        assertTrue(publicada.json().path("imagenes").get(0).has("urlMiniatura"));
+        assertTrue(publicada.json().path("imagenes").get(0).path("urlMiniatura").isNull());
+
+        Respuesta lista = get("/api/anuncios?size=5", socio);
+        assertEquals(200, lista.estado(), lista.cuerpo());
+        var portada = lista.json().path("items").get(0).path("imagenPortada");
+        assertTrue(portada.path("url").asString().startsWith("https://imagenes.test/"));
+        assertTrue(portada.has("urlMiniatura"));
+        assertTrue(portada.path("urlMiniatura").isNull());
+
+        Respuesta detalle = get("/api/anuncios/" + id, socio);
+        assertEquals(200, detalle.estado(), detalle.cuerpo());
+        assertTrue(detalle.json().path("imagenes").get(0).has("urlMiniatura"));
+        assertTrue(detalle.json().path("imagenes").get(0).path("urlMiniatura").isNull());
+    }
+
+    private static String miniatura(String referenciaOriginal) {
+        return "mini/" + referenciaOriginal.substring(0, referenciaOriginal.lastIndexOf('.')) + ".jpg";
     }
 
     @Test

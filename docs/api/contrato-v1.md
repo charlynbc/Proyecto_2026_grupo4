@@ -2738,7 +2738,7 @@ versión `PUT /api/admin/anuncios/{id}/vigencia` y `PUT /api/admin/carrusel`
 responden `400 VALIDACION` con cuerpo JSON ante un cuerpo ilegible, en lugar del 400
 por defecto sin cuerpo.
 
-Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
+Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. `urlMiniatura` es el enlace temporal, también de una hora, de una copia reducida de la imagen (detalle en las filas de consulta). El bucket es privado y la clave de Storage permanece en el servidor.
 
 <a id="e65"></a>
 #### #65 · `POST /api/anuncios`
@@ -2762,11 +2762,13 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
   "texto": "**Vacunarse** ayuda a prevenir la gripe.",
   "publicadoEn": "2026-11-03T12:00:00Z",
   "imagenes": [
-    { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." },
-    { "id": 102, "orden": 1, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+    { "id": 101, "orden": 0, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/3f2b.png?token=abc", "urlMiniatura": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/mini/3f2b.jpg?token=abc" },
+    { "id": 102, "orden": 1, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/9a7c.jpg?token=abc", "urlMiniatura": null }
   ]
 }
 ```
+
+Al publicar, el servidor genera además la miniatura de cada imagen y la guarda junto al original; si no puede generarla, la novedad se publica igual con `urlMiniatura: null`.
 
 - **Errores:** `400 VALIDACION` por datos inválidos, falta de texto e imágenes, más de cinco archivos, o imagen vacía, de formato inválido o con dimensiones excedidas; `400 IMAGEN_INVALIDA` si una imagen supera 5 MB o se excede el límite multipart; `401 NO_AUTENTICADO`; `403 ACCESO_DENEGADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si Storage no responde.
 
@@ -2785,7 +2787,7 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
       "titulo": "Campaña de vacunación",
       "resumen": "Comienza el lunes",
       "publicadoEn": "2026-11-03T12:00:00Z",
-      "imagenPortada": { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+      "imagenPortada": { "id": 101, "orden": 0, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/3f2b.png?token=abc", "urlMiniatura": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/mini/3f2b.jpg?token=abc" }
     }
   ],
   "page": 0,
@@ -2794,14 +2796,16 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
 }
 ```
 
-- **Errores:** `400 VALIDACION` por paginación inválida; `401 NO_AUTENTICADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar el enlace de una imagen.
+- **Miniatura (`urlMiniatura`):** cada imagen trae `url` (el archivo original) y `urlMiniatura` (una copia JPEG de hasta 640 px de ancho, que no agranda las imágenes más chicas y ya tiene corregida la orientación de la foto). Las dos son enlaces temporales de una hora. `urlMiniatura` es opcional y siempre figura en el JSON: vale `null` si la imagen no tiene miniatura (novedades publicadas antes de este cambio, o una imagen que el servidor no pudo reducir) o si el servidor no pudo firmarla, y en esos casos la respuesta sigue siendo `200 OK`. El cliente usa `urlMiniatura ?? url` en tarjetas y listas, y `url` cuando muestra la imagen completa. Un cliente que no conoce el campo lo ignora y sigue funcionando con `url`.
+- **Errores:** `400 VALIDACION` por paginación inválida; `401 NO_AUTENTICADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar el enlace del original de una imagen (la falla al firmar una miniatura no produce error).
 
 <a id="e67"></a>
 #### #67 · `GET /api/anuncios/{id}`
 
 - **Roles:** cualquier usuario autenticado. **RF:** RF-07. **Estado:** IMPLEMENTADA EN BACKEND (PR #71).
 - **Respuesta `200 OK`:** la forma de detalle ilustrada en #65, con todas las imágenes ordenadas para el carrusel. Sin imágenes, `imagenes` es `[]` en el detalle y en la respuesta de publicación. Si se publica solo con imágenes, `texto` es `null`.
-- **Errores:** `401 NO_AUTENTICADO`; `404 NO_ENCONTRADO` si no existe el anuncio; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar un enlace.
+- **Miniatura:** cada elemento de `imagenes` trae `url` y `urlMiniatura`, con las mismas reglas que en la consulta de tarjetas: `urlMiniatura` siempre figura y es `null` si no hay miniatura o no se pudo firmar, sin que eso cambie el `200 OK`. El cliente usa `urlMiniatura ?? url` donde basta una vista reducida y `url` para la imagen completa. El carrusel del inicio (`GET /api/anuncios/carrusel`) y el detalle para el administrador (`GET /api/admin/anuncios/{id}`) usan la misma forma de imagen.
+- **Errores:** `401 NO_AUTENTICADO`; `404 NO_ENCONTRADO` si no existe el anuncio; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar el enlace del original de una imagen.
 
 ## 4. Matriz de roles por endpoint
 
