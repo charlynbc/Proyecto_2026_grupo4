@@ -42,9 +42,12 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
 
   void _refresh() => ref.invalidate(announcementsPageProvider(_page));
 
+  /// La hora con la que se mide el vencimiento de las URL; se cambia en las pruebas.
+  DateTime _now() => ref.read(announcementClockProvider)();
+
   void _refreshIfExpired() {
     if (_loadedAt != null &&
-        DateTime.now().difference(_loadedAt!) >= const Duration(minutes: 55)) {
+        _now().difference(_loadedAt!) >= const Duration(minutes: 55)) {
       _loadedAt = null;
       _refresh();
     }
@@ -78,7 +81,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
   Widget build(BuildContext context) {
     final state = ref.watch(announcementsPageProvider(_page));
     ref.listen(announcementsPageProvider(_page), (_, next) {
-      if (next is AsyncData) _loadedAt = DateTime.now();
+      if (next is AsyncData) _loadedAt = _now();
     });
     return Scaffold(
       appBar: AppBar(

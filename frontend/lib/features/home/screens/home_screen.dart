@@ -42,10 +42,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
+  /// La hora con la que se mide el vencimiento de las URL; se cambia en las pruebas.
+  DateTime _now() => ref.read(announcementClockProvider)();
+
   void _refreshIfExpired() {
     final loadedAt = _loadedAt;
     if (loadedAt != null &&
-        DateTime.now().difference(loadedAt) >= const Duration(minutes: 55)) {
+        _now().difference(loadedAt) >= const Duration(minutes: 55)) {
       _loadedAt = null;
       ref.invalidate(latestAnnouncementsProvider);
     }
@@ -75,7 +78,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final account = accountState.isLoading ? null : accountState.asData?.value;
     final announcements = ref.watch(latestAnnouncementsProvider);
     ref.listen(latestAnnouncementsProvider, (_, next) {
-      if (next is AsyncData) _loadedAt = DateTime.now();
+      if (next is AsyncData) _loadedAt = _now();
     });
     final theme = Theme.of(context);
     final wide = MediaQuery.sizeOf(context).width >= 800;
