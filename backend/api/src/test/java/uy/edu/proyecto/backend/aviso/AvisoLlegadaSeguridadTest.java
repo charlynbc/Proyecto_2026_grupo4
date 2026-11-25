@@ -80,7 +80,8 @@ class AvisoLlegadaSeguridadTest {
                         77L,
                         OffsetDateTime.parse("2026-10-14T10:12:45-03:00"),
                         null,
-                        null
+                        null,
+                        false
                 )
         ), new LlegadaDeHoyDTO(
                 OffsetDateTime.parse("2026-10-21T08:55:12-03:00"),
@@ -96,6 +97,7 @@ class AvisoLlegadaSeguridadTest {
                 .andExpect(jsonPath("$.items[0].estado").value("AGENDADA"))
                 .andExpect(jsonPath("$.items[0].consultorio.nombre")
                         .value("Consultorio 5"))
+                .andExpect(jsonPath("$.items[0].cancelable").value(false))
                 .andExpect(jsonPath("$.llegada.registradaEn")
                         .value("2026-10-21T08:55:12-03:00"))
                 .andExpect(jsonPath("$.llegada.registradaPor.id").value(31))

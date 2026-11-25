@@ -146,7 +146,7 @@ class ConsultaRepositoryTest {
                 10
         );
 
-        ConsultaHistorialPageResponse response = repository.listarHistorial(
+        ConsultaRepository.PaginaHistorial response = repository.listarHistorial(
                 91L,
                 filtro,
                 LocalDate.of(2026, 10, 22)
@@ -177,5 +177,86 @@ class ConsultaRepositoryTest {
         assertTrue(pageSql.getValue().contains("id_consulta ASC LIMIT ? OFFSET ?"));
         assertTrue(pageSql.getValue().contains("public.consultorio"));
         verify(jdbcTemplate).query(anyString(), any(RowMapper.class), any(Object[].class));
+    }
+
+    // La llegada se evalua por socio y dia. Ese criterio vive en un solo fragmento SQL, escrito aca a mano.
+    private static final String LLEGADA_POR_SOCIO_Y_DIA_EN_LA_CTE =
+            "EXISTS (SELECT 1 FROM public.aviso_llegada aviso "
+                    + "WHERE aviso.id_socio = consulta.id_socio AND aviso.fecha = turno.fecha)";
+
+    private static String compacto(String sql) {
+        return sql.replaceAll("\\s+", " ");
+    }
+
+    private static int ocurrencias(String texto, String buscado) {
+        int cuenta = 0;
+        for (int pos = texto.indexOf(buscado); pos >= 0; pos = texto.indexOf(buscado, pos + buscado.length())) {
+            cuenta++;
+        }
+        return cuenta;
+    }
+
+    @Test
+    void laCteDelListadoTraeLaColumnaDeLlegadaConElMismoFragmentoQueElEstadoCalculado() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForObject(anyString(), eq(Long.class), any(Object[].class))).thenReturn(0L);
+        when(jdbcTemplate.query(
+                anyString(),
+                org.mockito.ArgumentMatchers.<RowMapper<ConsultaRepository.ConsultaConLlegada>>any(),
+                any(Object[].class)
+        )).thenReturn(List.of());
+
+        new ConsultaRepository(jdbcTemplate).listarHistorial(
+                91L,
+                new ConsultaHistorialFiltro(null, null, null, null, null, "fecha", "desc", 0, 20),
+                LocalDate.of(2026, 10, 22));
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate).query(sql.capture(), any(RowMapper.class), any(Object[].class));
+        String listado = compacto(sql.getValue());
+        // Una vez en el CASE de NO_ATENDIDA y otra en la columna nueva.
+        assertEquals(2, ocurrencias(listado, LLEGADA_POR_SOCIO_Y_DIA_EN_LA_CTE));
+        assertTrue(listado.contains("WHEN " + LLEGADA_POR_SOCIO_Y_DIA_EN_LA_CTE + " THEN 'NO_ATENDIDA'"));
+        assertTrue(listado.contains(LLEGADA_POR_SOCIO_Y_DIA_EN_LA_CTE + " AS llegada_registrada"));
+    }
+
+    @Test
+    void laCteDelDetalleTraeLaMismaColumnaDeLlegada() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.query(
+                anyString(),
+                org.mockito.ArgumentMatchers.<RowMapper<ConsultaRepository.ConsultaConLlegada>>any(),
+                any(Object[].class)
+        )).thenReturn(List.of());
+
+        new ConsultaRepository(jdbcTemplate).obtenerHistorialDelSocio(91L, 44L, LocalDate.of(2026, 10, 22));
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> parametros = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate).query(sql.capture(), any(RowMapper.class), parametros.capture());
+        String detalle = compacto(sql.getValue());
+        assertEquals(2, ocurrencias(detalle, LLEGADA_POR_SOCIO_Y_DIA_EN_LA_CTE));
+        assertTrue(detalle.contains(LLEGADA_POR_SOCIO_Y_DIA_EN_LA_CTE + " AS llegada_registrada"));
+        assertEquals(List.of(LocalDate.of(2026, 10, 22), 91L, 44L),
+                java.util.Arrays.asList(parametros.getValue()));
+    }
+
+    @Test
+    void existeAvisoLlegadaUsaElMismoCriterioDeSocioYDia() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForObject(anyString(), eq(Boolean.class), any(Object[].class))).thenReturn(true);
+
+        boolean existe = new ConsultaRepository(jdbcTemplate)
+                .existeAvisoLlegada(91L, LocalDate.of(2026, 10, 22));
+
+        assertTrue(existe);
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Object[]> parametros = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbcTemplate).queryForObject(sql.capture(), eq(Boolean.class), parametros.capture());
+        assertEquals("SELECT EXISTS (SELECT 1 FROM public.aviso_llegada aviso "
+                        + "WHERE aviso.id_socio = ? AND aviso.fecha = ?)",
+                compacto(sql.getValue()).trim());
+        assertEquals(List.of(91L, LocalDate.of(2026, 10, 22)),
+                java.util.Arrays.asList(parametros.getValue()));
     }
 }

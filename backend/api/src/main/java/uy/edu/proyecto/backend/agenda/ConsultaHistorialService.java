@@ -2,6 +2,7 @@ package uy.edu.proyecto.backend.agenda;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Set;
 
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 
 @Service
 public class ConsultaHistorialService {
@@ -26,10 +28,27 @@ public class ConsultaHistorialService {
 
     private final ConsultaRepository repository;
     private final Clock clock;
+    private final ParametroService parametros;
 
-    public ConsultaHistorialService(ConsultaRepository repository, Clock clock) {
+    public ConsultaHistorialService(
+            ConsultaRepository repository,
+            Clock clock,
+            ParametroService parametros
+    ) {
         this.repository = repository;
         this.clock = clock;
+        this.parametros = parametros;
+    }
+
+    /** Resuelve cancelable con el reloj y el plazo del servidor, sin consultar la base de nuevo. */
+    private ConsultaDTO conCancelable(ConsultaRepository.ConsultaConLlegada fila) {
+        return ReglaCancelableSocio.aplicar(
+                fila.consulta(),
+                fila.llegadaRegistrada(),
+                clock.getZone(),
+                ZonedDateTime.now(clock),
+                parametros.cancelarAnticipacionMinimaHoras()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -78,7 +97,14 @@ public class ConsultaHistorialService {
                 pagina,
                 cantidad
         );
-        return repository.listarHistorial(socioId, filtro, LocalDate.now(clock));
+        ConsultaRepository.PaginaHistorial resultado =
+                repository.listarHistorial(socioId, filtro, LocalDate.now(clock));
+        return new ConsultaHistorialPageResponse(
+                resultado.items().stream().map(this::conCancelable).toList(),
+                resultado.page(),
+                resultado.size(),
+                resultado.total()
+        );
     }
 
     @Transactional(readOnly = true)
@@ -92,6 +118,7 @@ public class ConsultaHistorialService {
                         consultaId,
                         LocalDate.now(clock)
                 )
+                .map(this::conCancelable)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
                         "NO_ENCONTRADO",
