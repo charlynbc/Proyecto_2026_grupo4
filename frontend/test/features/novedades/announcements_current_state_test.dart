@@ -121,6 +121,7 @@ Future<_Harness> _pump(
   List<FakeAnnouncementEntry>? seed,
   Size size = const Size(1280, 1600),
   double textScale = 1,
+  DateTime Function()? clock,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -131,7 +132,7 @@ Future<_Harness> _pump(
     overrides: [
       useFakesProvider.overrideWithValue(true),
       sessionProvider.overrideWith(() => AdminTestSession(role)),
-      announcementClockProvider.overrideWithValue(() => kAdminTestNow),
+      announcementClockProvider.overrideWithValue(clock ?? () => kAdminTestNow),
       accountRepositoryProvider.overrideWith(
         (ref) async => RecordingAccountRepository(),
       ),
@@ -382,5 +383,121 @@ void main() {
     expect(find.text('Boletín 11'), findsOneWidget);
     expect(find.text('Boletín 12'), findsOneWidget);
     expect(find.text('Atención en feriados'), findsNothing);
+  });
+
+  // Las URL de las portadas vencen a los 55 minutos de cargada la lista. El
+  // reloj de las pruebas se mueve a mano: `at(54)` son 54 minutos después de
+  // la carga inicial.
+  for (final screen in screens.skip(1)) {
+    group('${screen.name}: vencimiento de las URL a los 55 minutos', () {
+      var now = kAdminTestNow;
+      void at(int minutes) =>
+          now = kAdminTestNow.add(Duration(minutes: minutes));
+
+      Future<_Harness> open(WidgetTester tester) async {
+        now = kAdminTestNow;
+        final harness = await _pump(
+          tester,
+          role: screen.role,
+          location: screen.path,
+          clock: () => now,
+        );
+        expect(screen.requests(harness.repo), 1);
+        return harness;
+      }
+
+      Future<void> resize(WidgetTester tester) async {
+        // Un cambio de tamaño reconstruye la pantalla sin traer datos nuevos.
+        tester.view.physicalSize = const Size(1100, 1600);
+        await _settle(tester);
+      }
+
+      testWidgets('a los 54 minutos un rebuild no pide nada y a los 56 minutos '
+          'se pide una sola vez', (tester) async {
+        final harness = await open(tester);
+
+        at(54);
+        await resize(tester);
+        expect(screen.requests(harness.repo), 1);
+
+        at(56);
+        backgroundAndReturn(tester);
+        await _settle(tester);
+        expect(screen.requests(harness.repo), 2);
+      });
+
+      testWidgets('un refresco al volver reinicia la cuenta de los 55 '
+          'minutos', (tester) async {
+        final harness = await open(tester);
+
+        at(40);
+        harness.router.go(screen.awayPath);
+        await _settle(tester);
+        harness.router.go(screen.path);
+        await _settle(tester);
+        expect(screen.requests(harness.repo), 2);
+
+        // Pasaron 94 minutos de la primera carga y 54 de la última.
+        at(94);
+        backgroundAndReturn(tester);
+        await _settle(tester);
+        expect(screen.requests(harness.repo), 3);
+      });
+
+      testWidgets('un rebuild sin dato nuevo no reinicia la cuenta', (
+        tester,
+      ) async {
+        final harness = await open(tester);
+
+        at(30);
+        await resize(tester);
+        expect(screen.requests(harness.repo), 1);
+
+        // Siguen contando desde la carga: 56 minutos después hay un pedido.
+        at(56);
+        backgroundAndReturn(tester);
+        await _settle(tester);
+        expect(screen.requests(harness.repo), 2);
+      });
+
+      testWidgets('si coinciden el refresco al volver y el de los 55 minutos '
+          'hace un solo pedido', (tester) async {
+        final harness = await open(tester);
+        harness.router.go(screen.awayPath);
+        await _settle(tester);
+
+        at(56);
+        harness.router.go(screen.path);
+        await _settle(tester);
+
+        expect(screen.requests(harness.repo), 2);
+      });
+    });
+  }
+
+  testWidgets('Novedades: al cambiar a la página 2 la cuenta de los 55 '
+      'minutos es la de la página 2', (tester) async {
+    var now = kAdminTestNow;
+    final harness = await _pump(
+      tester,
+      role: UserRole.socio,
+      location: '/socio/cartelera',
+      seed: _twelveSeed(),
+      clock: () => now,
+    );
+
+    now = kAdminTestNow.add(const Duration(minutes: 50));
+    final next = find.text('Siguiente');
+    await tester.ensureVisible(next);
+    await tester.tap(next);
+    await _settle(tester);
+    expect(harness.repo.pages, [0, 1]);
+
+    // Pasaron 100 minutos de la primera página y 50 de la segunda.
+    now = kAdminTestNow.add(const Duration(minutes: 100));
+    backgroundAndReturn(tester);
+    await _settle(tester);
+
+    expect(harness.repo.pages, [0, 1, 1]);
   });
 }
