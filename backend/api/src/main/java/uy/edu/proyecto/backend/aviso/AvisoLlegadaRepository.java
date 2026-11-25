@@ -199,7 +199,9 @@ public class AvisoLlegadaRepository {
                         (Long) rs.getObject("id_pase"),
                         rs.getObject("agendada_en", OffsetDateTime.class),
                         rs.getObject("cancelada_en", OffsetDateTime.class),
-                        rs.getString("motivo_cancelacion")
+                        rs.getString("motivo_cancelacion"),
+                        // El servicio lo calcula con la regla, el reloj y la llegada de hoy.
+                        false
                 ),
                 ci,
                 fecha

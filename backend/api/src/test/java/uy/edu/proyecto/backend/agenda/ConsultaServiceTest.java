@@ -85,10 +85,61 @@ class ConsultaServiceTest {
 
         ConsultaDTO actual = service.agendar(SOCIO_ID, SOLICITUD);
 
+        // El repositorio devuelve cancelable en false; el servicio lo resuelve con la regla.
         assertAll(
-                () -> assertEquals(expected, actual),
+                () -> assertEquals(expected.conCancelable(true), actual),
                 () -> verify(repository).crearNotificacionAgenda(9001L, CUERPO_AGENDA)
         );
+    }
+
+    @Test
+    void laRespuestaTraeCancelableTrueSinLlegadaEseDiaYConsultaLejana() {
+        when(repository.crear(SOCIO_ID, numero(false), null))
+                .thenReturn(Optional.of(consultaEsperada(null)));
+        when(repository.existeAvisoLlegada(SOCIO_ID, LocalDate.of(2026, 11, 3))).thenReturn(false);
+        when(repository.crearNotificacionAgenda(9001L, CUERPO_AGENDA)).thenReturn(7001L);
+
+        assertEquals(true, service.agendar(SOCIO_ID, SOLICITUD).cancelable());
+        verify(repository).existeAvisoLlegada(SOCIO_ID, LocalDate.of(2026, 11, 3));
+    }
+
+    @Test
+    void laRespuestaTraeCancelableFalseSiElSocioYaTieneLlegadaEseDia() {
+        when(repository.crear(SOCIO_ID, numero(false), null))
+                .thenReturn(Optional.of(consultaEsperada(null)));
+        when(repository.existeAvisoLlegada(SOCIO_ID, LocalDate.of(2026, 11, 3))).thenReturn(true);
+        when(repository.crearNotificacionAgenda(9001L, CUERPO_AGENDA)).thenReturn(7001L);
+
+        ConsultaDTO respuesta = service.agendar(SOCIO_ID, SOLICITUD);
+
+        assertEquals(false, respuesta.cancelable());
+        assertEquals(consultaEsperada(null), respuesta);
+    }
+
+    @Test
+    void laLlegadaDeOtroDiaNoAfectaAlCancelableDeLaRespuesta() {
+        when(repository.crear(SOCIO_ID, numero(false), null))
+                .thenReturn(Optional.of(consultaEsperada(null)));
+        // Mockito estricto avisa si se llama con otros argumentos; aca eso es justo lo que se prueba.
+        lenient().when(repository.existeAvisoLlegada(SOCIO_ID, LocalDate.of(2026, 11, 4))).thenReturn(true);
+        when(repository.crearNotificacionAgenda(9001L, CUERPO_AGENDA)).thenReturn(7001L);
+
+        assertEquals(true, service.agendar(SOCIO_ID, SOLICITUD).cancelable());
+    }
+
+    @Test
+    void elCancelableDeLaRespuestaUsaLasHorasMinimasDelParametro() {
+        when(repository.crear(SOCIO_ID, numero(false), null))
+                .thenReturn(Optional.of(consultaEsperada(null)));
+        when(repository.crearNotificacionAgenda(9001L, CUERPO_AGENDA)).thenReturn(7001L);
+
+        // Ahora 2026-10-20 08:00; la consulta es el 2026-11-03 a las 09:00.
+        // Con 336 horas el borde es el 2026-11-03 a las 08:00: cancelable.
+        assertEquals(true, conParametros(ParametrosDePrueba.nuevo().cancelarHoras(336).construir())
+                .agendar(SOCIO_ID, SOLICITUD).cancelable());
+        // Con 361 horas el borde es el 2026-11-04 a las 09:00: ya no.
+        assertEquals(false, conParametros(ParametrosDePrueba.nuevo().cancelarHoras(361).construir())
+                .agendar(SOCIO_ID, SOLICITUD).cancelable());
     }
 
     @Test
@@ -477,7 +528,8 @@ class ConsultaServiceTest {
                 paseId,
                 OffsetDateTime.parse("2026-10-21T15:00:00-03:00"),
                 null,
-                null
+                null,
+                false
         );
     }
 }

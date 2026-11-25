@@ -19,8 +19,20 @@ public record ConsultaDTO(
         Long paseId,
         OffsetDateTime agendadaEn,
         OffsetDateTime canceladaEn,
-        String motivoCancelacion
+        String motivoCancelacion,
+        boolean cancelable
 ) {
+    /**
+     * La misma consulta con {@code cancelable} resuelto por el servicio. Los
+     * repositorios arman el DTO con false y no calculan nada: el valor sale de
+     * {@link ReglaCancelableSocio} con el reloj y el plazo del servidor.
+     */
+    public ConsultaDTO conCancelable(boolean valor) {
+        return new ConsultaDTO(id, estado, fecha, numero, horaInicio, horaFin, medico,
+                especialidad, consultorio, paseId, agendadaEn, canceladaEn,
+                motivoCancelacion, valor);
+    }
+
     public record MedicoRef(
             Long id,
             String nombre,
