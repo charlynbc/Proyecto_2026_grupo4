@@ -3,26 +3,41 @@ package uy.edu.proyecto.backend.integracion;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import tools.jackson.databind.JsonNode;
 
 /**
  * Campo cancelable de la consulta del socio (JSON real, PostgreSQL real): GET lista, GET detalle, POST y
- * consultas de hoy. Los horarios estan lejos del borde de las 2 horas (un dia o 30 minutos), porque el IT usa el
- * reloj real. Los ids de consulta (501 y siguientes) y de aviso (801 y siguientes) no se parecen a los de los
- * socios, para que un JOIN o un mapeo equivocado no pase por coincidencia.
+ * consultas de hoy. El reloj de la aplicacion se fija a las 07:00 de hoy (Montevideo), asi que el resultado es el
+ * mismo a cualquier hora del dia real: las consultas de hoy se siembran a horas absolutas (07:30 empieza en 30
+ * minutos y 10:20 en 200) y los demas horarios estan lejos del borde de las 2 horas. Los ids de consulta (501 y
+ * siguientes) y de aviso (801 y siguientes) no se parecen a los de los socios, para que un JOIN o un mapeo
+ * equivocado no pase por coincidencia.
  */
 class ConsultasCancelableIT extends BaseIntegracionIT {
+
+    private static final LocalTime HORA_DEL_RELOJ = LocalTime.of(7, 0);
+
+    /** Empieza 30 minutos despues del reloj fijo: dentro del plazo de 2 horas. */
+    private static final LocalTime EN_30_MINUTOS = LocalTime.of(7, 30);
+
+    /** Empieza 200 minutos despues del reloj fijo: fuera del plazo de 2 horas. */
+    private static final LocalTime EN_200_MINUTOS = LocalTime.of(10, 20);
+
+    /** Se restaura sola al terminar cada test (BaseIntegracionIT). */
+    @BeforeEach
+    void fijarElReloj() {
+        reloj.fijar(hoy().atTime(HORA_DEL_RELOJ));
+    }
 
     private void separarIds() {
         jdbc.queryForObject("SELECT setval(pg_get_serial_sequence('consulta', 'id_consulta'), 500)", Long.class);
@@ -37,16 +52,9 @@ class ConsultasCancelableIT extends BaseIntegracionIT {
                 Long.class, socio, idFuncionario, fecha);
     }
 
-    /** Numero que empieza dentro de los minutos indicados; la fecha es la que corresponda, incluso si cruza la medianoche. */
-    private long numeroEnMinutos(int minutosDesdeAhora) {
-        LocalDateTime objetivo = LocalDateTime.now(ZONA).plusMinutes(minutosDesdeAhora)
-                .withSecond(0).withNano(0);
-        if (objetivo.getHour() == 23 && objetivo.getMinute() >= 40) {
-            objetivo = objetivo.plusMinutes(30);
-        }
-        objetivo = objetivo.minusMinutes(objetivo.getMinute() % 5);
-        LocalTime inicio = objetivo.toLocalTime();
-        long turno = sembrarTurno(objetivo.toLocalDate(), 0);
+    /** Numero de hoy que empieza a la hora indicada (hora absoluta, no relativa a la hora real). */
+    private long numeroDeHoyA(LocalTime inicio) {
+        long turno = sembrarTurno(hoy(), 0);
         long semanal = jdbc.queryForObject(
                 "SELECT id_turno_semanal FROM turno WHERE id_turno = ?", Long.class, turno);
         long patron = jdbc.queryForObject(
@@ -57,12 +65,6 @@ class ConsultasCancelableIT extends BaseIntegracionIT {
                 "INSERT INTO numero (id_turno, id_numero_semanal, numero, hora_inicio, hora_fin)"
                         + " VALUES (?, ?, 1, ?::time, ?::time) RETURNING id_numero",
                 Long.class, turno, patron, inicio.toString(), inicio.plusMinutes(20).toString());
-    }
-
-    private LocalDate fechaDelNumero(long numero) {
-        return jdbc.queryForObject(
-                "SELECT t.fecha FROM numero n JOIN turno t ON t.id_turno = n.id_turno WHERE n.id_numero = ?",
-                LocalDate.class, numero);
     }
 
     private static JsonNode item(JsonNode items, long id) {
@@ -85,7 +87,7 @@ class ConsultasCancelableIT extends BaseIntegracionIT {
         long turnoConLlegada = sembrarTurno(hoy().plusDays(2), 2);
         long c2 = sembrarConsulta(idSocio1, numeroId(turnoConLlegada, 1));
         long c3 = sembrarConsulta(idSocio1, numeroId(turnoConLlegada, 2));
-        long c4 = sembrarConsulta(idSocio1, numeroEnMinutos(30));
+        long c4 = sembrarConsulta(idSocio1, numeroDeHoyA(EN_30_MINUTOS));
         long turnoCompartido = sembrarTurno(hoy().plusDays(3), 2);
         long c6 = sembrarConsulta(idSocio1, numeroId(turnoCompartido, 1));
         long c5 = sembrarConsulta(idSocio2, numeroId(turnoCompartido, 2));
@@ -164,8 +166,7 @@ class ConsultasCancelableIT extends BaseIntegracionIT {
     @Test
     void consultasDeHoyTraeCancelableFalseParaLaQueEmpiezaEn30MinutosAunConLlegada() {
         separarIds();
-        long numero = numeroEnMinutos(30);
-        assumeTrue(fechaDelNumero(numero).equals(hoy()), "El horario cae despues de la medianoche");
+        long numero = numeroDeHoyA(EN_30_MINUTOS);
         long consulta = sembrarConsulta(idSocio1, numero);
         String funcionario = tokenEmpleado(ciFuncionario);
 
@@ -186,8 +187,7 @@ class ConsultasCancelableIT extends BaseIntegracionIT {
     @Test
     void consultasDeHoyDejaDeSerCancelableCuandoSeRegistraLaLlegada() {
         separarIds();
-        long numero = numeroEnMinutos(200);
-        assumeTrue(fechaDelNumero(numero).equals(hoy()), "El horario cae despues de la medianoche");
+        long numero = numeroDeHoyA(EN_200_MINUTOS);
         long consulta = sembrarConsulta(idSocio2, numero);
         long otraDeSocio1 = sembrarConsulta(idSocio1, numeroId(sembrarTurno(hoy(), 1), 1));
         assertNotEquals(consulta, otraDeSocio1);
