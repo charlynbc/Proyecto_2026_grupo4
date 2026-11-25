@@ -38,6 +38,17 @@ void main() {
       expect(kotlin, isNot(contains('IMPORTANCE_DEFAULT')));
     });
 
+    test('el canal vibra, dentro del bloque donde se crea', () {
+      final creation = kotlin.indexOf('val channel = NotificationChannel(');
+      final vibration = kotlin.indexOf('enableVibration(true)');
+      final registration = kotlin.indexOf('createNotificationChannel(channel)');
+
+      expect(creation, isNonNegative);
+      expect(vibration, greaterThan(creation));
+      expect(vibration, lessThan(registration));
+      expect(kotlin, isNot(contains('enableVibration(false)')));
+    });
+
     test('el canal se llama "Avisos de consultas"', () {
       expect(kotlin, contains('"Avisos de consultas"'));
     });
