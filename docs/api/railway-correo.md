@@ -241,3 +241,66 @@ real**: falta la misma configuración de Resend descrita arriba.
 | El login falla con «Invalid CORS request» | `CORS_ALLOWED_ORIGIN` no coincide exactamente con el origen del navegador. |
 | La sesión no se mantiene en HTTPS | `COOKIE_SECURE=false` o `COOKIE_SAME_SITE` inadecuado. |
 | «El enlace ya no es válido» | Venció (24 h), ya se usó, se pidió uno más nuevo o la cuenta fue inactivada. |
+
+## Enlaces de la aplicación Android (App Links)
+
+Para que, en un celular con la app instalada, los enlaces de los correos
+(`/primer-ingreso`, `/recuperacion` y `/cambio-correo`) abran la app y no el
+navegador, Android tiene que verificar que el dominio pertenece a la app. Esa
+verificación lee el archivo `https://<dominio>/.well-known/assetlinks.json`.
+
+### Qué hace el servidor
+
+El backend responde `GET /.well-known/assetlinks.json` sin sesión, con
+`Content-Type: application/json` y sin redirecciones. El cuerpo es una lista con
+una sola declaración (paquete de la app y huellas SHA-256 de su certificado de
+firma). Sin ninguna huella válida responde `200` con la lista vacía `[]`. Las
+huellas son públicas: no son un secreto.
+
+| Variable | Obligatoria | Descripción |
+|---|---|---|
+| `ANDROID_APP_PACKAGE_NAME` | no | Paquete de la app. Por defecto `uy.edu.fing.tecnoinf.mvd.a2026_sem2_grupo4.agenda_medica`. |
+| `ANDROID_APP_FINGERPRINTS` | sí en producción | Huellas SHA-256 separadas por comas, por ejemplo `01:AC:05:8D:AC:C7:69:7C:34:98:6D:2D:8A:68:D6:D7:51:F7:F4:B3:0C:69:CB:11:0C:0C:88:8D:23:20:4F:0C`. Cada una son 32 pares hexadecimales separados por dos puntos. Las que no tienen ese formato se descartan y el log avisa cuántas fueron (sin mostrarlas). Por defecto lleva la huella de la clave debug de la máquina de Leo. |
+
+Agregar una huella no necesita recompilar: se cambia la variable y se reinicia
+el servicio.
+
+### Qué tiene que estar listo antes de instalar la app
+
+1. El dominio `medicaoriental.vip` tiene que apuntar al servicio de Railway.
+2. `https://medicaoriental.vip/.well-known/assetlinks.json` tiene que responder
+   `200` por HTTPS, sin redirecciones, con la huella de la clave con que se
+   firmó la app.
+
+### Orden
+
+1. Desplegar el backend con este endpoint y comprobar el archivo en el
+   navegador o con `curl -i https://medicaoriental.vip/.well-known/assetlinks.json`.
+2. Instalar la app Android firmada con la clave cuya huella figura en
+   `ANDROID_APP_FINGERPRINTS`.
+3. Recién entonces probar los enlaces de los correos.
+
+Android verifica el dominio cuando se instala la app. Si en ese momento el
+archivo no estaba disponible, la verificación falla y los enlaces abren el
+navegador: hay que reinstalar la app o pedir la verificación de nuevo:
+
+```
+adb shell pm verify-app-links --re-verify uy.edu.fing.tecnoinf.mvd.a2026_sem2_grupo4.agenda_medica
+adb shell pm get-app-links uy.edu.fing.tecnoinf.mvd.a2026_sem2_grupo4.agenda_medica
+```
+
+El segundo comando debe mostrar el dominio como `verified`.
+
+### Otra clave de firma
+
+La huella por defecto es la de una sola máquina. Quien compile la app con otra
+clave debug tiene que agregar su huella a `ANDROID_APP_FINGERPRINTS`. Se obtiene
+con el siguiente comando, y se copia solo la línea `SHA256`:
+
+```
+keytool -list -v -keystore <ruta-de-su-debug.keystore> -alias androiddebugkey
+```
+
+Para publicar en Google Play hay que agregar también la huella de la clave de
+Play App Signing (consola de Play, Integridad de la aplicación). Es otra
+huella, distinta de la de debug.
