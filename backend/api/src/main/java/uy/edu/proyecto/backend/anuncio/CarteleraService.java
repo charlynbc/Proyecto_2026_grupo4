@@ -91,15 +91,19 @@ public class CarteleraService {
         comprobarResultado(texto, lista, repo.imagenes(id));
 
         var referencias = new LinkedHashMap<String, String>();
+        // Originales y miniaturas subidas, para borrarlas todas si algo falla despues.
+        var subidas = new ArrayList<String>();
         try {
             for (var nueva : nuevas.entrySet()) {
                 String referencia = UUID.randomUUID() + nueva.getValue().extension();
                 referencias.put(nueva.getKey(), referencia);
+                subidas.add(referencia);
                 almacen.guardar(referencia, nueva.getValue().bytes(), nueva.getValue().tipo());
+                Miniaturas.subir(almacen, referencia, nueva.getValue().bytes(), subidas);
             }
             enTransaccion(() -> aplicarEdicion(id, texto, lista, referencias));
         } catch (RuntimeException falla) {
-            limpiar(referencias.values());
+            limpiar(subidas);
             throw falla;
         }
     }
@@ -202,7 +206,12 @@ public class CarteleraService {
     public void limpiarPendiente() {
         var pendiente=repo.tomarPendiente();
         if (pendiente==null) return;
-        try { almacen.borrar(pendiente.referencia()); repo.completado(pendiente.id()); }
+        try {
+            almacen.borrar(pendiente.referencia());
+            // La miniatura es de mejor esfuerzo: si falla no deja el pendiente sin resolver ni se reintenta.
+            Miniaturas.borrar(almacen, pendiente.referencia());
+            repo.completado(pendiente.id());
+        }
         catch (RuntimeException ex) { repo.fallido(pendiente.id()); }
     }
     private static ApiException error(HttpStatus status,String codigo,String mensaje) { return new ApiException(status,codigo,mensaje); }
