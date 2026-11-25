@@ -635,19 +635,11 @@ void main() {
 
       expect(
         tester.getSemantics(action('delete', 30)),
-        isSemantics(
-          label: 'Eliminar',
-          hasEnabledState: true,
-          isEnabled: false,
-        ),
+        isSemantics(label: 'Eliminar', hasEnabledState: true, isEnabled: false),
       );
       expect(
         tester.getSemantics(action('edit', 30)),
-        isSemantics(
-          label: 'Editar',
-          hasEnabledState: true,
-          isEnabled: false,
-        ),
+        isSemantics(label: 'Editar', hasEnabledState: true, isEnabled: false),
       );
     });
 
