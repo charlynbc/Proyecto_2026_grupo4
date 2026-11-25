@@ -148,6 +148,38 @@ opciones web-only por la configuración multiplataforma.
 Mientras Android no esté registrado, Firebase se inicializa únicamente en web
 para que la aplicación móvil pueda seguir arrancando.
 
+## Avisos push en Android
+
+- **Canal de notificaciones.** La app crea en Android el canal `avisos_consultas`
+  ("Avisos de consultas", importancia alta) cada vez que arranca, en
+  `android/app/src/main/kotlin/uy/edu/fing/tecnoinf/mvd/a2026_sem2_grupo4/agenda_medica/MainActivity.kt`.
+  Crearlo de nuevo no cambia nada si ya existe. El backend manda ese mismo id en
+  cada aviso (ver `docs/api/railway-correo.md`, sección "Avisos push en Android"):
+  si cambia en un lado, tiene que cambiar en el otro y en el manifiesto.
+- **Manifiesto.** `AndroidManifest.xml` declara el canal
+  (`com.google.firebase.messaging.default_notification_channel_id`) y el ícono
+  (`com.google.firebase.messaging.default_notification_icon`) que usa Firebase
+  para los avisos que llegan con la app cerrada o en segundo plano.
+- **Ícono.** `android/app/src/main/res/drawable/ic_stat_notification.xml` es una cruz
+  médica blanca sobre fondo transparente. Android pinta el ícono chico de una
+  notificación solo con su silueta, así que tiene que ser un solo color, sin
+  degradados. Para cambiarlo se reemplaza ese archivo por otro vector de 24 dp
+  con `fillColor="#FFFFFFFF"`, o se agregan PNG blancos sobre transparente en
+  `drawable-mdpi` (24 px), `-hdpi` (36), `-xhdpi` (48), `-xxhdpi` (72) y
+  `-xxxhdpi` (96) con el mismo nombre. Se mantiene el nombre
+  `ic_stat_notification`, que es el que nombra el manifiesto.
+- **`google-services.json`.** Es manual: se descarga de la consola de Firebase y se
+  pone en `android/app/google-services.json`. No se versiona (está en
+  `.gitignore`). Un APK compilado sin ese archivo funciona, pero no tiene push y
+  no avisa que falta.
+- **Sesión vencida.** Si la sesión de un socio se cae porque venció el refresh, ya
+  no hay con qué llamar a la baja del dispositivo (`POST /api/dispositivos/baja`
+  pide sesión). En ese caso la app borra el token de Firebase del celular y el
+  backend deshabilita el dispositivo en el próximo envío, cuando Firebase
+  responde que el token ya no existe (`UNREGISTERED`). El cierre de sesión
+  voluntario sigue dando la baja con la sesión abierta, y la caída de la sesión
+  de un empleado no toca nada.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
