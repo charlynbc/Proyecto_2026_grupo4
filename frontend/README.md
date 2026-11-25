@@ -153,7 +153,10 @@ para que la aplicación móvil pueda seguir arrancando.
 - **Canal de notificaciones.** La app crea en Android el canal `avisos_consultas`
   ("Avisos de consultas", importancia alta) cada vez que arranca, en
   `android/app/src/main/kotlin/uy/edu/fing/tecnoinf/mvd/a2026_sem2_grupo4/agenda_medica/MainActivity.kt`.
-  Crearlo de nuevo no cambia nada si ya existe. El backend manda ese mismo id en
+  Crearlo de nuevo no cambia nada si ya existe. El canal vibra al llegar un aviso
+  (`enableVibration(true)`). Android no permite cambiar un canal que ya se creó:
+  para ver un cambio en su configuración (vibración, importancia o nombre) hay
+  que desinstalar la app y volver a instalarla. El backend manda ese mismo id en
   cada aviso (ver `docs/api/railway-correo.md`, sección "Avisos push en Android"):
   si cambia en un lado, tiene que cambiar en el otro y en el manifiesto.
 - **Manifiesto.** `AndroidManifest.xml` declara el canal
