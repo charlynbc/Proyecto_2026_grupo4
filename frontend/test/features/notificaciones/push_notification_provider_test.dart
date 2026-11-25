@@ -34,6 +34,13 @@ void main() {
     );
   });
 
+  test('con USE_FAKES el servicio permite simular un toque de push', () {
+    expect(
+      _service(useFakes: true, androidPlatform: false),
+      isA<SimulatedPushNotificationService>(),
+    );
+  });
+
   test('fuera de Android (la web) el servicio no hace nada', () {
     expect(
       _service(useFakes: false, androidPlatform: false),
