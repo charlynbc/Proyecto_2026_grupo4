@@ -81,8 +81,9 @@ public class CancelacionMedicoService {
                 .cancelarConsulta(consultaId, medicoId, motivoValido)
                 .orElseThrow(() -> conflicto("CONSULTA_NO_AGENDADA",
                         "La consulta ya no está agendada"));
-        String contenido = NotificacionTextos.cuerpoCancelacionPorMedico(
-                consulta.fecha(), motivoValido);
+        String contenido = NotificacionTextos.cuerpoCancelacionPorInstitucion(
+                consulta.especialidad(), consulta.medico(), consulta.fecha(),
+                consulta.horaInicio(), motivoValido);
         Long notificacionId = repository.crearNotificacionCancelacion(consultaId, contenido);
         List<Long> envios = turnoFechas.registrarEnviosNotificacion(
                 notificacionId, consulta.socioId(), consulta.correo());
@@ -152,9 +153,10 @@ public class CancelacionMedicoService {
                 throw new IllegalStateException(
                         "La consulta dejó de estar AGENDADA mientras se cancelaba");
             }
-            String contenido = NotificacionTextos.cuerpoSuspensionPorMedico(
-                    consulta.fecha(), consulta.horaInicio(), consulta.horaFin(),
-                    consulta.numero(), motivoValido);
+            String contenido = NotificacionTextos.cuerpoSuspension(
+                    consulta.especialidad(), consulta.medico(), consulta.fecha(),
+                    consulta.horaInicio(), consulta.horaFin(), consulta.numero(),
+                    motivoValido);
             Long notificacionId = turnoFechas.crearNotificacionSuspension(
                     consulta.id(), contenido);
             envios.addAll(turnoFechas.registrarEnviosNotificacion(

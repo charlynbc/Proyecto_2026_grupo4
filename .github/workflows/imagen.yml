@@ -51,3 +51,6 @@ jobs:
         run: |
           curl -sf http://localhost:8080/ | grep -q "flutter_bootstrap.js"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/especialidades)" = "401"
+          # Las rutas de la app (sin #) responden el index.html sin sesión.
+          test "$(curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/primer-ingreso?token=abc')" = "200"
+          curl -sf 'http://localhost:8080/primer-ingreso?token=abc' | grep -q "flutter_bootstrap.js"

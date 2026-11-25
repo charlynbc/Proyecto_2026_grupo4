@@ -25,8 +25,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /** PUT /api/admin/anuncios/{id}, tramo de imagenes, por HTTP y PostgreSQL real; Storage es un doble. */
 class CarteleraEdicionImagenesIT extends BaseIntegracionIT {
@@ -148,6 +150,57 @@ class CarteleraEdicionImagenesIT extends BaseIntegracionIT {
         assertEquals(List.of(0, 1), ordenes(id));
         verify(almacen).guardar(anyString(), eq(PNG), eq("image/png"));
         assertEquals(0, contar("anuncio_archivo_pendiente_borrado"));
+    }
+
+    @Test
+    void agregarUnaImagenSubeTambienSuMiniaturaYLaBaseSoloGuardaElOriginal() throws Exception {
+        desplazarIdsDeAnuncios();
+        long id = novedad("Texto", "a.png");
+        assertEquals(41, id);
+        long existente = ids(id).getFirst();
+        assertEquals(701, existente);
+
+        Respuesta r = editar(id, datos("Texto", lista(id(existente), archivo("nueva1"))), pngs("nueva1"));
+
+        assertEquals(204, r.estado(), r.cuerpo());
+        String nueva = referencias(id).get(1);
+        String miniatura = "mini/" + nueva.substring(0, nueva.lastIndexOf('.')) + ".jpg";
+        verify(almacen).guardar(eq(nueva), eq(PNG), eq("image/png"));
+        verify(almacen).guardar(eq(miniatura), any(), eq("image/jpeg"));
+        verify(almacen, times(2)).guardar(anyString(), any(), anyString());
+        assertEquals(List.of("a.png", nueva), referencias(id));
+        assertEquals(0, contar("anuncio_archivo_pendiente_borrado"));
+    }
+
+    @Test
+    void elDetalleDeAdministracionYElCarruselTraenUrlMiniaturaYNulaSiNoSeFirma() throws Exception {
+        desplazarIdsDeAnuncios();
+        long id = novedadEnCarrusel(3, "Texto", "a.png", "b.jpg");
+        assertEquals(41, id);
+        var imagenIds = ids(id);
+        assertEquals(List.of(701L, 702L), imagenIds);
+        when(almacen.enlaceTemporal(anyString()))
+                .thenAnswer(llamada -> "https://imagenes.test/" + llamada.getArgument(0));
+        when(almacen.enlaceTemporal("mini/b.jpg")).thenThrow(new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                "ALMACENAMIENTO_NO_DISPONIBLE", "No se pudo acceder a las imágenes"));
+
+        Respuesta admin = get("/api/admin/anuncios/" + id, tokenEmpleado(ciAdmin));
+        assertEquals(200, admin.estado(), admin.cuerpo());
+        var enAdmin = admin.json().path("imagenes");
+        assertEquals(701, enAdmin.get(0).path("id").asLong());
+        assertEquals("https://imagenes.test/a.png", enAdmin.get(0).path("url").asString());
+        assertEquals("https://imagenes.test/mini/a.jpg", enAdmin.get(0).path("urlMiniatura").asString());
+        assertEquals("https://imagenes.test/b.jpg", enAdmin.get(1).path("url").asString());
+        assertTrue(enAdmin.get(1).has("urlMiniatura"));
+        assertTrue(enAdmin.get(1).path("urlMiniatura").isNull());
+
+        Respuesta carrusel = get("/api/anuncios/carrusel", tokenSocio(ciSocio1));
+        assertEquals(200, carrusel.estado(), carrusel.cuerpo());
+        assertEquals(id, carrusel.json().get(0).path("id").asLong());
+        var enCarrusel = carrusel.json().get(0).path("imagenes");
+        assertEquals("https://imagenes.test/mini/a.jpg", enCarrusel.get(0).path("urlMiniatura").asString());
+        assertTrue(enCarrusel.get(1).has("urlMiniatura"));
+        assertTrue(enCarrusel.get(1).path("urlMiniatura").isNull());
     }
 
     @Test

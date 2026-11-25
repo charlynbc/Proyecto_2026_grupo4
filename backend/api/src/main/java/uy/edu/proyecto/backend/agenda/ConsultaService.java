@@ -119,7 +119,7 @@ public class ConsultaService {
                 consulta.id(),
                 NotificacionTextos.cuerpoAgenda(
                         consulta.especialidad().nombre(),
-                        consulta.medico().nombre() + " " + consulta.medico().apellido(),
+                        NotificacionTextos.medico(consulta.medico().nombre(), consulta.medico().apellido()),
                         consulta.fecha(),
                         numero.horaInicio()
                 )

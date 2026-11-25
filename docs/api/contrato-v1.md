@@ -322,7 +322,7 @@ Sin cuerpo. Revoca la sesión en el servidor y borra la cookie de renovación. E
 
 Lo que pase después (enviar el enlace de un solo uso válido por 24 horas, enviar el correo de "ya está activa" o no enviar nada) es interno y asíncrono; no cambia la respuesta ni su tiempo apreciable. No se puede enumerar CI con este endpoint.
 
-**Implementación y correo (verificado 27/10/2026).** El `202` solo significa que el pedido fue aceptado: el correo sale después del commit, en segundo plano, y su fallo no cambia la respuesta. El enlace es `FIRST_LOGIN_URL + "?token=<token>"`, con `FIRST_LOGIN_URL=https://<host>/#/primer-ingreso` (Flutter web usa `#`), de modo que el cliente recibe `/#/primer-ingreso?token=…` (resuelve P-34). El token es aleatorio de 256 bits, solo se guarda su hash SHA-256, vence a las 24 horas y pedir uno nuevo invalida los anteriores. Un acceso que no corresponde al rol (por ejemplo `SOCIO` para un médico) responde igual y no envía enlace. Proveedores: ver `docs/api/railway-correo.md`.
+**Implementación y correo (verificado 27/10/2026).** El `202` solo significa que el pedido fue aceptado: el correo sale después del commit, en segundo plano, y su fallo no cambia la respuesta. El enlace es `FIRST_LOGIN_URL + "?token=<token>"`, con `FIRST_LOGIN_URL=https://<host>/primer-ingreso` (Flutter web usa rutas sin `#` y el servidor responde el `index.html` en esa ruta), de modo que el cliente recibe `/primer-ingreso?token=<token>` (resuelve P-34). El token es aleatorio de 256 bits, solo se guarda su hash SHA-256, vence a las 24 horas y pedir uno nuevo invalida los anteriores. Un acceso que no corresponde al rol (por ejemplo `SOCIO` para un médico) responde igual y no envía enlace. Proveedores: ver `docs/api/railway-correo.md`.
 
 **Errores**
 
@@ -1771,6 +1771,25 @@ El cliente lo llama **antes** de cerrar sesión (#3), porque `POST /api/auth/log
 
 `401 NO_AUTENTICADO` y `403 ACCESO_DENEGADO` aplican como a todo endpoint protegido y no se repiten. Preguntas relacionadas: P-14 (resuelta, sección 7.1).
 
+<a id="push-datos"></a>
+#### Datos del mensaje push
+
+- **Roles:** SOCIO (Android). **RF:** RNF-23. **Estado:** el backend los envía desde la rama `feat/back-push-atencion-id`; sin endpoint propio: es lo que el servidor manda por Firebase Cloud Messaging a cada dispositivo habilitado del socio (#33), después de guardar el aviso que lista #32.
+
+El mensaje lleva el título y el cuerpo del aviso (los mismos de la notificación y del correo) y un mapa `data` con **valores de texto**, porque Firebase no admite otro tipo:
+
+| Clave en `data` | Cuándo viene | Valor |
+|---|---|---|
+| `tipo` | siempre | El `tipo` del aviso: `AGENDA`, `CANCELACION`, `SUSPENSION`, `HISTORIA_ACTUALIZADA` o `RECORDATORIO`. |
+| `notificacionId` | siempre | El `id` del aviso (el de #32), como texto: `"15002"`. |
+| `atencionId` | solo en `HISTORIA_ACTUALIZADA` y solo si la consulta tiene atención | El id de la atención registrada, como texto: `"4100"`. Es el mismo que trae `atencionId` en #32 y el que usa #22 (`GET /api/historia-clinica/{idAtencion}`). En cualquier otro tipo la clave **no existe** (no viaja `null`). |
+
+```json
+{ "tipo": "HISTORIA_ACTUALIZADA", "notificacionId": "15002", "atencionId": "4100" }
+```
+
+El cliente tiene que tolerar la ausencia de `atencionId` (un servidor viejo no la manda) y convertirla a número: si falta o no es un entero positivo, abre Avisos.
+
 ### 3.9 Estadísticas (administrador)
 
 RF-39 a RF-44 usan el mismo criterio de período, enviado en la query:
@@ -1975,7 +1994,7 @@ El frontend actual tiene solo las tres pestañas RF-39 a RF-41. Para incorporar 
 { "aPedidoDelSocio": false, "motivo": "Se rompió el equipo del consultorio" }
 ```
 
-- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio (el cliente puede apoyarse en el campo `cancelable` de la fila 28 para no ofrecer la acción cuando ya no corresponde; el `409` de esta fila sigue siendo la protección final, porque la hora pasa entre la consulta y el pedido); la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`, que se entrega por el despacho genérico (correo y push, RNF-24) con la fecha de la consulta en formato `dd/mm/aaaa` (RNF-20) en los dos casos: a pedido del socio, `Tu consulta del 20/10/2026 fue cancelada a tu solicitud.`; por otro motivo, `Tu consulta del 20/10/2026 fue cancelada por la institución. Motivo: {motivo}`, sin nombrar al funcionario. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
+- **Reglas:** debe estar `AGENDADA` y faltar al menos 2 horas para el inicio (el cliente puede apoyarse en el campo `cancelable` de la fila 28 para no ofrecer la acción cuando ya no corresponde; el `409` de esta fila sigue siendo la protección final, porque la hora pasa entre la consulta y el pedido); la cancela el funcionario, registra `cancelada_por` con su ID y deja `CANCELADA_SOCIO` (a pedido del socio, sin motivo) o `CANCELADA_INSTITUCION` con `motivo_cancelacion` (por otro motivo). Un funcionario no puede cancelar una consulta de su propia persona, aunque tenga otra cuenta de socio. Genera notificación `CANCELACION`, que se entrega por el despacho genérico (correo y push, RNF-24) con la especialidad, el médico, la fecha en formato `dd/mm/aaaa` (RNF-20) y la hora de 24 h de la consulta en los dos casos: a pedido del socio, `Tu consulta de Cardiología con Marta Rodríguez del 20/10/2026 a las 09:00 fue cancelada a tu solicitud.`; por otro motivo, `Tu consulta de Cardiología con Marta Rodríguez del 20/10/2026 a las 09:00 fue cancelada por la institución. Motivo: {motivo}`, sin nombrar al funcionario. El pase se libera por estado si continúa vigente y el número vuelve a estar disponible si se cumplen las reglas temporales. El socio ve el motivo en el detalle de su consulta (#19, campo `motivoCancelacion`) y en el texto de la notificación.
 
 **Respuesta 200** (`estado` es el estado que quedó guardado: `CANCELADA_SOCIO` o `CANCELADA_INSTITUCION`)
 
@@ -2299,7 +2318,7 @@ Edita los datos personales permitidos. La identidad sale del JWT: nadie edita la
 - **Roles:** público; autoriza con el `token` del enlace enviado al correo nuevo.
 - **RF:** RF-06. **Estado:** CONFIRMADA (backend, 01/11/2026).
 
-Aplica el cambio de correo pendiente. El enlace es de un solo uso, válido 24 horas (`EMAIL_CHANGE_TOKEN_VALIDITY_HOURS`); pedir otro cambio de correo invalida el anterior. El enlace apunta a `CHANGE_EMAIL_URL + "?token=<token>"` (por defecto `…/#/cambio-correo`).
+Aplica el cambio de correo pendiente. El enlace es de un solo uso, válido 24 horas (`EMAIL_CHANGE_TOKEN_VALIDITY_HOURS`); pedir otro cambio de correo invalida el anterior. El enlace apunta a `CHANGE_EMAIL_URL + "?token=<token>"` (por defecto `http://localhost:5173/cambio-correo`).
 
 **Cuerpo**
 
@@ -2347,7 +2366,7 @@ Aplica el cambio de correo pendiente. El enlace es de un solo uso, válido 24 ho
 }
 ```
 
-**Qué pasa después (interno y asíncrono, igual que #4):** si existe una cuenta habilitada y activada para esa CI en ese acceso, se envía al correo de la cuenta un enlace de un solo uso válido por 24 horas (`RECOVERY_URL + "?token=<token>"`, por defecto `…/#/recuperacion`). El token es aleatorio de 256 bits y solo se guarda su hash SHA-256 (tabla `enlace_cuenta`, tipo `RECUPERACION`, separado de `PRIMER_INGRESO` y `CAMBIO_CORREO`). Si la CI figura en el padrón pero la cuenta todavía no se activó, el correo indica que debe usar "Es mi primera vez" (RF-05). Si la cuenta fue inactivada por un administrador, no se envía nada (mismo criterio que RF-02).
+**Qué pasa después (interno y asíncrono, igual que #4):** si existe una cuenta habilitada y activada para esa CI en ese acceso, se envía al correo de la cuenta un enlace de un solo uso válido por 24 horas (`RECOVERY_URL + "?token=<token>"`, por defecto `http://localhost:5173/recuperacion`). El token es aleatorio de 256 bits y solo se guarda su hash SHA-256 (tabla `enlace_cuenta`, tipo `RECUPERACION`, separado de `PRIMER_INGRESO` y `CAMBIO_CORREO`). Si la CI figura en el padrón pero la cuenta todavía no se activó, el correo indica que debe usar "Es mi primera vez" (RF-05). Si la cuenta fue inactivada por un administrador, no se envía nada (mismo criterio que RF-02).
 
 **Anti-abuso (decisión del backend, el RF no lo fija):** si la cuenta ya tiene un enlace vigente creado hace menos de 60 segundos, no se genera ni envía otro; la respuesta es la misma. Pasado ese plazo, pedir uno nuevo invalida los anteriores. Así un pedido repetido no bombardea el correo ni invalida el enlace que ya viaja.
 
@@ -2729,7 +2748,7 @@ versión `PUT /api/admin/anuncios/{id}/vigencia` y `PUT /api/admin/carrusel`
 responden `400 VALIDACION` con cuerpo JSON ante un cuerpo ilegible, en lugar del 400
 por defecto sin cuerpo.
 
-Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. El bucket es privado y la clave de Storage permanece en el servidor.
+Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica. El servidor obtiene el autor del JWT y asigna `publicadoEn`. `texto` se guarda como Markdown para que el cliente lo presente con formato; el backend no entrega HTML. Las imágenes se muestran juntas en orden de carga: la primera es la portada de la tarjeta y todas aparecen en el detalle. `url` es un enlace temporal de Storage válido por una hora; el cliente debe volver a consultar si vence. `urlMiniatura` es el enlace temporal, también de una hora, de una copia reducida de la imagen (detalle en las filas de consulta). El bucket es privado y la clave de Storage permanece en el servidor.
 
 <a id="e65"></a>
 #### #65 · `POST /api/anuncios`
@@ -2753,11 +2772,13 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
   "texto": "**Vacunarse** ayuda a prevenir la gripe.",
   "publicadoEn": "2026-11-03T12:00:00Z",
   "imagenes": [
-    { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." },
-    { "id": 102, "orden": 1, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+    { "id": 101, "orden": 0, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/3f2b.png?token=abc", "urlMiniatura": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/mini/3f2b.jpg?token=abc" },
+    { "id": 102, "orden": 1, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/9a7c.jpg?token=abc", "urlMiniatura": null }
   ]
 }
 ```
+
+Al publicar, el servidor genera además la miniatura de cada imagen y la guarda junto al original; si no puede generarla, la novedad se publica igual con `urlMiniatura: null`.
 
 - **Errores:** `400 VALIDACION` por datos inválidos, falta de texto e imágenes, más de cinco archivos, o imagen vacía, de formato inválido o con dimensiones excedidas; `400 IMAGEN_INVALIDA` si una imagen supera 5 MB o se excede el límite multipart; `401 NO_AUTENTICADO`; `403 ACCESO_DENEGADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si Storage no responde.
 
@@ -2776,7 +2797,7 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
       "titulo": "Campaña de vacunación",
       "resumen": "Comienza el lunes",
       "publicadoEn": "2026-11-03T12:00:00Z",
-      "imagenPortada": { "id": 101, "orden": 0, "url": "https://.../storage/v1/object/sign/anuncios/..." }
+      "imagenPortada": { "id": 101, "orden": 0, "url": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/3f2b.png?token=abc", "urlMiniatura": "https://ejemplo.supabase.co/storage/v1/object/sign/anuncios/mini/3f2b.jpg?token=abc" }
     }
   ],
   "page": 0,
@@ -2785,14 +2806,16 @@ Todos los roles autenticados consultan la cartelera; solo ADMINISTRADOR publica.
 }
 ```
 
-- **Errores:** `400 VALIDACION` por paginación inválida; `401 NO_AUTENTICADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar el enlace de una imagen.
+- **Miniatura (`urlMiniatura`):** cada imagen trae `url` (el archivo original) y `urlMiniatura` (una copia JPEG de hasta 640 px de ancho, que no agranda las imágenes más chicas y ya tiene corregida la orientación de la foto). Las dos son enlaces temporales de una hora. `urlMiniatura` es opcional y siempre figura en el JSON: vale `null` si la imagen no tiene miniatura (novedades publicadas antes de este cambio, o una imagen que el servidor no pudo reducir) o si el servidor no pudo firmarla, y en esos casos la respuesta sigue siendo `200 OK`. El cliente usa `urlMiniatura ?? url` en tarjetas y listas, y `url` cuando muestra la imagen completa. Un cliente que no conoce el campo lo ignora y sigue funcionando con `url`.
+- **Errores:** `400 VALIDACION` por paginación inválida; `401 NO_AUTENTICADO`; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar el enlace del original de una imagen (la falla al firmar una miniatura no produce error).
 
 <a id="e67"></a>
 #### #67 · `GET /api/anuncios/{id}`
 
 - **Roles:** cualquier usuario autenticado. **RF:** RF-07. **Estado:** IMPLEMENTADA EN BACKEND (PR #71).
 - **Respuesta `200 OK`:** la forma de detalle ilustrada en #65, con todas las imágenes ordenadas para el carrusel. Sin imágenes, `imagenes` es `[]` en el detalle y en la respuesta de publicación. Si se publica solo con imágenes, `texto` es `null`.
-- **Errores:** `401 NO_AUTENTICADO`; `404 NO_ENCONTRADO` si no existe el anuncio; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar un enlace.
+- **Miniatura:** cada elemento de `imagenes` trae `url` y `urlMiniatura`, con las mismas reglas que en la consulta de tarjetas: `urlMiniatura` siempre figura y es `null` si no hay miniatura o no se pudo firmar, sin que eso cambie el `200 OK`. El cliente usa `urlMiniatura ?? url` donde basta una vista reducida y `url` para la imagen completa. El carrusel del inicio (`GET /api/anuncios/carrusel`) y el detalle para el administrador (`GET /api/admin/anuncios/{id}`) usan la misma forma de imagen.
+- **Errores:** `401 NO_AUTENTICADO`; `404 NO_ENCONTRADO` si no existe el anuncio; `503 ALMACENAMIENTO_NO_DISPONIBLE` si no puede firmar el enlace del original de una imagen.
 
 ## 4. Matriz de roles por endpoint
 
@@ -3197,7 +3220,7 @@ Todo lo que los requerimientos, los casos de uso y el Diseño no resuelven. **No
 | P-31 | Historia clínica (6.2.5): la tarjeta se despliega en la lista con afección, tratamiento, observaciones y pases. #21 no trae el contenido clínico, así que desplegar una tarjeta es un pedido a #22 y la lista de N atenciones puede hacer N pedidos. ¿La lista debe traer el contenido? ¿Qué se muestra si `tratamiento` u `observaciones` vienen vacíos? | #21, #22 | pide #22 al desplegar cada tarjeta, una vez, y oculta la sección vacía. |
 | P-32 | Cosas del contrato que ninguna pantalla dibuja: #14 (configuración semanal, sin acceso desde 6.1.4); #19 (detalle de consulta, las tarjetas de 6.2.4 ya traen todo); #20 (sin botón de cancelar); #32, #33 y #73 (sin pantalla de notificaciones ni de permiso de push); paginación de #12, #15, #18, #21 y #28 (ningún mockup tiene paginador); `orden` y `sentido` de #12 y #28; `cantidadPases` de #21; `cantidadReservados` de #29. Y a la inversa, hay un círculo sin rótulo arriba a la derecha de las pantallas móviles: ¿es perfil, notificaciones, otro? | #12, #14, #15, #18 a #21, #28, #29, #32, #33, #73 | usa los parámetros por defecto, sin controles de paginación ni de orden, hasta que se definan las pantallas. |
 | P-33 | Los textos de los mockups están en **usted** ("Revise su cédula y contraseña", "Elija otro número disponible") y los mensajes de este contrato están en **vos** ("Elegí otro", "Pedí uno nuevo", "No podés registrar"). Los mockups dan además textos exactos: login ("Los datos ingresados no son correctos. Revise su cédula y contraseña."), aviso ("El socio no tiene consultas agendadas para hoy.", "No puede registrar su propio aviso de llegada.") y agenda ("Otro socio agendó este número antes. Elija otro número disponible."). ¿Qué registro y qué textos devuelve el servidor en `message`? | todos los `message` | muestra el `message` tal como llega. |
-| P-34 | El enlace del correo de primer ingreso (#4, CU 3.1.2 paso 7). El cliente lo espera en `/primer-ingreso?token=<token>` y, al abrirse, no sabe si es de un socio o de un empleado: el token no dice el acceso. Hoy el cliente web usa la estrategia de URL con `#` de go_router (pendiente conocido), así que la dirección real sería `https://<host>/#/primer-ingreso?token=<token>` hasta que se cambie a URLs sin `#`. ¿Qué dirección arma el backend en el correo? | #4, #5 | acepta `/primer-ingreso?token=`; si el enlace falla ofrece pedir otro eligiendo el acceso. |
+| P-34 | El enlace del correo de primer ingreso (#4, CU 3.1.2 paso 7). El cliente lo espera en `/primer-ingreso?token=<token>` y, al abrirse, no sabe si es de un socio o de un empleado: el token no dice el acceso. El cliente web usa rutas sin `#`, así que la dirección real es `https://<host>/primer-ingreso?token=<token>` y el servidor responde el `index.html` en esa ruta. ¿Qué dirección arma el backend en el correo? | #4, #5 | acepta `/primer-ingreso?token=`; si el enlace falla ofrece pedir otro eligiendo el acceso. |
 | P-35 | Sesión caída: `401 NO_AUTENTICADO` o `401 SESION_INVALIDA` valen igual para sesión vencida, revocada o cuenta inactivada. Al cliente le conviene decirle algo distinto a una persona cuya cuenta fue inactivada (que pida ayuda a la institución). ¿Se agrega un código aparte para la cuenta inactivada? Complementa P-05. | #2 y todo endpoint protegido | muestra un solo aviso que cubre las tres causas y sugiere comunicarse con la institución si no puede ingresar. |
 | P-36 | Suspensión (S08): si la cantidad de consultas a cancelar cambia entre la vista previa (#23) y la confirmación (#24), ¿el `409 CONFIRMACION_DESACTUALIZADA` trae la nueva vista previa? **Propuesta:** sí, con el formato de `VistaPreviaSuspensionDTO` de #23, para que el cliente la muestre sin otra llamada. | #23, #24 | ante el 409 vuelve a llamar #23 y pide una nueva confirmación. |
 | P-37 | `suspenderFechas` del Diseño (`filtro`, `ids`, `cantidadConfirmada`) no incluye `observacion`, pero la secuencia S08 sí la usa para el aviso a los socios. **Propuesta:** mantener `observacion` (opcional) en #24. | #24 | envía `observacion` si el funcionario la escribe. |

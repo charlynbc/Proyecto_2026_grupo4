@@ -379,7 +379,7 @@ abstract class BaseIntegracionIT {
                         + " RETURNING id_consultorio", Long.class);
     }
 
-    private long cuenta(String ci, String nombre, String apellido, String rol, boolean activa) {
+    long cuenta(String ci, String nombre, String apellido, String rol, boolean activa) {
         jdbc.update("INSERT INTO persona VALUES (?, ?, ?, DATE '1985-05-05')", ci, nombre, apellido);
         return jdbc.queryForObject(
                 "INSERT INTO cuenta (ci, rol, correo, telefono_1, direccion, contrasena_hash,"
@@ -614,5 +614,15 @@ abstract class BaseIntegracionIT {
 
     int contar(String tabla) {
         return jdbc.queryForObject("SELECT count(*) FROM " + tabla, Integer.class);
+    }
+
+    /**
+     * Despues del TRUNCATE los ids vuelven a 1 y el anuncio 1 tendria la imagen 1. Deja el proximo anuncio con
+     * id 41 y las proximas imagenes con ids 701 y siguientes, para que un JOIN o un mapeo equivocado entre
+     * ambas tablas no pase por coincidencia.
+     */
+    void desplazarIdsDeAnuncios() {
+        jdbc.queryForObject("SELECT setval(pg_get_serial_sequence('anuncio', 'id_anuncio'), 40)", Long.class);
+        jdbc.queryForObject("SELECT setval(pg_get_serial_sequence('imagen_anuncio', 'id_imagen'), 700)", Long.class);
     }
 }

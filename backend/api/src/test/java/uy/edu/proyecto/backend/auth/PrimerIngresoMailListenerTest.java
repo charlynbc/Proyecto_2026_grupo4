@@ -42,7 +42,7 @@ class PrimerIngresoMailListenerTest {
     private final PrimerIngresoMailListener listener =
             new PrimerIngresoMailListener(
                     sender,
-                    "https://app.example.org/#/primer-ingreso"
+                    "https://app.example.org/primer-ingreso"
             );
     private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
     private Logger logger;
@@ -68,7 +68,7 @@ class PrimerIngresoMailListenerTest {
         verify(sender).enviar(mensaje.capture());
         assertTrue("ana@example.org".equals(mensaje.getValue().para()));
         assertTrue(mensaje.getValue().texto().contains(
-                "https://app.example.org/#/primer-ingreso?token=token-unico"
+                "https://app.example.org/primer-ingreso?token=token-unico"
         ));
         assertTrue(mensaje.getValue().texto().contains("vence en 24 horas"));
     }

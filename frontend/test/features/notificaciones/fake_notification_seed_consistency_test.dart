@@ -3,6 +3,8 @@ import 'package:agenda_medica/core/fakes/fake_database.dart';
 import 'package:agenda_medica/core/fakes/fake_notification_seed.dart';
 import 'package:agenda_medica/core/utils/uruguay_time.dart';
 import 'package:agenda_medica/features/agenda/models/appointment.dart';
+import 'package:agenda_medica/features/historia_clinica/models/medical_history_query.dart';
+import 'package:agenda_medica/features/historia_clinica/repositories/fake_medical_history_repository.dart';
 import 'package:agenda_medica/features/notificaciones/models/notification_query.dart';
 import 'package:agenda_medica/features/notificaciones/repositories/fake_notification_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -103,6 +105,40 @@ void main() {
       final n = s.notification;
       final a = appointments.singleWhere((x) => x.id == n.consultaId);
       expect(a.status, expected[n.type], reason: 'aviso ${n.id} ${n.type}');
+    }
+  });
+
+  test('cada aviso de historia lleva el atencionId 14, que existe en la '
+      'historia falsa con la especialidad de su consulta', () async {
+    final history = await FakeMedicalHistoryRepository(latency: Duration.zero)
+        .list(const MedicalHistoryQuery());
+    final historia = [
+      for (final s in seed)
+        if (s.notification.type == 'HISTORIA_ACTUALIZADA') s.notification,
+    ];
+
+    expect(historia.map((n) => n.id), [3, 8, 13, 18, 23]);
+    for (final n in historia) {
+      expect(n.atencionId, 14, reason: 'aviso ${n.id}');
+      final atencion = history.singleWhere((e) => e.id == n.atencionId);
+      final consulta = appointments.singleWhere((a) => a.id == n.consultaId);
+      expect(atencion.specialty.name, 'Medicina General');
+      expect(
+        atencion.specialty.name.toLowerCase(),
+        consulta.specialty.name.toLowerCase(),
+        reason: 'aviso ${n.id}',
+      );
+    }
+  });
+
+  test('los avisos que no son de historia no llevan atencionId', () {
+    for (final s in seed) {
+      if (s.notification.type == 'HISTORIA_ACTUALIZADA') continue;
+      expect(
+        s.notification.atencionId,
+        isNull,
+        reason: 'aviso ${s.notification.id} ${s.notification.type}',
+      );
     }
   });
 
