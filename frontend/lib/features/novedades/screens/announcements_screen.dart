@@ -9,6 +9,7 @@ import '../../auth/models/user_role.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../announcement_images.dart';
 import '../models/announcement.dart';
+import '../models/announcement_page.dart';
 import '../providers/announcements_provider.dart';
 import '../widgets/announcement_network_image.dart';
 
@@ -26,6 +27,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
     with WidgetsBindingObserver {
   int _page = 0;
   DateTime? _loadedAt;
+  AnnouncementPage? _lastLoadedPage;
   bool _wasActive = false;
 
   @override
@@ -80,9 +82,15 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(announcementsPageProvider(_page));
-    ref.listen(announcementsPageProvider(_page), (_, next) {
-      if (next is AsyncData) _loadedAt = _now();
-    });
+    // La hora de carga se toma acá y no con ref.listen: un listen no deja
+    // pausar el provider y refetchWhenVisibleAgain no recibe onResume (ver
+    // appointment_history_provider.dart). Solo cuenta una página nueva.
+    if (state is AsyncData<AnnouncementPage> &&
+        !state.isRefreshing &&
+        !identical(state.value, _lastLoadedPage)) {
+      _lastLoadedPage = state.value;
+      _loadedAt = _now();
+    }
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(

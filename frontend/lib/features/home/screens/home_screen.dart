@@ -10,6 +10,7 @@ import '../../auth/models/user_role.dart';
 import '../../auth/models/user_role_label.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../cuenta/providers/account_provider.dart';
+import '../../novedades/models/announcement.dart';
 import '../../novedades/providers/announcements_provider.dart';
 import '../widgets/announcements_carousel.dart';
 import '../widgets/home_shortcuts.dart';
@@ -28,6 +29,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   DateTime? _loadedAt;
+  List<Announcement>? _lastLoadedList;
   bool _wasActive = false;
 
   @override
@@ -77,9 +79,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final accountState = ref.watch(accountProvider);
     final account = accountState.isLoading ? null : accountState.asData?.value;
     final announcements = ref.watch(latestAnnouncementsProvider);
-    ref.listen(latestAnnouncementsProvider, (_, next) {
-      if (next is AsyncData) _loadedAt = _now();
-    });
+    // La hora de carga se toma acá y no con ref.listen: un listen no deja
+    // pausar el provider y refetchWhenVisibleAgain no recibe onResume (ver
+    // appointment_history_provider.dart). Solo cuenta una lista nueva.
+    if (announcements is AsyncData<List<Announcement>> &&
+        !announcements.isRefreshing &&
+        !identical(announcements.value, _lastLoadedList)) {
+      _lastLoadedList = announcements.value;
+      _loadedAt = _now();
+    }
     final theme = Theme.of(context);
     final wide = MediaQuery.sizeOf(context).width >= 800;
     final role = widget.role;
