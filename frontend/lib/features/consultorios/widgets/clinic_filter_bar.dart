@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/clinic_filters.dart';
 import '../providers/clinic_filters_controller.dart';
-import '../providers/clinic_search_provider.dart';
 
 /// Controles de RF-37. El texto se aplica con Buscar o Enter en ubicación.
 /// El orden y el sentido se aplican al cambiarlos.
@@ -37,7 +36,6 @@ class _ClinicFilterBarState extends ConsumerState<ClinicFilterBar> {
           location: location.isEmpty ? null : location,
           order: _order,
         );
-    ref.invalidate(clinicSearchProvider);
   }
 
   void _clear() {
@@ -46,7 +44,6 @@ class _ClinicFilterBarState extends ConsumerState<ClinicFilterBar> {
     _locationController.clear();
     setState(() => _order = ClinicOrder.name);
     ref.read(clinicFiltersControllerProvider.notifier).clear();
-    ref.invalidate(clinicSearchProvider);
   }
 
   @override
@@ -90,7 +87,6 @@ class _ClinicFilterBarState extends ConsumerState<ClinicFilterBar> {
             if (value == null) return;
             setState(() => _order = value);
             ref.read(clinicFiltersControllerProvider.notifier).sortBy(value);
-            ref.invalidate(clinicSearchProvider);
           },
         ),
         const SizedBox(height: 16),

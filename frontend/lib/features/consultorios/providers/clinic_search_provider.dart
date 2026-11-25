@@ -8,18 +8,29 @@ import 'clinic_search_repository_provider.dart';
 
 /// Busca con nombre, ubicación y orden.
 ///
-/// No observa el sentido: alternarlo no repite la consulta. Buscar, cambiar
-/// el orden y Limpiar invalidan este provider a propósito.
+/// Observa esos tres y el contador de búsqueda: un cambio de filtro o de
+/// orden, Buscar y Limpiar vuelven a pedir como una recarga nueva. El sentido
+/// no se observa: alternarlo no repite la consulta.
 final clinicSearchProvider = FutureProvider.autoDispose<List<Clinic>>((
   ref,
 ) async {
-  final filters = ref.read(clinicFiltersControllerProvider);
+  final controller = ref.watch(clinicFiltersControllerProvider.notifier);
+  final query = ref.watch(
+    clinicFiltersControllerProvider.select(
+      (filters) => (
+        name: filters.name,
+        location: filters.location,
+        order: filters.order,
+        revision: controller.searchRevision,
+      ),
+    ),
+  );
   final repository = await ref.watch(clinicSearchRepositoryProvider.future);
   return repository.search(
     ClinicFilters(
-      name: filters.name,
-      location: filters.location,
-      order: filters.order,
+      name: query.name,
+      location: query.location,
+      order: query.order,
     ),
   );
 }, retry: (_, _) => null);
