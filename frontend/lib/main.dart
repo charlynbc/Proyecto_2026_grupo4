@@ -88,12 +88,18 @@ class _MyAppState extends ConsumerState<MyApp> {
   }
 
   /// La sesión terminó: se dejan de escuchar avisos y renovaciones de token.
-  /// La baja del token la hace `LogoutButton` antes de cerrar sesión; si la
-  /// sesión se cayó por otro camino no hay con qué llamar a la API.
-  void _onSessionEnded() {
+  /// La baja del token la hace `LogoutButton` antes de cerrar sesión. Si la
+  /// sesión de un socio cayó por vencimiento ([expired], el refresh fue
+  /// rechazado) ya no hay con qué llamar a la baja: se borra el token de
+  /// Firebase y el servidor lo deshabilita en el próximo envío. Un cierre
+  /// voluntario o la caída de un empleado no lo borran.
+  void _onSessionEnded({required bool expired, required bool wasMember}) {
     _pushSubscription?.cancel();
     _pushSubscription = null;
     ref.read(pushRegistrationControllerProvider).stop();
+    if (expired && wasMember) {
+      unawaited(ref.read(pushNotificationServiceProvider).deleteToken());
+    }
   }
 
   @override
@@ -114,7 +120,12 @@ class _MyAppState extends ConsumerState<MyApp> {
       if (becameAuthenticated && next.role == UserRole.socio) {
         unawaited(_onAuthenticated());
       }
-      if (lostSession) _onSessionEnded();
+      if (lostSession) {
+        _onSessionEnded(
+          expired: next.expired,
+          wasMember: previous?.role == UserRole.socio,
+        );
+      }
       // Un toque de push sin sesión espera a que se autentique un socio.
       ref.read(pushNavigationControllerProvider).onSessionChanged(next);
     });
