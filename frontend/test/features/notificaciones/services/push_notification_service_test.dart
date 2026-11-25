@@ -134,21 +134,21 @@ void main() {
       expect(messaging.deleteTokenCalls, 1);
     });
 
-    test('si el SDK no responde, termina a los 3 segundos', () {
-      fakeAsync((async) {
-        final messaging = _FakeMessaging()..deleteTokenHang = Completer<void>();
-        final service = FirebasePushNotificationService(messaging: messaging);
-        var finished = false;
+    // El reloj de testWidgets es falso: los 3 segundos no se esperan de verdad.
+    testWidgets('si el SDK no responde, termina a los 3 segundos', (
+      tester,
+    ) async {
+      final messaging = _FakeMessaging()..deleteTokenHang = Completer<void>();
+      final service = FirebasePushNotificationService(messaging: messaging);
+      var finished = false;
 
-        unawaited(service.deleteToken().then((_) => finished = true));
-        async.elapse(const Duration(milliseconds: 2999));
-        expect(finished, isFalse);
+      unawaited(service.deleteToken().then((_) => finished = true));
+      await tester.pump(const Duration(milliseconds: 2999));
+      expect(finished, isFalse);
 
-        async.elapse(const Duration(milliseconds: 1));
-        async.flushMicrotasks();
-        expect(finished, isTrue);
-        expect(messaging.deleteTokenCalls, 1);
-      });
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(finished, isTrue);
+      expect(messaging.deleteTokenCalls, 1);
     });
   });
 
