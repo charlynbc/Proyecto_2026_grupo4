@@ -233,7 +233,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 const SizedBox(height: 20),
                 announcements.when(
-                  skipLoadingOnRefresh: false,
+                  // Al refrescar con datos a la vista se conserva la lista. Si
+                  // el estado anterior era un error (que conserva el dato
+                  // viejo dentro), "Reintentar" muestra la carga.
+                  skipLoadingOnRefresh:
+                      announcements.hasValue && !announcements.hasError,
                   skipLoadingOnReload: false,
                   loading: () => const _NewsStatus(
                     child: Column(

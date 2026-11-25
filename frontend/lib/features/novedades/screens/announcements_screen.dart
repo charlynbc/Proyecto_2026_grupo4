@@ -140,7 +140,10 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
                 ),
                 const SizedBox(height: 12),
                 state.when(
-                  skipLoadingOnRefresh: false,
+                  // Al refrescar con datos a la vista se conserva la lista. Si
+                  // el estado anterior era un error (que conserva el dato
+                  // viejo dentro), "Reintentar" muestra la carga.
+                  skipLoadingOnRefresh: state.hasValue && !state.hasError,
                   skipLoadingOnReload: false,
                   loading: () => const Padding(
                     padding: EdgeInsets.all(32),
