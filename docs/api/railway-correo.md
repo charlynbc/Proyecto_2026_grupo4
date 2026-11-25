@@ -241,3 +241,53 @@ real**: falta la misma configuración de Resend descrita arriba.
 | El login falla con «Invalid CORS request» | `CORS_ALLOWED_ORIGIN` no coincide exactamente con el origen del navegador. |
 | La sesión no se mantiene en HTTPS | `COOKIE_SECURE=false` o `COOKIE_SAME_SITE` inadecuado. |
 | «El enlace ya no es válido» | Venció (24 h), ya se usó, se pidió uno más nuevo o la cuenta fue inactivada. |
+
+## Avisos push en Android: canal, prioridad y vigencia
+
+Cada aviso push que el backend manda por Firebase Cloud Messaging lleva una
+configuración para Android (`AndroidConfig`):
+
+| Dato | Valor |
+|---|---|
+| Canal de notificaciones | `avisos_consultas`, el mismo para todos los tipos |
+| Prioridad | alta, para todos los tipos (también uno desconocido) |
+| Vigencia (TTL), recordatorio de consulta | 2 horas |
+| Vigencia (TTL), agenda, cancelación, suspensión y historia clínica actualizada | 7 días |
+
+La vigencia es cuánto tiempo guarda FCM el aviso si el celular está apagado o
+sin conexión: pasado ese tiempo se descarta y no se entrega. El recordatorio
+dura poco porque deja de servir cuando empieza la consulta. Se programa con la
+antelación que define `PARAM_RECORDATORIO_ANTELACION_HORAS` (24 por defecto),
+así que con el valor por defecto sale mucho antes de la consulta. Con una
+antelación menor que 2 horas, un recordatorio retenido podría entregarse hasta 2
+horas después de enviado, ya empezada la consulta.
+
+### La app tiene que crear el canal
+
+El backend solo manda el id del canal: el canal lo crea la app en el celular. El
+frontend debe crear un canal de notificaciones con el id exacto `avisos_consultas`
+(lo hace el PR de frontend que sigue a este). Si el id cambia en el backend
+(`PoliticaAndroidAviso.CANAL_AVISOS`), tiene que cambiar también en la app.
+
+Mientras el canal no exista en la app, Android no muestra el aviso en ese canal:
+según la documentación de FCM usa el canal por defecto que declara el manifiesto
+de la app o, si no hay, el genérico. Cuál de los dos ocurre en esta app se
+confirma en la prueba de punta a punta con un celular real.
+
+### Dispositivos que ya no existen
+
+Si FCM responde que el token ya no está registrado (`UNREGISTERED`: la app se
+desinstaló o el token venció), el envío queda `FALLIDO` y el dispositivo se
+deshabilita (`dispositivo_push.habilitado = false`) para no seguir mandándole
+avisos. Cuando el socio inicia sesión de nuevo en la app, el registro del token
+lo vuelve a habilitar. Cualquier otro rechazo de FCM (por ejemplo
+`INVALID_ARGUMENT` o cuota excedida) deja el envío `FALLIDO` sin tocar el
+dispositivo. El log avisa con el id del envío y el tipo, nunca con el token.
+
+### `google-services.json` en el build de Android
+
+El APK solo tiene avisos push si se compila con
+`frontend/android/app/google-services.json`, que se descarga de la consola de
+Firebase. El archivo está en `.gitignore` y no se versiona: cada integrante lo
+pone a mano en esa carpeta. Un APK compilado sin él funciona, pero no tiene push
+y no avisa que falta.
