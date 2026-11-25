@@ -260,7 +260,7 @@ huellas son públicas: no son un secreto.
 | Variable | Obligatoria | Descripción |
 |---|---|---|
 | `ANDROID_APP_PACKAGE_NAME` | no | Paquete de la app. Por defecto `uy.edu.fing.tecnoinf.mvd.a2026_sem2_grupo4.agenda_medica`. |
-| `ANDROID_APP_FINGERPRINTS` | sí en producción | Huellas SHA-256 separadas por comas, por ejemplo `01:AC:05:8D:AC:C7:69:7C:34:98:6D:2D:8A:68:D6:D7:51:F7:F4:B3:0C:69:CB:11:0C:0C:88:8D:23:20:4F:0C`. Cada una son 32 pares hexadecimales separados por dos puntos. Las que no tienen ese formato se descartan y el log avisa cuántas fueron (sin mostrarlas). Por defecto lleva la huella de la clave debug de la máquina de Leo. |
+| `ANDROID_APP_FINGERPRINTS` | sí en producción | Huellas SHA-256 separadas por comas, por ejemplo `01:AC:05:8D:AC:C7:69:7C:34:98:6D:2D:8A:68:D6:D7:51:F7:F4:B3:0C:69:CB:11:0C:0C:88:8D:23:20:4F:0C`. Cada una son 32 pares hexadecimales separados por dos puntos. Las que no tienen ese formato se descartan y el log avisa cuántas fueron (sin mostrarlas). Por defecto lleva la huella de la clave debug del equipo. |
 
 Agregar una huella no necesita recompilar: se cambia la variable y se reinicia
 el servicio.
