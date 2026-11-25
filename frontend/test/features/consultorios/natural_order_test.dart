@@ -59,6 +59,9 @@ Future<List<String>> _shownNames(
 }
 
 void main() {
+  // El listado se vuelve a pedir al volver a verse (AppLifecycleListener).
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('3 va antes que 12', () {
     expect(compareNatural('3', '12'), lessThan(0));
   });
