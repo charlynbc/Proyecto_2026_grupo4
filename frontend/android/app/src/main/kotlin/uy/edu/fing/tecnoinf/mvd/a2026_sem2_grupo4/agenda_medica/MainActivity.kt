@@ -21,6 +21,7 @@ class MainActivity : FlutterActivity() {
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
             description = "Avisos sobre tus consultas e historia clínica"
+            enableVibration(true)
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
