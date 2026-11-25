@@ -13,6 +13,9 @@ class FakePushService implements PushNotificationService {
   String? token;
   Completer<String?>? pendingToken;
   int tokenRequests = 0;
+
+  /// Cuántas veces se pidió borrar el token de Firebase.
+  int deleteTokenCalls = 0;
   final StreamController<String> refreshes =
       StreamController<String>.broadcast();
   final StreamController<ForegroundPushMessage> messages =
@@ -27,6 +30,11 @@ class FakePushService implements PushNotificationService {
   Future<String?> requestToken() {
     tokenRequests++;
     return pendingToken?.future ?? Future.value(token);
+  }
+
+  @override
+  Future<void> deleteToken() async {
+    deleteTokenCalls++;
   }
 
   @override

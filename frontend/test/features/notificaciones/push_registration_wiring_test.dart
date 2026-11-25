@@ -162,6 +162,86 @@ void main() {
     await unmountApp(tester);
   });
 
+  testWidgets('un socio cuya sesión vence borra el token de Firebase una vez '
+      'y no llama a la baja', (tester) async {
+    final devices = RecordingDeviceRepository();
+    final service = FakePushService();
+    final container = await _pumpApp(
+      tester,
+      devices: devices,
+      service: service,
+    );
+    await _signIn(tester, container, UserRole.socio);
+    devices.events.clear();
+
+    container.read(sessionProvider.notifier).clear(expired: true);
+    await tester.pumpAndSettle();
+
+    expect(service.deleteTokenCalls, 1);
+    expect(devices.events, isEmpty);
+    await unmountApp(tester);
+  });
+
+  testWidgets('el cierre de sesión voluntario da de baja con sesión y no '
+      'borra el token de Firebase', (tester) async {
+    final devices = RecordingDeviceRepository();
+    final service = FakePushService();
+    final container = await _pumpApp(
+      tester,
+      devices: devices,
+      service: service,
+    );
+    await _signIn(tester, container, UserRole.socio);
+    devices.events.clear();
+
+    await tester.tap(find.byTooltip('Cerrar sesión'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Cerrar sesión'));
+    await tester.pumpAndSettle();
+
+    expect(devices.events, ['deactivate:fcm-token-1']);
+    expect(service.deleteTokenCalls, 0);
+    await unmountApp(tester);
+  });
+
+  testWidgets('una sesión de socio que se cierra sin vencer no borra el '
+      'token de Firebase', (tester) async {
+    final devices = RecordingDeviceRepository();
+    final service = FakePushService();
+    final container = await _pumpApp(
+      tester,
+      devices: devices,
+      service: service,
+    );
+    await _signIn(tester, container, UserRole.socio);
+
+    container.read(sessionProvider.notifier).clear();
+    await tester.pumpAndSettle();
+
+    expect(service.deleteTokenCalls, 0);
+    await unmountApp(tester);
+  });
+
+  testWidgets('un empleado cuya sesión vence no borra el token de Firebase', (
+    tester,
+  ) async {
+    final devices = RecordingDeviceRepository();
+    final service = FakePushService();
+    final container = await _pumpApp(
+      tester,
+      devices: devices,
+      service: service,
+    );
+    await _signIn(tester, container, UserRole.funcionario);
+
+    container.read(sessionProvider.notifier).clear(expired: true);
+    await tester.pumpAndSettle();
+
+    expect(service.deleteTokenCalls, 0);
+    expect(devices.events, isEmpty);
+    await unmountApp(tester);
+  });
+
   testWidgets('un mensaje en primer plano se muestra con título y cuerpo', (
     tester,
   ) async {
