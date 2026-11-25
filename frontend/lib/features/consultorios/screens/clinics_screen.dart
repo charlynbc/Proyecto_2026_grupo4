@@ -63,7 +63,12 @@ class ClinicsScreen extends ConsumerWidget {
             const ClinicFilterBar(),
             const SizedBox(height: 16),
             ...search.when(
-              skipLoadingOnRefresh: false,
+              // Al volver a verse la pantalla queda la lista anterior mientras
+              // llega la nueva. Tras un error no: con el dato anterior guardado
+              // dentro del error, "Reintentar" no mostraría la carga. Cambiar
+              // un filtro o el orden, Buscar y Limpiar sí ocultan la lista con
+              // el indicador de carga.
+              skipLoadingOnRefresh: search.hasValue && !search.hasError,
               skipLoadingOnReload: false,
               loading: () => const [Center(child: CircularProgressIndicator())],
               error: (error, _) => [
