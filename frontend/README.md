@@ -80,6 +80,69 @@ tiene que envolverse en `BottomSystemInset` (`lib/core/widgets/bottom_system_ins
 Las secciones que muestran la barra `AdaptiveNavBar` no lo necesitan: la barra ya
 reserva ese espacio, y usarlo también lo duplicaría.
 
+## Enlaces de correo en Android (App Links)
+
+El manifiesto (`android/app/src/main/AndroidManifest.xml`) tiene, además del
+filtro de arranque, un filtro con `android:autoVerify="true"` para los enlaces
+`https://medicaoriental.vip/primer-ingreso`, `/recuperacion` y `/cambio-correo`.
+En un celular con la app instalada, abrir uno de esos enlaces desde el correo
+abre la app en esa pantalla, con el `token` de la dirección, y no el navegador.
+El host es fijo en el manifiesto: tiene que ser el mismo que usan las variables
+`FIRST_LOGIN_URL`, `RECOVERY_URL` y `CHANGE_EMAIL_URL` del backend.
+
+Para que Android confíe en el dominio, el backend publica
+`https://medicaoriental.vip/.well-known/assetlinks.json` con la huella SHA-256
+del certificado con que se firmó la APK. Esa huella tiene que estar en la
+variable `ANDROID_APP_FINGERPRINTS` del backend. La APK de debug y la de
+release se firman hoy con la misma clave debug del equipo; quien compile con
+otra clave debe agregar su huella (`keytool -list -v` sobre su
+`debug.keystore`).
+
+### adb de esta máquina
+
+Usar siempre el adb del SDK de Android:
+`C:\Users\leona\AppData\Local\Android\Sdk\platform-tools\adb.exe`. En esta
+máquina `ANDROID_HOME` está vacío y el adb que aparece primero en el `PATH` es
+otra versión (la de scrcpy). Mezclar las dos reinicia el servidor de adb y corta
+la conexión con el celular.
+
+### Probar sin esperar el despliegue
+
+1. Con el celular conectado, correr la app con datos de prueba:
+   `flutter run --dart-define=USE_FAKES=true`. Con `USE_FAKES=true` sirve
+   cualquier token para el primer ingreso, salvo `vencido`, `usado` y el vacío.
+2. En otra terminal de PowerShell, abrir el enlace indicando el paquete al final.
+   Con el paquete, Android entrega el enlace a la app aunque el dominio todavía
+   no esté verificado:
+
+```powershell
+& "C:\Users\leona\AppData\Local\Android\Sdk\platform-tools\adb.exe" shell am start -a android.intent.action.VIEW -d "https://medicaoriental.vip/primer-ingreso?token=cualquiera" uy.edu.fing.tecnoinf.mvd.a2026_sem2_grupo4.agenda_medica
+```
+
+La app tiene que abrir la pantalla de primer ingreso con ese token, tanto con la
+app cerrada como abierta. Las otras dos rutas se prueban igual con
+`/recuperacion?token=cualquiera` y `/cambio-correo?token=cualquiera`.
+
+### Verificar el dominio una vez desplegado
+
+Con el backend desplegado y la app instalada (Android verifica el dominio al
+instalar):
+
+```powershell
+& "C:\Users\leona\AppData\Local\Android\Sdk\platform-tools\adb.exe" shell pm get-app-links uy.edu.fing.tecnoinf.mvd.a2026_sem2_grupo4.agenda_medica
+```
+
+`medicaoriental.vip` debe figurar como `verified`. Si figura de otra forma, por
+ejemplo porque el archivo no estaba disponible al instalar, se fuerza otra
+verificación y se vuelve a consultar:
+
+```powershell
+& "C:\Users\leona\AppData\Local\Android\Sdk\platform-tools\adb.exe" shell pm verify-app-links --re-verify uy.edu.fing.tecnoinf.mvd.a2026_sem2_grupo4.agenda_medica
+```
+
+Si sigue sin verificarse, revisar que el archivo responda `200` por HTTPS sin
+redirecciones y que la huella de la APK esté en `ANDROID_APP_FINGERPRINTS`.
+
 ## Verificación
 
 ```bash
