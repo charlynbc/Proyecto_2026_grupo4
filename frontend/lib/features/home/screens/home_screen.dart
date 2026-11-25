@@ -58,7 +58,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _wasActive) _refreshIfExpired();
+    if (state != AppLifecycleState.resumed || !_wasActive) return;
+    // Diferido: invalidar acá soltaría el AppLifecycleListener de
+    // refetchWhenVisibleAgain mientras Flutter todavía reparte este evento.
+    Future.microtask(() {
+      if (mounted) _refreshIfExpired();
+    });
   }
 
   @override
