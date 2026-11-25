@@ -500,4 +500,170 @@ void main() {
 
     expect(harness.repo.pages, [0, 1, 1]);
   });
+
+  // Mientras la lista se refresca se sigue viendo la anterior, pero no se puede
+  // tocar una novedad que quizás ya no existe o cambió.
+  group('Cartelera del administrador: acciones durante el refresco', () {
+    const path = '/admin/cartelera';
+    const away = '/admin/usuarios';
+
+    Future<_Harness> open(
+      WidgetTester tester, {
+      Size size = const Size(1280, 1600),
+      double textScale = 1,
+    }) async {
+      final harness = await _pump(
+        tester,
+        role: UserRole.administrador,
+        location: path,
+        size: size,
+        textScale: textScale,
+      );
+      expect(harness.repo.adminListCalls, 1);
+      return harness;
+    }
+
+    Finder action(String kind, int id) =>
+        find.byKey(ValueKey('admin-$kind-$id'));
+
+    Finder carousel() => find.ancestor(
+      of: find.text('Elegir carrusel'),
+      matching: find.bySubtype<ButtonStyleButton>(),
+    );
+
+    bool enabled(WidgetTester tester, Finder finder) =>
+        tester.widget<ButtonStyleButton>(finder).onPressed != null;
+
+    /// Las acciones de las tres novedades y el botón del carrusel.
+    void expectActions(WidgetTester tester, {required bool enabledNow}) {
+      for (final id in [30, 20, 10]) {
+        for (final kind in ['edit', 'validity', 'delete']) {
+          expect(
+            enabled(tester, action(kind, id)),
+            enabledNow,
+            reason: '$kind $id',
+          );
+        }
+      }
+      expect(enabled(tester, carousel()), enabledNow, reason: 'carrusel');
+    }
+
+    /// Frena el próximo pedido de la lista y lo dispara con "Actualizar".
+    Future<Completer<void>> startRefresh(
+      WidgetTester tester,
+      _Harness harness,
+    ) async {
+      final gate = harness.repo.delayNext();
+      final refresh = find.text('Actualizar novedades');
+      await tester.ensureVisible(refresh);
+      await tester.tap(refresh);
+      await tester.pump();
+      await tester.pump();
+      expect(harness.repo.adminListCalls, 2);
+      return gate;
+    }
+
+    testWidgets('al eliminar, la fila eliminada sigue visible pero sin '
+        'Eliminar hasta que llega la lista nueva', (tester) async {
+      final harness = await open(tester);
+      final delete = action('delete', 20);
+      await tester.ensureVisible(delete);
+      await tester.tap(delete);
+      await tester.pumpAndSettle();
+      final gate = harness.repo.delayNext();
+
+      await tester.tap(find.text('Eliminar novedad'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(harness.repo.adminListCalls, 2);
+      expect(
+        find.byKey(const ValueKey('admin-announcement-20')),
+        findsOneWidget,
+      );
+      expect(enabled(tester, action('delete', 20)), isFalse);
+      expect(enabled(tester, action('delete', 30)), isFalse);
+
+      gate.complete();
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('admin-announcement-20')), findsNothing);
+      expect(enabled(tester, action('delete', 30)), isTrue);
+    });
+
+    testWidgets('editar, vigencia, eliminar y carrusel quedan deshabilitados '
+        'durante un refresco y se habilitan después', (tester) async {
+      final harness = await open(tester);
+      expectActions(tester, enabledNow: true);
+
+      final gate = await startRefresh(tester, harness);
+      expect(find.text('Jornada de vacunación'), findsOneWidget);
+      expectActions(tester, enabledNow: false);
+
+      gate.complete();
+      await _settle(tester);
+      expectActions(tester, enabledNow: true);
+    });
+
+    testWidgets('al volver de otra sección con el refresco en curso las '
+        'acciones esperan a la lista nueva', (tester) async {
+      final harness = await open(tester);
+      harness.router.go(away);
+      await _settle(tester);
+      final gate = harness.repo.delayNext();
+
+      harness.router.go(path);
+      for (var i = 0; i < 12 && harness.repo.adminListCalls < 2; i++) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+
+      expect(harness.repo.adminListCalls, 2);
+      expect(find.text('Jornada de vacunación'), findsOneWidget);
+      expectActions(tester, enabledNow: false);
+
+      gate.complete();
+      await _settle(tester);
+      expectActions(tester, enabledNow: true);
+    });
+
+    testWidgets('el botón deshabilitado conserva su etiqueta para el lector '
+        'de pantalla', (tester) async {
+      final semantics = tester.ensureSemantics();
+      addTearDown(semantics.dispose);
+      final harness = await open(tester);
+
+      await startRefresh(tester, harness);
+
+      expect(
+        tester.getSemantics(action('delete', 30)),
+        isSemantics(
+          label: 'Eliminar',
+          hasEnabledState: true,
+          isEnabled: false,
+        ),
+      );
+      expect(
+        tester.getSemantics(action('edit', 30)),
+        isSemantics(
+          label: 'Editar',
+          hasEnabledState: true,
+          isEnabled: false,
+        ),
+      );
+    });
+
+    testWidgets('a 320 px con texto al doble no desborda durante el '
+        'refresco', (tester) async {
+      await loadRoboto();
+      final harness = await open(
+        tester,
+        size: const Size(320, 1600),
+        textScale: 2,
+      );
+
+      await startRefresh(tester, harness);
+
+      expectActions(tester, enabledNow: false);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }
