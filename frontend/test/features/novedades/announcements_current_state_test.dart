@@ -628,7 +628,6 @@ void main() {
     testWidgets('el botón deshabilitado conserva su etiqueta para el lector '
         'de pantalla', (tester) async {
       final semantics = tester.ensureSemantics();
-      addTearDown(semantics.dispose);
       final harness = await open(tester);
 
       await startRefresh(tester, harness);
@@ -641,6 +640,7 @@ void main() {
         tester.getSemantics(action('edit', 30)),
         isSemantics(label: 'Editar', hasEnabledState: true, isEnabled: false),
       );
+      semantics.dispose();
     });
 
     testWidgets('a 320 px con texto al doble no desborda durante el '
