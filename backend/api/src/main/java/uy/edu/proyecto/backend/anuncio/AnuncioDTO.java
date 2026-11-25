@@ -6,7 +6,13 @@ import java.util.List;
 public final class AnuncioDTO {
     private AnuncioDTO() { }
 
-    public record Imagen(long id, int orden, String url) { }
+    /**
+     * Una imagen de la novedad. {@code url} es el original firmado; {@code urlMiniatura} es la miniatura firmada y
+     * es null (siempre presente en el JSON) si la novedad no tiene miniatura o no se pudo firmar.
+     */
+    public record Imagen(long id, int orden, String url, String urlMiniatura) {
+        public Imagen(long id, int orden, String url) { this(id, orden, url, null); }
+    }
     public record Tarjeta(long id, String titulo, String resumen,
                           OffsetDateTime publicadoEn, Imagen imagenPortada) { }
     public record Detalle(long id, String titulo, String resumen, String texto,

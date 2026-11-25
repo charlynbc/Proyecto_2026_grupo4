@@ -15,6 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -104,7 +105,7 @@ class AnuncioServiceTest {
                 new AnuncioDTO.Datos("Vacunación", null, null, null, OffsetDateTime.parse("2099-01-01T00:00:00Z")), List.of(png())));
 
         completar(TransactionSynchronization.STATUS_ROLLED_BACK);
-        verify(almacen).borrar(any());
+        verify(almacen, atLeastOnce()).borrar(any());
     }
 
     @Test
