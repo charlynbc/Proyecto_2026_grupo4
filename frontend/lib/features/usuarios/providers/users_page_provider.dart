@@ -15,6 +15,10 @@ import 'user_repository_provider.dart';
 /// cuenta de la última página con el filtro "Activo") pero el servidor dice que
 /// hay cuentas en total, se pide la última página que existe con los mismos
 /// filtros y el mismo orden. Con total cero no se vuelve a pedir nada.
+///
+/// Sin reintento automático (`retry` en `null`): Riverpod 3 reintenta solo
+/// hasta 10 veces, con esperas de 0,2 a 6,4 s, y durante ese tiempo la
+/// pantalla seguiría mostrando el cargando en vez del aviso con "Reintentar".
 final usersPageProvider = FutureProvider.autoDispose<UserPage>((ref) async {
   refetchWhenVisibleAgain(ref, ref.invalidateSelf);
   final filters = ref.watch(userFiltersControllerProvider);
@@ -27,4 +31,4 @@ final usersPageProvider = FutureProvider.autoDispose<UserPage>((ref) async {
     }
   }
   return page;
-});
+}, retry: (_, _) => null);
