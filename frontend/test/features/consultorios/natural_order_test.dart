@@ -1,3 +1,4 @@
+import 'package:agenda_medica/features/consultorios/clinic_sorting.dart';
 import 'package:agenda_medica/features/consultorios/models/clinic.dart';
 import 'package:agenda_medica/features/consultorios/models/clinic_filters.dart';
 import 'package:agenda_medica/features/consultorios/natural_order.dart';
@@ -43,11 +44,16 @@ Future<List<String>> _shownNames(
   final filters = container.read(clinicFiltersControllerProvider.notifier);
   if (order != ClinicOrder.name) filters.sortBy(order);
   if (!ascending) filters.toggleDirection();
-  final subscription = container.listen(clinicListProvider, (_, _) {});
+  final subscription = container.listen(clinicSearchProvider, (_, _) {});
   addTearDown(subscription.close);
-  await container.read(clinicSearchProvider.future);
+  final found = await container.read(clinicSearchProvider.future);
+  final applied = container.read(clinicFiltersControllerProvider);
   return [
-    for (final clinic in container.read(clinicListProvider).requireValue)
+    for (final clinic in sortClinics(
+      found,
+      order: applied.order,
+      ascending: applied.ascending,
+    ))
       clinic.name,
   ];
 }

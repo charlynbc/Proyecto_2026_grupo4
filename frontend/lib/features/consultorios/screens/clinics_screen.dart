@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/centered_content.dart';
 import '../../auth/widgets/logout_button.dart';
+import '../clinic_sorting.dart';
 import '../models/clinic.dart';
 import '../providers/clinic_filters_controller.dart';
 import '../providers/clinic_search_provider.dart';
@@ -22,7 +23,7 @@ class ClinicsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final clinics = ref.watch(clinicListProvider);
+    final search = ref.watch(clinicSearchProvider);
     final filters = ref.watch(clinicFiltersControllerProvider);
     final hasFilters =
         (filters.name?.trim().isNotEmpty ?? false) ||
@@ -61,7 +62,7 @@ class ClinicsScreen extends ConsumerWidget {
             const SizedBox(height: 16),
             const ClinicFilterBar(),
             const SizedBox(height: 16),
-            ...clinics.when(
+            ...search.when(
               skipLoadingOnRefresh: false,
               skipLoadingOnReload: false,
               loading: () => const [Center(child: CircularProgressIndicator())],
@@ -79,17 +80,26 @@ class ClinicsScreen extends ConsumerWidget {
                   ),
                 ),
               ],
-              data: (items) => items.isEmpty
-                  ? [
-                      if (hasFilters)
-                        const Text(
-                          'No hay consultorios que coincidan.',
-                          key: Key('clinic-filter-empty'),
-                        )
-                      else
-                        const Text('Todavía no hay consultorios registrados.'),
-                    ]
-                  : [for (final item in items) _ClinicTile(item)],
+              data: (found) {
+                final items = sortClinics(
+                  found,
+                  order: filters.order,
+                  ascending: filters.ascending,
+                );
+                return items.isEmpty
+                    ? [
+                        if (hasFilters)
+                          const Text(
+                            'No hay consultorios que coincidan.',
+                            key: Key('clinic-filter-empty'),
+                          )
+                        else
+                          const Text(
+                            'Todavía no hay consultorios registrados.',
+                          ),
+                      ]
+                    : [for (final item in items) _ClinicTile(item)];
+              },
             ),
           ],
         ),
