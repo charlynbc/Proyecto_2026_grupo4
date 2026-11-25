@@ -215,7 +215,7 @@ class CarteleraEdicionImagenesServiceTest {
                 archivos(png("n1"), png("n2"), png("n3")));
         assertEquals("VALIDACION", error.getCode());
         assertEquals("La novedad admite hasta 5 imágenes", error.getMessage());
-        verify(almacen, times(2)).guardar(anyString(), any(), anyString());
+        verify(almacen, times(2)).guardar(anyString(), any(), eq("image/png"));
     }
 
     // --- validaciones antes de tocar Storage ---
@@ -366,7 +366,9 @@ class CarteleraEdicionImagenesServiceTest {
     }
 
     private static String argThatEndsWith(String sufijo) {
-        return org.mockito.ArgumentMatchers.argThat(valor -> valor != null && valor.endsWith(sufijo));
+        // Solo los originales: la miniatura (mini/...) tambien es un .jpg pero no es lo que se prueba aca.
+        return org.mockito.ArgumentMatchers.argThat(
+                valor -> valor != null && valor.endsWith(sufijo) && !valor.startsWith("mini/"));
     }
 
     // --- Storage y candado ---
@@ -376,7 +378,7 @@ class CarteleraEdicionImagenesServiceTest {
         service.editar(42, edicion("Texto", id(12), archivo("nueva1")), archivos(png("nueva1")));
 
         InOrder orden = inOrder(almacen, repo);
-        orden.verify(almacen).guardar(anyString(), any(), anyString());
+        orden.verify(almacen).guardar(anyString(), any(), eq("image/png"));
         orden.verify(repo).bloquearCambios();
         orden.verify(repo).actualizarTexto(eq(42L), anyString(), any(), any());
     }
@@ -386,14 +388,14 @@ class CarteleraEdicionImagenesServiceTest {
         // La primera sale bien y la segunda falla.
         org.mockito.Mockito.doNothing().doThrow(new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
                         "ALMACENAMIENTO_NO_DISPONIBLE", "No se pudo acceder a las imágenes"))
-                .when(almacen).guardar(anyString(), any(), anyString());
+                .when(almacen).guardar(anyString(), any(), eq("image/png"));
 
         var error = rechaza(edicion("Texto", archivo("n1"), archivo("n2")), archivos(png("n1"), png("n2")));
 
         assertEquals(503, error.getStatus().value());
         assertEquals("ALMACENAMIENTO_NO_DISPONIBLE", error.getCode());
         ArgumentCaptor<String> subida = ArgumentCaptor.forClass(String.class);
-        verify(almacen, times(2)).guardar(subida.capture(), any(), anyString());
+        verify(almacen, times(2)).guardar(subida.capture(), any(), eq("image/png"));
         verify(almacen).borrar(subida.getAllValues().getFirst());
         verify(repo, never()).bloquearCambios();
         sinCambios();
@@ -409,7 +411,7 @@ class CarteleraEdicionImagenesServiceTest {
         assertEquals("NO_ENCONTRADO", error.getCode());
         assertEquals(404, error.getStatus().value());
         ArgumentCaptor<String> subida = ArgumentCaptor.forClass(String.class);
-        verify(almacen, times(2)).guardar(subida.capture(), any(), anyString());
+        verify(almacen, times(2)).guardar(subida.capture(), any(), eq("image/png"));
         verify(almacen).borrar(subida.getAllValues().get(0));
         verify(almacen).borrar(subida.getAllValues().get(1));
         sinCambios();
@@ -428,7 +430,7 @@ class CarteleraEdicionImagenesServiceTest {
         assertEquals("VALIDACION", error.getCode());
         assertEquals("La imagen 13 no pertenece a esta novedad", error.getMessage());
         ArgumentCaptor<String> subida = ArgumentCaptor.forClass(String.class);
-        verify(almacen).guardar(subida.capture(), any(), anyString());
+        verify(almacen).guardar(subida.capture(), any(), eq("image/png"));
         verify(almacen).borrar(subida.getValue());
         sinCambios();
     }
@@ -441,7 +443,7 @@ class CarteleraEdicionImagenesServiceTest {
                 () -> service.editar(42, edicion("Texto", archivo("n1")), archivos(png("n1"))));
 
         ArgumentCaptor<String> subida = ArgumentCaptor.forClass(String.class);
-        verify(almacen).guardar(subida.capture(), any(), anyString());
+        verify(almacen).guardar(subida.capture(), any(), eq("image/png"));
         verify(almacen).borrar(subida.getValue());
     }
 
