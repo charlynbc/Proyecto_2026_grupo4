@@ -35,6 +35,12 @@ class UsersResults extends ConsumerWidget {
     final page = ref.watch(usersPageProvider);
     final colorScheme = Theme.of(context).colorScheme;
     return page.when(
+      // Al volver a verse la pantalla queda la lista anterior mientras llega
+      // la nueva. Tras un error no: con el dato anterior guardado dentro del
+      // error, "Reintentar" no mostraría la carga. Cambiar un filtro, el orden
+      // o la página sí oculta la lista con el indicador de carga.
+      skipLoadingOnRefresh: page.hasValue && !page.hasError,
+      skipLoadingOnReload: false,
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
         child: Center(child: CircularProgressIndicator()),
