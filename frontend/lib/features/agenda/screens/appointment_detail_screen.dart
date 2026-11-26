@@ -12,6 +12,13 @@ import '../providers/appointment_history_provider.dart';
 import '../repositories/appointment_history_repository.dart';
 import '../widgets/cancel_appointment_dialog.dart';
 
+/// Lo que se le dice al socio cuando el servidor informa `cancelable: false`.
+/// Es genérico a propósito: el motivo (llegada ya registrada o falta de plazo)
+/// lo decide el servidor y el cliente no lo distingue ni lo recalcula.
+const String _cancelUnavailableText =
+    'Esta consulta ya no se puede cancelar desde la aplicación. '
+    'Si no vas a poder asistir, comunicate con la institución.';
+
 class AppointmentDetailScreen extends ConsumerWidget {
   const AppointmentDetailScreen({required this.id, super.key});
 
@@ -110,7 +117,11 @@ class AppointmentDetailScreen extends ConsumerWidget {
         for (final (label, value) in rows)
           ListTile(title: Text(label), subtitle: Text(value)),
         const SizedBox(height: 8),
-        if (appointment.status == 'AGENDADA') ...[
+        // `cancelable` lo decide el servidor: acá no se recalcula ninguna regla.
+        // Con `null` (servidor anterior) se ofrece cancelar como siempre y el
+        // 409 de la cancelación protege.
+        if (appointment.status == 'AGENDADA' &&
+            appointment.cancelable != false) ...[
           OutlinedButton(
             key: const Key('cancel-appointment'),
             onPressed: () => showCancelAppointmentDialog(
@@ -119,6 +130,12 @@ class AppointmentDetailScreen extends ConsumerWidget {
               appointment: appointment,
             ),
             child: const Text('Cancelar consulta'),
+          ),
+        ] else if (appointment.status == 'AGENDADA') ...[
+          Text(
+            _cancelUnavailableText,
+            key: const Key('cancel-unavailable'),
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ],

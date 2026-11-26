@@ -75,6 +75,9 @@ _setup() {
 Future<void> _settle() => Future<void>.delayed(Duration.zero);
 
 void main() {
+  // El padrón se vuelve a pedir al volver a verse (AppLifecycleListener).
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('el detalle se pide por id', () async {
     final s = _setup();
 

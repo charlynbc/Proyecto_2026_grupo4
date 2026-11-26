@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/providers/refetch_when_visible_again.dart';
 import '../../../core/network/api_exception.dart';
 import '../../auth/models/user_role.dart';
 import '../../auth/providers/session_provider.dart';
@@ -29,6 +30,7 @@ final announcementsRepositoryProvider = FutureProvider<AnnouncementsRepository>(
 
 final announcementsPageProvider = FutureProvider.autoDispose
     .family<AnnouncementPage, int>((ref, page) async {
+      refetchWhenVisibleAgain(ref, ref.invalidateSelf);
       final session = ref.watch(
         sessionProvider.select((s) => (s.status, s.accessToken)),
       );
@@ -58,6 +60,7 @@ final announcementDetailProvider = FutureProvider.autoDispose
 /// Observar la sesión invalida respuestas anteriores al cambiar de usuario.
 final latestAnnouncementsProvider =
     FutureProvider.autoDispose<List<Announcement>>((ref) async {
+      refetchWhenVisibleAgain(ref, ref.invalidateSelf);
       final (status, _, _) = ref.watch(
         sessionProvider.select((s) => (s.status, s.role, s.accessToken)),
       );
@@ -75,6 +78,7 @@ final latestAnnouncementsProvider =
 /// ofrece un reintento explícito.
 final adminAnnouncementsProvider =
     FutureProvider.autoDispose<List<AdminAnnouncement>>((ref) async {
+      refetchWhenVisibleAgain(ref, ref.invalidateSelf);
       final (status, role, _) = ref.watch(
         sessionProvider.select((s) => (s.status, s.role, s.accessToken)),
       );

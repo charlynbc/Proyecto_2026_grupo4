@@ -9,6 +9,7 @@ import '../../features/agendas/screens/schedule_routes.dart';
 import '../../features/agendas/screens/schedules_screen.dart';
 import '../../features/auth/models/access_type.dart';
 import '../../features/auth/models/user_role.dart';
+import '../config/app_config.dart';
 import '../../features/auth/providers/session_provider.dart';
 import '../../features/auth/screens/confirm_email_change_screen.dart';
 import '../../features/auth/screens/first_login_activation_screen.dart';
@@ -28,6 +29,7 @@ import '../../features/cuenta/screens/change_password_screen.dart';
 import '../../features/estadisticas/screens/statistics_screen.dart';
 import '../../features/medico/screens/doctor_appointment_result_screen.dart';
 import '../../features/notificaciones/providers/notification_list_provider.dart';
+import '../../features/notificaciones/screens/debug_push_screen.dart';
 import '../../features/notificaciones/screens/notifications_screen.dart';
 import '../../features/medico/screens/doctor_attention_routes.dart';
 import '../../features/medico/screens/doctor_attentions_screen.dart';
@@ -271,6 +273,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           child: EditAnnouncementScreen(id: _appointmentId(state)!),
         ),
       ),
+      // Solo con USE_FAKES: simula el toque de un push para probar a mano.
+      if (ref.read(useFakesProvider))
+        GoRoute(
+          path: kDebugPushPath,
+          builder: (context, state) => const DebugPushScreen(),
+        ),
       for (final role in UserRole.values) _roleShell(role),
     ],
   );

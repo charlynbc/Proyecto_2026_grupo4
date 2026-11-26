@@ -113,10 +113,12 @@ void main() {
     });
 
     testWidgets('cancelar una consulta', (tester) async {
+      // La 101 es la de demostración que se puede cancelar: la 1 tiene
+      // llegada ese día y el detalle ya no ofrece cancelarla.
       await openAndCheck(
         tester,
         UserRole.socio,
-        '/socio/consultas/1',
+        '/socio/consultas/101',
         find.byKey(const Key('cancel-appointment')),
       );
     });
