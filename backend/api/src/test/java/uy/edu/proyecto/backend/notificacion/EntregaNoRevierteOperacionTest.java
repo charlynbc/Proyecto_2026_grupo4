@@ -234,6 +234,7 @@ class EntregaNoRevierteOperacionTest {
         ) {
             return new EnvioNotificacionDispatcher(
                     repository, correoSender, pushSender,
+                    Mockito.mock(uy.edu.proyecto.backend.dispositivo.DispositivoRepository.class),
                     java.time.Clock.system(java.time.ZoneId.of("America/Montevideo")));
         }
 

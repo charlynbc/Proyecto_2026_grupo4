@@ -251,16 +251,16 @@ void main() {
     expect(find.text('Todavía no hay novedades publicadas.'), findsNothing);
   });
 
-  testWidgets('volver a resumed antes de 55 minutos no vuelve a pedir las '
-      'novedades', (tester) async {
+  testWidgets('volver a resumed vuelve a pedir las novedades una sola vez', (
+    tester,
+  ) async {
     final repo = _Repo();
     await _pumpRoleHome(tester, UserRole.socio, repo: repo);
     expect(repo.latestCalls, 1);
 
     backgroundAndReturn(tester);
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(repo.latestCalls, 1);
+    expect(repo.latestCalls, 2);
   });
 }

@@ -49,6 +49,22 @@ public class DispositivoRepository {
         );
     }
 
+    /**
+     * Deshabilita el token sin pedir el socio: lo usa el despacho cuando FCM dice que el
+     * token ya no existe (UNREGISTERED). Nunca borra: envio_notificacion lo referencia.
+     * Devuelve cuantas filas cambio (0 si el token no existe).
+     */
+    public int deshabilitarPorToken(String token) {
+        return jdbcTemplate.update(
+                """
+                UPDATE public.dispositivo_push
+                SET habilitado = false
+                WHERE token = ?
+                """,
+                token
+        );
+    }
+
     /** Solo deshabilita si el token es del socio. Nunca borra: envio_notificacion lo referencia. */
     public int deshabilitar(Long socioId, String token) {
         return jdbcTemplate.update(

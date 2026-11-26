@@ -4,6 +4,12 @@ import '../models/clinic_filters.dart';
 
 /// Conserva solo los filtros aplicados; la edición pertenece a la barra.
 class ClinicFiltersController extends Notifier<ClinicFilters> {
+  int _searchRevision = 0;
+
+  /// Buscar y Limpiar recargan aunque los parámetros sean los mismos.
+  /// Se incrementa antes de publicar el estado; no es un parámetro de la API.
+  int get searchRevision => _searchRevision;
+
   @override
   ClinicFilters build() => const ClinicFilters();
 
@@ -14,6 +20,7 @@ class ClinicFiltersController extends Notifier<ClinicFilters> {
     String? location,
     ClinicOrder order = ClinicOrder.name,
   }) {
+    _searchRevision++;
     state = ClinicFilters(
       name: name,
       location: location,
@@ -44,6 +51,7 @@ class ClinicFiltersController extends Notifier<ClinicFilters> {
 
   /// Una consulta nueva, con los valores por defecto, permite recargar.
   void clear() {
+    _searchRevision++;
     state = ClinicFilters();
   }
 }

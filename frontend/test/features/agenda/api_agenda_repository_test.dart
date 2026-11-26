@@ -435,4 +435,25 @@ void main() {
       const AvailabilityQuery(specialtyId: 1),
     );
   });
+
+  group('cancelable en la consulta recien agendada', () {
+    test(
+      'la respuesta de agendar conserva true, false y la ausencia',
+      () async {
+        final (conTrue, _) = _repo(201, {..._consulta(), 'cancelable': true});
+        final (conFalse, _) = _repo(201, {..._consulta(), 'cancelable': false});
+        final (sinCampo, _) = _repo(201, _consulta());
+
+        expect((await conTrue.book(numberId: 11)).cancelable, isTrue);
+        expect((await conFalse.book(numberId: 11)).cancelable, isFalse);
+        expect((await sinCampo.book(numberId: 11)).cancelable, isNull);
+      },
+    );
+
+    test('un valor que no es booleano da el error generico', () async {
+      final (repo, _) = _repo(201, {..._consulta(), 'cancelable': 'si'});
+
+      await expectLater(repo.book(numberId: 11), throwsA(_genericError));
+    });
+  });
 }

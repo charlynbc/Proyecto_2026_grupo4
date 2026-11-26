@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/fake_database_without_demo.dart';
 import '../../helpers/pump_app.dart';
 
 /// Entra como Ana Rodríguez, la socia de los datos de prueba.
@@ -39,7 +40,10 @@ Future<void> _wait(WidgetTester tester) async {
 void main() {
   testWidgets('después de agendar, "Mis consultas" lleva a la lista con la '
       'consulta nueva', (tester) async {
-    final container = await pumpApp(tester);
+    final container = await pumpApp(
+      tester,
+      overrides: [fakeDatabaseWithoutDemo],
+    );
     await _loginAsMember(tester, container);
     expect(locationOf(container), '/socio/disponibilidad');
 
@@ -79,7 +83,10 @@ void main() {
   testWidgets('Ana agenda Cardiología con su pase y la ve en "Mis consultas"', (
     tester,
   ) async {
-    final container = await pumpApp(tester);
+    final container = await pumpApp(
+      tester,
+      overrides: [fakeDatabaseWithoutDemo],
+    );
     await _loginAsMember(tester, container);
 
     await tester.tap(find.byKey(const Key('filter-specialty')));

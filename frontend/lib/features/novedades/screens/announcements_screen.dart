@@ -9,6 +9,7 @@ import '../../auth/models/user_role.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../announcement_images.dart';
 import '../models/announcement.dart';
+import '../models/announcement_page.dart';
 import '../providers/announcements_provider.dart';
 import '../widgets/announcement_network_image.dart';
 
@@ -26,6 +27,7 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
     with WidgetsBindingObserver {
   int _page = 0;
   DateTime? _loadedAt;
+  AnnouncementPage? _lastLoadedPage;
   bool _wasActive = false;
 
   @override
@@ -42,9 +44,12 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
 
   void _refresh() => ref.invalidate(announcementsPageProvider(_page));
 
+  /// La hora con la que se mide el vencimiento de las URL; se cambia en las pruebas.
+  DateTime _now() => ref.read(announcementClockProvider)();
+
   void _refreshIfExpired() {
     if (_loadedAt != null &&
-        DateTime.now().difference(_loadedAt!) >= const Duration(minutes: 55)) {
+        _now().difference(_loadedAt!) >= const Duration(minutes: 55)) {
       _loadedAt = null;
       _refresh();
     }
@@ -52,7 +57,12 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _wasActive) _refreshIfExpired();
+    if (state != AppLifecycleState.resumed || !_wasActive) return;
+    // Diferido: invalidar acá soltaría el AppLifecycleListener de
+    // refetchWhenVisibleAgain mientras Flutter todavía reparte este evento.
+    Future.microtask(() {
+      if (mounted) _refreshIfExpired();
+    });
   }
 
   @override
@@ -77,9 +87,15 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(announcementsPageProvider(_page));
-    ref.listen(announcementsPageProvider(_page), (_, next) {
-      if (next is AsyncData) _loadedAt = DateTime.now();
-    });
+    // La hora de carga se toma acá y no con ref.listen: un listen no deja
+    // pausar el provider y refetchWhenVisibleAgain no recibe onResume (ver
+    // appointment_history_provider.dart). Solo cuenta una página nueva.
+    if (state is AsyncData<AnnouncementPage> &&
+        !state.isRefreshing &&
+        !identical(state.value, _lastLoadedPage)) {
+      _lastLoadedPage = state.value;
+      _loadedAt = _now();
+    }
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -124,7 +140,10 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen>
                 ),
                 const SizedBox(height: 12),
                 state.when(
-                  skipLoadingOnRefresh: false,
+                  // Al refrescar con datos a la vista se conserva la lista. Si
+                  // el estado anterior era un error (que conserva el dato
+                  // viejo dentro), "Reintentar" muestra la carga.
+                  skipLoadingOnRefresh: state.hasValue && !state.hasError,
                   skipLoadingOnReload: false,
                   loading: () => const Padding(
                     padding: EdgeInsets.all(32),
