@@ -100,6 +100,9 @@ class _Env {
 }
 
 void main() {
+  // El listado se vuelve a pedir al volver a verse (AppLifecycleListener).
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test(
     'los pasos: sin archivo, con archivo, previsualizado y terminado',
     () async {

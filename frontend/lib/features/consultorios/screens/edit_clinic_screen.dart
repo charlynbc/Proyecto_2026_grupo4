@@ -81,7 +81,7 @@ class _EditClinicScreenState extends ConsumerState<EditClinicScreen> {
     });
     final state = ref.watch(correctClinicControllerProvider);
     // Mantiene activa la lista mientras se actualiza la búsqueda.
-    ref.watch(clinicListProvider);
+    ref.watch(clinicSearchProvider);
     final clinics = ref.watch(clinicsProvider);
     return Scaffold(
       appBar: AppBar(
