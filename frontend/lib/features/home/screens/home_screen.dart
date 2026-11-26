@@ -10,6 +10,7 @@ import '../../auth/models/user_role.dart';
 import '../../auth/models/user_role_label.dart';
 import '../../auth/widgets/logout_button.dart';
 import '../../cuenta/providers/account_provider.dart';
+import '../../novedades/models/announcement.dart';
 import '../../novedades/providers/announcements_provider.dart';
 import '../widgets/announcements_carousel.dart';
 import '../widgets/home_shortcuts.dart';
@@ -28,6 +29,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   DateTime? _loadedAt;
+  List<Announcement>? _lastLoadedList;
   bool _wasActive = false;
 
   @override
@@ -42,10 +44,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.dispose();
   }
 
+  /// La hora con la que se mide el vencimiento de las URL; se cambia en las pruebas.
+  DateTime _now() => ref.read(announcementClockProvider)();
+
   void _refreshIfExpired() {
     final loadedAt = _loadedAt;
     if (loadedAt != null &&
-        DateTime.now().difference(loadedAt) >= const Duration(minutes: 55)) {
+        _now().difference(loadedAt) >= const Duration(minutes: 55)) {
       _loadedAt = null;
       ref.invalidate(latestAnnouncementsProvider);
     }
@@ -53,7 +58,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _wasActive) _refreshIfExpired();
+    if (state != AppLifecycleState.resumed || !_wasActive) return;
+    // Diferido: invalidar acá soltaría el AppLifecycleListener de
+    // refetchWhenVisibleAgain mientras Flutter todavía reparte este evento.
+    Future.microtask(() {
+      if (mounted) _refreshIfExpired();
+    });
   }
 
   @override
@@ -74,9 +84,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final accountState = ref.watch(accountProvider);
     final account = accountState.isLoading ? null : accountState.asData?.value;
     final announcements = ref.watch(latestAnnouncementsProvider);
-    ref.listen(latestAnnouncementsProvider, (_, next) {
-      if (next is AsyncData) _loadedAt = DateTime.now();
-    });
+    // La hora de carga se toma acá y no con ref.listen: un listen no deja
+    // pausar el provider y refetchWhenVisibleAgain no recibe onResume (ver
+    // appointment_history_provider.dart). Solo cuenta una lista nueva.
+    if (announcements is AsyncData<List<Announcement>> &&
+        !announcements.isRefreshing &&
+        !identical(announcements.value, _lastLoadedList)) {
+      _lastLoadedList = announcements.value;
+      _loadedAt = _now();
+    }
     final theme = Theme.of(context);
     final wide = MediaQuery.sizeOf(context).width >= 800;
     final role = widget.role;
@@ -217,7 +233,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
                 const SizedBox(height: 20),
                 announcements.when(
-                  skipLoadingOnRefresh: false,
+                  // Al refrescar con datos a la vista se conserva la lista. Si
+                  // el estado anterior era un error (que conserva el dato
+                  // viejo dentro), "Reintentar" muestra la carga.
+                  skipLoadingOnRefresh:
+                      announcements.hasValue && !announcements.hasError,
                   skipLoadingOnReload: false,
                   loading: () => const _NewsStatus(
                     child: Column(
