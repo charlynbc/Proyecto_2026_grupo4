@@ -73,6 +73,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(locationOf(router), '/funcionario/inicio');
+    await _flushFakeLatency(tester);
   });
 
   testWidgets('si la sesión se cae estando en /cuenta, va al login', (

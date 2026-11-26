@@ -152,6 +152,9 @@ void main() {
       }),
     );
     final router = await _pump(tester, repo);
+    // Al llegar a Mi cuenta el provider informa un cambio de pantalla
+    // instantáneo y vuelve a leer. Esa lectura queda en espera.
+    repo.gate = Completer<void>();
     await _enter(tester, 'address', '  Av. Italia 1234  ');
     await _enter(tester, 'email', '  lucia@example.org  ');
     await _tapSave(tester);
@@ -161,7 +164,7 @@ void main() {
     ]);
     expect(locationOf(router), '/cuenta');
     expect(textOf(tester, 'account-address'), 'Av. Italia 1234');
-    expect(repo.calls, 1);
+    expect(repo.calls, 2);
     expect(_saved, findsOneWidget);
     expect(find.text(_shortNotice), findsOneWidget);
   });
@@ -345,6 +348,9 @@ void main() {
     session.setAuthenticated(accessToken: 'original', role: UserRole.socio);
     await tester.pumpAndSettle();
     final readsBeforeSave = repo.calls;
+    // Al llegar a Mi cuenta el provider informa un cambio de pantalla
+    // instantáneo y vuelve a leer. Esa lectura queda en espera.
+    repo.gate = Completer<void>();
 
     await _enter(tester, 'address', 'Av. Italia 1234');
     await _tapSave(tester);
@@ -354,7 +360,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(textOf(tester, 'account-address'), 'Av. Italia 1234');
-    expect(repo.calls, readsBeforeSave);
+    expect(repo.calls, readsBeforeSave + 1);
   });
 
   testWidgets('avisa del correo nuevo y muestra el pendiente a 320 px', (
@@ -364,6 +370,9 @@ void main() {
       result: lucia(pendingEmail: 'nuevo@example.org'),
     );
     await _pump(tester, repo, size: const Size(320, 640));
+    // Al llegar a Mi cuenta el provider informa un cambio de pantalla
+    // instantáneo y vuelve a leer. Esa lectura queda en espera.
+    repo.gate = Completer<void>();
     await _enter(tester, 'email', ' nuevo@example.org ');
     await _tapSave(tester);
 
@@ -374,6 +383,7 @@ void main() {
     expect(find.text(_longNotice), findsOneWidget);
     expect(textOf(tester, 'account-email'), 'lucia@example.org');
     expect(find.byKey(const Key('account-pending-email')), findsOneWidget);
+    expect(repo.calls, 2);
     expect(tester.takeException(), isNull);
   });
 

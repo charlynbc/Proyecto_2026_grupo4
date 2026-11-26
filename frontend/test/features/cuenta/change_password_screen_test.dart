@@ -210,6 +210,8 @@ void main() {
     expect(topOf(router), kAccountPath);
     expect(find.byKey(const Key('password-changed')), findsOneWidget);
     expect(container.read(sessionProvider).isAuthenticated, isTrue);
+    // Deja terminar la lectura de la cuenta que se pide al volver.
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('clave actual incorrecta conserva las nuevas y la sesión', (

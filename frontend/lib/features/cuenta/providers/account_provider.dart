@@ -1,14 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_exception.dart';
+import '../../../core/providers/refetch_when_visible_again.dart';
 import '../../auth/providers/session_provider.dart';
 import '../models/account.dart';
 import '../models/account_changes.dart';
 import 'account_repository_provider.dart';
 
 /// La cuenta de quien está logueado, compartida por Inicio y Mi cuenta.
-/// Se renueva al cambiar la sesión, aunque Inicio siga montado en el shell.
-/// Sin reintento automático (`retry` en `null`):
+/// Se renueva al cambiar la sesión, aunque Inicio siga montado en el shell, y
+/// al volver a la pantalla o a la app. Durante un guardado no se pide: si
+/// guarda bien, su respuesta ya es el dato al día; si falla, se pide al
+/// terminar. Sin reintento automático (`retry` en `null`):
 /// la pantalla avisa y ofrece "Reintentar".
 final accountProvider = AsyncNotifierProvider<AccountNotifier, Account>(
   AccountNotifier.new,
@@ -43,6 +46,14 @@ class AccountNotifier extends AsyncNotifier<Account> {
         if (authenticated) ref.invalidateSelf();
       },
     );
+    refetchWhenVisibleAgain(ref, () {
+      // Pedir acá cortaría el guardado: queda anotado por si falla.
+      if (_saveInProgress != null) {
+        _refreshAfterSave = true;
+        return;
+      }
+      ref.invalidateSelf();
+    });
     final repository = await ref.watch(accountRepositoryProvider.future);
     return repository.get();
   }
