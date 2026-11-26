@@ -81,6 +81,38 @@ Map<String, String> _error(String code) => {
 };
 
 void main() {
+  group('cancelable en las consultas de hoy', () {
+    test('cada consulta conserva el campo si el servidor lo manda', () async {
+      final (repository, _) = _repository(200, {
+        'items': [
+          {..._anaAppointment, 'id': 184, 'cancelable': true},
+          {..._anaAppointment, 'id': 185, 'cancelable': false},
+          {..._anaAppointment, 'id': 186},
+        ],
+      });
+
+      final result = await repository.listTodayAppointments('90000046');
+
+      expect(
+        [for (final a in result.appointments) a.cancelable],
+        [true, false, null],
+      );
+    });
+
+    test('un valor que no es booleano da error', () async {
+      final (repository, _) = _repository(200, {
+        'items': [
+          {..._anaAppointment, 'cancelable': 'si'},
+        ],
+      });
+
+      await expectLater(
+        repository.listTodayAppointments('90000046'),
+        throwsA(isA<ApiException>()),
+      );
+    });
+  });
+
   group('consultas de hoy', () {
     test('pide la ruta del contrato con la CI y lee los items', () async {
       final (repository, adapter) = _repository(200, {

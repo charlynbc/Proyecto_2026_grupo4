@@ -13,8 +13,18 @@ import 'fake_appointment_seed.dart';
 class FakeDatabase {
   /// Con [admin], arranca con las consultas de la socia de prueba (ver
   /// `seedMemberAppointments`); sin él, la lista de consultas empieza vacía.
-  FakeDatabase({required DateTime today, FakeAdminDatabase? admin})
-    : shifts = TestData.shiftsFrom(today) {
+  ///
+  /// Con [demoCancelable] (y [admin]) se suman las consultas 101 y 102 para ver
+  /// `cancelable` con `USE_FAKES` (ver `seedDemoCancelableAppointments`); [now]
+  /// es el reloj con que se arma la 102 y por defecto es el instante actual.
+  /// Solo lo activa `fakeDatabaseProvider`: sin él la semilla son tres
+  /// consultas.
+  FakeDatabase({
+    required DateTime today,
+    FakeAdminDatabase? admin,
+    bool demoCancelable = false,
+    DateTime? now,
+  }) : shifts = TestData.shiftsFrom(today) {
     if (admin != null) {
       final seeded = seedMemberAppointments(
         today: today,
@@ -29,6 +39,16 @@ class FakeDatabase {
         if (appointment.status == 'AGENDADA') {
           arrivedDays.add(appointment.date);
         }
+      }
+      // Las de demostración se suman después, sin llegada ese día.
+      if (demoCancelable) {
+        appointments.addAll(
+          seedDemoCancelableAppointments(
+            today: today,
+            now: now ?? DateTime.now(),
+            admin: admin,
+          ),
+        );
       }
     }
   }
@@ -77,5 +97,6 @@ final fakeDatabaseProvider = Provider<FakeDatabase>(
   (ref) => FakeDatabase(
     today: UruguayTime.today(),
     admin: ref.watch(fakeAdminDatabaseProvider),
+    demoCancelable: true,
   ),
 );

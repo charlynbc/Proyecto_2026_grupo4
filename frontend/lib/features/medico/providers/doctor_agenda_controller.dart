@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_exception.dart';
 import '../../../core/network/dio_client.dart';
+import '../../../core/providers/refetch_when_visible_again.dart';
 import '../../../core/utils/uruguay_time.dart';
 import '../../agenda/models/agenda_time.dart';
 import '../models/doctor_shift.dart';
@@ -136,6 +137,10 @@ class DoctorAgendaController extends Notifier<DoctorAgendaState> {
     });
     final interval = ref.read(doctorPollIntervalProvider);
     _timer = Timer.periodic(interval, (_) => _poll());
+    // Al volver a verse la pantalla (otra sección o el segundo plano) se pide
+    // de inmediato y sin cargar: el mismo pedido silencioso del sondeo, que no
+    // se duplica si ya hay uno en vuelo.
+    refetchWhenVisibleAgain(ref, _poll);
     // El día de hoy es el de Uruguay, no el del aparato (contrato, 1.2).
     final today = formatApiDate(
       UruguayTime.today(now: ref.read(doctorClockProvider)()),
