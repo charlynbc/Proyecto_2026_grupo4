@@ -2,6 +2,7 @@ package uy.edu.proyecto.backend.aviso;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -9,9 +10,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import uy.edu.proyecto.backend.agenda.ConsultaDTO;
+import uy.edu.proyecto.backend.agenda.ReglaCancelableSocio;
 import uy.edu.proyecto.backend.aviso.AvisoLlegadaRepository.Funcionario;
 import uy.edu.proyecto.backend.aviso.AvisoLlegadaRepository.Socio;
 import uy.edu.proyecto.backend.exception.ApiException;
+import uy.edu.proyecto.backend.parametro.ParametroService;
 import uy.edu.proyecto.backend.usuario.CiUruguaya;
 
 @Service
@@ -19,13 +22,16 @@ public class AvisoLlegadaService {
 
     private final AvisoLlegadaRepository repository;
     private final Clock clock;
+    private final ParametroService parametros;
 
     public AvisoLlegadaService(
             AvisoLlegadaRepository repository,
-            Clock clock
+            Clock clock,
+            ParametroService parametros
     ) {
         this.repository = repository;
         this.clock = clock;
+        this.parametros = parametros;
     }
 
     @Transactional(readOnly = true)
@@ -43,7 +49,14 @@ public class AvisoLlegadaService {
                         aviso.registradaPor()
                 ))
                 .orElse(null);
-        return new ConsultasDeHoyDTO(consultas, llegada);
+        // cancelable con la llegada que esta misma respuesta ya informa.
+        ZonedDateTime ahora = ZonedDateTime.now(clock);
+        int horasMinimas = parametros.cancelarAnticipacionMinimaHoras();
+        List<ConsultaDTO> conCancelable = consultas.stream()
+                .map(consulta -> ReglaCancelableSocio.aplicar(
+                        consulta, llegada != null, clock.getZone(), ahora, horasMinimas))
+                .toList();
+        return new ConsultasDeHoyDTO(conCancelable, llegada);
     }
 
     @Transactional

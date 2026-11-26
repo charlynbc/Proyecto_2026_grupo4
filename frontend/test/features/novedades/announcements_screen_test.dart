@@ -657,7 +657,8 @@ void main() {
       expect(locationOf(container), '/socio/cartelera');
       expect(find.text('Página 2'), findsOneWidget);
       expect(tester.getTopLeft(row).dy, closeTo(before, 1));
-      expect(repo.pages, [0, 1]);
+      // La carga inicial, la página 2 y el pedido al volver del detalle.
+      expect(repo.pages, [0, 1, 1]);
       expect(repo.details, [10]);
     },
   );
@@ -732,17 +733,17 @@ void main() {
     expect(repo.pages, [0, 0]);
   });
 
-  testWidgets('volver a resumed antes de 55 minutos no vuelve a pedir la '
-      'lista', (tester) async {
+  testWidgets('volver a resumed vuelve a pedir la lista una sola vez', (
+    tester,
+  ) async {
     final repo = _News();
     await _pumpList(tester, repo);
     expect(repo.pages, [0]);
 
     backgroundAndReturn(tester);
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(repo.pages, [0]);
+    expect(repo.pages, [0, 0]);
   });
 
   for (final width in [320.0, 600.0, 1440.0]) {

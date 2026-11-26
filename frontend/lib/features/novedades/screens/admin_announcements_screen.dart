@@ -106,6 +106,9 @@ class _AdminAnnouncementsScreenState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(adminAnnouncementsProvider);
+    // Mientras se refresca se ve la lista anterior, pero sus novedades pueden
+    // haberse eliminado o cambiado: no se toca ninguna hasta que llega la nueva.
+    final refreshing = state.isRefreshing;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -147,7 +150,7 @@ class _AdminAnnouncementsScreenState
                         label: const Text('Actualizar novedades'),
                       ),
                       OutlinedButton.icon(
-                        onPressed: _busyId != null
+                        onPressed: _busyId != null || refreshing
                             ? null
                             : () => context.push('$_listPath/carrusel'),
                         icon: const Icon(Icons.view_carousel_outlined),
@@ -163,7 +166,10 @@ class _AdminAnnouncementsScreenState
                 ),
                 const SizedBox(height: 12),
                 state.when(
-                  skipLoadingOnRefresh: false,
+                  // Al refrescar con datos a la vista se conserva la lista. Si
+                  // el estado anterior era un error (que conserva el dato
+                  // viejo dentro), "Reintentar" muestra la carga.
+                  skipLoadingOnRefresh: state.hasValue && !state.hasError,
                   skipLoadingOnReload: false,
                   loading: () => const Padding(
                     padding: EdgeInsets.all(32),
@@ -204,6 +210,7 @@ class _AdminAnnouncementsScreenState
                               _AdminAnnouncementCard(
                                 item: item,
                                 busy: _busyId != null,
+                                refreshing: refreshing,
                                 onView: () => context.go(
                                   '$_listPath/${item.id}?desde=cartelera',
                                 ),
@@ -233,6 +240,7 @@ class _AdminAnnouncementCard extends StatelessWidget {
   const _AdminAnnouncementCard({
     required this.item,
     required this.busy,
+    required this.refreshing,
     required this.onView,
     required this.onEdit,
     required this.onChangeValidity,
@@ -241,6 +249,10 @@ class _AdminAnnouncementCard extends StatelessWidget {
 
   final AdminAnnouncement item;
   final bool busy;
+
+  /// La lista se está refrescando: editar, cambiar la vigencia y eliminar
+  /// esperan a la lista nueva. Ver sigue disponible.
+  final bool refreshing;
   final VoidCallback onView;
   final VoidCallback onEdit;
   final VoidCallback onChangeValidity;
@@ -295,13 +307,13 @@ class _AdminAnnouncementCard extends StatelessWidget {
                 ),
                 TextButton.icon(
                   key: ValueKey('admin-edit-${item.id}'),
-                  onPressed: busy ? null : onEdit,
+                  onPressed: busy || refreshing ? null : onEdit,
                   icon: const Icon(Icons.edit_outlined),
                   label: const Text('Editar'),
                 ),
                 TextButton.icon(
                   key: ValueKey('admin-validity-${item.id}'),
-                  onPressed: busy ? null : onChangeValidity,
+                  onPressed: busy || refreshing ? null : onChangeValidity,
                   icon: const Icon(Icons.event_outlined),
                   label: const Text('Cambiar vigencia'),
                 ),
@@ -310,7 +322,7 @@ class _AdminAnnouncementCard extends StatelessWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: theme.colorScheme.error,
                   ),
-                  onPressed: busy ? null : onDelete,
+                  onPressed: busy || refreshing ? null : onDelete,
                   icon: const Icon(Icons.delete_outline),
                   label: const Text('Eliminar'),
                 ),

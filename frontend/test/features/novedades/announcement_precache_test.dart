@@ -289,6 +289,21 @@ void main() {
         'https://example.invalid/portada-1.png?firma=2',
       ]);
     });
+
+    testWidgets('si llega otra lista con las mismas portadas no vuelve a '
+        'precargar nada', (tester) async {
+      final gate = _Gate();
+      await _pumpCarousel(tester, [_news(1), _news(2)], gate.call);
+      await _complete(tester, gate, 0);
+      await _complete(tester, gate, 1);
+      expect(gate.calls, [_url(1), _url(2)]);
+
+      // Un refresco al volver a la pantalla trae objetos nuevos y los mismos
+      // datos: no hay nada que precargar.
+      await _pumpCarousel(tester, [_news(1), _news(2)], gate.call);
+
+      expect(gate.calls, [_url(1), _url(2)]);
+    });
   });
 
   group('galería del detalle', () {

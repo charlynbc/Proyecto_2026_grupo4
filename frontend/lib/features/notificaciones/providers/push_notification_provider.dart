@@ -11,12 +11,15 @@ final pushPlatformSupportedProvider = Provider<bool>(
 );
 
 /// Punto único de inyección del servicio de notificaciones push. Con
-/// `USE_FAKES` o fuera de Android no se toca Firebase ni se pide permiso.
+/// `USE_FAKES` o fuera de Android no se toca Firebase ni se pide permiso. Con
+/// `USE_FAKES` el servicio deja simular un toque de push a mano.
 final pushNotificationServiceProvider = Provider<PushNotificationService>((
   ref,
 ) {
-  if (ref.watch(useFakesProvider) ||
-      !ref.watch(pushPlatformSupportedProvider)) {
+  if (ref.watch(useFakesProvider)) {
+    return SimulatedPushNotificationService();
+  }
+  if (!ref.watch(pushPlatformSupportedProvider)) {
     return const NoopPushNotificationService();
   }
   return FirebasePushNotificationService();
