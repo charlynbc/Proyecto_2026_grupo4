@@ -83,7 +83,11 @@ class AccountNotifier extends AsyncNotifier<Account> {
 
     try {
       // Si ya había una lectura en curso, dejala terminar antes de escribir.
-      final current = await future;
+      // Si la última falló, el formulario sigue a la vista: se vuelve a leer
+      // acá para no escribir sin saber de quién es la cuenta de la sesión.
+      final current = state.hasError && !state.isLoading
+          ? await (await saveRef.read(accountRepositoryProvider.future)).get()
+          : await future;
       if (!isCurrent() ||
           current.ci != original.ci ||
           current.role != original.role) {

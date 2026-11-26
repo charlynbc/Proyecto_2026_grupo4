@@ -35,6 +35,11 @@ class AccountScreen extends ConsumerWidget {
         title: const Text('Mi cuenta'),
       ),
       body: account.when(
+        // Al volver se siguen viendo los datos mientras se piden. "Reintentar"
+        // tras un error muestra la carga, y un cambio de sesión no muestra los
+        // datos anteriores.
+        skipLoadingOnRefresh: account.hasValue && !account.hasError,
+        skipLoadingOnReload: false,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => CenteredContent(
           maxWidth: 700,
