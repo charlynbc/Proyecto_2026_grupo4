@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import uy.edu.proyecto.backend.correo.CorreoException;
 import uy.edu.proyecto.backend.correo.CorreoMensaje;
 import uy.edu.proyecto.backend.correo.CorreoSender;
+import uy.edu.proyecto.backend.dispositivo.DispositivoRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository;
 import uy.edu.proyecto.backend.turno.TurnoFechasRepository.EnvioNotificacion;
 
@@ -50,8 +51,11 @@ class EnvioNotificacionDispatcherTest {
     @Mock
     private PushSender pushSender;
 
+    @Mock
+    private DispositivoRepository dispositivos;
+
     private EnvioNotificacionDispatcher dispatcher() {
-        return new EnvioNotificacionDispatcher(repository, correoSender, pushSender, RELOJ);
+        return new EnvioNotificacionDispatcher(repository, correoSender, pushSender, dispositivos, RELOJ);
     }
 
     @Test
@@ -225,6 +229,65 @@ class EnvioNotificacionDispatcherTest {
         dispatcher().despachar(601L);
 
         verify(repository).marcarEnvio(601L, "FALLIDO");
+    }
+
+    @Test
+    void unPushConTokenNoRegistradoQuedaFallidoYDeshabilitaEseToken() {
+        when(repository.buscarEnvio(601L))
+                .thenReturn(Optional.of(envio("AGENDA", "PUSH", "token-caido")));
+        doThrow(new PushTokenNoRegistradoException("ya no esta registrado", null))
+                .when(pushSender).enviar(any(), any(), any(), any());
+        when(dispositivos.deshabilitarPorToken("token-caido")).thenReturn(1);
+        when(repository.marcarEnvio(601L, "FALLIDO")).thenReturn(1);
+
+        dispatcher().despachar(601L);
+
+        verify(dispositivos).deshabilitarPorToken("token-caido");
+        verify(repository).marcarEnvio(601L, "FALLIDO");
+        verify(repository, never()).marcarEnvio(601L, "ENVIADO");
+    }
+
+    @Test
+    void unPushRechazadoPorOtraCausaNoDeshabilitaElToken() {
+        when(repository.buscarEnvio(601L))
+                .thenReturn(Optional.of(envio("AGENDA", "PUSH", "token-1")));
+        doThrow(new PushException("cuota excedida"))
+                .when(pushSender).enviar(any(), any(), any(), any());
+        when(repository.marcarEnvio(601L, "FALLIDO")).thenReturn(1);
+
+        dispatcher().despachar(601L);
+
+        verify(repository).marcarEnvio(601L, "FALLIDO");
+        verifyNoInteractions(dispositivos);
+    }
+
+    @Test
+    void siNoSePuedeDeshabilitarElTokenElEnvioIgualQuedaFallido() {
+        when(repository.buscarEnvio(601L))
+                .thenReturn(Optional.of(envio("AGENDA", "PUSH", "token-caido")));
+        doThrow(new PushTokenNoRegistradoException("ya no esta registrado", null))
+                .when(pushSender).enviar(any(), any(), any(), any());
+        when(dispositivos.deshabilitarPorToken("token-caido"))
+                .thenThrow(new IllegalStateException("base no disponible"));
+        when(repository.marcarEnvio(601L, "FALLIDO")).thenReturn(1);
+
+        dispatcher().despachar(601L);
+
+        verify(dispositivos).deshabilitarPorToken("token-caido");
+        verify(repository).marcarEnvio(601L, "FALLIDO");
+    }
+
+    @Test
+    void unCorreoQueFallaNoDeshabilitaNingunToken() {
+        when(repository.buscarEnvio(601L))
+                .thenReturn(Optional.of(envio("AGENDA", "CORREO", null)));
+        doThrow(new CorreoException("proveedor caido"))
+                .when(correoSender).enviar(any());
+        when(repository.marcarEnvio(601L, "FALLIDO")).thenReturn(1);
+
+        dispatcher().despachar(601L);
+
+        verifyNoInteractions(dispositivos);
     }
 
     @Test

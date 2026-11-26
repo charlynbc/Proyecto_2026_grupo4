@@ -7,9 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import uy.edu.proyecto.backend.dispositivo.DispositivoRepository;
 
 /** RNF-23: registro y baja de dispositivos push contra PostgreSQL real. */
 class DispositivoPushIT extends BaseIntegracionIT {
+
+    @Autowired
+    DispositivoRepository dispositivos;
 
     /** La misma consulta que usa el despacho de avisos (TurnoFechasRepository). */
     private static final String CONSULTA_DEL_DESPACHO = """
@@ -230,6 +236,49 @@ class DispositivoPushIT extends BaseIntegracionIT {
         assertEquals(403, registrar(funcionario, "fcm-token-1").estado());
         assertEquals(403, darDeBaja(funcionario, "fcm-token-1").estado());
         assertEquals(0, contar("public.dispositivo_push"));
+    }
+
+    @Test
+    void deshabilitarPorTokenDeshabilitaSoloEseToken() {
+        String socio1 = tokenSocio(ciSocio1);
+        String socio2 = tokenSocio(ciSocio2);
+        registrar(socio1, "fcm-token-a");
+        registrar(socio1, "fcm-token-b");
+        registrar(socio2, "fcm-token-c");
+
+        int filasTocadas = dispositivos.deshabilitarPorToken("fcm-token-a");
+
+        assertEquals(1, filasTocadas);
+        assertFalse(habilitado("fcm-token-a"));
+        assertTrue(habilitado("fcm-token-b"), "otro token del mismo socio");
+        assertTrue(habilitado("fcm-token-c"), "token de otro socio");
+        assertEquals(1, vistosPorElDespacho(idSocio1).size());
+        assertEquals(1, vistosPorElDespacho(idSocio2).size());
+        assertEquals(socioDe("fcm-token-a"), idSocio1, "la fila no se borra ni se reasigna");
+    }
+
+    @Test
+    void deshabilitarPorTokenNoPideElSocioYSirveParaElTokenDeCualquiera() {
+        String socio1 = tokenSocio(ciSocio1);
+        String socio2 = tokenSocio(ciSocio2);
+        registrar(socio1, "fcm-token-a");
+        registrar(socio2, "fcm-token-c");
+
+        assertEquals(1, dispositivos.deshabilitarPorToken("fcm-token-c"));
+
+        assertFalse(habilitado("fcm-token-c"));
+        assertTrue(habilitado("fcm-token-a"));
+        assertEquals(0, vistosPorElDespacho(idSocio2).size());
+    }
+
+    @Test
+    void deshabilitarPorTokenInexistenteNoFallaNiTocaNada() {
+        registrar(tokenSocio(ciSocio1), "fcm-token-a");
+
+        assertEquals(0, dispositivos.deshabilitarPorToken("fcm-token-que-no-existe"));
+
+        assertTrue(habilitado("fcm-token-a"));
+        assertEquals(1, filas("fcm-token-a"));
     }
 
     @Test
