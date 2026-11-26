@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:agenda_medica/core/network/api_exception.dart';
 import 'package:agenda_medica/features/auth/models/user_role.dart';
+import 'package:agenda_medica/features/auth/providers/session_provider.dart';
 import 'package:agenda_medica/features/cuenta/models/account.dart';
 import 'package:agenda_medica/features/cuenta/models/account_changes.dart';
 import 'package:agenda_medica/features/cuenta/providers/account_provider.dart';
@@ -117,7 +118,34 @@ void main() {
     expect(textOf(tester, 'account-address'), oldAddress);
   });
 
-  testWidgets('camino real: se lee al abrir Inicio y al abrir Editar, no al '
+  testWidgets('un cambio de sesión durante un guardado que falla se pide como '
+      'recarga al terminar', (tester) async {
+    final repo = CurrentStateRepository()
+      ..saveGate = Completer<void>()
+      ..saveError = const ApiException('Fallo controlado al guardar.');
+    final container = await pumpAccountScreens(tester, repo);
+    _startSave(container);
+    await tester.pump();
+    container
+        .read(sessionProvider.notifier)
+        .setAuthenticated(accessToken: 'otro-token', role: UserRole.socio);
+    await returnToApp(tester);
+    expect(repo.calls, 1);
+
+    final gate = repo.gate = Completer<void>();
+    repo.saveGate!.complete();
+    await tester.pump();
+    await tester.pump();
+
+    expect(repo.calls, 2);
+    expect(container.read(accountProvider).isReloading, isTrue);
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(repo.calls, 2);
+  });
+
+  testWidgets('camino real:se lee al abrir Inicio y al abrir Editar, no al '
       'guardar y volver', (tester) async {
     final repo = CurrentStateRepository();
     final container = await pumpApp(

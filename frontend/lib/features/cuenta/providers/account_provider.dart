@@ -21,11 +21,16 @@ final accountProvider = AsyncNotifierProvider<AccountNotifier, Account>(
 
 class AccountNotifier extends AsyncNotifier<Account> {
   Object? _saveInProgress;
+
+  /// Lecturas que esperan a que termine un guardado que no salió bien: por un
+  /// cambio de sesión (recarga) o por haber vuelto (refresco).
+  bool _reloadAfterSave = false;
   bool _refreshAfterSave = false;
 
   @override
   Future<Account> build() async {
     _saveInProgress = null;
+    _reloadAfterSave = false;
     _refreshAfterSave = false;
     ref.listen(
       sessionProvider.select((s) => (s.status, s.role, s.accessToken)),
@@ -37,13 +42,16 @@ class AccountNotifier extends AsyncNotifier<Account> {
             previous?.$2 == session.$2) {
           // La renovación del token puede ocurrir al reintentar el PATCH.
           // Si guarda bien, su respuesta reemplaza la lectura pendiente.
-          _refreshAfterSave = true;
+          _reloadAfterSave = true;
           return;
         }
         _saveInProgress = null;
+        _reloadAfterSave = false;
         _refreshAfterSave = false;
         // El router ya está cerrando la pantalla al terminar la sesión.
-        if (authenticated) ref.invalidateSelf();
+        // Como recarga: puede ser otra cuenta, y así las pantallas distinguen
+        // este pedido del que se hace al volver.
+        if (authenticated) ref.invalidateSelf(asReload: true);
       },
     );
     refetchWhenVisibleAgain(ref, () {
@@ -90,12 +98,16 @@ class AccountNotifier extends AsyncNotifier<Account> {
         throw sessionChanged;
       }
       state = AsyncData(updated);
+      _reloadAfterSave = false;
       _refreshAfterSave = false;
       return updated;
     } finally {
       if (identical(_saveInProgress, operation)) {
         _saveInProgress = null;
-        if (_refreshAfterSave && saveRef.mounted) saveRef.invalidateSelf();
+        if ((_reloadAfterSave || _refreshAfterSave) && saveRef.mounted) {
+          saveRef.invalidateSelf(asReload: _reloadAfterSave);
+        }
+        _reloadAfterSave = false;
         _refreshAfterSave = false;
       }
       keepAlive.close();
