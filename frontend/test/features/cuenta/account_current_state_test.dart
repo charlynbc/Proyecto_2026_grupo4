@@ -145,7 +145,7 @@ void main() {
     expect(repo.calls, 2);
   });
 
-  testWidgets('camino real:se lee al abrir Inicio y al abrir Editar, no al '
+  testWidgets('camino real: se lee al abrir Inicio y al abrir Editar, no al '
       'guardar y volver', (tester) async {
     final repo = CurrentStateRepository();
     final container = await pumpApp(
