@@ -1,3 +1,4 @@
+import '../../../core/fakes/fake_cancelable.dart';
 import '../../../core/fakes/fake_database.dart';
 import '../../../core/utils/uruguay_time.dart';
 import '../models/appointment.dart';
@@ -16,8 +17,6 @@ class FakeAppointmentCancellationRepository
   final Duration latency;
   final DateTime Function() _clock;
 
-  static const Duration _cancellationDeadline = Duration(hours: 2);
-
   @override
   Future<CancellationResult> cancel(int id) async {
     await Future<void>.delayed(latency);
@@ -33,37 +32,26 @@ class FakeAppointmentCancellationRepository
     }
 
     final appointment = _db.appointments[index];
-    if (appointment.status != 'AGENDADA') {
-      throw const CancellationException(
-        CancellationFailure.notScheduled,
-        'La consulta no está agendada.',
-      );
-    }
-
-    if (_db.arrivedDays.contains(appointment.date)) {
-      throw const CancellationException(
-        CancellationFailure.alreadyArrived,
-        'El socio ya registró su llegada ese día',
-      );
-    }
-
     final now = _clock().toUtc();
-    final localStart = DateTime.utc(
-      appointment.date.year,
-      appointment.date.month,
-      appointment.date.day,
-      appointment.startMinutes ~/ 60,
-      appointment.startMinutes % 60,
-    );
-    final uruguayStart = UruguayTime.toUruguay(localStart);
-    final uruguayUtcDifference = localStart.difference(uruguayStart);
-    final start = localStart.add(uruguayUtcDifference).toUtc();
-
-    if (start.difference(now) < _cancellationDeadline) {
-      throw const CancellationException(
-        CancellationFailure.outsideWindow,
-        'La cancelación debe solicitarse con al menos dos horas de anticipación.',
-      );
+    // La regla (y el orden de los motivos) vive en `fakeCancelDenial`.
+    switch (fakeCancelDenial(_db, appointment, now)) {
+      case FakeCancelDenial.notScheduled:
+        throw const CancellationException(
+          CancellationFailure.notScheduled,
+          'La consulta no está agendada.',
+        );
+      case FakeCancelDenial.alreadyArrived:
+        throw const CancellationException(
+          CancellationFailure.alreadyArrived,
+          'El socio ya registró su llegada ese día',
+        );
+      case FakeCancelDenial.outsideWindow:
+        throw const CancellationException(
+          CancellationFailure.outsideWindow,
+          'La cancelación debe solicitarse con al menos dos horas de anticipación.',
+        );
+      case null:
+        break;
     }
 
     final uruguayNow = UruguayTime.toUruguay(now);
@@ -94,6 +82,8 @@ class FakeAppointmentCancellationRepository
       bookedAt: appointment.bookedAt,
       cancelledAt: now,
       cancellationReason: appointment.cancellationReason,
+      // Una consulta cancelada ya no se puede cancelar.
+      cancelable: false,
     );
     _db.appointments[index] = cancelled;
 

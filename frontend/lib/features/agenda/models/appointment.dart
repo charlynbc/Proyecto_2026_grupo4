@@ -43,6 +43,7 @@ class Appointment {
     required this.bookedAt,
     required this.cancelledAt,
     required this.cancellationReason,
+    this.cancelable,
   });
 
   factory Appointment.fromJson(Map<String, dynamic> json) => Appointment(
@@ -61,6 +62,7 @@ class Appointment {
         ? null
         : DateTime.parse(json['canceladaEn'] as String),
     cancellationReason: json['motivoCancelacion'] as String?,
+    cancelable: json['cancelable'] as bool?,
   );
 
   final int id;
@@ -78,6 +80,12 @@ class Appointment {
   final DateTime bookedAt;
   final DateTime? cancelledAt;
   final String? cancellationReason;
+
+  /// `cancelable` del servidor: si esta consulta se puede cancelar ahora. El
+  /// cliente no recalcula la regla: `false` es "no se ofrece cancelar" y `null`
+  /// es un servidor anterior que no manda el campo (se conserva el
+  /// comportamiento de antes y el 409 de la cancelación protege).
+  final bool? cancelable;
 
   String get timeRange =>
       '${formatMinutes(startMinutes)} - ${formatMinutes(endMinutes)}';

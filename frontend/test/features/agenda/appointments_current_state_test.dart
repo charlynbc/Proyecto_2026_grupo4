@@ -19,6 +19,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/app_lifecycle.dart';
+import '../../helpers/fake_database_without_demo.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_app.dart' show goTo, unmountApp;
 
@@ -70,6 +71,8 @@ Future<(ProviderContainer, _ControlledRepository)> _pump(
   final container = ProviderContainer(
     overrides: [
       useFakesProvider.overrideWithValue(true),
+      // La semilla de tres consultas, sin las de demostración de cancelable.
+      fakeDatabaseWithoutDemo,
       authRepositoryProvider.overrideWith(
         (ref) async => FakeAuthRepository(
           ref.read(sessionProvider.notifier),
