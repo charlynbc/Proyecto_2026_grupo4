@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../helpers/app_lifecycle.dart';
 import '../../helpers/pump_admin.dart';
 import 'account_test_support.dart';
 
@@ -78,10 +79,9 @@ Future<ProviderContainer> pumpAccountScreens(
   );
 }
 
-/// La app pierde el foco y lo recupera.
+/// La app va a segundo plano y vuelve, con la secuencia completa de estados.
 Future<void> returnToApp(WidgetTester tester) async {
-  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-  tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+  backgroundAndReturn(tester);
   // El pedido se difiere un instante: un cuadro lo lanza y otro lo dibuja.
   await tester.pump();
   await tester.pump();

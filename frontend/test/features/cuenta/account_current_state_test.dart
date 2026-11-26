@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../helpers/app_lifecycle.dart';
 import '../../helpers/load_roboto.dart';
 import '../../helpers/pump_app.dart' show pumpApp, unmountApp;
 import 'account_current_state_support.dart';
@@ -174,6 +175,31 @@ void main() {
     expect(repo.updates, 1);
     expect(textOf(tester, 'account-address'), newAddress);
     expect(repo.calls, 2);
+    await unmountApp(tester);
+  });
+
+  testWidgets('Mi cuenta sobre Inicio: tras ir a segundo plano muestra el '
+      'teléfono nuevo', (tester) async {
+    final repo = CurrentStateRepository();
+    final container = await pumpApp(
+      tester,
+      overrides: [accountRepositoryProvider.overrideWith((ref) async => repo)],
+    );
+    await loginAs(tester, container, UserRole.socio);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('open-account')));
+    await tester.pumpAndSettle();
+    expect(topOf(appRouter(container)), '/cuenta');
+    expect(textOf(tester, 'account-phone1'), '099123456');
+    expect(repo.calls, 1);
+
+    repo.account = Account.fromJson({...luciaJson(), 'telefono1': '098765432'});
+    backgroundAndReturn(tester);
+    await tester.pumpAndSettle();
+
+    expect(repo.calls, 2);
+    expect(textOf(tester, 'account-phone1'), '098765432');
     await unmountApp(tester);
   });
 
