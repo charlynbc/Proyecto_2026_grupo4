@@ -449,6 +449,13 @@ public class SecurityConfig {
                                         )
                                         .permitAll()
 
+                                        // Android App Links: solo este archivo y solo por GET.
+                                        .requestMatchers(
+                                                HttpMethod.GET,
+                                                "/.well-known/assetlinks.json"
+                                        )
+                                        .permitAll()
+
                                         .anyRequest()
                                         .authenticated()
                 )

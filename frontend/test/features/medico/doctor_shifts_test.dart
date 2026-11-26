@@ -665,10 +665,14 @@ void main() {
       await _pump(tester, repository);
       final antes = repository.shiftCalls;
 
+      // Los estados van en el orden en que los emite el sistema: el framework
+      // rechaza saltar de hidden a resumed.
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       await tester.pump(const Duration(seconds: 9));
       expect(repository.shiftCalls, antes);
 
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pump();
       await tester.pump();

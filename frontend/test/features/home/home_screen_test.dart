@@ -225,7 +225,8 @@ void main() {
       await tester.tap(find.byTooltip('Volver al Inicio'));
       await tester.pumpAndSettle();
       expect(find.text('Novedad 2').hitTestable(), findsOneWidget);
-      expect(repo.calls, 1);
+      // La carga inicial y un pedido por cada vuelta desde un detalle.
+      expect(repo.calls, 3);
       expect(repo.details, [1, 2]);
       await tester.tap(find.text('Ver todas las novedades'));
       await tester.pumpAndSettle();

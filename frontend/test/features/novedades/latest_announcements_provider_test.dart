@@ -56,6 +56,9 @@ ProviderContainer _container(_Repo repo, SessionStatus status, UserRole? role) {
 }
 
 void main() {
+  // El provider escucha el ciclo de vida de la app (refetchWhenVisibleAgain).
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   for (final role in UserRole.values) {
     test('${role.name} recibe las novedades del repositorio', () async {
       final repo = _Repo();
