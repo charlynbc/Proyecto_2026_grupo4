@@ -295,6 +295,8 @@ void main() {
     await _settle(tester);
     expect(harness.repository.listCalls, 2);
     expect(_names(tester).first, 'Abreu, Rocío');
+    // Deja terminar la lectura de la cuenta que se pide al volver.
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('al volver del segundo plano pide una vez y muestra lo nuevo', (
@@ -309,6 +311,8 @@ void main() {
     expect(harness.repository.listCalls, 2);
     expect(_names(tester).first, 'Abreu, Rocío');
     expect(find.text('Página 1 de 2 · 26 cuentas'), findsOneWidget);
+    // Deja terminar la lectura de la cuenta que se pide al volver.
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('si falla al volver ofrece Reintentar y este muestra la carga', (
@@ -522,6 +526,8 @@ void main() {
     expect(rect.left, greaterThanOrEqualTo(0));
     expect(rect.right, lessThanOrEqualTo(320));
     expect(tester.takeException(), isNull);
+    // Deja terminar la lectura de la cuenta que se pide al volver.
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('a 1300 px muestra la tabla sin excepciones de layout', (

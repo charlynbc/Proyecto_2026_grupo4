@@ -82,7 +82,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final accountState = ref.watch(accountProvider);
-    final account = accountState.isLoading ? null : accountState.asData?.value;
+    // Mientras se vuelve a pedir se sigue viendo la cuenta. No se muestra si la
+    // recarga es por un cambio de sesión (puede ser otra cuenta) ni si el
+    // pedido falló.
+    final account = accountState.isReloading || accountState.hasError
+        ? null
+        : accountState.value;
     final announcements = ref.watch(latestAnnouncementsProvider);
     // La hora de carga se toma acá y no con ref.listen: un listen no deja
     // pausar el provider y refetchWhenVisibleAgain no recibe onResume (ver

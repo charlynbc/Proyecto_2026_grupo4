@@ -23,6 +23,9 @@ class _GatedRepository extends RecordingAccountRepository {
 }
 
 void main() {
+  // El provider escucha el ciclo de vida de la app.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('el provider rechaza otro save mientras guarda', () async {
     final repo = _GatedRepository();
     final container = ProviderContainer(

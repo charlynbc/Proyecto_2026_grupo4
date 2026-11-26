@@ -74,5 +74,7 @@ void main() {
     await tester.tap(find.byTooltip('Volver'));
     await tester.pumpAndSettle();
     expect(topOf(router), '/cuenta');
+    // Deja terminar la lectura de la cuenta que se pide al volver.
+    await tester.pump(const Duration(seconds: 1));
   });
 }

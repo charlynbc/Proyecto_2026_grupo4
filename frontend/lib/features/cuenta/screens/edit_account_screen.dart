@@ -28,6 +28,11 @@ class EditAccountScreen extends ConsumerWidget {
         title: const Text('Editar mis datos'),
       ),
       body: account.when(
+        // Con una cuenta ya cargada, el formulario sigue mientras se vuelve a
+        // pedir (también si cambió la sesión) y si ese pedido falla, para no
+        // perder lo escrito.
+        skipLoadingOnReload: true,
+        skipError: account.hasValue,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => CenteredContent(
           maxWidth: 700,
