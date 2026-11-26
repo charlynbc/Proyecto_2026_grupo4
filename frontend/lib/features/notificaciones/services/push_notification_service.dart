@@ -47,6 +47,12 @@ abstract class PushNotificationService {
 
   /// Los push que el socio toca con la app abierta en segundo plano.
   Stream<PushTap> get taps;
+
+  /// Borra el token de Firebase de este dispositivo: el servidor lo deshabilita
+  /// en el próximo envío (Firebase responde que ya no existe). Se usa cuando la
+  /// sesión cae por vencimiento y ya no hay con qué llamar a la baja. Tiene un
+  /// tope de 3 segundos y nunca propaga un error ni escribe el token.
+  Future<void> deleteToken();
 }
 
 /// No toca Firebase ni pide ningún permiso.
@@ -67,6 +73,9 @@ class NoopPushNotificationService implements PushNotificationService {
 
   @override
   Stream<PushTap> get taps => const Stream.empty();
+
+  @override
+  Future<void> deleteToken() async {}
 }
 
 /// El servicio de `USE_FAKES`: no toca Firebase, pero deja simular a mano un
@@ -116,6 +125,9 @@ class FirebasePushNotificationService implements PushNotificationService {
     this._onMessageOpenedApp,
     this._initialMessage,
   });
+
+  /// Cuánto se espera a que Firebase borre el token: si no responde, se sigue.
+  static const _deleteTokenTimeout = Duration(seconds: 3);
 
   final FirebaseMessaging? _messaging;
   final Stream<RemoteMessage>? _onMessage;
@@ -168,4 +180,13 @@ class FirebasePushNotificationService implements PushNotificationService {
       (_onMessageOpenedApp ?? FirebaseMessaging.onMessageOpenedApp).map(
         (message) => PushTap.fromData(message.data),
       );
+
+  @override
+  Future<void> deleteToken() async {
+    try {
+      await _sdk.deleteToken().timeout(_deleteTokenTimeout);
+    } catch (e) {
+      debugPrint('FirebasePushNotificationService.deleteToken falló: $e');
+    }
+  }
 }

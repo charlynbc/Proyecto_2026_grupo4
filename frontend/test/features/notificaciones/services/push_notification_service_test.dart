@@ -37,6 +37,20 @@ class _FakeMessaging implements FirebaseMessaging {
       StreamController<String>.broadcast();
   int permissionRequests = 0;
   int tokenRequests = 0;
+  int deleteTokenCalls = 0;
+
+  /// Si no es `null`, `deleteToken` falla con esto.
+  Object? deleteTokenError;
+
+  /// Si no es `null`, `deleteToken` queda esperando a que se complete.
+  Completer<void>? deleteTokenHang;
+
+  @override
+  Future<void> deleteToken() async {
+    deleteTokenCalls++;
+    if (deleteTokenError != null) throw deleteTokenError!;
+    if (deleteTokenHang != null) await deleteTokenHang!.future;
+  }
 
   @override
   Future<NotificationSettings> requestPermission({
@@ -86,6 +100,55 @@ void main() {
     test('no hay toque inicial ni toques en segundo plano', () async {
       expect(await service.getInitialTap(), isNull);
       expect(await service.taps.isEmpty, isTrue);
+    });
+
+    test('deleteToken completa sin error y sin tocar Firebase', () async {
+      await expectLater(service.deleteToken(), completes);
+    });
+  });
+
+  group('deleteToken sin Firebase', () {
+    test('SimulatedPushNotificationService completa sin error', () async {
+      final service = SimulatedPushNotificationService();
+
+      await expectLater(service.deleteToken(), completes);
+    });
+  });
+
+  group('FirebasePushNotificationService.deleteToken', () {
+    test('llama una vez a deleteToken del SDK', () async {
+      final messaging = _FakeMessaging();
+      final service = FirebasePushNotificationService(messaging: messaging);
+
+      await service.deleteToken();
+
+      expect(messaging.deleteTokenCalls, 1);
+    });
+
+    test('si el SDK falla no propaga el error', () async {
+      final messaging = _FakeMessaging()
+        ..deleteTokenError = StateError('sin red');
+      final service = FirebasePushNotificationService(messaging: messaging);
+
+      await expectLater(service.deleteToken(), completes);
+      expect(messaging.deleteTokenCalls, 1);
+    });
+
+    // El reloj de testWidgets es falso: los 3 segundos no se esperan de verdad.
+    testWidgets('si el SDK no responde, termina a los 3 segundos', (
+      tester,
+    ) async {
+      final messaging = _FakeMessaging()..deleteTokenHang = Completer<void>();
+      final service = FirebasePushNotificationService(messaging: messaging);
+      var finished = false;
+
+      unawaited(service.deleteToken().then((_) => finished = true));
+      await tester.pump(const Duration(milliseconds: 2999));
+      expect(finished, isFalse);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(finished, isTrue);
+      expect(messaging.deleteTokenCalls, 1);
     });
   });
 
